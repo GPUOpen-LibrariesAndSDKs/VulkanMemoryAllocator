@@ -1,0 +1,9 @@
+[submodule "dependencies/fplutil"]
+	path = dependencies/fplutil
+	url = http://github.com/google/fplutil.git
+[submodule "dependencies/vectorial"]
+	path = dependencies/vectorial
+	url = http://github.com/scoopr/vectorial.git
+[submodule "dependencies/googletest"]
+	path = dependencies/googletest
+	url = http://github.com/google/googletest.git

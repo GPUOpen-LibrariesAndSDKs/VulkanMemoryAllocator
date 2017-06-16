@@ -1,0 +1,370 @@
+<!-- Copyright 2014 Google Inc. All rights reserved.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+<doxygenlayout version="1.0">
+  <navindex>
+    <tab type="mainpage" visible="no" title=""/>
+    <tab type="usergroup" url="" title="Programmer's Guide">
+      <tab type="usergroup" url="@ref mathfu_guide_introduction"
+           title="Introduction">
+        <tab type="user" url="@ref mathfu_guide_about_mathfu"
+             title="About MathFu"/>
+        <tab type="user" url="@ref mathfu_guide_prerequisites"
+             title="Prerequisites"/>
+        <tab type="user" url="@ref mathfu_guide_about_guide"
+             title="About This Guide"/>
+        <tab type="user" url="@ref mathfu_guide_concepts"
+             title="Concepts"/>
+        <tab type="user" url="@ref mathfu_guide_optimization"
+             title="Optimization"/>
+      </tab>
+      <tab type="usergroup" url="@ref mathfu_guide_building"
+           title="Building">
+        <tab type="user" url="@ref mathfu_guide_building_options"
+             title="Integration Options"/>
+        <tab type="user" url="@ref mathfu_guide_building_compiler_config"
+             title="Manual Compiler Configuration"/>
+        <tab type="user" url="@ref mathfu_guide_building_cmake"
+             title="CMake"/>
+        <tab type="user" url="@ref mathfu_guide_building_android_makefiles"
+             title="Android NDK Makefiles"/>
+        <tab type="usergroup" url="" title="Building Unit Tests">
+          <tab type="usergroup" url="@ref mathfu_guide_building_android"
+               title="Building for Android">
+            <tab type="user" url="@ref mathfu_guide_building_android_version"
+                 title="Version Requirements"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_prerequisites"
+                 title="Prerequisites"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_building"
+                 title="Building"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_building_ndk_build"
+                 title="Building with ndk-build"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_building_fplutil"
+                 title="Building with fplutil"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_running"
+                 title="Installing and Running Applications"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_eclipse"
+                 title="Using Eclipse"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_fplutil"
+                 title="Using fplutil"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_android_code_generation"
+                 title="Code Generation"/>
+          </tab>
+          <tab type="usergroup" url="@ref mathfu_guide_building_linux"
+               title="Building for Linux">
+            <tab type="user" url="@ref mathfu_guide_building_linux_version"
+                 title="Version Requirements"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_linux_prerequisites"
+                 title="Prerequisites"/>
+            <tab type="user" url="@ref mathfu_guide_building_linux_building"
+                 title="Building"/>
+            <tab type="user" url="@ref mathfu_guide_building_linux_running"
+                 title="Running Applications"/>
+          </tab>
+          <tab type="usergroup" url="@ref mathfu_guide_building_osx"
+               title="Building for OS X">
+            <tab type="user" url="@ref mathfu_guide_building_osx_version"
+                 title="Version Requirements"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_osx_prerequisites"
+                 title="Prerequisites"/>
+            <tab type="user" url="@ref mathfu_guide_building_osx_building"
+                 title="Building with Xcode"/>
+            <tab type="user" url="@ref mathfu_guide_building_osx_running"
+                 title="Running Applications"/>
+          </tab>
+          <tab type="usergroup" url="@ref mathfu_guide_building_windows"
+               title="Building for Windows">
+            <tab type="user" url="@ref mathfu_guide_building_windows_version"
+                 title="Version Requirements"/>
+            <tab type="user"
+                 url="@ref mathfu_guide_building_windows_prerequisites"
+                 title="Prerequisites"/>
+            <tab type="user" url="@ref mathfu_guide_building_windows_building"
+                 title="Building with Visual Studio"/>
+            <tab type="user" url="@ref mathfu_guide_building_windows_running"
+                 title="Running Applications"/>
+          </tab>
+        </tab>
+      </tab>
+      <tab type="usergroup" url="@ref mathfu_guide_vectors"
+           title="Vectors">
+        <tab type="usergroup" url="@ref mathfu_guide_vectors_declaration"
+             title="Declaration">
+          <tab type="user" url="@ref mathfu_guide_vectors_initialization"
+               title="Initialization"/>
+        </tab>
+        <tab type="usergroup" url="@ref mathfu_guide_vectors_accessors"
+             title="Accessors">
+          <tab type="user" url="@ref mathfu_guide_vectors_assignment"
+               title="Assignment"/>
+        </tab>
+        <tab type="user" url="@ref mathfu_guide_vectors_arithmetic"
+             title="Arithmetic"/>
+        <tab type="user" url="@ref mathfu_guide_vectors_constants"
+             title="Constants"/>
+        <tab type="user" url="@ref mathfu_guide_vectors_geometric"
+             title="Geometric Operations"/>
+        <tab type="user" url="@ref mathfu_guide_vectors_other"
+             title="Other Operations"/>
+        <tab type="user" url="@ref mathfu_guide_vectors_packing"
+             title="Packing"/>
+      </tab>
+      <tab type="usergroup" url="@ref mathfu_guide_quaternions"
+           title="Quaternions">
+        <tab type="usergroup" url="@ref mathfu_guide_quaternions_declaration"
+             title="Declaration">
+          <tab type="user" url="@ref mathfu_guide_quaternions_initialization"
+               title="Initialization"/>
+        </tab>
+        <tab type="usergroup" url="@ref mathfu_guide_quaternions_accessors"
+             title="Accessors">
+          <tab type="user" url="@ref mathfu_guide_quaternions_assignment"
+               title="Assignment"/>
+        </tab>
+        <tab type="user" url="@ref mathfu_guide_quaternions_repr"
+             title="Converting Between Representations"/>
+        <tab type="user" url="@ref mathfu_guide_quaternions_manipulation"
+             title="Manipulation"/>
+        <tab type="user" url="@ref mathfu_guide_quaternions_application"
+             title="Application"/>
+      </tab>
+      <tab type="usergroup" url="@ref mathfu_guide_matrices"
+           title="Matrices">
+        <tab type="usergroup" url="@ref mathfu_guide_matrices_declaration"
+             title="Declaration">
+          <tab type="user" url="@ref mathfu_guide_matrices_initialization"
+               title="Initialization"/>
+        </tab>
+        <tab type="usergroup" url="@ref mathfu_guide_matrices_accessors"
+             title="Accessors">
+          <tab type="user" url="@ref mathfu_guide_matrices_assignment"
+               title="Assignment"/>
+        </tab>
+        <tab type="user" url="@ref mathfu_guide_matrices_arithmetic"
+             title="Arithmetic"/>
+        <tab type="user" url="@ref mathfu_guide_matrices_matrix_ops"
+             title="Matrix Operations"/>
+        <tab type="user" url="@ref mathfu_guide_matrices_packing"
+             title="Packing"/>
+      </tab>
+      <tab type="usergroup" url="@ref mathfu_guide_utilities"
+           title="Utilities">
+        <tab type="user" url="@ref mathfu_guide_utilities_allocation"
+             title="Memory Allocation"/>
+        <tab type="usergroup" url="@ref mathfu_guide_utilities_misc"
+             title="Miscellaneous Functions">
+          <tab type="user" url="@ref mathfu_guide_utilities_random"
+               title="Random Number Generation"/>
+        </tab>
+      </tab>
+    </tab>
+    <tab type="usergroup" url="@ref mathfu_api_reference"
+         title="API reference">
+      <tab type="modules" visible="yes" title="" intro=""/>
+      <tab type="classes" visible="yes" title="">
+        <tab type="classlist" visible="yes" title="" intro=""/>
+        <tab type="classindex" visible="$ALPHABETICAL_INDEX" title=""/>
+        <tab type="hierarchy" visible="yes" title="" intro=""/>
+        <tab type="classmembers" visible="yes" title="" intro=""/>
+      </tab>
+      <tab type="files" visible="yes" title="">
+        <tab type="filelist" visible="yes" title="" intro=""/>
+        <tab type="globals" visible="yes" title="" intro=""/>
+      </tab>
+      <!--tab type="examples" visible="yes" title="" intro=""/-->
+    </tab>
+    <tab type="user" url="@ref mathfu_readme" title="readme"/>
+    <tab type="user" url="@ref contributing" title="contributing"/>
+  </navindex>
+
+  <!-- Layout definition for a class page -->
+  <class>
+    <briefdescription visible="yes"/>
+    <includes visible="$SHOW_INCLUDE_FILES"/>
+    <inheritancegraph visible="$CLASS_GRAPH"/>
+    <collaborationgraph visible="$COLLABORATION_GRAPH"/>
+    <detaileddescription title=""/>
+    <memberdecl>
+      <nestedclasses visible="yes" title=""/>
+      <publictypes title=""/>
+      <services title=""/>
+      <interfaces title=""/>
+      <publicslots title=""/>
+      <signals title=""/>
+      <publicmethods title=""/>
+      <publicstaticmethods title=""/>
+      <publicattributes title=""/>
+      <publicstaticattributes title=""/>
+      <protectedtypes title=""/>
+      <protectedslots title=""/>
+      <protectedmethods title=""/>
+      <protectedstaticmethods title=""/>
+      <protectedattributes title=""/>
+      <protectedstaticattributes title=""/>
+      <packagetypes title=""/>
+      <packagemethods title=""/>
+      <packagestaticmethods title=""/>
+      <packageattributes title=""/>
+      <packagestaticattributes title=""/>
+      <properties title=""/>
+      <events title=""/>
+      <privatetypes title=""/>
+      <privateslots title=""/>
+      <privatemethods title=""/>
+      <privatestaticmethods title=""/>
+      <privateattributes title=""/>
+      <privatestaticattributes title=""/>
+      <friends title=""/>
+      <related title="" subtitle=""/>
+      <membergroups visible="yes"/>
+    </memberdecl>
+    <memberdef>
+      <inlineclasses title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <services title=""/>
+      <interfaces title=""/>
+      <constructors title=""/>
+      <functions title=""/>
+      <related title=""/>
+      <variables title=""/>
+      <properties title=""/>
+      <events title=""/>
+    </memberdef>
+    <allmemberslink visible="yes"/>
+    <usedfiles visible="$SHOW_USED_FILES"/>
+    <authorsection visible="yes"/>
+  </class>
+
+  <!-- Layout definition for a namespace page -->
+  <namespace>
+    <briefdescription visible="yes"/>
+    <memberdecl>
+      <nestednamespaces visible="yes" title=""/>
+      <constantgroups visible="yes" title=""/>
+      <classes visible="yes" title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <functions title=""/>
+      <variables title=""/>
+      <membergroups visible="yes"/>
+    </memberdecl>
+    <detaileddescription title=""/>
+    <memberdef>
+      <inlineclasses title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <functions title=""/>
+      <variables title=""/>
+    </memberdef>
+    <authorsection visible="yes"/>
+  </namespace>
+
+  <!-- Layout definition for a file page -->
+  <file>
+    <briefdescription visible="yes"/>
+    <includes visible="$SHOW_INCLUDE_FILES"/>
+    <includegraph visible="$INCLUDE_GRAPH"/>
+    <includedbygraph visible="$INCLUDED_BY_GRAPH"/>
+    <sourcelink visible="yes"/>
+    <detaileddescription title=""/>
+    <memberdecl>
+      <classes visible="yes" title=""/>
+      <namespaces visible="yes" title=""/>
+      <constantgroups visible="yes" title=""/>
+      <defines title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <functions title=""/>
+      <variables title=""/>
+      <membergroups visible="yes"/>
+    </memberdecl>
+    <memberdef>
+      <inlineclasses title=""/>
+      <defines title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <functions title=""/>
+      <variables title=""/>
+    </memberdef>
+    <authorsection/>
+  </file>
+
+  <!-- Layout definition for a group page -->
+  <group>
+    <briefdescription visible="yes"/>
+    <groupgraph visible="$GROUP_GRAPHS"/>
+    <detaileddescription title=""/>
+    <memberdecl>
+      <nestedgroups visible="yes" title=""/>
+      <dirs visible="yes" title=""/>
+      <files visible="yes" title=""/>
+      <namespaces visible="yes" title=""/>
+      <classes visible="yes" title=""/>
+      <defines title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <enumvalues title=""/>
+      <functions title=""/>
+      <variables title=""/>
+      <signals title=""/>
+      <publicslots title=""/>
+      <protectedslots title=""/>
+      <privateslots title=""/>
+      <events title=""/>
+      <properties title=""/>
+      <friends title=""/>
+      <membergroups visible="yes"/>
+    </memberdecl>
+    <memberdef>
+      <pagedocs/>
+      <inlineclasses title=""/>
+      <defines title=""/>
+      <typedefs title=""/>
+      <enums title=""/>
+      <enumvalues title=""/>
+      <functions title=""/>
+      <variables title=""/>
+      <signals title=""/>
+      <publicslots title=""/>
+      <protectedslots title=""/>
+      <privateslots title=""/>
+      <events title=""/>
+      <properties title=""/>
+      <friends title=""/>
+    </memberdef>
+    <authorsection visible="yes"/>
+  </group>
+
+  <!-- Layout definition for a directory page -->
+  <directory>
+    <briefdescription visible="yes"/>
+    <directorygraph visible="yes"/>
+    <memberdecl>
+      <dirs visible="yes"/>
+      <files visible="yes"/>
+    </memberdecl>
+    <detaileddescription title=""/>
+  </directory>
+</doxygenlayout>

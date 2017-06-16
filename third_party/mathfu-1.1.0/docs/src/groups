@@ -1,0 +1,28 @@
+
+/// @defgroup mathfu_build_config Build Configuration
+/// @brief Macros that control build configuration.
+
+/// @defgroup mathfu_allocator Allocators
+/// @brief SIMD-safe memory allocators.
+
+/// @defgroup mathfu_constants Constants
+/// @brief Vector constants for specific dimensions.
+
+/// @defgroup mathfu_vector Vectors
+/// @brief Vector class and functions.
+
+/// @defgroup mathfu_matrix Matrices
+/// @brief Matrix class and functions.
+
+/// @defgroup mathfu_quaternion Quaternions
+/// @brief Quaternion class and functions.
+
+/// @defgroup mathfu_glsl GLSL Mappings
+/// @brief <a href="https://www.opengl.org/documentation/glsl/">GLSL</a>
+/// compatible data types.
+
+/// @defgroup mathfu_utilities Utility Functions
+/// @brief Utility functions.
+
+/// @defgroup mathfu_version Version Constants
+/// @brief Macros and variables that describe the library version.

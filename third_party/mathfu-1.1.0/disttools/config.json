@@ -1,0 +1,37 @@
+{
+  "package": {
+    "name": "mathfu",
+    "url": "http://github.com/google/mathfu.git",
+    "branch": "develop",
+    "is_library": 1,
+    "third_party": 0,
+    "push": 1
+  },
+  "dependencies": [
+    {
+      "name": "googletest",
+      "url": "http://github.com/google/googletest.git",
+      "branch": "master",
+      "revision": "13206d6f53aaff844f2d3595a01ac83a29e383db",
+      "is_library": 1,
+      "third_party": 1,
+      "push": 0
+    },
+    {
+      "name": "fplutil",
+      "url": "http://github.com/google/fplutil.git",
+      "branch": "develop",
+      "is_library": 1,
+      "third_party": 0,
+      "push": 1
+    },
+    {
+      "name": "vectorial",
+      "url": "http://github.com/scoopr/vectorial.git",
+      "branch": "master",
+      "is_library": 1,
+      "third_party": 1,
+      "push": 0
+    }
+  ]
+}
