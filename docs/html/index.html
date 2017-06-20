@@ -133,6 +133,8 @@ memReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
 VkBuffer buffer;
 vmaCreateBuffer(allocator, &amp;bufferInfo, &amp;memReq, &amp;buffer, nullptr, nullptr);
+</pre><p>When no longer needed, destroy your buffer or image using <a class="el" href="group__layer3.html#ga967857c06b8232b2a54936daf36d1535">vmaDestroyBuffer()</a> / <a class="el" href="group__layer3.html#ga9377799736c4a1262b41ee441e5fc877">vmaDestroyImage()</a>. This function would also free memory bound to it.</p>
+<pre class="fragment">vmaDestroyBuffer(allocator, buffer);
 </pre><h1><a class="anchor" id="configuration"></a>
 Configuration</h1>
 <p>Set VMA_STATS_STRING_ENABLED macro in <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a> to 0 or 1 to disable/enable compilation of code for dumping internal allocator state to string in JSON format.</p>

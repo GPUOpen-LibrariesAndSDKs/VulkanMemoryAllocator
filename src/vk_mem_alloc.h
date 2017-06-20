@@ -122,6 +122,12 @@ When you want to create a buffer or image:
     VkBuffer buffer;
     vmaCreateBuffer(allocator, &bufferInfo, &memReq, &buffer, nullptr, nullptr);
 
+When no longer needed, destroy your buffer or image using vmaDestroyBuffer() / vmaDestroyImage().
+This function would also free memory bound to it.
+
+
+    vmaDestroyBuffer(allocator, buffer);
+
 \section configuration Configuration
 
 Set VMA_STATS_STRING_ENABLED macro in vk_mem_alloc.h to 0 or 1 to disable/enable
