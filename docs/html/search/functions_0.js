@@ -1,0 +1,22 @@
+var searchData=
+[
+  ['vmaallocatememory',['vmaAllocateMemory',['../group__layer2.html#gab7d80a26f1059f60c1e3a6999b5f7be1',1,'vk_mem_alloc.h']]],
+  ['vmaallocatememoryforbuffer',['vmaAllocateMemoryForBuffer',['../group__layer2.html#gac2d43581abef651398409ed3f71a7b95',1,'vk_mem_alloc.h']]],
+  ['vmaallocatememoryforimage',['vmaAllocateMemoryForImage',['../group__layer2.html#gad0d2f5b794dd454f0fa5ba308d644af3',1,'vk_mem_alloc.h']]],
+  ['vmabuildstatsstring',['vmaBuildStatsString',['../group__general.html#gaa4fee7eb5253377599ef4fd38c93c2a0',1,'vk_mem_alloc.h']]],
+  ['vmacalculatestats',['vmaCalculateStats',['../group__general.html#ga333b61c1788cb23559177531e6a93ca3',1,'vk_mem_alloc.h']]],
+  ['vmacreateallocator',['vmaCreateAllocator',['../group__general.html#ga200692051ddb34240248234f5f4c17bb',1,'vk_mem_alloc.h']]],
+  ['vmacreatebuffer',['vmaCreateBuffer',['../group__layer3.html#ga6cafa3a644324a1e0c9165494db11648',1,'vk_mem_alloc.h']]],
+  ['vmacreateimage',['vmaCreateImage',['../group__layer3.html#ga9646281a3d9abc9f4d0bc5632db117de',1,'vk_mem_alloc.h']]],
+  ['vmadestroyallocator',['vmaDestroyAllocator',['../group__general.html#gaa8d164061c88f22fb1fd3c8f3534bc1d',1,'vk_mem_alloc.h']]],
+  ['vmadestroybuffer',['vmaDestroyBuffer',['../group__layer3.html#ga967857c06b8232b2a54936daf36d1535',1,'vk_mem_alloc.h']]],
+  ['vmadestroyimage',['vmaDestroyImage',['../group__layer3.html#ga9377799736c4a1262b41ee441e5fc877',1,'vk_mem_alloc.h']]],
+  ['vmafindmemorytypeindex',['vmaFindMemoryTypeIndex',['../group__layer1.html#gadf80663373e94bcef382f17534b8694e',1,'vk_mem_alloc.h']]],
+  ['vmafreememory',['vmaFreeMemory',['../group__layer2.html#gaf5896cec102b83ca87ae07002d96e230',1,'vk_mem_alloc.h']]],
+  ['vmafreestatsstring',['vmaFreeStatsString',['../group__general.html#ga3104eb30d8122c84dd8541063f145288',1,'vk_mem_alloc.h']]],
+  ['vmagetmemoryproperties',['vmaGetMemoryProperties',['../group__general.html#gab88db292a17974f911182543fda52d19',1,'vk_mem_alloc.h']]],
+  ['vmagetmemorytypeproperties',['vmaGetMemoryTypeProperties',['../group__general.html#ga8701444752eb5de4464adb5a2b514bca',1,'vk_mem_alloc.h']]],
+  ['vmagetphysicaldeviceproperties',['vmaGetPhysicalDeviceProperties',['../group__general.html#gaecabf7b6e91ea87d0316fa0a9e014fe0',1,'vk_mem_alloc.h']]],
+  ['vmamapmemory',['vmaMapMemory',['../group__layer2.html#ga17739a61a7647553258235e6142c428c',1,'vk_mem_alloc.h']]],
+  ['vmaunmapmemory',['vmaUnmapMemory',['../group__layer2.html#gac2d386fd6ed3b7905892fc77db0b8514',1,'vk_mem_alloc.h']]]
+];
