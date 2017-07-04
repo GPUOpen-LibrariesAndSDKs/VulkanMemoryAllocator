@@ -6,4 +6,4 @@ This is a README file for Vulkan Memory Allocator library and accompanying sampl
 
 **License:** MIT. See [LICENSE.txt](LICENSE.txt).
 
-**Changelog:**: See [CHANGELOG.md](CHANGELOG.md).
+**Changelog:** See [CHANGELOG.md](CHANGELOG.md).
