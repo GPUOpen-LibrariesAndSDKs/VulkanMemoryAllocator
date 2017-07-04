@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-Version 1.0.0 (2017-06-16)
+Version 1.0.1 (2017-07-04)
 
 Members grouped: see <a href="modules.html"><b>Modules</b></a>.
 
@@ -237,7 +237,9 @@ void vmaCalculateStats(
     VmaAllocator allocator,
     VmaStats* pStats);
 
-#define VMA_STATS_STRING_ENABLED 1
+#ifndef VMA_STATS_STRING_ENABLED
+   #define VMA_STATS_STRING_ENABLED 1
+#endif
 
 #if VMA_STATS_STRING_ENABLED
 
