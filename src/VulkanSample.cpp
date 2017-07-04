@@ -27,8 +27,11 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
+#pragma warning(push, 4)
+#pragma warning(disable: 4127) // warning C4127: conditional expression is constant
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
+#pragma warning(pop)
 
 #define MATHFU_COMPILE_WITHOUT_SIMD_SUPPORT
 #include <mathfu/glsl_mappings.h>
@@ -1707,7 +1710,7 @@ int main()
     RECT rect = { 0, 0, g_SizeX, g_SizeY };
     AdjustWindowRectEx(&rect, style, FALSE, exStyle);
 
-    HWND hWnd = CreateWindowEx(
+    CreateWindowEx(
         exStyle, WINDOW_CLASS_NAME, APP_TITLE_W, style,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, NULL, g_hAppInstance, NULL);
