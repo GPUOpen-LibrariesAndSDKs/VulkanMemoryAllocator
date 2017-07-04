@@ -679,6 +679,7 @@ void vmaDestroyImage(
 #ifdef VMA_IMPLEMENTATION
 #undef VMA_IMPLEMENTATION
 
+#include <cstdint>
 #include <cstdlib>
 
 /*******************************************************************************
@@ -721,6 +722,11 @@ remove them if not needed.
 #include <algorithm> // for min, max
 #include <mutex> // for std::mutex
 
+#if !defined(_WIN32)
+    #include <malloc.h> // for aligned_alloc()
+#endif
+
+
 #ifdef _DEBUG
     // Normal assert to check for programmer's errors, especially in Debug configuration.
     #define VMA_ASSERT(expr)         assert(expr)
@@ -736,8 +742,14 @@ remove them if not needed.
 #define VMA_NULL   nullptr
 
 #define VMA_ALIGN_OF(type)       (__alignof(type))
-#define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment)   (_aligned_malloc((size), (alignment)))
-#define VMA_SYSTEM_FREE(ptr)     _aligned_free(ptr)
+
+#if defined(_WIN32)
+    #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment)   (_aligned_malloc((size), (alignment)))
+    #define VMA_SYSTEM_FREE(ptr)                          _aligned_free(ptr)
+#else
+    #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment)   (aligned_alloc((alignment), (size) ))
+    #define VMA_SYSTEM_FREE(ptr)                          free(ptr)
+#endif
 
 #define VMA_MIN(v1, v2)          (std::min((v1), (v2)))
 #define VMA_MAX(v1, v2)          (std::max((v1), (v2)))
@@ -1109,6 +1121,8 @@ public:
     {
         return m_pCallbacks != rhs.m_pCallbacks;
     }
+
+    VmaStlAllocator& operator=(const VmaStlAllocator& x) = delete;
 };
 
 #if VMA_USE_STL_VECTOR
@@ -1143,6 +1157,13 @@ public:
         m_Capacity(0)
     {
     }
+
+        m_Allocator(allocator),
+        m_pArray(VMA_NULL),
+        m_Count(0),
+        m_Capacity(0)
+    {
+    }
     
     VmaVector(size_t count, const AllocatorT& allocator) :
         m_Allocator(allocator),
@@ -1154,7 +1175,7 @@ public:
     
     VmaVector(const VmaVector<T, AllocatorT>& src) :
         m_Allocator(src.m_Allocator),
-        m_pArray(src.m_Count ? (T*)VmaAllocateArray<T>(allocator->m_pCallbacks, src.m_Count) : VMA_NULL),
+        m_pArray(src.m_Count ? (T*)VmaAllocateArray<T>(src->m_pCallbacks, src.m_Count) : VMA_NULL),
         m_Count(src.m_Count),
         m_Capacity(src.m_Count)
     {
@@ -1224,7 +1245,7 @@ public:
         
         if(newCapacity != m_Capacity)
         {
-            T* const newArray = newCapacity ? VmaAllocateArray<T>(m_hAllocator, newCapacity) : VMA_NULL;
+            T* const newArray = newCapacity ? VmaAllocateArray<T>(m_Allocator, newCapacity) : VMA_NULL;
             if(m_Count != 0)
                 memcpy(newArray, m_pArray, m_Count * sizeof(T));
             VmaFree(m_Allocator.m_pCallbacks, m_pArray);
@@ -1397,7 +1418,7 @@ T* VmaPoolAllocator<T>::Alloc()
     {
         ItemBlock& block = m_ItemBlocks[i];
         // This block has some free items: Use first one.
-        if(block.FirstFreeIndex != UINT_MAX)
+        if(block.FirstFreeIndex != UINT32_MAX)
         {
             Item* const pItem = &block.pItems[block.FirstFreeIndex];
             block.FirstFreeIndex = pItem->NextFreeIndex;
@@ -1447,7 +1468,7 @@ typename VmaPoolAllocator<T>::ItemBlock& VmaPoolAllocator<T>::CreateNewBlock()
     // Setup singly-linked list of all free items in this block.
     for(uint32_t i = 0; i < m_ItemsPerBlock - 1; ++i)
         newBlock.pItems[i].NextFreeIndex = i + 1;
-    newBlock.pItems[m_ItemsPerBlock - 1].NextFreeIndex = UINT_MAX;
+    newBlock.pItems[m_ItemsPerBlock - 1].NextFreeIndex = UINT32_MAX;
     return m_ItemBlocks.back();
 }
 
@@ -1608,7 +1629,7 @@ VmaListItem<T>* VmaRawList<T>::PushFront(const T& value)
 {
     ItemType* const pNewItem = PushFront();
     pNewItem->Value = value;
-    return newItem;
+    return pNewItem;
 }
 
 template<typename T>
@@ -2776,7 +2797,7 @@ bool VmaBlock::Validate() const
 How many suitable free suballocations to analyze before choosing best one.
 - Set to 1 to use First-Fit algorithm - first suitable free suballocation will
   be chosen.
-- Set to UINT_MAX to use Best-Fit/Worst-Fit algorithm - all suitable free
+- Set to UINT32_MAX to use Best-Fit/Worst-Fit algorithm - all suitable free
   suballocations will be analized and best one will be chosen.
 - Any other value is also acceptable.
 */
@@ -2797,8 +2818,6 @@ bool VmaBlock::CreateAllocationRequest(
     // There is not enough total free space in this allocation to fullfill the request: Early return.
     if(m_SumFreeSize < allocSize)
         return false;
-
-    bool found = false;
 
     // Old brute-force algorithm, linearly searching suballocations.
     /*
@@ -4128,7 +4147,7 @@ VkResult VmaAllocator_T::AllocateMemory(
 
     // Bit mask of memory Vulkan types acceptable for this allocation.
     uint32_t memoryTypeBits = vkMemReq.memoryTypeBits;
-    uint32_t memTypeIndex = UINT_MAX;
+    uint32_t memTypeIndex = UINT32_MAX;
     VkResult res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &vmaMemReq, &memTypeIndex);
     if(res == VK_SUCCESS)
     {
@@ -4857,7 +4876,7 @@ VkResult vmaFindMemoryTypeIndex(
             }
         }
     }
-    return (*pMemoryTypeIndex != UINT_MAX) ? VK_SUCCESS : VK_ERROR_FEATURE_NOT_PRESENT;
+    return (*pMemoryTypeIndex != UINT32_MAX) ? VK_SUCCESS : VK_ERROR_FEATURE_NOT_PRESENT;
 }
 
 VkResult vmaAllocateMemory(
