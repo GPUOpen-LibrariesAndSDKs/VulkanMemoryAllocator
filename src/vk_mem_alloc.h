@@ -528,7 +528,7 @@ typedef struct VmaDefragmentationInfo {
     VkDeviceSize maxBytesToMove;
     /** \brief Maximum number of allocations that can be moved to different place.
 
-    Default is UINT_MAX, which means no limit.
+    Default is UINT32_MAX, which means no limit.
     */
     uint32_t maxAllocationsToMove;
 } VmaDefragmentationInfo;
@@ -1158,13 +1158,6 @@ public:
     {
     }
 
-        m_Allocator(allocator),
-        m_pArray(VMA_NULL),
-        m_Count(0),
-        m_Capacity(0)
-    {
-    }
-    
     VmaVector(size_t count, const AllocatorT& allocator) :
         m_Allocator(allocator),
         m_pArray(count ? (T*)VmaAllocateArray<T>(allocator->m_pCallbacks, count) : VMA_NULL),
@@ -2653,7 +2646,7 @@ struct VmaSuballocationItemSizeLess
 };
 
 VmaBlock::VmaBlock(VmaAllocator hAllocator) :
-    m_MemoryTypeIndex(UINT_MAX),
+    m_MemoryTypeIndex(UINT32_MAX),
     m_BlockVectorType(VMA_BLOCK_VECTOR_TYPE_COUNT),
     m_hMemory(VK_NULL_HANDLE),
     m_Size(0),
@@ -4418,7 +4411,7 @@ VkResult VmaAllocator_T::Defragment(
 
     // Main processing.
     VkDeviceSize maxBytesToMove = SIZE_MAX;
-    uint32_t maxAllocationsToMove = UINT_MAX;
+    uint32_t maxAllocationsToMove = UINT32_MAX;
     if(pDefragmentationInfo != VMA_NULL)
     {
         maxBytesToMove = pDefragmentationInfo->maxBytesToMove;
@@ -4849,8 +4842,8 @@ VkResult vmaFindMemoryTypeIndex(
     if((pMemoryRequirements->flags & VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT) != 0)
         requiredFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
-    *pMemoryTypeIndex = UINT_MAX;
-    uint32_t minCost = UINT_MAX;
+    *pMemoryTypeIndex = UINT32_MAX;
+    uint32_t minCost = UINT32_MAX;
     for(uint32_t memTypeIndex = 0, memTypeBit = 1;
         memTypeIndex < allocator->GetMemoryTypeCount();
         ++memTypeIndex, memTypeBit <<= 1)
