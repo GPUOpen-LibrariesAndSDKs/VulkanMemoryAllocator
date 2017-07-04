@@ -137,8 +137,7 @@ vmaCreateBuffer(allocator, &amp;bufferInfo, &amp;memReq, &amp;buffer, nullptr, n
 <pre class="fragment">vmaDestroyBuffer(allocator, buffer);
 </pre><h1><a class="anchor" id="configuration"></a>
 Configuration</h1>
-<p>Set VMA_STATS_STRING_ENABLED macro in <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a> to 0 or 1 to disable/enable compilation of code for dumping internal allocator state to string in JSON format.</p>
-<p>Please check "CONFIGURATION" section in vk_mem_alloc.cpp file to find macros and other definitions that you can change to connect the library to your own implementation of basic facilities like assert, min and max functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
+<p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each #include of this file or change directly in this file to provide your own implementation of basic facilities like assert, min and max functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
 <h1><a class="anchor" id="custom_memory_allocator"></a>
 Custom memory allocator</h1>
 <p>You can use custom memory allocator by filling optional member <a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d" title="Custom allocation callbacks. ">VmaAllocatorCreateInfo::pAllocationCallbacks</a>. These functions will be passed to Vulkan, as well as used by the library itself to make any CPU-side allocations.</p>
