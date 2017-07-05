@@ -12,8 +12,8 @@ startproject "VulkanSample"
 filter "platforms:x64"
 system "Windows"
 architecture "x64"
-includedirs { "../third_party/mathfu-1.1.0/include" }
-libdirs { "$(VULKAN_SDK)\\Bin" }
+includedirs { "../third_party/mathfu-1.1.0/include", "$(VULKAN_SDK)/Include" }
+libdirs { "$(VULKAN_SDK)/Lib" }
 
 project "VulkanSample"
 kind "ConsoleApp"
