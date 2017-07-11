@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['device',['device',['../struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500',1,'VmaAllocatorCreateInfo']]]
+  ['bytesfreed',['bytesFreed',['../struct_vma_defragmentation_stats.html#ab0cb9ac0dbc106c77e384ea676422f28',1,'VmaDefragmentationStats']]],
+  ['bytesmoved',['bytesMoved',['../struct_vma_defragmentation_stats.html#a36f9d5df2a10ba2a36b16e126d60572d',1,'VmaDefragmentationStats']]]
 ];

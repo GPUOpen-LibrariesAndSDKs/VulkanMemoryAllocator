@@ -73,6 +73,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:a35d3b42ac5a3be3758926819dc053859"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a35d3b42ac5a3be3758926819dc053859">flags</a></td></tr>
+<tr class="memdesc:a35d3b42ac5a3be3758926819dc053859"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created allocator. Use VmaAllocatorFlagBits enum.  <a href="#a35d3b42ac5a3be3758926819dc053859">More...</a><br /></td></tr>
+<tr class="separator:a35d3b42ac5a3be3758926819dc053859"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08230f04ae6ccf8a78150a9e829a7156"><td class="memItemLeft" align="right" valign="top">VkPhysicalDevice&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">physicalDevice</a></td></tr>
 <tr class="memdesc:a08230f04ae6ccf8a78150a9e829a7156"><td class="mdescLeft">&#160;</td><td class="mdescRight">Vulkan physical device.  <a href="#a08230f04ae6ccf8a78150a9e829a7156">More...</a><br /></td></tr>
 <tr class="separator:a08230f04ae6ccf8a78150a9e829a7156"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -88,6 +91,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a6e409087e3be55400d0e4ccbe43c608d"><td class="memItemLeft" align="right" valign="top">const VkAllocationCallbacks *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d">pAllocationCallbacks</a></td></tr>
 <tr class="memdesc:a6e409087e3be55400d0e4ccbe43c608d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom allocation callbacks.  <a href="#a6e409087e3be55400d0e4ccbe43c608d">More...</a><br /></td></tr>
 <tr class="separator:a6e409087e3be55400d0e4ccbe43c608d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af1380969b5e1ea4c3184a877892d260e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e">pDeviceMemoryCallbacks</a></td></tr>
+<tr class="memdesc:af1380969b5e1ea4c3184a877892d260e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Informative callbacks for vkAllocateMemory, vkFreeMemory.  <a href="#af1380969b5e1ea4c3184a877892d260e">More...</a><br /></td></tr>
+<tr class="separator:af1380969b5e1ea4c3184a877892d260e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Description of a Allocator to be created. </p>
@@ -109,6 +115,22 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a35d3b42ac5a3be3758926819dc053859"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35d3b42ac5a3be3758926819dc053859">&#9670;&nbsp;</a></span>flags</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a> VmaAllocatorCreateInfo::flags</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags for created allocator. Use VmaAllocatorFlagBits enum. </p>
+
+</div>
+</div>
 <a id="a6e409087e3be55400d0e4ccbe43c608d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6e409087e3be55400d0e4ccbe43c608d">&#9670;&nbsp;</a></span>pAllocationCallbacks</h2>
 
@@ -123,6 +145,23 @@ Public Attributes</h2></td></tr>
 
 <p>Custom allocation callbacks. </p>
 <p>Optional, can be null. When specified, will also be used for all CPU-side memory allocations. </p>
+
+</div>
+</div>
+<a id="af1380969b5e1ea4c3184a877892d260e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af1380969b5e1ea4c3184a877892d260e">&#9670;&nbsp;</a></span>pDeviceMemoryCallbacks</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a>* VmaAllocatorCreateInfo::pDeviceMemoryCallbacks</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Informative callbacks for vkAllocateMemory, vkFreeMemory. </p>
+<p>Optional, can be null. </p>
 
 </div>
 </div>

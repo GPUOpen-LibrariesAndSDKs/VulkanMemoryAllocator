@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-Version 2.0.0-alpha.1 (2017-07-04)
+Version 2.0.0-alpha.2 (2017-07-11)
 
 Members grouped: see <a href="modules.html"><b>Modules</b></a>.
 
