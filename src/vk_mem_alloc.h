@@ -118,7 +118,14 @@ When you want to create a buffer or image:
     memReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     VkBuffer buffer;
-    vmaCreateBuffer(allocator, &bufferInfo, &memReq, &buffer, nullptr, nullptr);
+    VmaAllocation allocation;
+    vmaCreateBuffer(allocator, &bufferInfo, &memReq, &buffer, &allocation, nullptr);
+
+Don't forget to destroy your objects:
+
+
+    vmaDestroyBuffer(allocator, buffer, allocation);
+    vmaDestroyAllocator(allocator);
 
 \section configuration Configuration
 
