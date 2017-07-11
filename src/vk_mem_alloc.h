@@ -3626,7 +3626,7 @@ VkResult vmaFindMemoryTypeIndex(
     uint32_t preferredFlags = pMemoryRequirements->preferredFlags;
     if(preferredFlags == 0)
         preferredFlags = requiredFlags;
-    // preferredFlags, if not 0, must be subset of requiredFlags.
+    // preferredFlags, if not 0, must be a superset of requiredFlags.
     VMA_ASSERT((requiredFlags & ~preferredFlags) == 0);
 
     // Convert usage to requiredFlags and preferredFlags.
