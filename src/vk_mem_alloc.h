@@ -1787,7 +1787,7 @@ VmaListItem<T>* VmaRawList<T>::InsertBefore(ItemType* pItem)
             prevItem->pNext = newItem;
         else
         {
-            VMA_HEAVY_ASSERT(m_pFront = pItem);
+            VMA_HEAVY_ASSERT(m_pFront == pItem);
             m_pFront = newItem;
         }
         ++m_Count;
@@ -1811,7 +1811,7 @@ VmaListItem<T>* VmaRawList<T>::InsertAfter(ItemType* pItem)
             nextItem->pPrev = newItem;
         else
         {
-            VMA_HEAVY_ASSERT(m_pBack = pItem);
+            VMA_HEAVY_ASSERT(m_pBack == pItem);
             m_pBack = newItem;
         }
         ++m_Count;
