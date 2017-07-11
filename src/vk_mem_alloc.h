@@ -143,8 +143,19 @@ Vulkan, as well as used by the library itself to make any CPU-side allocations.
 
 \section thread_safety Thread safety
 
-All calls to functions that take VmaAllocator as first parameter are safe to
-call from multiple threads simultaneously, synchronized internally when needed.
+- The library has no global state, so separate VmaAllocator objects can be used
+  independently. 
+- By default, all calls to functions that take VmaAllocator as first parameter
+  are safe to call from multiple threads simultaneously because they are
+  synchronized internally when needed.
+- When the allocator is created with VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT
+  flag, calls to functions that take such VmaAllocator object must be
+  synchronized externally.
+- Access to a VmaAllocation object must be externally synchronized. For example,
+  you must not call vmaGetAllocationInfo() and vmaDefragment() from different
+  threads at the same time if you pass the same VmaAllocation object to these
+  functions.
+
 */
 
 #include <vulkan/vulkan.h>
@@ -181,9 +192,23 @@ typedef struct VmaDeviceMemoryCallbacks {
     PFN_vmaFreeDeviceMemoryFunction pfnFree;
 } VmaDeviceMemoryCallbacks;
 
+/// Flags for created VmaAllocator.
+typedef enum VmaAllocatorFlagBits {
+    /** \brief Allocator and all objects created from it will not be synchronized internally, so you must guarantee they are used from only one thread at a time or synchronized externally by you.
+
+    Using this flag may increase performance because internal mutexes are not used.
+    */
+    VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT = 0x00000001,
+
+    VMA_ALLOCATOR_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaAllocatorFlagBits;
+typedef VkFlags VmaAllocatorFlags;
+
 /// Description of a Allocator to be created.
 typedef struct VmaAllocatorCreateInfo
 {
+    /// Flags for created allocator. Use VmaAllocatorFlagBits enum.
+    VmaAllocatorFlags flags;
     /// Vulkan physical device.
     /** It must be valid throughout whole lifetime of created Allocator. */
     VkPhysicalDevice physicalDevice;
@@ -1046,11 +1071,25 @@ static inline bool VmaIsBufferImageGranularityConflict(
 struct VmaMutexLock
 {
 public:
-    VmaMutexLock(VMA_MUTEX& mutex) : m_Mutex(mutex) { mutex.Lock(); }
-    ~VmaMutexLock() { m_Mutex.Unlock(); }
+    VmaMutexLock(VMA_MUTEX& mutex, bool useMutex) :
+        m_pMutex(useMutex ? &mutex : VMA_NULL)
+    {
+        if(m_pMutex)
+        {
+            m_pMutex->Lock();
+        }
+    }
+    
+    ~VmaMutexLock()
+    {
+        if(m_pMutex)
+        {
+            m_pMutex->Unlock();
+        }
+    }
 
 private:
-    VMA_MUTEX& m_Mutex;
+    VMA_MUTEX* m_pMutex;
 };
 
 #if VMA_DEBUG_GLOBAL_MUTEX
@@ -2380,6 +2419,7 @@ private:
 // Main allocator object.
 struct VmaAllocator_T
 {
+    bool m_UseMutex;
     VkDevice m_hDevice;
     bool m_AllocationCallbacksSpecified;
     VkAllocationCallbacks m_AllocationCallbacks;
@@ -3837,6 +3877,7 @@ bool VmaDefragmentator::MoveMakesSense(
 // VmaAllocator_T
 
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
+    m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_hDevice(pCreateInfo->device),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
@@ -3945,7 +3986,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     {
         uint32_t blockVectorType = VmaMemoryRequirementFlagsToBlockVectorType(vmaMemReq.flags);
 
-        VmaMutexLock lock(m_BlocksMutex[memTypeIndex]);
+        VmaMutexLock lock(m_BlocksMutex[memTypeIndex], m_UseMutex);
         VmaBlockVector* const blockVector = m_pBlockVectors[memTypeIndex][blockVectorType];
         VMA_ASSERT(blockVector);
 
@@ -4142,7 +4183,7 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
 
     // Register it in m_pOwnAllocations.
     {
-        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex]);
+        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
         AllocationVectorType* pOwnAllocations = m_pOwnAllocations[memTypeIndex][map ? VMA_BLOCK_VECTOR_TYPE_MAPPED : VMA_BLOCK_VECTOR_TYPE_UNMAPPED];
         VMA_ASSERT(pOwnAllocations);
         VmaAllocation* const pOwnAllocationsBeg = pOwnAllocations->data();
@@ -4227,7 +4268,7 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
         const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
         const VMA_BLOCK_VECTOR_TYPE blockVectorType = allocation->GetBlockVectorType();
         {
-            VmaMutexLock lock(m_BlocksMutex[memTypeIndex]);
+            VmaMutexLock lock(m_BlocksMutex[memTypeIndex], m_UseMutex);
 
             VmaBlockVector* pBlockVector = m_pBlockVectors[memTypeIndex][blockVectorType];
             VmaBlock* pBlock = allocation->GetBlock();
@@ -4280,7 +4321,7 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        VmaMutexLock allocationsLock(m_BlocksMutex[memTypeIndex]);
+        VmaMutexLock allocationsLock(m_BlocksMutex[memTypeIndex], m_UseMutex);
         const uint32_t heapIndex = m_MemProps.memoryTypes[memTypeIndex].heapIndex;
         for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
         {
@@ -4313,7 +4354,7 @@ void VmaAllocator_T::UnmapPersistentlyMappedMemory()
                 {
                     // Process OwnAllocations.
                     {
-                        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex]);
+                        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
                         AllocationVectorType* pOwnAllocationsVector = m_pOwnAllocations[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
                         for(size_t ownAllocIndex = pOwnAllocationsVector->size(); ownAllocIndex--; )
                         {
@@ -4324,7 +4365,7 @@ void VmaAllocator_T::UnmapPersistentlyMappedMemory()
 
                     // Process normal Allocations.
                     {
-                        VmaMutexLock lock(m_BlocksMutex[memTypeIndex]);
+                        VmaMutexLock lock(m_BlocksMutex[memTypeIndex], m_UseMutex);
                         VmaBlockVector* pBlockVector = m_pBlockVectors[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
                         pBlockVector->UnmapPersistentlyMappedMemory();
                     }
@@ -4350,7 +4391,7 @@ VkResult VmaAllocator_T::MapPersistentlyMappedMemory()
                 {
                     // Process OwnAllocations.
                     {
-                        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex]);
+                        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
                         AllocationVectorType* pAllocationsVector = m_pOwnAllocations[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
                         for(size_t ownAllocIndex = 0, ownAllocCount = pAllocationsVector->size(); ownAllocIndex < ownAllocCount; ++ownAllocIndex)
                         {
@@ -4361,7 +4402,7 @@ VkResult VmaAllocator_T::MapPersistentlyMappedMemory()
 
                     // Process normal Allocations.
                     {
-                        VmaMutexLock lock(m_BlocksMutex[memTypeIndex]);
+                        VmaMutexLock lock(m_BlocksMutex[memTypeIndex], m_UseMutex);
                         VmaBlockVector* pBlockVector = m_pBlockVectors[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
                         VkResult localResult = pBlockVector->MapPersistentlyMappedMemory();
                         if(localResult != VK_SUCCESS)
@@ -4459,7 +4500,7 @@ VkResult VmaAllocator_T::Defragment(
         // Only HOST_VISIBLE memory types can be defragmented.
         if((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
         {
-            VmaMutexLock lock(m_BlocksMutex[memTypeIndex]);
+            VmaMutexLock lock(m_BlocksMutex[memTypeIndex], m_UseMutex);
 
             for(uint32_t blockVectorType = 0;
                 (blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT) && (result == VK_SUCCESS);
@@ -4538,7 +4579,7 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
 
     const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
     {
-        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex]);
+        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
         AllocationVectorType* const pOwnAllocations = m_pOwnAllocations[memTypeIndex][allocation->GetBlockVectorType()];
         VMA_ASSERT(pOwnAllocations);
         VmaAllocation* const pOwnAllocationsBeg = pOwnAllocations->data();
@@ -4586,7 +4627,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaStringBuilder& sb)
     bool ownAllocationsStarted = false;
     for(size_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        VmaMutexLock ownAllocationsLock(m_OwnAllocationsMutex[memTypeIndex]);
+        VmaMutexLock ownAllocationsLock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
         for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
         {
             AllocationVectorType* const pOwnAllocVector = m_pOwnAllocations[memTypeIndex][blockVectorType];
@@ -4631,7 +4672,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaStringBuilder& sb)
         bool allocationsStarted = false;
         for(size_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
         {
-            VmaMutexLock globalAllocationsLock(m_BlocksMutex[memTypeIndex]);
+            VmaMutexLock globalAllocationsLock(m_BlocksMutex[memTypeIndex], m_UseMutex);
             for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
             {
                 if(m_pBlockVectors[memTypeIndex][blockVectorType]->IsEmpty() == false)
