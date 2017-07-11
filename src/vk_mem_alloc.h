@@ -2653,41 +2653,19 @@ void VmaAllocation::FreeSuballocation(VmaSuballocationList::iterator suballocIte
 
 void VmaAllocation::Free(const VkMappedMemoryRange* pMemory)
 {
-    // If suballocation to free has offset smaller than half of allocation size, search forward.
-    // Otherwise search backward.
-    const bool forwardDirection = pMemory->offset < (m_Size / 2);
-    if(forwardDirection)
+    for(VmaSuballocationList::iterator suballocItem = m_Suballocations.begin();
+        suballocItem != m_Suballocations.end();
+        ++suballocItem)
     {
-        for(VmaSuballocationList::iterator suballocItem = m_Suballocations.begin();
-            suballocItem != m_Suballocations.end();
-            ++suballocItem)
+        VmaSuballocation& suballoc = *suballocItem;
+        if(suballoc.offset == pMemory->offset)
         {
-            VmaSuballocation& suballoc = *suballocItem;
-            if(suballoc.offset == pMemory->offset)
-            {
-                FreeSuballocation(suballocItem);
-                VMA_HEAVY_ASSERT(Validate());
-                return;
-            }
+            FreeSuballocation(suballocItem);
+            VMA_HEAVY_ASSERT(Validate());
+            return;
         }
-        VMA_ASSERT(0 && "Not found!");
     }
-    else
-    {
-        for(VmaSuballocationList::iterator suballocItem = m_Suballocations.begin();
-            suballocItem != m_Suballocations.end();
-            ++suballocItem)
-        {
-            VmaSuballocation& suballoc = *suballocItem;
-            if(suballoc.offset == pMemory->offset)
-            {
-                FreeSuballocation(suballocItem);
-                VMA_HEAVY_ASSERT(Validate());
-                return;
-            }
-        }
-        VMA_ASSERT(0 && "Not found!");
-    }
+    VMA_ASSERT(0 && "Not found!");
 }
 
 #if VMA_STATS_STRING_ENABLED
