@@ -143,7 +143,10 @@ Custom memory allocator</h1>
 <p>You can use custom memory allocator by filling optional member <a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d" title="Custom allocation callbacks. ">VmaAllocatorCreateInfo::pAllocationCallbacks</a>. These functions will be passed to Vulkan, as well as used by the library itself to make any CPU-side allocations.</p>
 <h1><a class="anchor" id="thread_safety"></a>
 Thread safety</h1>
-<p>All calls to functions that take VmaAllocator as first parameter are safe to call from multiple threads simultaneously, synchronized internally when needed. </p>
+<ul>
+<li>The library has no global state, so separate VmaAllocator objects can be used independently.</li>
+<li>All calls to functions that take VmaAllocator as first parameter are safe to call from multiple threads simultaneously because they are synchronized internally when needed. </li>
+</ul>
 </div></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

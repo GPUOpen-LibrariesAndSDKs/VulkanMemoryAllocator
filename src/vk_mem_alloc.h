@@ -144,8 +144,12 @@ Vulkan, as well as used by the library itself to make any CPU-side allocations.
 
 \section thread_safety Thread safety
 
-All calls to functions that take VmaAllocator as first parameter are safe to
-call from multiple threads simultaneously, synchronized internally when needed.
+- The library has no global state, so separate VmaAllocator objects can be used
+  independently. 
+- All calls to functions that take VmaAllocator as first parameter are safe to
+  call from multiple threads simultaneously because they are synchronized
+  internally when needed.
+
 */
 
 #include <vulkan/vulkan.h>
