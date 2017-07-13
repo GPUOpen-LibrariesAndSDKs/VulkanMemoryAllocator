@@ -29,6 +29,7 @@
 
 #pragma warning(push, 4)
 #pragma warning(disable: 4127) // warning C4127: conditional expression is constant
+#pragma warning(disable: 4100) // warning C4100: '...': unreferenced formal parameter
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 #pragma warning(pop)
@@ -93,6 +94,7 @@ static VkDescriptorSet g_hDescriptorSet; // Automatically destroyed with m_Descr
 static VkSampler g_hSampler;
 static VkFormat g_DepthFormat;
 static VkImage g_hDepthImage;
+static VmaAllocation g_hDepthImageAlloc;
 static VkImageView g_hDepthImageView;
 
 static VkSurfaceCapabilitiesKHR g_SurfaceCapabilities;
@@ -114,11 +116,14 @@ static VkRenderPass g_hRenderPass;
 static VkPipeline g_hPipeline;
 
 static VkBuffer g_hVertexBuffer;
+static VmaAllocation g_hVertexBufferAlloc;
 static VkBuffer g_hIndexBuffer;
+static VmaAllocation g_hIndexBufferAlloc;
 static uint32_t g_VertexCount;
 static uint32_t g_IndexCount;
 
 static VkImage g_hTextureImage;
+static VmaAllocation g_hTextureImageAlloc;
 static VkImageView g_hTextureImageView;
 
 static void BeginSingleTimeCommands()
@@ -290,22 +295,24 @@ static void CreateMesh()
     vbInfo.size = vertexBufferSize;
     vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
     VmaMemoryRequirements vbMemReq = {};
     vbMemReq.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    VkMappedMemoryRange stagingVertexBufferMem;
-    VkBuffer stagingVertexBuffer = VK_NULL_HANDLE;
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbMemReq, &stagingVertexBuffer, &stagingVertexBufferMem, nullptr) );
+    vbMemReq.flags = VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT;
 
-    void* pVbData = nullptr;
-    ERR_GUARD_VULKAN( vmaMapMemory(g_hAllocator, &stagingVertexBufferMem, &pVbData) );
-    memcpy(pVbData, vertices, vertexBufferSize);
-    vmaUnmapMemory(g_hAllocator, &stagingVertexBufferMem);
+    VkBuffer stagingVertexBuffer = VK_NULL_HANDLE;
+    VmaAllocation stagingVertexBufferAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo stagingVertexBufferAllocInfo = {};
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbMemReq, &stagingVertexBuffer, &stagingVertexBufferAlloc, &stagingVertexBufferAllocInfo) );
+
+    memcpy(stagingVertexBufferAllocInfo.pMappedData, vertices, vertexBufferSize);
 
     // No need to flush stagingVertexBuffer memory because CPU_ONLY memory is always HOST_COHERENT.
 
     vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     vbMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbMemReq, &g_hVertexBuffer, nullptr, nullptr) );
+    vbMemReq.flags = 0;
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbMemReq, &g_hVertexBuffer, &g_hVertexBufferAlloc, nullptr) );
 
     // Create index buffer
 
@@ -313,22 +320,24 @@ static void CreateMesh()
     ibInfo.size = indexBufferSize;
     ibInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     ibInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
     VmaMemoryRequirements ibMemReq = {};
     ibMemReq.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    VkMappedMemoryRange stagingIndexBufferMem;
+    ibMemReq.flags = VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT;
+    
     VkBuffer stagingIndexBuffer = VK_NULL_HANDLE;
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibMemReq, &stagingIndexBuffer, &stagingIndexBufferMem, nullptr) );
+    VmaAllocation stagingIndexBufferAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo stagingIndexBufferAllocInfo = {};
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibMemReq, &stagingIndexBuffer, &stagingIndexBufferAlloc, &stagingIndexBufferAllocInfo) );
 
-    void* pIbData = nullptr;
-    ERR_GUARD_VULKAN( vmaMapMemory(g_hAllocator, &stagingIndexBufferMem, &pIbData) );
-    memcpy(pIbData, indices, indexBufferSize);
-    vmaUnmapMemory(g_hAllocator, &stagingIndexBufferMem);
+    memcpy(stagingIndexBufferAllocInfo.pMappedData, indices, indexBufferSize);
 
     // No need to flush stagingIndexBuffer memory because CPU_ONLY memory is always HOST_COHERENT.
 
     ibInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     ibMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibMemReq, &g_hIndexBuffer, nullptr, nullptr) );
+    ibMemReq.flags = 0;
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibMemReq, &g_hIndexBuffer, &g_hIndexBufferAlloc, nullptr) );
 
     // Copy buffers
 
@@ -348,8 +357,8 @@ static void CreateMesh()
 
     EndSingleTimeCommands();
 
-    vmaDestroyBuffer(g_hAllocator, stagingIndexBuffer);
-    vmaDestroyBuffer(g_hAllocator, stagingVertexBuffer);
+    vmaDestroyBuffer(g_hAllocator, stagingIndexBuffer, stagingIndexBufferAlloc);
+    vmaDestroyBuffer(g_hAllocator, stagingVertexBuffer, stagingVertexBufferAlloc);
 }
 
 static void CopyImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height, uint32_t mipLevel)
@@ -475,14 +484,15 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     stagingImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     stagingImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     stagingImageInfo.flags = 0;
+    
     VmaMemoryRequirements stagingImageMemReq = {};
     stagingImageMemReq.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    stagingImageMemReq.flags = VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT;
+    
     VkImage stagingImage = VK_NULL_HANDLE;
-    VkMappedMemoryRange stagingImageMem;
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &stagingImageInfo, &stagingImageMemReq, &stagingImage, &stagingImageMem, nullptr) );
-
-    char* pImageData = nullptr;
-    ERR_GUARD_VULKAN( vmaMapMemory(g_hAllocator, &stagingImageMem, (void**)&pImageData) );
+    VmaAllocation stagingImageAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo stagingImageAllocInfo = {};
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &stagingImageInfo, &stagingImageMemReq, &stagingImage, &stagingImageAlloc, &stagingImageAllocInfo) );
 
     VkImageSubresource imageSubresource = {};
     imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -492,7 +502,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     VkSubresourceLayout imageLayout = {};
     vkGetImageSubresourceLayout(g_hDevice, stagingImage, &imageSubresource, &imageLayout);
 
-    char* const pMipLevelData = pImageData + imageLayout.offset;
+    char* const pMipLevelData = (char*)stagingImageAllocInfo.pMappedData + imageLayout.offset;
     uint8_t* pRowData = (uint8_t*)pMipLevelData;
     for(uint32_t y = 0; y < sizeY; ++y)
     {
@@ -508,8 +518,6 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
         }
         pRowData += imageLayout.rowPitch;
     }
-
-    vmaUnmapMemory(g_hAllocator, &stagingImageMem);
 
     // No need to flush stagingImage memory because CPU_ONLY memory is always HOST_COHERENT.
 
@@ -529,7 +537,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     imageInfo.flags = 0;
     VmaMemoryRequirements imageMemReq = {};
     imageMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageMemReq, &g_hTextureImage, nullptr, nullptr) );
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageMemReq, &g_hTextureImage, &g_hTextureImageAlloc, nullptr) );
 
     TransitionImageLayout(
         stagingImage,
@@ -551,7 +559,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    vmaDestroyImage(g_hAllocator, stagingImage);
+    vmaDestroyImage(g_hAllocator, stagingImage, stagingImageAlloc);
 
     // Create ImageView
 
@@ -765,7 +773,7 @@ static void CreateSwapchain()
     VmaMemoryRequirements depthImageMemReq = {};
     depthImageMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &depthImageInfo, &depthImageMemReq, &g_hDepthImage, nullptr, nullptr) );
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &depthImageInfo, &depthImageMemReq, &g_hDepthImage, &g_hDepthImageAlloc, nullptr) );
 
     VkImageViewCreateInfo depthImageViewInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
     depthImageViewInfo.image = g_hDepthImage;
@@ -1093,7 +1101,7 @@ static void DestroySwapchain(bool destroyActualSwapchain)
     }
     if(g_hDepthImage != VK_NULL_HANDLE)
     {
-        vmaDestroyImage(g_hAllocator, g_hDepthImage);
+        vmaDestroyImage(g_hAllocator, g_hDepthImage, g_hDepthImageAlloc);
         g_hDepthImage = VK_NULL_HANDLE;
     }
 
@@ -1400,18 +1408,18 @@ static void FinalizeApplication()
     }
     if(g_hTextureImage != VK_NULL_HANDLE)
     {
-        vmaDestroyImage(g_hAllocator, g_hTextureImage);
+        vmaDestroyImage(g_hAllocator, g_hTextureImage, g_hTextureImageAlloc);
         g_hTextureImage = VK_NULL_HANDLE;
     }
 
     if(g_hIndexBuffer != VK_NULL_HANDLE)
     {
-        vmaDestroyBuffer(g_hAllocator, g_hIndexBuffer);
+        vmaDestroyBuffer(g_hAllocator, g_hIndexBuffer, g_hIndexBufferAlloc);
         g_hIndexBuffer = VK_NULL_HANDLE;
     }
     if(g_hVertexBuffer != VK_NULL_HANDLE)
     {
-        vmaDestroyBuffer(g_hAllocator, g_hVertexBuffer);
+        vmaDestroyBuffer(g_hAllocator, g_hVertexBuffer, g_hVertexBufferAlloc);
         g_hVertexBuffer = VK_NULL_HANDLE;
     }
     

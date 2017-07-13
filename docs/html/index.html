@@ -62,7 +62,7 @@ $(function() {
 <div class="title">Vulkan Memory Allocator </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>Version 1.0.1 (2017-07-04)</p>
+<div class="textblock"><p>Version 2.0.0-alpha.2 (2017-07-11)</p>
 <p>Members grouped: see <a href="modules.html"><b>Modules</b></a>.</p>
 <p>All members: see <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a>.</p>
 <h1><a class="anchor" id="problem"></a>
@@ -72,7 +72,6 @@ Problem Statement</h1>
 <li>It requires a lot of boilerplate code, just like everything else in Vulkan, because it is a low-level and high-performance API.</li>
 <li>There is additional level of indirection: VkDeviceMemory is allocated separately from creating VkBuffer/VkImage and they must be bound together. The binding cannot be changed later - resource must be recreated.</li>
 <li>Driver must be queried for supported memory heaps and memory types. Different IHV-s provide different types of it.</li>
-<li>Resources that don't fit in VRAM are not automatically evicted to RAM. Developer must handle out-of-memory errors on his own.</li>
 <li>It is recommended practice to allocate bigger chunks of memory and assign parts of them to particular resources.</li>
 </ul>
 <h1><a class="anchor" id="features"></a>
@@ -122,7 +121,7 @@ vmaCreateAllocator(&amp;allocatorInfo, &amp;allocator);
 <ol type="1">
 <li>Fill VkBufferCreateInfo / VkImageCreateInfo structure.</li>
 <li>Fill <a class="el" href="struct_vma_memory_requirements.html">VmaMemoryRequirements</a> structure.</li>
-<li>Call <a class="el" href="group__layer3.html#ga6cafa3a644324a1e0c9165494db11648">vmaCreateBuffer()</a> / <a class="el" href="group__layer3.html#ga9646281a3d9abc9f4d0bc5632db117de" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a> to get VkBuffer/VkImage with memory already allocated and bound to it.</li>
+<li>Call <a class="el" href="group__layer3.html#ga2f711e32e95cf9bf8dff4917230c2e9b">vmaCreateBuffer()</a> / <a class="el" href="group__layer3.html#ga9e34bc318ff4b25d1958e79b9db3f1aa" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a> to get VkBuffer/VkImage with memory already allocated and bound to it.</li>
 </ol>
 <pre class="fragment">VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 bufferInfo.size = myBufferSize;
@@ -132,9 +131,11 @@ VmaMemoryRequirements memReq = {};
 memReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
 VkBuffer buffer;
-vmaCreateBuffer(allocator, &amp;bufferInfo, &amp;memReq, &amp;buffer, nullptr, nullptr);
-</pre><p>When no longer needed, destroy your buffer or image using <a class="el" href="group__layer3.html#ga967857c06b8232b2a54936daf36d1535">vmaDestroyBuffer()</a> / <a class="el" href="group__layer3.html#ga9377799736c4a1262b41ee441e5fc877">vmaDestroyImage()</a>. This function would also free memory bound to it.</p>
-<pre class="fragment">vmaDestroyBuffer(allocator, buffer);
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &amp;bufferInfo, &amp;memReq, &amp;buffer, &amp;allocation, nullptr);
+</pre><p>Don't forget to destroy your objects:</p>
+<pre class="fragment">vmaDestroyBuffer(allocator, buffer, allocation);
+vmaDestroyAllocator(allocator);
 </pre><h1><a class="anchor" id="configuration"></a>
 Configuration</h1>
 <p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each #include of this file or change directly in this file to provide your own implementation of basic facilities like assert, min and max functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
@@ -145,7 +146,9 @@ Custom memory allocator</h1>
 Thread safety</h1>
 <ul>
 <li>The library has no global state, so separate VmaAllocator objects can be used independently.</li>
-<li>All calls to functions that take VmaAllocator as first parameter are safe to call from multiple threads simultaneously because they are synchronized internally when needed. </li>
+<li>By default, all calls to functions that take VmaAllocator as first parameter are safe to call from multiple threads simultaneously because they are synchronized internally when needed.</li>
+<li>When the allocator is created with VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT flag, calls to functions that take such VmaAllocator object must be synchronized externally.</li>
+<li>Access to a VmaAllocation object must be externally synchronized. For example, you must not call <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a> and <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> from different threads at the same time if you pass the same VmaAllocation object to these functions. </li>
 </ul>
 </div></div><!-- contents -->
 <!-- start footer part -->

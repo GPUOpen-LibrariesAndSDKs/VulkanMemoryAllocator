@@ -62,6 +62,7 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#define-members">Macros</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">General</div>  </div>
@@ -70,6 +71,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory.  <a href="struct_vma_device_memory_callbacks.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="struct_vma_allocator_create_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -86,11 +90,33 @@ Macros</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
+<tr class="memitem:gab6a6477cda1ce775b30bde96d766203b"><td class="memItemLeft" align="right" valign="top">typedef void(VKAPI_PTR *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gab6a6477cda1ce775b30bde96d766203b">PFN_vmaAllocateDeviceMemoryFunction</a>) (VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td></tr>
+<tr class="memdesc:gab6a6477cda1ce775b30bde96d766203b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called after successful vkAllocateMemory.  <a href="#gab6a6477cda1ce775b30bde96d766203b">More...</a><br /></td></tr>
+<tr class="separator:gab6a6477cda1ce775b30bde96d766203b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gaef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="memItemLeft" align="right" valign="top">typedef void(VKAPI_PTR *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gaef2545dc2e9dd4f29ab9ba6ac6fe2f49">PFN_vmaFreeDeviceMemoryFunction</a>) (VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td></tr>
+<tr class="memdesc:gaef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called before vkFreeMemory.  <a href="#gaef2545dc2e9dd4f29ab9ba6ac6fe2f49">More...</a><br /></td></tr>
+<tr class="separator:gaef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga5e2eb68d727cfd4df25702b027b7aa31">VmaDeviceMemoryCallbacks</a></td></tr>
+<tr class="memdesc:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory.  <a href="#ga5e2eb68d727cfd4df25702b027b7aa31">More...</a><br /></td></tr>
+<tr class="separator:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gac51ae2c316ee760ec5aebbae06d31253"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">VmaAllocatorFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gac51ae2c316ee760ec5aebbae06d31253">VmaAllocatorFlagBits</a></td></tr>
+<tr class="memdesc:gac51ae2c316ee760ec5aebbae06d31253"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created VmaAllocator.  <a href="#gac51ae2c316ee760ec5aebbae06d31253">More...</a><br /></td></tr>
+<tr class="separator:gac51ae2c316ee760ec5aebbae06d31253"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga6ffbcb80208bf4467a1104087396cf59"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a></td></tr>
+<tr class="separator:ga6ffbcb80208bf4467a1104087396cf59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae0f6d1d733dded220d28134da46b4283"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gae0f6d1d733dded220d28134da46b4283">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:gae0f6d1d733dded220d28134da46b4283"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="#gae0f6d1d733dded220d28134da46b4283">More...</a><br /></td></tr>
 <tr class="separator:gae0f6d1d733dded220d28134da46b4283"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga810b009a788ee8aac72a25b42ffbe31c"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga810b009a788ee8aac72a25b42ffbe31c">VmaStatInfo</a></td></tr>
 <tr class="separator:ga810b009a788ee8aac72a25b42ffbe31c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:ga34fff29c218d23a7ff7dff44b77b6b6f"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">VmaAllocatorFlagBits</a> { <a class="el" href="group__general.html#gga34fff29c218d23a7ff7dff44b77b6b6fabe92b706180652ceb320da5bc383aef4">VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT</a> = 0x00000001, 
+<a class="el" href="group__general.html#gga34fff29c218d23a7ff7dff44b77b6b6fa914e905a08c2e578f76b9d6c418626cc">VMA_ALLOCATOR_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+ }<tr class="memdesc:ga34fff29c218d23a7ff7dff44b77b6b6f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created VmaAllocator.  <a href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">More...</a><br /></td></tr>
+</td></tr>
+<tr class="separator:ga34fff29c218d23a7ff7dff44b77b6b6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -133,6 +159,38 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Typedef Documentation</h2>
+<a id="gab6a6477cda1ce775b30bde96d766203b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gab6a6477cda1ce775b30bde96d766203b">&#9670;&nbsp;</a></span>PFN_vmaAllocateDeviceMemoryFunction</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef void(VKAPI_PTR * PFN_vmaAllocateDeviceMemoryFunction) (VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Callback function called after successful vkAllocateMemory. </p>
+
+</div>
+</div>
+<a id="gaef2545dc2e9dd4f29ab9ba6ac6fe2f49"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gaef2545dc2e9dd4f29ab9ba6ac6fe2f49">&#9670;&nbsp;</a></span>PFN_vmaFreeDeviceMemoryFunction</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef void(VKAPI_PTR * PFN_vmaFreeDeviceMemoryFunction) (VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Callback function called before vkFreeMemory. </p>
+
+</div>
+</div>
 <a id="gae0f6d1d733dded220d28134da46b4283"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#gae0f6d1d733dded220d28134da46b4283">&#9670;&nbsp;</a></span>VmaAllocatorCreateInfo</h2>
 
@@ -149,6 +207,53 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="gac51ae2c316ee760ec5aebbae06d31253"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gac51ae2c316ee760ec5aebbae06d31253">&#9670;&nbsp;</a></span>VmaAllocatorFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">VmaAllocatorFlagBits</a>  <a class="el" href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">VmaAllocatorFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags for created VmaAllocator. </p>
+
+</div>
+</div>
+<a id="ga6ffbcb80208bf4467a1104087396cf59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga6ffbcb80208bf4467a1104087396cf59">&#9670;&nbsp;</a></span>VmaAllocatorFlags</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef VkFlags <a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ga5e2eb68d727cfd4df25702b027b7aa31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga5e2eb68d727cfd4df25702b027b7aa31">&#9670;&nbsp;</a></span>VmaDeviceMemoryCallbacks</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef struct <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a>  <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory. </p>
+<p>Provided for informative purpose, e.g. to gather statistics about number of allocations or total amount of memory allocated in Vulkan. </p>
+
+</div>
+</div>
 <a id="ga810b009a788ee8aac72a25b42ffbe31c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ga810b009a788ee8aac72a25b42ffbe31c">&#9670;&nbsp;</a></span>VmaStatInfo</h2>
 
@@ -160,6 +265,29 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="ga34fff29c218d23a7ff7dff44b77b6b6f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga34fff29c218d23a7ff7dff44b77b6b6f">&#9670;&nbsp;</a></span>VmaAllocatorFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">VmaAllocatorFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags for created VmaAllocator. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="gga34fff29c218d23a7ff7dff44b77b6b6fabe92b706180652ceb320da5bc383aef4"></a>VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT&#160;</td><td class="fielddoc"><p>Allocator and all objects created from it will not be synchronized internally, so you must guarantee they are used from only one thread at a time or synchronized externally by you. </p>
+<p>Using this flag may increase performance because internal mutexes are not used. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga34fff29c218d23a7ff7dff44b77b6b6fa914e905a08c2e578f76b9d6c418626cc"></a>VMA_ALLOCATOR_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
+</table>
 
 </div>
 </div>

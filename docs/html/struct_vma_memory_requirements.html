@@ -70,9 +70,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a401cdf684f8a13c8ff3bb469a1759153"><td class="memItemLeft" align="right" valign="top">VkBool32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_memory_requirements.html#a401cdf684f8a13c8ff3bb469a1759153">ownMemory</a></td></tr>
-<tr class="memdesc:a401cdf684f8a13c8ff3bb469a1759153"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set to true if this allocation should have its own memory block.  <a href="#a401cdf684f8a13c8ff3bb469a1759153">More...</a><br /></td></tr>
-<tr class="separator:a401cdf684f8a13c8ff3bb469a1759153"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a53c9ea8c3cbcc12dddbe9ae23bb85eb6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__layer1.html#gab96b90d34cd1bd0f340fc48f8ca2664a">VmaMemoryRequirementFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_memory_requirements.html#a53c9ea8c3cbcc12dddbe9ae23bb85eb6">flags</a></td></tr>
+<tr class="separator:a53c9ea8c3cbcc12dddbe9ae23bb85eb6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab588497177a57847ed04e0a1aef54bbe"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__layer1.html#gaa5846affa1e9da3800e3e78fae2305cc">VmaMemoryUsage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_memory_requirements.html#ab588497177a57847ed04e0a1aef54bbe">usage</a></td></tr>
 <tr class="memdesc:ab588497177a57847ed04e0a1aef54bbe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Intended usage of memory.  <a href="#ab588497177a57847ed04e0a1aef54bbe">More...</a><br /></td></tr>
 <tr class="separator:ab588497177a57847ed04e0a1aef54bbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -82,44 +81,22 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a6e105f836c2288034c711815b18226dc"><td class="memItemLeft" align="right" valign="top">VkMemoryPropertyFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_memory_requirements.html#a6e105f836c2288034c711815b18226dc">preferredFlags</a></td></tr>
 <tr class="memdesc:a6e105f836c2288034c711815b18226dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags that preferably should be set in a Memory Type chosen for an allocation.  <a href="#a6e105f836c2288034c711815b18226dc">More...</a><br /></td></tr>
 <tr class="separator:a6e105f836c2288034c711815b18226dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2259df9db140839199fa43b651c58447"><td class="memItemLeft" align="right" valign="top">VkBool32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_memory_requirements.html#a2259df9db140839199fa43b651c58447">neverAllocate</a></td></tr>
-<tr class="memdesc:a2259df9db140839199fa43b651c58447"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set this flag to only try to allocate from existing VkDeviceMemory blocks and never create new such block.  <a href="#a2259df9db140839199fa43b651c58447">More...</a><br /></td></tr>
-<tr class="separator:a2259df9db140839199fa43b651c58447"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8470093e93ed07ed2557490cdc67566a"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_memory_requirements.html#a8470093e93ed07ed2557490cdc67566a">pUserData</a></td></tr>
+<tr class="memdesc:a8470093e93ed07ed2557490cdc67566a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaMemoryRequirements::pUserData or set using vmaSe...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#a8470093e93ed07ed2557490cdc67566a">More...</a><br /></td></tr>
+<tr class="separator:a8470093e93ed07ed2557490cdc67566a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a2259df9db140839199fa43b651c58447"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2259df9db140839199fa43b651c58447">&#9670;&nbsp;</a></span>neverAllocate</h2>
+<a id="a53c9ea8c3cbcc12dddbe9ae23bb85eb6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a53c9ea8c3cbcc12dddbe9ae23bb85eb6">&#9670;&nbsp;</a></span>flags</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">VkBool32 VmaMemoryRequirements::neverAllocate</td>
+          <td class="memname"><a class="el" href="group__layer1.html#gab96b90d34cd1bd0f340fc48f8ca2664a">VmaMemoryRequirementFlags</a> VmaMemoryRequirements::flags</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Set this flag to only try to allocate from existing VkDeviceMemory blocks and never create new such block. </p>
-<p>If new allocation cannot be placed in any of the existing blocks, allocation fails with VK_ERROR_OUT_OF_DEVICE_MEMORY error.</p>
-<p>It makes no sense to set ownMemory and neverAllocate at the same time. </p>
-
-</div>
-</div>
-<a id="a401cdf684f8a13c8ff3bb469a1759153"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a401cdf684f8a13c8ff3bb469a1759153">&#9670;&nbsp;</a></span>ownMemory</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">VkBool32 VmaMemoryRequirements::ownMemory</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Set to true if this allocation should have its own memory block. </p>
-<p>Use it for special, big resources, like fullscreen images used as attachments.</p>
-<p>This flag must also be used for host visible resources that you want to map simultaneously because otherwise they might end up as regions of the same VkDeviceMemory, while mapping same VkDeviceMemory multiple times is illegal. </p>
 
 </div>
 </div>
@@ -137,6 +114,22 @@ Public Attributes</h2></td></tr>
 
 <p>Flags that preferably should be set in a Memory Type chosen for an allocation. </p>
 <p>Set to 0 if no additional flags are prefered and only requiredFlags should be used. If not 0, it must be a superset or equal to requiredFlags. </p>
+
+</div>
+</div>
+<a id="a8470093e93ed07ed2557490cdc67566a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8470093e93ed07ed2557490cdc67566a">&#9670;&nbsp;</a></span>pUserData</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void* VmaMemoryRequirements::pUserData</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaMemoryRequirements::pUserData or set using vmaSe...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
 
 </div>
 </div>

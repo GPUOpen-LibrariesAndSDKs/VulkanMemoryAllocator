@@ -77,6 +77,11 @@ Classes</h2></td></tr>
 Typedefs</h2></td></tr>
 <tr class="memitem:gad63b2113c0bfdbeade1cb498f5a8580d"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="group__layer1.html#gaa5846affa1e9da3800e3e78fae2305cc">VmaMemoryUsage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__layer1.html#gad63b2113c0bfdbeade1cb498f5a8580d">VmaMemoryUsage</a></td></tr>
 <tr class="separator:gad63b2113c0bfdbeade1cb498f5a8580d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gaecb50b7fdb759cc4c4346c40819bf00b"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="group__layer1.html#gadec54ccdb0fd3901e89ac6d38c2619ed">VmaMemoryRequirementFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__layer1.html#gaecb50b7fdb759cc4c4346c40819bf00b">VmaMemoryRequirementFlagBits</a></td></tr>
+<tr class="memdesc:gaecb50b7fdb759cc4c4346c40819bf00b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_memory_requirements.html#a53c9ea8c3cbcc12dddbe9ae23bb85eb6">VmaMemoryRequirements::flags</a>.  <a href="#gaecb50b7fdb759cc4c4346c40819bf00b">More...</a><br /></td></tr>
+<tr class="separator:gaecb50b7fdb759cc4c4346c40819bf00b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gab96b90d34cd1bd0f340fc48f8ca2664a"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__layer1.html#gab96b90d34cd1bd0f340fc48f8ca2664a">VmaMemoryRequirementFlags</a></td></tr>
+<tr class="separator:gab96b90d34cd1bd0f340fc48f8ca2664a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae9ee98bebd6e474aa0ef679e10f1d8ca"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_memory_requirements.html">VmaMemoryRequirements</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__layer1.html#gae9ee98bebd6e474aa0ef679e10f1d8ca">VmaMemoryRequirements</a></td></tr>
 <tr class="separator:gae9ee98bebd6e474aa0ef679e10f1d8ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -93,6 +98,13 @@ Enumerations</h2></td></tr>
 <br />
  }</td></tr>
 <tr class="separator:gaa5846affa1e9da3800e3e78fae2305cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gadec54ccdb0fd3901e89ac6d38c2619ed"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__layer1.html#gadec54ccdb0fd3901e89ac6d38c2619ed">VmaMemoryRequirementFlagBits</a> { <a class="el" href="group__layer1.html#ggadec54ccdb0fd3901e89ac6d38c2619eda9831d98a698347b0cd1594db6a29e8ed">VMA_MEMORY_REQUIREMENT_OWN_MEMORY_BIT</a> = 0x00000001, 
+<a class="el" href="group__layer1.html#ggadec54ccdb0fd3901e89ac6d38c2619edae1a503c29619c0c9885521d371e9b4c4">VMA_MEMORY_REQUIREMENT_NEVER_ALLOCATE_BIT</a> = 0x00000002, 
+<a class="el" href="group__layer1.html#ggadec54ccdb0fd3901e89ac6d38c2619edae75c9dde227c9d4f64693b1e004106dc">VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT</a> = 0x00000004, 
+<a class="el" href="group__layer1.html#ggadec54ccdb0fd3901e89ac6d38c2619eda11f849416519c61bebd90e2e7ecbab21">VMA_MEMORY_REQUIREMENT_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+ }<tr class="memdesc:gadec54ccdb0fd3901e89ac6d38c2619ed"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_memory_requirements.html#a53c9ea8c3cbcc12dddbe9ae23bb85eb6">VmaMemoryRequirements::flags</a>.  <a href="group__layer1.html#gadec54ccdb0fd3901e89ac6d38c2619ed">More...</a><br /></td></tr>
+</td></tr>
+<tr class="separator:gadec54ccdb0fd3901e89ac6d38c2619ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -101,6 +113,36 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <h2 class="groupheader">Typedef Documentation</h2>
+<a id="gaecb50b7fdb759cc4c4346c40819bf00b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gaecb50b7fdb759cc4c4346c40819bf00b">&#9670;&nbsp;</a></span>VmaMemoryRequirementFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="group__layer1.html#gadec54ccdb0fd3901e89ac6d38c2619ed">VmaMemoryRequirementFlagBits</a>  <a class="el" href="group__layer1.html#gadec54ccdb0fd3901e89ac6d38c2619ed">VmaMemoryRequirementFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags to be passed as <a class="el" href="struct_vma_memory_requirements.html#a53c9ea8c3cbcc12dddbe9ae23bb85eb6">VmaMemoryRequirements::flags</a>. </p>
+
+</div>
+</div>
+<a id="gab96b90d34cd1bd0f340fc48f8ca2664a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gab96b90d34cd1bd0f340fc48f8ca2664a">&#9670;&nbsp;</a></span>VmaMemoryRequirementFlags</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef VkFlags <a class="el" href="group__layer1.html#gab96b90d34cd1bd0f340fc48f8ca2664a">VmaMemoryRequirementFlags</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="gae9ee98bebd6e474aa0ef679e10f1d8ca"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#gae9ee98bebd6e474aa0ef679e10f1d8ca">&#9670;&nbsp;</a></span>VmaMemoryRequirements</h2>
 
@@ -130,6 +172,36 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="gadec54ccdb0fd3901e89ac6d38c2619ed"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gadec54ccdb0fd3901e89ac6d38c2619ed">&#9670;&nbsp;</a></span>VmaMemoryRequirementFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__layer1.html#gadec54ccdb0fd3901e89ac6d38c2619ed">VmaMemoryRequirementFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags to be passed as <a class="el" href="struct_vma_memory_requirements.html#a53c9ea8c3cbcc12dddbe9ae23bb85eb6">VmaMemoryRequirements::flags</a>. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggadec54ccdb0fd3901e89ac6d38c2619eda9831d98a698347b0cd1594db6a29e8ed"></a>VMA_MEMORY_REQUIREMENT_OWN_MEMORY_BIT&#160;</td><td class="fielddoc"><p>Set this flag if the allocation should have its own memory block. </p>
+<p>Use it for special, big resources, like fullscreen images used as attachments.</p>
+<p>This flag must also be used for host visible resources that you want to map simultaneously because otherwise they might end up as regions of the same VkDeviceMemory, while mapping same VkDeviceMemory multiple times is illegal. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggadec54ccdb0fd3901e89ac6d38c2619edae1a503c29619c0c9885521d371e9b4c4"></a>VMA_MEMORY_REQUIREMENT_NEVER_ALLOCATE_BIT&#160;</td><td class="fielddoc"><p>Set this flag to only try to allocate from existing VkDeviceMemory blocks and never create new such block. </p>
+<p>If new allocation cannot be placed in any of the existing blocks, allocation fails with VK_ERROR_OUT_OF_DEVICE_MEMORY error.</p>
+<p>It makes no sense to set VMA_MEMORY_REQUIREMENT_OWN_MEMORY_BIT and VMA_MEMORY_REQUIREMENT_NEVER_ALLOCATE_BIT at the same time. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggadec54ccdb0fd3901e89ac6d38c2619edae75c9dde227c9d4f64693b1e004106dc"></a>VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT&#160;</td><td class="fielddoc"><p>Set to use a memory that will be persistently mapped and retrieve pointer to it. </p>
+<p>Pointer to mapped memory will be returned through ppMappedData. You cannot map the memory on your own as multiple maps of a single VkDeviceMemory are illegal. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggadec54ccdb0fd3901e89ac6d38c2619eda11f849416519c61bebd90e2e7ecbab21"></a>VMA_MEMORY_REQUIREMENT_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
 <a id="gaa5846affa1e9da3800e3e78fae2305cc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#gaa5846affa1e9da3800e3e78fae2305cc">&#9670;&nbsp;</a></span>VmaMemoryUsage</h2>
 
@@ -147,10 +219,13 @@ Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7"></a>VMA_MEMORY_USAGE_GPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be used on device only, no need to be mapped on host. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5"></a>VMA_MEMORY_USAGE_CPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be mapped on host. Could be used for transfer to device. </p>
+<p>Guarantees to be HOST_VISIBLE and HOST_COHERENT. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca9066b52c5a7079bb74a69aaf8b92ff67"></a>VMA_MEMORY_USAGE_CPU_TO_GPU&#160;</td><td class="fielddoc"><p>Memory will be used for frequent (dynamic) updates from host and reads on device. </p>
+<p>Guarantees to be HOST_VISIBLE. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27"></a>VMA_MEMORY_USAGE_GPU_TO_CPU&#160;</td><td class="fielddoc"><p>Memory will be used for writing on device and readback on host. </p>
+<p>Guarantees to be HOST_VISIBLE. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca091e69437ef693e8d0d287f1c719ba6e"></a>VMA_MEMORY_USAGE_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>

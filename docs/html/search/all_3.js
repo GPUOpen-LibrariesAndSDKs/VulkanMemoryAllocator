@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['layer_201_20choosing_20memory_20type',['Layer 1 Choosing Memory Type',['../group__layer1.html',1,'']]],
-  ['layer_202_20allocating_20memory',['Layer 2 Allocating Memory',['../group__layer2.html',1,'']]],
-  ['layer_203_20creating_20buffers_20and_20images',['Layer 3 Creating Buffers and Images',['../group__layer3.html',1,'']]]
+  ['flags',['flags',['../struct_vma_allocator_create_info.html#a35d3b42ac5a3be3758926819dc053859',1,'VmaAllocatorCreateInfo::flags()'],['../struct_vma_memory_requirements.html#a53c9ea8c3cbcc12dddbe9ae23bb85eb6',1,'VmaMemoryRequirements::flags()']]]
 ];
