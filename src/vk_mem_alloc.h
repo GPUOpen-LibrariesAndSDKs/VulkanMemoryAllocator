@@ -354,7 +354,7 @@ typedef enum VmaMemoryRequirementFlagBits {
     VMA_MEMORY_REQUIREMENT_NEVER_ALLOCATE_BIT = 0x00000002,
     /** \brief Set to use a memory that will be persistently mapped and retrieve pointer to it.
     
-    Pointer to mapped memory will be returned through ppMappedData. You cannot
+    Pointer to mapped memory will be returned through VmaAllocationInfo::pMappedData. You cannot
     map the memory on your own as multiple maps of a single VkDeviceMemory are
     illegal.
     */
