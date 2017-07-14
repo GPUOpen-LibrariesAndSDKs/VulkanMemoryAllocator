@@ -9,3 +9,4 @@ This is a README file for Vulkan Memory Allocator library and accompanying sampl
 **Changelog:** See [CHANGELOG.md](CHANGELOG.md).
 
 **Build status:** [![Build status](https://ci.appveyor.com/api/projects/status/4vlcrb0emkaio2pn/branch/master?svg=true)](https://ci.appveyor.com/project/adam-sawicki-amd/vulkanmemoryallocator/branch/master)
+
