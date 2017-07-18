@@ -223,7 +223,7 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function VmaGetAllocationInfo().</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
@@ -278,7 +278,7 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function VmaGetAllocationInfo().</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
@@ -640,8 +640,11 @@ for(size_t i = 0; i &lt; allocations.size(); ++i)
 </div><div class="memdoc">
 
 <p>Unmaps persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL. </p>
-<p>This is optional performance optimization. You should call it on Windows for time of call to vkQueueSubmit and vkQueuePresent, for performance reasons, because of the internal behavior of WDDM.</p>
-<p>After this call <a class="el" href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2" title="Pointer to the beginning of this allocation as mapped data. Null if this alloaction is not persistent...">VmaAllocationInfo::pMappedData</a> of some allocations may become null.</p>
+<p>This is optional performance optimization. On Windows you should call it before every call to vkQueueSubmit and vkQueuePresent. After which you can remap the allocations again using <a class="el" href="group__layer2.html#ga03366170bb8e186605518d2f5d65b85a" title="Maps back persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL. ">vmaMapPersistentlyMappedMemory()</a>. This is because of the internal behavior of WDDM. Example:</p>
+<pre class="fragment">vmaUnmapPersistentlyMappedMemory(allocator);
+vkQueueSubmit(...)
+vmaMapPersistentlyMappedMemory(allocator);
+</pre><p>After this call <a class="el" href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2" title="Pointer to the beginning of this allocation as mapped data. Null if this alloaction is not persistent...">VmaAllocationInfo::pMappedData</a> of some allocations may become null.</p>
 <p>This call is reference-counted. Memory is mapped again after you call <a class="el" href="group__layer2.html#ga03366170bb8e186605518d2f5d65b85a" title="Maps back persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL. ">vmaMapPersistentlyMappedMemory()</a> same number of times that you called <a class="el" href="group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27" title="Unmaps persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL. ">vmaUnmapPersistentlyMappedMemory()</a>. </p>
 
 </div>

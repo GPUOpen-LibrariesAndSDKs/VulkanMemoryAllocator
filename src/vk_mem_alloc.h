@@ -455,7 +455,7 @@ typedef struct VmaAllocationInfo {
 /** \brief General purpose memory allocation.
 
 @param[out] pAllocation Handle to allocated memory.
-@param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function VmaGetAllocationInfo().
+@param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
 
 You should free the memory using vmaFreeMemory().
 
@@ -471,7 +471,7 @@ VkResult vmaAllocateMemory(
 
 /**
 @param[out] pAllocation Handle to allocated memory.
-@param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function VmaGetAllocationInfo().
+@param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
 
 You should free the memory using vmaFreeMemory().
 */
@@ -526,9 +526,15 @@ void vmaUnmapMemory(
 
 /** \brief Unmaps persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL.
 
-This is optional performance optimization. You should call it on Windows for
-time of call to vkQueueSubmit and vkQueuePresent, for performance reasons,
-because of the internal behavior of WDDM.
+This is optional performance optimization. On Windows you should call it before
+every call to vkQueueSubmit and vkQueuePresent. After which you can remap the
+allocations again using vmaMapPersistentlyMappedMemory(). This is because of the
+internal behavior of WDDM. Example:
+
+
+    vmaUnmapPersistentlyMappedMemory(allocator);
+    vkQueueSubmit(...)
+    vmaMapPersistentlyMappedMemory(allocator);
 
 After this call VmaAllocationInfo::pMappedData of some allocations may become null.
 

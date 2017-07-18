@@ -195,7 +195,7 @@ Functions</h2></td></tr>
 <p>It makes no sense to set VMA_MEMORY_REQUIREMENT_OWN_MEMORY_BIT and VMA_MEMORY_REQUIREMENT_NEVER_ALLOCATE_BIT at the same time. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggadec54ccdb0fd3901e89ac6d38c2619edae75c9dde227c9d4f64693b1e004106dc"></a>VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT&#160;</td><td class="fielddoc"><p>Set to use a memory that will be persistently mapped and retrieve pointer to it. </p>
-<p>Pointer to mapped memory will be returned through ppMappedData. You cannot map the memory on your own as multiple maps of a single VkDeviceMemory are illegal. </p>
+<p>Pointer to mapped memory will be returned through <a class="el" href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2" title="Pointer to the beginning of this allocation as mapped data. Null if this alloaction is not persistent...">VmaAllocationInfo::pMappedData</a>. You cannot map the memory on your own as multiple maps of a single VkDeviceMemory are illegal. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggadec54ccdb0fd3901e89ac6d38c2619eda11f849416519c61bebd90e2e7ecbab21"></a>VMA_MEMORY_REQUIREMENT_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
