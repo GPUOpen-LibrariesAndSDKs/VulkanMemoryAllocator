@@ -836,11 +836,11 @@ remove them if not needed.
 #if VMA_STATS_STRING_ENABLED
    static inline void VmaUint32ToStr(char* outStr, size_t strLen, uint32_t num)
    {
-       _ultoa_s(num, outStr, strLen, 10);
+       snprintf(outStr, strLen, "%u", num);
    }
    static inline void VmaUint64ToStr(char* outStr, size_t strLen, uint64_t num)
    {
-       _ui64toa_s(num, outStr, strLen, 10);
+       snprintf(outStr, strLen, "%llu", num);
    }
 #endif
 
