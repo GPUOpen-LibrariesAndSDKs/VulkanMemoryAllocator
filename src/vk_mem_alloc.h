@@ -836,11 +836,11 @@ remove them if not needed.
 #if VMA_STATS_STRING_ENABLED
    static inline void VmaUint32ToStr(char* outStr, size_t strLen, uint32_t num)
    {
-       snprintf(outStr, strLen, "%u", num);
+       snprintf(outStr, strLen, "%u", static_cast<unsigned int>(num));
    }
    static inline void VmaUint64ToStr(char* outStr, size_t strLen, uint64_t num)
    {
-       snprintf(outStr, strLen, "%llu", num);
+       snprintf(outStr, strLen, "%llu", static_cast<unsigned long long>(num));
    }
 #endif
 
@@ -2297,23 +2297,28 @@ private:
     ALLOCATION_TYPE m_Type;
     VmaSuballocationType m_SuballocationType;
 
+    // Allocation out of VmaBlock.
+    struct BlockAllocation
+    {
+        VmaBlock* m_Block;
+        VkDeviceSize m_Offset;
+    };
+
+    // Allocation for an object that has its own private VkDeviceMemory.
+    struct OwnAllocation
+    {
+        uint32_t m_MemoryTypeIndex;
+        VkDeviceMemory m_hMemory;
+        bool m_PersistentMap;
+        void* m_pMappedData;
+    };
+
     union
     {
         // Allocation out of VmaBlock.
-        struct BlockAllocation
-        {
-            VmaBlock* m_Block;
-            VkDeviceSize m_Offset;
-        } m_BlockAllocation;
-
+        BlockAllocation m_BlockAllocation;
         // Allocation for an object that has its own private VkDeviceMemory.
-        struct OwnAllocation
-        {
-            uint32_t m_MemoryTypeIndex;
-            VkDeviceMemory m_hMemory;
-            bool m_PersistentMap;
-            void* m_pMappedData;
-        } m_OwnAllocation;
+        OwnAllocation m_OwnAllocation;
     };
 };
 
