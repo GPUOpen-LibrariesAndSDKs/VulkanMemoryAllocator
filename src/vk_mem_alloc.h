@@ -667,17 +667,20 @@ VkResult vmaDefragment(
 /**
 @param[out] pBuffer Buffer that was created.
 @param[out] pAllocation Allocation that was created.
-@param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function VmaGetAllocationInfo().
+@param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
 
 This function automatically:
 
--# Creates buffer/image.
+-# Creates buffer.
 -# Allocates appropriate memory for it.
--# Binds the buffer/image with the memory.
+-# Binds the buffer with the memory.
 
-You do not (and should not) pass returned pMemory to vmaFreeMemory. Only calling
-vmaDestroyBuffer() / vmaDestroyImage() is required for objects created using
-vmaCreateBuffer() / vmaCreateImage().
+If any of these operations fail, buffer and allocation are not created,
+returned value is negative error code, *pBuffer and *pAllocation are null.
+
+If the function succeeded, you must destroy both buffer and allocation when you
+no longer need them using either convenience function vmaDestroyBuffer() or
+separately, using vkDestroyBuffer() and vmaFreeMemory().
 */
 VkResult vmaCreateBuffer(
     VmaAllocator allocator,
@@ -5285,6 +5288,9 @@ VkResult vmaCreateBuffer(
     
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+    *pBuffer = VK_NULL_HANDLE;
+    *pAllocation = VK_NULL_HANDLE;
+
     // 1. Create VkBuffer.
     VkResult res = vkCreateBuffer(allocator->m_hDevice, pCreateInfo, allocator->GetAllocationCallbacks(), pBuffer);
     if(res >= 0)
@@ -5313,9 +5319,11 @@ VkResult vmaCreateBuffer(
                 return VK_SUCCESS;
             }
             allocator->FreeMemory(*pAllocation);
+            *pAllocation = VK_NULL_HANDLE;
             return res;
         }
         vkDestroyBuffer(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
+        *pBuffer = VK_NULL_HANDLE;
         return res;
     }
     return res;
@@ -5354,6 +5362,9 @@ VkResult vmaCreateImage(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+    *pImage = VK_NULL_HANDLE;
+    *pAllocation = VK_NULL_HANDLE;
+
     // 1. Create VkImage.
     VkResult res = vkCreateImage(allocator->m_hDevice, pCreateInfo, allocator->GetAllocationCallbacks(), pImage);
     if(res >= 0)
@@ -5379,9 +5390,11 @@ VkResult vmaCreateImage(
                 return VK_SUCCESS;
             }
             allocator->FreeMemory(*pAllocation);
+            *pAllocation = VK_NULL_HANDLE;
             return res;
         }
         vkDestroyImage(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
+        *pImage = VK_NULL_HANDLE;
         return res;
     }
     return res;

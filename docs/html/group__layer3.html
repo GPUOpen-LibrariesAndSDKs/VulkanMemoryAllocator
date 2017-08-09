@@ -132,17 +132,18 @@ Functions</h2></td></tr>
   <table class="params">
     <tr><td class="paramdir">[out]</td><td class="paramname">pBuffer</td><td>Buffer that was created. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Allocation that was created. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function VmaGetAllocationInfo().</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
 <p>This function automatically:</p>
 <ol type="1">
-<li>Creates buffer/image.</li>
+<li>Creates buffer.</li>
 <li>Allocates appropriate memory for it.</li>
-<li>Binds the buffer/image with the memory.</li>
+<li>Binds the buffer with the memory.</li>
 </ol>
-<p>You do not (and should not) pass returned pMemory to vmaFreeMemory. Only calling <a class="el" href="group__layer3.html#ga0d9f4e4ba5bf9aab1f1c746387753d77">vmaDestroyBuffer()</a> / <a class="el" href="group__layer3.html#gae50d2cb3b4a3bfd4dd40987234e50e7e">vmaDestroyImage()</a> is required for objects created using <a class="el" href="group__layer3.html#ga2f711e32e95cf9bf8dff4917230c2e9b">vmaCreateBuffer()</a> / <a class="el" href="group__layer3.html#ga9e34bc318ff4b25d1958e79b9db3f1aa" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a>. </p>
+<p>If any of these operations fail, buffer and allocation are not created, returned value is negative error code, *pBuffer and *pAllocation are null.</p>
+<p>If the function succeeded, you must destroy both buffer and allocation when you no longer need them using either convenience function <a class="el" href="group__layer3.html#ga0d9f4e4ba5bf9aab1f1c746387753d77">vmaDestroyBuffer()</a> or separately, using vkDestroyBuffer() and <a class="el" href="group__layer2.html#ga11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a>. </p>
 
 </div>
 </div>
