@@ -1243,13 +1243,13 @@ public:
 #define VmaVector std::vector
 
 template<typename T, typename allocatorT>
-static void VectorInsert(std::vector<T, allocatorT>& vec, size_t index, const T& item)
+static void VmaVectorInsert(std::vector<T, allocatorT>& vec, size_t index, const T& item)
 {
     vec.insert(vec.begin() + index, item);
 }
 
 template<typename T, typename allocatorT>
-static void VectorRemove(std::vector<T, allocatorT>& vec, size_t index)
+static void VmaVectorRemove(std::vector<T, allocatorT>& vec, size_t index)
 {
     vec.erase(vec.begin() + index);
 }
@@ -1461,13 +1461,13 @@ private:
 };
 
 template<typename T, typename allocatorT>
-static void VectorInsert(VmaVector<T, allocatorT>& vec, size_t index, const T& item)
+static void VmaVectorInsert(VmaVector<T, allocatorT>& vec, size_t index, const T& item)
 {
     vec.insert(index, item);
 }
 
 template<typename T, typename allocatorT>
-static void VectorRemove(VmaVector<T, allocatorT>& vec, size_t index)
+static void VmaVectorRemove(VmaVector<T, allocatorT>& vec, size_t index)
 {
     vec.remove(index);
 }
@@ -2139,7 +2139,7 @@ void VmaMap<KeyT, ValueT>::insert(const PairType& pair)
         m_Vector.data() + m_Vector.size(),
         pair,
         VmaPairFirstLess<KeyT, ValueT>()) - m_Vector.data();
-    VectorInsert(m_Vector, indexToInsert, pair);
+    VmaVectorInsert(m_Vector, indexToInsert, pair);
 }
 
 template<typename KeyT, typename ValueT>
@@ -2163,7 +2163,7 @@ VmaPair<KeyT, ValueT>* VmaMap<KeyT, ValueT>::find(const KeyT& key)
 template<typename KeyT, typename ValueT>
 void VmaMap<KeyT, ValueT>::erase(iterator it)
 {
-    VectorRemove(m_Vector, it - m_Vector.begin());
+    VmaVectorRemove(m_Vector, it - m_Vector.begin());
 }
 
 #endif // #if VMA_USE_STL_UNORDERED_MAP
@@ -3376,7 +3376,7 @@ void VmaBlock::RegisterFreeSuballocation(VmaSuballocationList::iterator item)
                 item,
                 VmaSuballocationItemSizeLess());
             size_t index = it - m_FreeSuballocationsBySize.data();
-            VectorInsert(m_FreeSuballocationsBySize, index, item);
+            VmaVectorInsert(m_FreeSuballocationsBySize, index, item);
         }
     }
 }
@@ -3399,7 +3399,7 @@ void VmaBlock::UnregisterFreeSuballocation(VmaSuballocationList::iterator item)
         {
             if(m_FreeSuballocationsBySize[index] == item)
             {
-                VectorRemove(m_FreeSuballocationsBySize, index);
+                VmaVectorRemove(m_FreeSuballocationsBySize, index);
                 return;
             }
             VMA_ASSERT((m_FreeSuballocationsBySize[index]->size == item->size) && "Not found.");
@@ -3492,7 +3492,7 @@ void VmaBlockVector::Remove(VmaBlock* pBlock)
     {
         if(m_Blocks[blockIndex] == pBlock)
         {
-            VectorRemove(m_Blocks, blockIndex);
+            VmaVectorRemove(m_Blocks, blockIndex);
             return;
         }
     }
@@ -3878,7 +3878,7 @@ VkResult VmaDefragmentator::DefragmentRound(
                 ++m_AllocationsMoved;
                 m_BytesMoved += size;
 
-                VectorRemove(pSrcBlockInfo->m_Allocations, srcAllocIndex);
+                VmaVectorRemove(pSrcBlockInfo->m_Allocations, srcAllocIndex);
 
                 break;
             }
@@ -4304,7 +4304,7 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
             pOwnAllocationsEnd,
             *pAllocation,
             VmaPointerLess()) - pOwnAllocationsBeg;
-        VectorInsert(*pOwnAllocations, indexToInsert, *pAllocation);
+        VmaVectorInsert(*pOwnAllocations, indexToInsert, *pAllocation);
     }
 
     VMA_DEBUG_LOG("    Allocated OwnMemory MemoryTypeIndex=#%u", memTypeIndex);
@@ -4651,7 +4651,7 @@ VkResult VmaAllocator_T::Defragment(
                             pDefragmentationStats->bytesFreed += pBlock->m_Size;
                         }
 
-                        VectorRemove(pBlockVector->m_Blocks, blockIndex);
+                        VmaVectorRemove(pBlockVector->m_Blocks, blockIndex);
                         pBlock->Destroy(this);
                         vma_delete(this, pBlock);
                     }
@@ -4707,7 +4707,7 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
         if(pOwnAllocationIt != pOwnAllocationsEnd)
         {
             const size_t ownAllocationIndex = pOwnAllocationIt - pOwnAllocationsBeg;
-            VectorRemove(*pOwnAllocations, ownAllocationIndex);
+            VmaVectorRemove(*pOwnAllocations, ownAllocationIndex);
         }
         else
         {
