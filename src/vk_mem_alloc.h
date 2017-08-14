@@ -5112,16 +5112,18 @@ VkResult vmaAllocateMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return allocator->AllocateMemory(
+	VkResult result = allocator->AllocateMemory(
         *pVkMemoryRequirements,
         *pVmaMemoryRequirements,
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         pAllocation);
 
-    if(pAllocationInfo)
+    if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
     }
+
+	return result;
 }
 
 VkResult vmaAllocateMemoryForBuffer(
@@ -5140,16 +5142,18 @@ VkResult vmaAllocateMemoryForBuffer(
     VkMemoryRequirements vkMemReq = {};
     vkGetBufferMemoryRequirements(allocator->m_hDevice, buffer, &vkMemReq);
 
-    return allocator->AllocateMemory(
+    VkResult result = allocator->AllocateMemory(
         vkMemReq,
         *pMemoryRequirements,
         VMA_SUBALLOCATION_TYPE_BUFFER,
         pAllocation);
 
-    if(pAllocationInfo)
+    if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
     }
+
+	return result;
 }
 
 VkResult vmaAllocateMemoryForImage(
@@ -5165,17 +5169,19 @@ VkResult vmaAllocateMemoryForImage(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return AllocateMemoryForImage(
+    VkResult result = AllocateMemoryForImage(
         allocator,
         image,
         pMemoryRequirements,
         VMA_SUBALLOCATION_TYPE_IMAGE_UNKNOWN,
         pAllocation);
 
-    if(pAllocationInfo)
+    if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
     }
+
+	return result;
 }
 
 void vmaFreeMemory(
