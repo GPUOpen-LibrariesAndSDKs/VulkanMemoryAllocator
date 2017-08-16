@@ -361,38 +361,16 @@ static void CreateMesh()
     vmaDestroyBuffer(g_hAllocator, stagingVertexBuffer, stagingVertexBufferAlloc);
 }
 
-static void CopyImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height, uint32_t mipLevel)
-{
-    BeginSingleTimeCommands();
-
-    VkImageCopy imageCopy = {};
-    imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopy.srcSubresource.baseArrayLayer = 0;
-    imageCopy.srcSubresource.mipLevel = mipLevel;
-    imageCopy.srcSubresource.layerCount = 1;
-    imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopy.dstSubresource.baseArrayLayer = 0;
-    imageCopy.dstSubresource.mipLevel = mipLevel;
-    imageCopy.dstSubresource.layerCount = 1;
-    imageCopy.srcOffset.x = 0;
-    imageCopy.srcOffset.y = 0;
-    imageCopy.srcOffset.z = 0;
-    imageCopy.dstOffset.x = 0;
-    imageCopy.dstOffset.y = 0;
-    imageCopy.dstOffset.z = 0;
-    imageCopy.extent.width = width;
-    imageCopy.extent.height = height;
-    imageCopy.extent.depth = 1;
-    vkCmdCopyImage(
-        g_hTemporaryCommandBuffer,
-        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &imageCopy);
-
-    EndSingleTimeCommands();
-}
-
-static void TransitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevelCount, VkImageLayout oldLayout, VkImageLayout newLayout)
+static void ImageBarrier(
+   VkImage image,
+   VkImageAspectFlags aspectMask,
+   uint32_t mipLevelCount,
+   VkImageLayout oldLayout,
+   VkImageLayout newLayout,
+   VkAccessFlags srcAccessMask,
+   VkAccessFlags dstAccessMask,
+   VkPipelineStageFlags srcStageMask,
+   VkPipelineStageFlags dstStageMask)
 {
     BeginSingleTimeCommands();
 
@@ -402,60 +380,18 @@ static void TransitionImageLayout(VkImage image, VkFormat format, uint32_t mipLe
     imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imgMemBarrier.image = image;
-    imgMemBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imgMemBarrier.subresourceRange.aspectMask = aspectMask;
     imgMemBarrier.subresourceRange.baseMipLevel = 0;
     imgMemBarrier.subresourceRange.levelCount = mipLevelCount;
     imgMemBarrier.subresourceRange.baseArrayLayer = 0;
     imgMemBarrier.subresourceRange.layerCount = 1;
-
-    if((oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED) &&
-        (newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL))
-    {
-        imgMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    }
-    else if((oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED) &&
-        (newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
-    {
-        imgMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    }
-    else if((oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) &&
-        (newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
-    {
-        imgMemBarrier.srcAccessMask = 0;
-        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    }
-    else if((oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) &&
-        (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
-    {
-        imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imgMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    }
-    else if ((oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) &&
-        (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL))
-    {
-        imgMemBarrier.srcAccessMask = 0;
-        imgMemBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    }
-    else
-        assert(0);
-
-    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-    {
-        imgMemBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        if ((format == VK_FORMAT_D16_UNORM_S8_UINT) ||
-            (format == VK_FORMAT_D24_UNORM_S8_UINT) ||
-            (format == VK_FORMAT_D32_SFLOAT_S8_UINT))
-        {
-            imgMemBarrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-        }
-    }
+    imgMemBarrier.srcAccessMask = srcAccessMask;
+    imgMemBarrier.dstAccessMask = dstAccessMask;
 
     vkCmdPipelineBarrier(
         g_hTemporaryCommandBuffer,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        srcStageMask,
+        dstStageMask,
         0,
         0, nullptr,
         0, nullptr,
@@ -521,6 +457,8 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
 
     // No need to flush stagingImage memory because CPU_ONLY memory is always HOST_COHERENT.
 
+    // Create g_hTextureImage in GPU memory.
+
     VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.extent.width = sizeX;
@@ -535,29 +473,94 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.flags = 0;
+
     VmaMemoryRequirements imageMemReq = {};
     imageMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    
     ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageMemReq, &g_hTextureImage, &g_hTextureImageAlloc, nullptr) );
 
-    TransitionImageLayout(
-        stagingImage,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        1,
-        VK_IMAGE_LAYOUT_PREINITIALIZED,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    TransitionImageLayout(
-        g_hTextureImage,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        1,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    CopyImage(stagingImage, g_hTextureImage, sizeX, sizeY, 0);
-    TransitionImageLayout(
-        g_hTextureImage,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        1,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // Transition image layouts, copy image.
+
+    BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier imgMemBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imgMemBarrier.image = stagingImage;
+    imgMemBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imgMemBarrier.subresourceRange.baseMipLevel = 0;
+    imgMemBarrier.subresourceRange.levelCount = 1;
+    imgMemBarrier.subresourceRange.baseArrayLayer = 0;
+    imgMemBarrier.subresourceRange.layerCount = 1;
+    imgMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        g_hTemporaryCommandBuffer,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imgMemBarrier);
+
+    imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imgMemBarrier.image = g_hTextureImage;
+    imgMemBarrier.srcAccessMask = 0;
+    imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        g_hTemporaryCommandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imgMemBarrier);
+
+    VkImageCopy imageCopy = {};
+    imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopy.srcSubresource.baseArrayLayer = 0;
+    imageCopy.srcSubresource.mipLevel = 0;
+    imageCopy.srcSubresource.layerCount = 1;
+    imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopy.dstSubresource.baseArrayLayer = 0;
+    imageCopy.dstSubresource.mipLevel = 0;
+    imageCopy.dstSubresource.layerCount = 1;
+    imageCopy.srcOffset.x = 0;
+    imageCopy.srcOffset.y = 0;
+    imageCopy.srcOffset.z = 0;
+    imageCopy.dstOffset.x = 0;
+    imageCopy.dstOffset.y = 0;
+    imageCopy.dstOffset.z = 0;
+    imageCopy.extent.width = sizeX;
+    imageCopy.extent.height = sizeY;
+    imageCopy.extent.depth = 1;
+    vkCmdCopyImage(
+        g_hTemporaryCommandBuffer,
+        stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        g_hTextureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &imageCopy);
+
+    imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imgMemBarrier.image = g_hTextureImage;
+    imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imgMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        g_hTemporaryCommandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imgMemBarrier);
+
+    EndSingleTimeCommands();
 
     vmaDestroyImage(g_hAllocator, stagingImage, stagingImageAlloc);
 
@@ -787,12 +790,36 @@ static void CreateSwapchain()
 
     ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &depthImageViewInfo, nullptr, &g_hDepthImageView) );
 
-    TransitionImageLayout(
-        g_hDepthImage,
-        g_DepthFormat,
-        1,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    // Transition image layout of g_hDepthImage.
+
+    BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier imgMemBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imgMemBarrier.image = g_hDepthImage;
+    imgMemBarrier.subresourceRange.aspectMask = g_DepthFormat == VK_FORMAT_D32_SFLOAT ?
+        VK_IMAGE_ASPECT_DEPTH_BIT :
+        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    imgMemBarrier.subresourceRange.baseMipLevel = 0;
+    imgMemBarrier.subresourceRange.levelCount = 1;
+    imgMemBarrier.subresourceRange.baseArrayLayer = 0;
+    imgMemBarrier.subresourceRange.layerCount = 1;
+    imgMemBarrier.srcAccessMask = 0;
+    imgMemBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        g_hTemporaryCommandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imgMemBarrier);
+
+    EndSingleTimeCommands();
 
     // Create pipeline layout
     {
