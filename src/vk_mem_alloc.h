@@ -718,6 +718,7 @@ void vmaDestroyImage(
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 /*******************************************************************************
 CONFIGURATION SECTION
@@ -1300,7 +1301,7 @@ public:
     {
         if(&rhs != this)
         {
-            Resize(rhs.m_Count);
+            resize(rhs.m_Count);
             if(m_Count != 0)
             {
                 memcpy(m_pArray, rhs.m_pArray, m_Count * sizeof(T));
