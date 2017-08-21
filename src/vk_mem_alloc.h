@@ -1964,7 +1964,6 @@ public:
         }
 
         friend class VmaList<T, AllocatorT>;
-        friend class VmaList<T, AllocatorT>:: const_iterator;
     };
 
     class const_iterator
