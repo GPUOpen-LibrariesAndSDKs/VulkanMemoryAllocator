@@ -1,12 +1,41 @@
 language: cpp
+sudo: required
+os: linux
 dist: trusty
+
+branches:
+  only:
+    - master
 
 compiler:
   - clang
   - gcc
 
-install:
-  - curl https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/1.0.57.0/linux/vulkansdk-linux-x86_64-1.0.57.0.run
-  - ./vulkansdk-linux-x86_64-1.0.57.0.run
+before_script:
+  sudo apt-get -qq update
+  sudo apt-get install -y libassimp-dev libx11-xcb-dev libxrandr-dev
 
-script: echo "Foo"
+install:
+  - wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz
+  - tar -xzvf premake-5.0.0-alpha11-linux.tar.gz
+  - sudo apt-get update
+  - sudo apt-get dist-upgrade
+  - sudo apt-get install libglm-dev graphviz libxcb-dri3-0 libxcb-present0 libpciaccess0 cmake libpng-dev libxcb-dri3-dev libx11-dev libmirclient-dev libwayland-dev libxrandr-dev
+  - wget -O vulkansdk-linux-x86_64-1.0.51.0.run https://vulkan.lunarg.com/sdk/download/1.0.51.0/linux/vulkansdk-linux-x86_64-1.0.51.0.run
+  - chmod ugo+x vulkansdk-linux-x86_64-1.0.51.0.run
+  - ./vulkansdk-linux-x86_64-1.0.51.0.run
+  - export VULKAN_SDK=$TRAVIS_BUILD_DIR/VulkanSDK/1.0.51.0/x86_64
+
+script:
+  - cd premake
+  - ../premake5 gmake
+  - cd ../build
+  - make config=debug_linux-x64
+  - cd ..
+
+notifications:
+  email:
+    recipients:
+      - adam.sawicki@amd.com
+    on_success: change
+    on_failure: always

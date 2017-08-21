@@ -20,6 +20,8 @@
 // THE SOFTWARE.
 //
 
+#ifdef WIN32
+
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -1766,3 +1768,15 @@ int main()
 
     return 0;
 }
+
+#else // #ifdef WIN32
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
+int main()
+{
+}
+
+#endif // #ifdef WIN32
+
