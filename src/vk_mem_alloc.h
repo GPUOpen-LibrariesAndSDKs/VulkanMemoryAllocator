@@ -1106,7 +1106,7 @@ private:
 
 #if VMA_DEBUG_GLOBAL_MUTEX
     static VMA_MUTEX gDebugGlobalMutex;
-    #define VMA_DEBUG_GLOBAL_MUTEX_LOCK VmaMutexLock debugGlobalMutexLock(gDebugGlobalMutex);
+    #define VMA_DEBUG_GLOBAL_MUTEX_LOCK VmaMutexLock debugGlobalMutexLock(gDebugGlobalMutex, true);
 #else
     #define VMA_DEBUG_GLOBAL_MUTEX_LOCK
 #endif
@@ -2857,6 +2857,7 @@ void VmaBlock::Init(
 
 void VmaBlock::Destroy(VmaAllocator allocator)
 {
+    VMA_ASSERT(IsEmpty());
     VMA_ASSERT(m_hMemory != VK_NULL_HANDLE);
     if(m_pMappedData != VMA_NULL)
     {
