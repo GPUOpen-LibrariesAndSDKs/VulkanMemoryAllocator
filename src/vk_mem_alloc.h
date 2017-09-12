@@ -1226,7 +1226,7 @@ remove them if not needed.
 #include <cassert> // for assert
 #include <algorithm> // for min, max
 #include <mutex> // for std::mutex
-#include <atomic> // for std::atomic_int64_t
+#include <atomic> // for std::atomic_uint32_t
 
 #if !defined(_WIN32)
     #include <malloc.h> // for aligned_alloc()
@@ -1977,7 +1977,7 @@ template<typename CmpLess, typename VectorT>
 bool VmaVectorRemoveSorted(VectorT& vector, const typename VectorT::value_type& value)
 {
     CmpLess comparator;
-    VectorT::iterator it = VmaBinaryFindFirstNotLess(
+    typename VectorT::iterator it = VmaBinaryFindFirstNotLess(
         vector.data(),
         vector.data() + vector.size(),
         value,
@@ -1995,7 +1995,7 @@ template<typename CmpLess, typename VectorT>
 size_t VmaVectorFindSorted(const VectorT& vector, const typename VectorT::value_type& value)
 {
     CmpLess comparator;
-    VectorT::iterator it = VmaBinaryFindFirstNotLess(
+    typename VectorT::iterator it = VmaBinaryFindFirstNotLess(
         vector.data(),
         vector.data() + vector.size(),
         value,
