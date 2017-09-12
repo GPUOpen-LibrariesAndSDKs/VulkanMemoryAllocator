@@ -133,6 +133,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ga8701444752eb5de4464adb5a2b514bca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga8701444752eb5de4464adb5a2b514bca">vmaGetMemoryTypeProperties</a> (VmaAllocator allocator, uint32_t memoryTypeIndex, VkMemoryPropertyFlags *pFlags)</td></tr>
 <tr class="memdesc:ga8701444752eb5de4464adb5a2b514bca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given Memory Type Index, returns Property Flags of this memory type.  <a href="#ga8701444752eb5de4464adb5a2b514bca">More...</a><br /></td></tr>
 <tr class="separator:ga8701444752eb5de4464adb5a2b514bca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gade56bf8dc9f5a5eaddf5f119ed525236"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gade56bf8dc9f5a5eaddf5f119ed525236">vmaSetCurrentFrameIndex</a> (VmaAllocator allocator, uint32_t frameIndex)</td></tr>
+<tr class="memdesc:gade56bf8dc9f5a5eaddf5f119ed525236"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets index of the current frame.  <a href="#gade56bf8dc9f5a5eaddf5f119ed525236">More...</a><br /></td></tr>
+<tr class="separator:gade56bf8dc9f5a5eaddf5f119ed525236"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga333b61c1788cb23559177531e6a93ca3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga333b61c1788cb23559177531e6a93ca3">vmaCalculateStats</a> (VmaAllocator allocator, <a class="el" href="struct_vma_stats.html">VmaStats</a> *pStats)</td></tr>
 <tr class="memdesc:ga333b61c1788cb23559177531e6a93ca3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieves statistics from current state of the Allocator.  <a href="#ga333b61c1788cb23559177531e6a93ca3">More...</a><br /></td></tr>
 <tr class="separator:ga333b61c1788cb23559177531e6a93ca3"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -534,6 +537,37 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>PhysicalDeviceProperties are fetched from physicalDevice by the allocator. You can access it here, without fetching it again on your own. </p>
+
+</div>
+</div>
+<a id="gade56bf8dc9f5a5eaddf5f119ed525236"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gade56bf8dc9f5a5eaddf5f119ed525236">&#9670;&nbsp;</a></span>vmaSetCurrentFrameIndex()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaSetCurrentFrameIndex </td>
+          <td>(</td>
+          <td class="paramtype">VmaAllocator&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t&#160;</td>
+          <td class="paramname"><em>frameIndex</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets index of the current frame. </p>
+<p>This function must be used if you make allocations with <code>VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</code> and <code>VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</code> flags to inform the allocator when a new frame begins. Allocations queried using <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a> cannot become lost in the current frame. </p>
 
 </div>
 </div>

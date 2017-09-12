@@ -32,6 +32,7 @@
 #pragma warning(push, 4)
 #pragma warning(disable: 4127) // warning C4127: conditional expression is constant
 #pragma warning(disable: 4100) // warning C4100: '...': unreferenced formal parameter
+#pragma warning(disable: 4189) // warning C4189: '...': local variable is initialized but not referenced
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 #pragma warning(pop)
@@ -298,23 +299,23 @@ static void CreateMesh()
     vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VmaMemoryRequirements vbMemReq = {};
-    vbMemReq.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    vbMemReq.flags = VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT;
+    VmaAllocationCreateInfo vbAllocCreateInfo = {};
+    vbAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    vbAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
 
     VkBuffer stagingVertexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingVertexBufferAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingVertexBufferAllocInfo = {};
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbMemReq, &stagingVertexBuffer, &stagingVertexBufferAlloc, &stagingVertexBufferAllocInfo) );
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbAllocCreateInfo, &stagingVertexBuffer, &stagingVertexBufferAlloc, &stagingVertexBufferAllocInfo) );
 
     memcpy(stagingVertexBufferAllocInfo.pMappedData, vertices, vertexBufferSize);
 
     // No need to flush stagingVertexBuffer memory because CPU_ONLY memory is always HOST_COHERENT.
 
     vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    vbMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    vbMemReq.flags = 0;
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbMemReq, &g_hVertexBuffer, &g_hVertexBufferAlloc, nullptr) );
+    vbAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    vbAllocCreateInfo.flags = 0;
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbAllocCreateInfo, &g_hVertexBuffer, &g_hVertexBufferAlloc, nullptr) );
 
     // Create index buffer
 
@@ -323,23 +324,23 @@ static void CreateMesh()
     ibInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     ibInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
-    VmaMemoryRequirements ibMemReq = {};
-    ibMemReq.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    ibMemReq.flags = VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT;
+    VmaAllocationCreateInfo ibAllocCreateInfo = {};
+    ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    ibAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
     
     VkBuffer stagingIndexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingIndexBufferAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingIndexBufferAllocInfo = {};
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibMemReq, &stagingIndexBuffer, &stagingIndexBufferAlloc, &stagingIndexBufferAllocInfo) );
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibAllocCreateInfo, &stagingIndexBuffer, &stagingIndexBufferAlloc, &stagingIndexBufferAllocInfo) );
 
     memcpy(stagingIndexBufferAllocInfo.pMappedData, indices, indexBufferSize);
 
     // No need to flush stagingIndexBuffer memory because CPU_ONLY memory is always HOST_COHERENT.
 
     ibInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    ibMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    ibMemReq.flags = 0;
-    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibMemReq, &g_hIndexBuffer, &g_hIndexBufferAlloc, nullptr) );
+    ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    ibAllocCreateInfo.flags = 0;
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibAllocCreateInfo, &g_hIndexBuffer, &g_hIndexBufferAlloc, nullptr) );
 
     // Copy buffers
 
@@ -423,14 +424,14 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     stagingImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     stagingImageInfo.flags = 0;
     
-    VmaMemoryRequirements stagingImageMemReq = {};
-    stagingImageMemReq.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    stagingImageMemReq.flags = VMA_MEMORY_REQUIREMENT_PERSISTENT_MAP_BIT;
+    VmaAllocationCreateInfo stagingImageAllocCreateInfo = {};
+    stagingImageAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    stagingImageAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
     
     VkImage stagingImage = VK_NULL_HANDLE;
     VmaAllocation stagingImageAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingImageAllocInfo = {};
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &stagingImageInfo, &stagingImageMemReq, &stagingImage, &stagingImageAlloc, &stagingImageAllocInfo) );
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &stagingImageInfo, &stagingImageAllocCreateInfo, &stagingImage, &stagingImageAlloc, &stagingImageAllocInfo) );
 
     VkImageSubresource imageSubresource = {};
     imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -476,10 +477,10 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.flags = 0;
 
-    VmaMemoryRequirements imageMemReq = {};
-    imageMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    VmaAllocationCreateInfo imageAllocCreateInfo = {};
+    imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageMemReq, &g_hTextureImage, &g_hTextureImageAlloc, nullptr) );
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageAllocCreateInfo, &g_hTextureImage, &g_hTextureImageAlloc, nullptr) );
 
     // Transition image layouts, copy image.
 
@@ -775,10 +776,10 @@ static void CreateSwapchain()
     depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     depthImageInfo.flags = 0;
 
-    VmaMemoryRequirements depthImageMemReq = {};
-    depthImageMemReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    VmaAllocationCreateInfo depthImageAllocCreateInfo = {};
+    depthImageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &depthImageInfo, &depthImageMemReq, &g_hDepthImage, &g_hDepthImageAlloc, nullptr) );
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &depthImageInfo, &depthImageAllocCreateInfo, &g_hDepthImage, &g_hDepthImageAlloc, nullptr) );
 
     VkImageViewCreateInfo depthImageViewInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
     depthImageViewInfo.image = g_hDepthImage;

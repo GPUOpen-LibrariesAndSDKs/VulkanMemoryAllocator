@@ -8,8 +8,9 @@ var searchData=
   ['pfnfree',['pfnFree',['../struct_vma_device_memory_callbacks.html#abe8a3328bbc916f6f712fdb6b299444c',1,'VmaDeviceMemoryCallbacks']]],
   ['physicaldevice',['physicalDevice',['../struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156',1,'VmaAllocatorCreateInfo']]],
   ['pmappeddata',['pMappedData',['../struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2',1,'VmaAllocationInfo']]],
-  ['preferredflags',['preferredFlags',['../struct_vma_memory_requirements.html#a6e105f836c2288034c711815b18226dc',1,'VmaMemoryRequirements']]],
+  ['pool',['pool',['../struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150',1,'VmaAllocationCreateInfo']]],
+  ['preferredflags',['preferredFlags',['../struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d',1,'VmaAllocationCreateInfo']]],
   ['preferredlargeheapblocksize',['preferredLargeHeapBlockSize',['../struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a',1,'VmaAllocatorCreateInfo']]],
   ['preferredsmallheapblocksize',['preferredSmallHeapBlockSize',['../struct_vma_allocator_create_info.html#ab435423d84d5ab26e2c347c51771f90a',1,'VmaAllocatorCreateInfo']]],
-  ['puserdata',['pUserData',['../struct_vma_memory_requirements.html#a8470093e93ed07ed2557490cdc67566a',1,'VmaMemoryRequirements::pUserData()'],['../struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13',1,'VmaAllocationInfo::pUserData()']]]
+  ['puserdata',['pUserData',['../struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19',1,'VmaAllocationCreateInfo::pUserData()'],['../struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13',1,'VmaAllocationInfo::pUserData()']]]
 ];

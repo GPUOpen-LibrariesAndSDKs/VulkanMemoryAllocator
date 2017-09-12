@@ -66,7 +66,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p>Parameters of VmaAllocation objects, that can be retrieved using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>.  
+<p>Parameters of <code>VmaAllocation</code> objects, that can be retrieved using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>.  
  <a href="struct_vma_allocation_info.html#details">More...</a></p>
 
 <p><code>#include &lt;<a class="el" href="vk__mem__alloc_8h_source.html">vk_mem_alloc.h</a>&gt;</code></p>
@@ -89,11 +89,11 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a5eeffbe2d2f30f53370ff14aefbadbe2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to the beginning of this allocation as mapped data. Null if this alloaction is not persistently mapped.  <a href="#a5eeffbe2d2f30f53370ff14aefbadbe2">More...</a><br /></td></tr>
 <tr class="separator:a5eeffbe2d2f30f53370ff14aefbadbe2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc507656149c04de7ed95d0042ba2a13"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13">pUserData</a></td></tr>
-<tr class="memdesc:adc507656149c04de7ed95d0042ba2a13"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_memory_requirements.html#a8470093e93ed07ed2557490cdc67566a" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaMemoryRequirements::pUserData</a> or set using <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#adc507656149c04de7ed95d0042ba2a13">More...</a><br /></td></tr>
+<tr class="memdesc:adc507656149c04de7ed95d0042ba2a13"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#adc507656149c04de7ed95d0042ba2a13">More...</a><br /></td></tr>
 <tr class="separator:adc507656149c04de7ed95d0042ba2a13"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Parameters of VmaAllocation objects, that can be retrieved using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>. </p>
+<div class="textblock"><p>Parameters of <code>VmaAllocation</code> objects, that can be retrieved using function <a class="el" href="group__layer2.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a>. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
 <a id="ae0bfb7dfdf79a76ffefc9a94677a2f67"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae0bfb7dfdf79a76ffefc9a94677a2f67">&#9670;&nbsp;</a></span>deviceMemory</h2>
@@ -109,7 +109,8 @@ Public Attributes</h2></td></tr>
 
 <p>Handle to Vulkan memory object. </p>
 <p>Same memory object can be shared by multiple allocations.</p>
-<p>It can change after call to <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p>It can change after call to <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost.</p>
+<p>If the allocation is lost, it is equal to <code>VK_NULL_HANDLE</code>. </p>
 
 </div>
 </div>
@@ -143,7 +144,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Offset into deviceMemory object to the beginning of this allocation, in bytes. (deviceMemory, offset) pair is unique to this allocation. </p>
-<p>It can change after call to <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p>It can change after call to <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost. </p>
 
 </div>
 </div>
@@ -160,7 +161,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pointer to the beginning of this allocation as mapped data. Null if this alloaction is not persistently mapped. </p>
-<p>It can change after call to <a class="el" href="group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27" title="Unmaps persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL. ">vmaUnmapPersistentlyMappedMemory()</a>, <a class="el" href="group__layer2.html#ga03366170bb8e186605518d2f5d65b85a" title="Maps back persistently mapped memory of types that is HOST_COHERENT and DEVICE_LOCAL. ">vmaMapPersistentlyMappedMemory()</a>. It can also change after call to <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p>It can change after call to <a class="el" href="group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27" title="Unmaps persistently mapped memory of types that are HOST_COHERENT and DEVICE_LOCAL. ">vmaUnmapPersistentlyMappedMemory()</a>, <a class="el" href="group__layer2.html#ga03366170bb8e186605518d2f5d65b85a" title="Maps back persistently mapped memory of types that are HOST_COHERENT and DEVICE_LOCAL. ">vmaMapPersistentlyMappedMemory()</a>. It can also change after call to <a class="el" href="group__layer2.html#ga6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> if this allocation is passed to the function. </p>
 
 </div>
 </div>
@@ -176,7 +177,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_memory_requirements.html#a8470093e93ed07ed2557490cdc67566a" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaMemoryRequirements::pUserData</a> or set using <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
+<p>Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
 <p>It can change after call to <a class="el" href="group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a> for this allocation. </p>
 
 </div>
@@ -194,7 +195,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Size of this allocation, in bytes. </p>
-<p>It never changes. </p>
+<p>It never changes, unless allocation is lost. </p>
 
 </div>
 </div>

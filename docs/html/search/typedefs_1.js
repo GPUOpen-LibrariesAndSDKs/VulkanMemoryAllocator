@@ -1,5 +1,8 @@
 var searchData=
 [
+  ['vmaallocationcreateflagbits',['VmaAllocationCreateFlagBits',['../group__layer1.html#gabf6bf6748c7a9fe7ce5b7835c0f56af4',1,'vk_mem_alloc.h']]],
+  ['vmaallocationcreateflags',['VmaAllocationCreateFlags',['../group__layer1.html#ga5225e5e11f8376f6a31a1791f3d6e817',1,'vk_mem_alloc.h']]],
+  ['vmaallocationcreateinfo',['VmaAllocationCreateInfo',['../group__layer1.html#ga86c44f9950b40d50088ed93a17870a7a',1,'vk_mem_alloc.h']]],
   ['vmaallocationinfo',['VmaAllocationInfo',['../group__layer2.html#ga795e6ff02a21d5486c0565f403dd9255',1,'vk_mem_alloc.h']]],
   ['vmaallocatorcreateinfo',['VmaAllocatorCreateInfo',['../group__general.html#gae0f6d1d733dded220d28134da46b4283',1,'vk_mem_alloc.h']]],
   ['vmaallocatorflagbits',['VmaAllocatorFlagBits',['../group__general.html#gac51ae2c316ee760ec5aebbae06d31253',1,'vk_mem_alloc.h']]],
@@ -7,9 +10,10 @@ var searchData=
   ['vmadefragmentationinfo',['VmaDefragmentationInfo',['../group__layer2.html#gae67f8573a0cf20f16f0a1eecbca566a0',1,'vk_mem_alloc.h']]],
   ['vmadefragmentationstats',['VmaDefragmentationStats',['../group__layer2.html#gab0f9b06441c840fee560de4a2967f8c9',1,'vk_mem_alloc.h']]],
   ['vmadevicememorycallbacks',['VmaDeviceMemoryCallbacks',['../group__general.html#ga5e2eb68d727cfd4df25702b027b7aa31',1,'vk_mem_alloc.h']]],
-  ['vmamemoryrequirementflagbits',['VmaMemoryRequirementFlagBits',['../group__layer1.html#gaecb50b7fdb759cc4c4346c40819bf00b',1,'vk_mem_alloc.h']]],
-  ['vmamemoryrequirementflags',['VmaMemoryRequirementFlags',['../group__layer1.html#gab96b90d34cd1bd0f340fc48f8ca2664a',1,'vk_mem_alloc.h']]],
-  ['vmamemoryrequirements',['VmaMemoryRequirements',['../group__layer1.html#gae9ee98bebd6e474aa0ef679e10f1d8ca',1,'vk_mem_alloc.h']]],
   ['vmamemoryusage',['VmaMemoryUsage',['../group__layer1.html#gad63b2113c0bfdbeade1cb498f5a8580d',1,'vk_mem_alloc.h']]],
+  ['vmapoolcreateflagbits',['VmaPoolCreateFlagBits',['../group__layer2.html#ga8f93195158e0e2ac80ca352064e71c1f',1,'vk_mem_alloc.h']]],
+  ['vmapoolcreateflags',['VmaPoolCreateFlags',['../group__layer2.html#ga2770e325ea42e087c1b91fdf46d0292a',1,'vk_mem_alloc.h']]],
+  ['vmapoolcreateinfo',['VmaPoolCreateInfo',['../group__layer2.html#ga211706e9348dcee25a843ed4ea69bce7',1,'vk_mem_alloc.h']]],
+  ['vmapoolstats',['VmaPoolStats',['../group__layer2.html#ga2e5612d871d64c5624087b837a338c34',1,'vk_mem_alloc.h']]],
   ['vmastatinfo',['VmaStatInfo',['../group__general.html#ga810b009a788ee8aac72a25b42ffbe31c',1,'vk_mem_alloc.h']]]
 ];
