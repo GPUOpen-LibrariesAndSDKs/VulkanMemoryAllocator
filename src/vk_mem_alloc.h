@@ -1226,7 +1226,7 @@ remove them if not needed.
 #include <cassert> // for assert
 #include <algorithm> // for min, max
 #include <mutex> // for std::mutex
-#include <atomic> // for std::atomic_uint32_t
+#include <atomic> // for std::atomic
 
 #if !defined(_WIN32)
     #include <malloc.h> // for aligned_alloc()
@@ -1341,7 +1341,7 @@ If providing your own implementation, you need to implement a subset of std::ato
 - bool compare_exchange_weak(uint32_t& expected, uint32_t desired)
 */
 #ifndef VMA_ATOMIC_UINT32
-   #define VMA_ATOMIC_UINT32 std::atomic_uint32_t
+   #define VMA_ATOMIC_UINT32 std::atomic<uint32_t>
 #endif
 
 #ifndef VMA_BEST_FIT
