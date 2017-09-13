@@ -5762,7 +5762,7 @@ VkResult VmaDefragmentator::DefragmentRound(
                 memcpy(
                     reinterpret_cast<char*>(pDstMappedData) + dstAllocRequest.offset,
                     reinterpret_cast<char*>(pSrcMappedData) + srcOffset,
-                    size);
+                    static_cast<size_t>(size));
                 
                 pDstBlockInfo->m_pBlock->Alloc(dstAllocRequest, suballocType, size, allocInfo.m_hAllocation);
                 pSrcBlockInfo->m_pBlock->Free(allocInfo.m_hAllocation);
