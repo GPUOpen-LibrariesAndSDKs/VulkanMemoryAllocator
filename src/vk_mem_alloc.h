@@ -5081,7 +5081,6 @@ VmaBlockVector::VmaBlockVector(
     VkDeviceSize bufferImageGranularity,
     uint32_t frameInUseCount,
     bool isCustomPool) :
-    m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_hAllocator(hAllocator),
     m_MemoryTypeIndex(memoryTypeIndex),
     m_BlockVectorType(blockVectorType),
@@ -5091,6 +5090,7 @@ VmaBlockVector::VmaBlockVector(
     m_BufferImageGranularity(bufferImageGranularity),
     m_FrameInUseCount(frameInUseCount),
     m_IsCustomPool(isCustomPool),
+    m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_HasEmptyBlock(false),
     m_pDefragmentator(VMA_NULL)
 {
