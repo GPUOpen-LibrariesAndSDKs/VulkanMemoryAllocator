@@ -2870,6 +2870,19 @@ public:
     */
     bool MakeLost(uint32_t currentFrameIndex, uint32_t frameInUseCount);
 
+    void OwnAllocCalcStatsInfo(VmaStatInfo& outInfo)
+    {
+        VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
+        outInfo.BlockCount = 1;
+        outInfo.AllocationCount = 1;
+        outInfo.UnusedRangeCount = 0;
+        outInfo.UsedBytes = m_Size;
+        outInfo.UnusedBytes = 0;
+        outInfo.AllocationSizeMin = outInfo.AllocationSizeMax = m_Size;
+        outInfo.UnusedRangeSizeMin = UINT64_MAX;
+        outInfo.UnusedRangeSizeMax = 0;
+    }
+
 private:
     VkDeviceSize m_Alignment;
     VkDeviceSize m_Size;
@@ -3114,7 +3127,7 @@ struct VmaBlockVector
         VmaAllocation hAllocation);
 
     // Adds statistics of this BlockVector to pStats.
-    void AddStats(VmaStats* pStats, uint32_t memTypeIndex, uint32_t memHeapIndex);
+    void AddStats(VmaStats* pStats);
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json);
@@ -3363,6 +3376,7 @@ struct VmaAllocator_T
     VkPhysicalDeviceProperties m_PhysicalDeviceProperties;
     VkPhysicalDeviceMemoryProperties m_MemProps;
 
+    // Default pools.
     VmaBlockVector* m_pBlockVectors[VK_MAX_MEMORY_TYPES][VMA_BLOCK_VECTOR_TYPE_COUNT];
 
     // Each vector is sorted by memory (handle value).
@@ -3387,6 +3401,12 @@ struct VmaAllocator_T
 
     uint32_t GetMemoryHeapCount() const { return m_MemProps.memoryHeapCount; }
     uint32_t GetMemoryTypeCount() const { return m_MemProps.memoryTypeCount; }
+
+    uint32_t MemoryTypeIndexToHeapIndex(uint32_t memTypeIndex) const
+    {
+        VMA_ASSERT(memTypeIndex < m_MemProps.memoryTypeCount);
+        return m_MemProps.memoryTypes[memTypeIndex].heapIndex;
+    }
 
     // Main allocation function.
     VkResult AllocateMemory(
@@ -4001,25 +4021,31 @@ static void VmaPrintStatInfo(VmaJsonWriter& json, const VmaStatInfo& stat)
     json.WriteString("UnusedBytes");
     json.WriteNumber(stat.UnusedBytes);
 
-    json.WriteString("AllocationSize");
-    json.BeginObject(true);
-    json.WriteString("Min");
-    json.WriteNumber(stat.AllocationSizeMin);
-    json.WriteString("Avg");
-    json.WriteNumber(stat.AllocationSizeAvg);
-    json.WriteString("Max");
-    json.WriteNumber(stat.AllocationSizeMax);
-    json.EndObject();
+    if(stat.AllocationCount > 1)
+    {
+        json.WriteString("AllocationSize");
+        json.BeginObject(true);
+        json.WriteString("Min");
+        json.WriteNumber(stat.AllocationSizeMin);
+        json.WriteString("Avg");
+        json.WriteNumber(stat.AllocationSizeAvg);
+        json.WriteString("Max");
+        json.WriteNumber(stat.AllocationSizeMax);
+        json.EndObject();
+    }
 
-    json.WriteString("UnusedRangeSize");
-    json.BeginObject(true);
-    json.WriteString("Min");
-    json.WriteNumber(stat.UnusedRangeSizeMin);
-    json.WriteString("Avg");
-    json.WriteNumber(stat.UnusedRangeSizeAvg);
-    json.WriteString("Max");
-    json.WriteNumber(stat.UnusedRangeSizeMax);
-    json.EndObject();
+    if(stat.UnusedRangeCount > 1)
+    {
+        json.WriteString("UnusedRangeSize");
+        json.BeginObject(true);
+        json.WriteString("Min");
+        json.WriteNumber(stat.UnusedRangeSizeMin);
+        json.WriteString("Avg");
+        json.WriteNumber(stat.UnusedRangeSizeAvg);
+        json.WriteString("Max");
+        json.WriteNumber(stat.UnusedRangeSizeMax);
+        json.EndObject();
+    }
 
     json.EndObject();
 }
@@ -4964,24 +4990,24 @@ static void InitStatInfo(VmaStatInfo& outInfo)
     outInfo.UnusedRangeSizeMin = UINT64_MAX;
 }
 
-static void CalcAllocationStatInfo(VmaStatInfo& outInfo, const VmaDeviceMemoryBlock& alloc)
+static void CalcAllocationStatInfo(VmaStatInfo& outInfo, const VmaDeviceMemoryBlock& block)
 {
     outInfo.BlockCount = 1;
 
-    const uint32_t rangeCount = (uint32_t)alloc.m_Suballocations.size();
-    outInfo.AllocationCount = rangeCount - alloc.m_FreeCount;
-    outInfo.UnusedRangeCount = alloc.m_FreeCount;
+    const uint32_t rangeCount = (uint32_t)block.m_Suballocations.size();
+    outInfo.AllocationCount = rangeCount - block.m_FreeCount;
+    outInfo.UnusedRangeCount = block.m_FreeCount;
     
-    outInfo.UnusedBytes = alloc.m_SumFreeSize;
-    outInfo.UsedBytes = alloc.m_Size - outInfo.UnusedBytes;
+    outInfo.UnusedBytes = block.m_SumFreeSize;
+    outInfo.UsedBytes = block.m_Size - outInfo.UnusedBytes;
 
     outInfo.AllocationSizeMin = UINT64_MAX;
     outInfo.AllocationSizeMax = 0;
     outInfo.UnusedRangeSizeMin = UINT64_MAX;
     outInfo.UnusedRangeSizeMax = 0;
 
-    for(VmaSuballocationList::const_iterator suballocItem = alloc.m_Suballocations.cbegin();
-        suballocItem != alloc.m_Suballocations.cend();
+    for(VmaSuballocationList::const_iterator suballocItem = block.m_Suballocations.cbegin();
+        suballocItem != block.m_Suballocations.cend();
         ++suballocItem)
     {
         const VmaSuballocation& suballoc = *suballocItem;
@@ -5042,21 +5068,6 @@ VmaPool_T::~VmaPool_T()
 }
 
 #if VMA_STATS_STRING_ENABLED
-
-/*
-void VmaPool_T::PrintDetailedMap(class VmaStringBuilder& sb)
-{
-    sb.Add("\n{\n\"This\": \"");
-    sb.AddPointer(this);
-    sb.Add("\",\n\"Flags\": ");
-    sb.AddNumber(m_Flags);
-    sb.Add(",\n\"FrameInUseCount\": ");
-    sb.AddNumber(m_FrameInUseCount);
-    sb.Add(",\n\"DeviceMemoryBlock\": ");
-    m_pDeviceMemoryBlock->PrintDetailedMap(sb);
-    sb.Add("\n}");
-}
-*/
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
@@ -5477,12 +5488,60 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
 void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 {
     VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+
+    json.BeginObject();
+
+    if(m_IsCustomPool)
+    {
+        json.WriteString("MemoryTypeIndex");
+        json.WriteNumber(m_MemoryTypeIndex);
+
+        if(m_BlockVectorType == VMA_BLOCK_VECTOR_TYPE_MAPPED)
+        {
+            json.WriteString("Mapped");
+            json.WriteBool(true);
+        }
+
+        json.WriteString("BlockSize");
+        json.WriteNumber(m_PreferredBlockSize);
+
+        json.WriteString("BlockCount");
+        json.BeginObject(true);
+        if(m_MinBlockCount > 0)
+        {
+            json.WriteString("Min");
+            json.WriteNumber(m_MinBlockCount);
+        }
+        if(m_MaxBlockCount < SIZE_MAX)
+        {
+            json.WriteString("Max");
+            json.WriteNumber(m_MaxBlockCount);
+        }
+        json.WriteString("Cur");
+        json.WriteNumber(m_Blocks.size());
+        json.EndObject();
+
+        if(m_FrameInUseCount > 0)
+        {
+            json.WriteString("FrameInUseCount");
+            json.WriteNumber(m_FrameInUseCount);
+        }
+    }
+    else
+    {
+        json.WriteString("PreferredBlockSize");
+        json.WriteNumber(m_PreferredBlockSize);
+    }
+
+    json.WriteString("Blocks");
     json.BeginArray();
     for(size_t i = 0; i < m_Blocks.size(); ++i)
     {
         m_Blocks[i]->PrintDetailedMap(json);
     }
     json.EndArray();
+
+    json.EndObject();
 }
 
 #endif // #if VMA_STATS_STRING_ENABLED
@@ -5621,8 +5680,11 @@ void VmaBlockVector::MakePoolAllocationsLost(
     }
 }
 
-void VmaBlockVector::AddStats(VmaStats* pStats, uint32_t memTypeIndex, uint32_t memHeapIndex)
+void VmaBlockVector::AddStats(VmaStats* pStats)
 {
+    const uint32_t memTypeIndex = m_MemoryTypeIndex;
+    const uint32_t memHeapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(memTypeIndex);
+
     VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     for(uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
@@ -5969,7 +6031,7 @@ VmaAllocator_T::~VmaAllocator_T()
 
 VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
 {
-    const VkDeviceSize heapSize = m_MemProps.memoryHeaps[m_MemProps.memoryTypes[memTypeIndex].heapIndex].size;
+    const VkDeviceSize heapSize = m_MemProps.memoryHeaps[MemoryTypeIndexToHeapIndex(memTypeIndex)].size;
     return (heapSize <= VMA_SMALL_HEAP_MAX_SIZE) ?
         m_PreferredSmallHeapBlockSize : m_PreferredLargeHeapBlockSize;
 }
@@ -6226,23 +6288,55 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
 
 void VmaAllocator_T::CalculateStats(VmaStats* pStats)
 {
+    // Initialize.
     InitStatInfo(pStats->total);
     for(size_t i = 0; i < VK_MAX_MEMORY_TYPES; ++i)
         InitStatInfo(pStats->memoryType[i]);
     for(size_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
         InitStatInfo(pStats->memoryHeap[i]);
     
+    // Process default pools.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        const uint32_t heapIndex = m_MemProps.memoryTypes[memTypeIndex].heapIndex;
+        const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
         for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
         {
             VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex][blockVectorType];
             VMA_ASSERT(pBlockVector);
-            pBlockVector->AddStats(pStats, memTypeIndex, heapIndex);
+            pBlockVector->AddStats(pStats);
         }
     }
 
+    // Process custom pools.
+    {
+        VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
+        {
+            m_Pools[poolIndex]->GetBlockVector().AddStats(pStats);
+        }
+    }
+
+    // Process own allocations.
+    for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
+    {
+        const uint32_t memHeapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
+        VmaMutexLock ownAllocationsLock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
+        for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
+        {
+            AllocationVectorType* const pOwnAllocVector = m_pOwnAllocations[memTypeIndex][blockVectorType];
+            VMA_ASSERT(pOwnAllocVector);
+            for(size_t allocIndex = 0, allocCount = pOwnAllocVector->size(); allocIndex < allocCount; ++allocIndex)
+            {
+                VmaStatInfo allocationStatInfo;
+                (*pOwnAllocVector)[allocIndex]->OwnAllocCalcStatsInfo(allocationStatInfo);
+                VmaAddStatInfo(pStats->total, allocationStatInfo);
+                VmaAddStatInfo(pStats->memoryType[memTypeIndex], allocationStatInfo);
+                VmaAddStatInfo(pStats->memoryHeap[memHeapIndex], allocationStatInfo);
+            }
+        }
+    }
+
+    // Postprocess.
     VmaPostprocessCalcStatInfo(pStats->total);
     for(size_t i = 0; i < GetMemoryTypeCount(); ++i)
         VmaPostprocessCalcStatInfo(pStats->memoryType[i]);
@@ -6258,7 +6352,7 @@ void VmaAllocator_T::UnmapPersistentlyMappedMemory()
     {
         if(m_PhysicalDeviceProperties.vendorID == VMA_VENDOR_ID_AMD)
         {
-            for(size_t memTypeIndex = m_MemProps.memoryTypeCount; memTypeIndex--; )
+            for(uint32_t memTypeIndex = m_MemProps.memoryTypeCount; memTypeIndex--; )
             {
                 const VkMemoryPropertyFlags memFlags = m_MemProps.memoryTypes[memTypeIndex].propertyFlags;
                 if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 &&
@@ -6312,7 +6406,7 @@ VkResult VmaAllocator_T::MapPersistentlyMappedMemory()
                 }
             }
 
-            for(size_t memTypeIndex = 0; memTypeIndex < m_MemProps.memoryTypeCount; ++memTypeIndex)
+            for(uint32_t memTypeIndex = 0; memTypeIndex < m_MemProps.memoryTypeCount; ++memTypeIndex)
             {
                 const VkMemoryPropertyFlags memFlags = m_MemProps.memoryTypes[memTypeIndex].propertyFlags;
                 if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 &&
@@ -6637,7 +6731,7 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
 void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 {
     bool ownAllocationsStarted = false;
-    for(size_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
+    for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         VmaMutexLock ownAllocationsLock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
         for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
@@ -6688,7 +6782,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 
     {
         bool allocationsStarted = false;
-        for(size_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
+        for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
         {
             for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
             {
@@ -6697,7 +6791,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                     if(allocationsStarted == false)
                     {
                         allocationsStarted = true;
-                        json.WriteString("Allocations");
+                        json.WriteString("DefaultPools");
                         json.BeginObject();
                     }
 
@@ -6874,7 +6968,7 @@ void vmaBuildStatsString(
 
             for(uint32_t typeIndex = 0; typeIndex < allocator->GetMemoryTypeCount(); ++typeIndex)
             {
-                if(allocator->m_MemProps.memoryTypes[typeIndex].heapIndex == heapIndex)
+                if(allocator->MemoryTypeIndexToHeapIndex(typeIndex) == heapIndex)
                 {
                     json.BeginString("Type ");
                     json.ContinueString(typeIndex);
