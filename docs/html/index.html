@@ -73,7 +73,9 @@ $(function() {
 <li class="level2"><a href="#lost_allocations">Lost allocations</a></li>
 </ul>
 </li>
-<li class="level1"><a href="#configuration">Configuration</a><ul><li class="level2"><a href="#custom_memory_allocator">Custom memory allocator</a></li>
+<li class="level1"><a href="#configuration">Configuration</a><ul><li class="level2"><a href="#custom_memory_allocator">Custom host memory allocator</a></li>
+<li class="level2"><a href="#allocation_callbacks">Device memory allocation callbacks</a></li>
+<li class="level2"><a href="#heap_memory_limit">Device heap memory limit</a></li>
 </ul>
 </li>
 <li class="level1"><a href="#thread_safety">Thread safety</a></li>
@@ -295,10 +297,16 @@ void MyBuffer::EnsureBuffer()
 </ol>
 <h1><a class="anchor" id="configuration"></a>
 Configuration</h1>
-<p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each <code>#include</code> of this file or change directly in this file to provide your own implementation of basic facilities like assert, min and max functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
+<p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each <code>#include</code> of this file or change directly in this file to provide your own implementation of basic facilities like assert, <code>min()</code> and <code>max()</code> functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
 <h2><a class="anchor" id="custom_memory_allocator"></a>
-Custom memory allocator</h2>
-<p>You can use custom memory allocator by filling optional member <a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d" title="Custom CPU memory allocation callbacks. ">VmaAllocatorCreateInfo::pAllocationCallbacks</a>. These functions will be passed to Vulkan, as well as used by the library itself to make any CPU-side allocations.</p>
+Custom host memory allocator</h2>
+<p>If you use custom allocator for CPU memory rather than default operator <code>new</code> and <code>delete</code> from C++, you can make this library using your allocator as well by filling optional member <a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d" title="Custom CPU memory allocation callbacks. ">VmaAllocatorCreateInfo::pAllocationCallbacks</a>. These functions will be passed to Vulkan, as well as used by the library itself to make any CPU-side allocations.</p>
+<h2><a class="anchor" id="allocation_callbacks"></a>
+Device memory allocation callbacks</h2>
+<p>The library makes calls to <code>vkAllocateMemory()</code> and <code>vkFreeMemory()</code> internally. You can setup callbacks to be informed about these calls, e.g. for the purpose of gathering some statistics. To do it, fill optional member <a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e" title="Informative callbacks for vkAllocateMemory, vkFreeMemory. ">VmaAllocatorCreateInfo::pDeviceMemoryCallbacks</a>.</p>
+<h2><a class="anchor" id="heap_memory_limit"></a>
+Device heap memory limit</h2>
+<p>If you want to test how your program behaves with limited amount of Vulkan device memory available (without switching your graphics card to one that really has smaller VRAM), you can use a feature of this library intended for this purpose. To do it, fill optional member <a class="el" href="struct_vma_allocator_create_info.html#a31c192aa6cbffa33279f6d9f0c47c44b" title="Either NULL or a pointer to an array of limits on maximum number of bytes that can be allocated out o...">VmaAllocatorCreateInfo::pHeapSizeLimit</a>.</p>
 <h1><a class="anchor" id="thread_safety"></a>
 Thread safety</h1>
 <ul>

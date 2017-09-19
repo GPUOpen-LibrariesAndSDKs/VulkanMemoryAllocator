@@ -374,15 +374,31 @@ The library uses following algorithm for allocation, in order:
 
 Please check "CONFIGURATION SECTION" in the code to find macros that you can define
 before each `#include` of this file or change directly in this file to provide
-your own implementation of basic facilities like assert, min and max functions,
+your own implementation of basic facilities like assert, `min()` and `max()` functions,
 mutex etc. C++ STL is used by default, but changing these allows you to get rid
 of any STL usage if you want, as many game developers tend to do.
 
-\subsection custom_memory_allocator Custom memory allocator
+\subsection custom_memory_allocator Custom host memory allocator
 
-You can use custom memory allocator by filling optional member
-VmaAllocatorCreateInfo::pAllocationCallbacks. These functions will be passed to
-Vulkan, as well as used by the library itself to make any CPU-side allocations.
+If you use custom allocator for CPU memory rather than default operator `new`
+and `delete` from C++, you can make this library using your allocator as well
+by filling optional member VmaAllocatorCreateInfo::pAllocationCallbacks. These
+functions will be passed to Vulkan, as well as used by the library itself to
+make any CPU-side allocations.
+
+\subsection allocation_callbacks Device memory allocation callbacks
+
+The library makes calls to `vkAllocateMemory()` and `vkFreeMemory()` internally.
+You can setup callbacks to be informed about these calls, e.g. for the purpose
+of gathering some statistics. To do it, fill optional member
+VmaAllocatorCreateInfo::pDeviceMemoryCallbacks.
+
+\subsection heap_memory_limit Device heap memory limit
+
+If you want to test how your program behaves with limited amount of Vulkan device
+memory available (without switching your graphics card to one that really has
+smaller VRAM), you can use a feature of this library intended for this purpose.
+To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
 
 \section thread_safety Thread safety
 
@@ -458,10 +474,10 @@ typedef struct VmaAllocatorCreateInfo
     /// Vulkan device.
     /** It must be valid throughout whole lifetime of created allocator. */
     VkDevice device;
-    /// Size of a single memory block to allocate for resources.
+    /// Preferred size of a single `VkDeviceMemory` block to be allocated from large heaps.
     /** Set to 0 to use default, which is currently 256 MB. */
     VkDeviceSize preferredLargeHeapBlockSize;
-    /// Size of a single memory block to allocate for resources from a small heap <= 512 MB.
+    /// Preferred size of a single `VkDeviceMemory` block to be allocated from small heaps <= 512 MB.
     /** Set to 0 to use default, which is currently 64 MB. */
     VkDeviceSize preferredSmallHeapBlockSize;
     /// Custom CPU memory allocation callbacks.
@@ -484,6 +500,24 @@ typedef struct VmaAllocatorCreateInfo
     become lost, set this value to 0.
     */
     uint32_t frameInUseCount;
+    /** \brief Either NULL or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap.
+
+    If not NULL, it must be a pointer to an array of
+    `VkPhysicalDeviceMemoryProperties::memoryHeapCount` elements, defining limit on
+    maximum number of bytes that can be allocated out of particular Vulkan memory
+    heap.
+
+    Any of the elements may be equal to `VK_WHOLE_SIZE`, which means no limit on that
+    heap. This is also the default in case of `pHeapSizeLimit` = NULL.
+
+    If there is a limit defined for a heap:
+
+    - If user tries to allocate more memory from that heap using this allocator,
+      the allocation fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+    - If the limit is smaller than heap size reported in `VkMemoryHeap::size`, the
+      value of this limit will be reported instead when using vmaGetMemoryProperties().
+    */
+    const VkDeviceSize* pHeapSizeLimit;
 } VmaAllocatorCreateInfo;
 
 /// Creates Allocator object.
@@ -3372,6 +3406,10 @@ struct VmaAllocator_T
     // Non-zero when we are inside UnmapPersistentlyMappedMemory...MapPersistentlyMappedMemory.
     // Counter to allow nested calls to these functions.
     uint32_t m_UnmapPersistentlyMappedMemoryCounter;
+    
+    // Number of bytes free out of limit, or VK_WHOLE_SIZE if not limit for that heap.
+    VkDeviceSize m_HeapSizeLimit[VK_MAX_MEMORY_HEAPS];
+    VMA_MUTEX m_HeapSizeLimitMutex;
 
     VkPhysicalDeviceProperties m_PhysicalDeviceProperties;
     VkPhysicalDeviceMemoryProperties m_MemProps;
@@ -3447,6 +3485,9 @@ struct VmaAllocator_T
         size_t* pLostAllocationCount);
 
     void CreateLostAllocation(VmaAllocation* pAllocation);
+
+    VkResult AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory);
+    void FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, VkDeviceMemory hMemory);
 
 private:
     VkDeviceSize m_PreferredLargeHeapBlockSize;
@@ -4129,13 +4170,7 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
         m_pMappedData = VMA_NULL;
     }
 
-    // Callback.
-    if(allocator->m_DeviceMemoryCallbacks.pfnFree != VMA_NULL)
-    {
-        (*allocator->m_DeviceMemoryCallbacks.pfnFree)(allocator, m_MemoryTypeIndex, m_hMemory, m_Size);
-    }
-
-    vkFreeMemory(allocator->m_hDevice, m_hMemory, allocator->GetAllocationCallbacks());
+    allocator->FreeVulkanMemory(m_MemoryTypeIndex, m_Size, m_hMemory);
     m_hMemory = VK_NULL_HANDLE;
 }
 
@@ -5436,7 +5471,7 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
     allocInfo.allocationSize = blockSize;
     const VkDevice hDevice = m_hAllocator->m_hDevice;
     VkDeviceMemory mem = VK_NULL_HANDLE;
-    VkResult res = vkAllocateMemory(hDevice, &allocInfo, m_hAllocator->GetAllocationCallbacks(), &mem);
+    VkResult res = m_hAllocator->AllocateVulkanMemory(&allocInfo, &mem);
     if(res < 0)
     {
         return res;
@@ -5453,15 +5488,9 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
         if(res < 0)
         {
             VMA_DEBUG_LOG("    vkMapMemory FAILED");
-            vkFreeMemory(hDevice, mem, m_hAllocator->GetAllocationCallbacks());
+            m_hAllocator->FreeVulkanMemory(m_MemoryTypeIndex, blockSize, mem);
             return res;
         }
-    }
-
-    // Callback.
-    if(m_hAllocator->m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
-    {
-        (*m_hAllocator->m_DeviceMemoryCallbacks.pfnAllocate)(m_hAllocator, m_MemoryTypeIndex, mem, allocInfo.allocationSize);
     }
 
     // Create new Allocation for it.
@@ -5978,6 +6007,11 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     memset(&m_pBlockVectors, 0, sizeof(m_pBlockVectors));
     memset(&m_pOwnAllocations, 0, sizeof(m_pOwnAllocations));
 
+    for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
+    {
+        m_HeapSizeLimit[i] = VK_WHOLE_SIZE;
+    }
+
     if(pCreateInfo->pDeviceMemoryCallbacks != VMA_NULL)
     {
         m_DeviceMemoryCallbacks.pfnAllocate = pCreateInfo->pDeviceMemoryCallbacks->pfnAllocate;
@@ -5991,6 +6025,22 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         pCreateInfo->preferredLargeHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
     m_PreferredSmallHeapBlockSize = (pCreateInfo->preferredSmallHeapBlockSize != 0) ?
         pCreateInfo->preferredSmallHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_SMALL_HEAP_BLOCK_SIZE);
+
+    if(pCreateInfo->pHeapSizeLimit != VMA_NULL)
+    {
+        for(uint32_t heapIndex = 0; heapIndex < GetMemoryHeapCount(); ++heapIndex)
+        {
+            const VkDeviceSize limit = pCreateInfo->pHeapSizeLimit[heapIndex];
+            if(limit != VK_WHOLE_SIZE)
+            {
+                m_HeapSizeLimit[heapIndex] = limit;
+                if(limit < m_MemProps.memoryHeaps[heapIndex].size)
+                {
+                    m_MemProps.memoryHeaps[heapIndex].size = limit;
+                }
+            }
+        }
+    }
 
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
@@ -6031,7 +6081,8 @@ VmaAllocator_T::~VmaAllocator_T()
 
 VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
 {
-    const VkDeviceSize heapSize = m_MemProps.memoryHeaps[MemoryTypeIndexToHeapIndex(memTypeIndex)].size;
+    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
+    const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
     return (heapSize <= VMA_SMALL_HEAP_MAX_SIZE) ?
         m_PreferredSmallHeapBlockSize : m_PreferredLargeHeapBlockSize;
 }
@@ -6128,7 +6179,7 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
 
     // Allocate VkDeviceMemory.
     VkDeviceMemory hMemory = VK_NULL_HANDLE;
-    VkResult res = vkAllocateMemory(m_hDevice, &allocInfo, GetAllocationCallbacks(), &hMemory);
+    VkResult res = AllocateVulkanMemory(&allocInfo, &hMemory);
     if(res < 0)
     {
         VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
@@ -6144,16 +6195,10 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
             if(res < 0)
             {
                 VMA_DEBUG_LOG("    vkMapMemory FAILED");
-                vkFreeMemory(m_hDevice, hMemory, GetAllocationCallbacks());
+                FreeVulkanMemory(memTypeIndex, size, hMemory);
                 return res;
             }
         }
-    }
-
-    // Callback.
-    if(m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
-    {
-        (*m_DeviceMemoryCallbacks.pfnAllocate)(this, memTypeIndex, hMemory, size);
     }
 
     *pAllocation = vma_new(this, VmaAllocation_T)(m_CurrentFrameIndex.load());
@@ -6695,6 +6740,57 @@ void VmaAllocator_T::CreateLostAllocation(VmaAllocation* pAllocation)
     (*pAllocation)->InitLost();
 }
 
+VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory)
+{
+    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(pAllocateInfo->memoryTypeIndex);
+
+    VkResult res;
+    if(m_HeapSizeLimit[heapIndex] != VK_WHOLE_SIZE)
+    {
+        VmaMutexLock lock(m_HeapSizeLimitMutex, m_UseMutex);
+        if(m_HeapSizeLimit[heapIndex] >= pAllocateInfo->allocationSize)
+        {
+            res = vkAllocateMemory(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
+            if(res == VK_SUCCESS)
+            {
+                m_HeapSizeLimit[heapIndex] -= pAllocateInfo->allocationSize;
+            }
+        }
+        else
+        {
+            res = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+    }
+    else
+    {
+        res = vkAllocateMemory(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
+    }
+
+    if(res == VK_SUCCESS && m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
+    {
+        (*m_DeviceMemoryCallbacks.pfnAllocate)(this, pAllocateInfo->memoryTypeIndex, *pMemory, pAllocateInfo->allocationSize);
+    }
+
+    return res;
+}
+
+void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, VkDeviceMemory hMemory)
+{
+    if(m_DeviceMemoryCallbacks.pfnFree != VMA_NULL)
+    {
+        (*m_DeviceMemoryCallbacks.pfnFree)(this, memoryType, hMemory, size);
+    }
+
+    vkFreeMemory(m_hDevice, hMemory, GetAllocationCallbacks());
+
+    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memoryType);
+    if(m_HeapSizeLimit[heapIndex] != VK_WHOLE_SIZE)
+    {
+        VmaMutexLock lock(m_HeapSizeLimitMutex, m_UseMutex);
+        m_HeapSizeLimit[heapIndex] += size;
+    }
+}
+
 void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
 {
     VMA_ASSERT(allocation && allocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_OWN);
@@ -6710,18 +6806,12 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
 
     VkDeviceMemory hMemory = allocation->GetMemory();
     
-    // Callback.
-    if(m_DeviceMemoryCallbacks.pfnFree != VMA_NULL)
-    {
-        (*m_DeviceMemoryCallbacks.pfnFree)(this, memTypeIndex, hMemory, allocation->GetSize());
-    }
-
     if(allocation->GetMappedData() != VMA_NULL)
     {
         vkUnmapMemory(m_hDevice, hMemory);
     }
     
-    vkFreeMemory(m_hDevice, hMemory, GetAllocationCallbacks());
+    FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
 
     VMA_DEBUG_LOG("    Freed OwnMemory MemoryTypeIndex=%u", memTypeIndex);
 }

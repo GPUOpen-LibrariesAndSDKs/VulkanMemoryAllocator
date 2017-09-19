@@ -4,6 +4,7 @@ var searchData=
   ['pdevicememorycallbacks',['pDeviceMemoryCallbacks',['../struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e',1,'VmaAllocatorCreateInfo']]],
   ['pfnallocate',['pfnAllocate',['../struct_vma_device_memory_callbacks.html#a4f17f7b255101e733b44d5633aceabfb',1,'VmaDeviceMemoryCallbacks']]],
   ['pfnfree',['pfnFree',['../struct_vma_device_memory_callbacks.html#abe8a3328bbc916f6f712fdb6b299444c',1,'VmaDeviceMemoryCallbacks']]],
+  ['pheapsizelimit',['pHeapSizeLimit',['../struct_vma_allocator_create_info.html#a31c192aa6cbffa33279f6d9f0c47c44b',1,'VmaAllocatorCreateInfo']]],
   ['physicaldevice',['physicalDevice',['../struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156',1,'VmaAllocatorCreateInfo']]],
   ['pmappeddata',['pMappedData',['../struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2',1,'VmaAllocationInfo']]],
   ['pool',['pool',['../struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150',1,'VmaAllocationCreateInfo']]],
