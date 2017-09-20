@@ -2012,8 +2012,8 @@ bool VmaVectorRemoveSorted(VectorT& vector, const typename VectorT::value_type& 
 {
     CmpLess comparator;
     typename VectorT::iterator it = VmaBinaryFindFirstNotLess(
-        vector.data(),
-        vector.data() + vector.size(),
+        vector.begin(),
+        vector.end(),
         value,
         comparator);
     if((it != vector.end()) && !comparator(*it, value) && !comparator(value, *it))
