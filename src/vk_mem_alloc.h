@@ -585,12 +585,12 @@ typedef struct VmaStatInfo
 } VmaStatInfo;
 
 /// General statistics from current state of Allocator.
-struct VmaStats
+typedef struct VmaStats
 {
     VmaStatInfo memoryType[VK_MAX_MEMORY_TYPES];
     VmaStatInfo memoryHeap[VK_MAX_MEMORY_HEAPS];
     VmaStatInfo total;
-};
+} VmaStats;
 
 /// Retrieves statistics from current state of the Allocator.
 void vmaCalculateStats(
