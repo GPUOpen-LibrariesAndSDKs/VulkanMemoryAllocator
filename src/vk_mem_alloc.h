@@ -378,6 +378,15 @@ your own implementation of basic facilities like assert, `min()` and `max()` fun
 mutex etc. C++ STL is used by default, but changing these allows you to get rid
 of any STL usage if you want, as many game developers tend to do.
 
+\subsection config_Vulkan_functions Pointers to Vulkan functions
+
+The library uses Vulkan functions straight from the `vulkan.h` header by default.
+If you want to provide your own pointers to these functions, e.g. fetched using
+`vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`:
+
+-# Remove macro `VMA_STATIC_VULKAN_FUNCTIONS` from "CONFIGURATION SECTION".
+-# Provide valid pointers through VmaAllocatorCreateInfo::pVulkanFunctions.
+
 \subsection custom_memory_allocator Custom host memory allocator
 
 If you use custom allocator for CPU memory rather than default operator `new`
@@ -463,6 +472,23 @@ typedef enum VmaAllocatorFlagBits {
 } VmaAllocatorFlagBits;
 typedef VkFlags VmaAllocatorFlags;
 
+typedef struct VmaVulkanFunctions {
+    PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties;
+    PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
+    PFN_vkAllocateMemory vkAllocateMemory;
+    PFN_vkFreeMemory vkFreeMemory;
+    PFN_vkMapMemory vkMapMemory;
+    PFN_vkUnmapMemory vkUnmapMemory;
+    PFN_vkBindBufferMemory vkBindBufferMemory;
+    PFN_vkBindImageMemory vkBindImageMemory;
+    PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
+    PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
+    PFN_vkCreateBuffer vkCreateBuffer;
+    PFN_vkDestroyBuffer vkDestroyBuffer;
+    PFN_vkCreateImage vkCreateImage;
+    PFN_vkDestroyImage vkDestroyImage;
+} VmaVulkanFunctions;
+
 /// Description of a Allocator to be created.
 typedef struct VmaAllocatorCreateInfo
 {
@@ -518,6 +544,18 @@ typedef struct VmaAllocatorCreateInfo
       value of this limit will be reported instead when using vmaGetMemoryProperties().
     */
     const VkDeviceSize* pHeapSizeLimit;
+    /** \brief Pointers to Vulkan functions. Can be null if you leave `#define VMA_STATIC_VULKAN_FUNCTIONS 1`.
+
+    If you leave `#define VMA_STATIC_VULKAN_FUNCTIONS 1` in configuration section,
+    you can pass null as this member, because the library will fetch pointers to
+    Vulkan functions internally in a static way, like:
+
+        vulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
+
+    Fill this member if you want to provide your own pointers to Vulkan functions,
+    e.g. fetched using `vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`.
+    */
+    const VmaVulkanFunctions* pVulkanFunctions;
 } VmaAllocatorCreateInfo;
 
 /// Creates Allocator object.
@@ -1225,6 +1263,17 @@ CONFIGURATION SECTION
 Define some of these macros before each #include of this header or change them
 here if you need other then default behavior depending on your environment.
 */
+
+/*
+Define this macro to 1 to make the library fetch pointers to Vulkan functions
+internally, like:
+
+    vulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
+
+Remove this macro if you are going to provide you own pointers to Vulkan
+functions via VmaAllocatorCreateInfo::pVulkanFunctions.
+*/
+#define VMA_STATIC_VULKAN_FUNCTIONS 1
 
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
 //#define VMA_USE_STL_CONTAINERS 1
@@ -2866,25 +2915,8 @@ public:
     bool CanBecomeLost() const;
     VmaPool GetPool() const;
 
-    VkResult OwnAllocMapPersistentlyMappedMemory(VkDevice hDevice)
-    {
-        VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
-        if(m_OwnAllocation.m_PersistentMap)
-        {
-            return vkMapMemory(hDevice, m_OwnAllocation.m_hMemory, 0, VK_WHOLE_SIZE, 0, &m_OwnAllocation.m_pMappedData);
-        }
-        return VK_SUCCESS;
-    }
-    void OwnAllocUnmapPersistentlyMappedMemory(VkDevice hDevice)
-    {
-        VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
-        if(m_OwnAllocation.m_pMappedData)
-        {
-            VMA_ASSERT(m_OwnAllocation.m_PersistentMap);
-            vkUnmapMemory(hDevice, m_OwnAllocation.m_hMemory);
-            m_OwnAllocation.m_pMappedData = VMA_NULL;
-        }
-    }
+    VkResult OwnAllocMapPersistentlyMappedMemory(VmaAllocator hAllocator);
+    void OwnAllocUnmapPersistentlyMappedMemory(VmaAllocator hAllocator);
     
     uint32_t GetLastUseFrameIndex() const
     {
@@ -3175,8 +3207,7 @@ struct VmaBlockVector
         size_t* pLostAllocationCount);
 
     VmaDefragmentator* EnsureDefragmentator(
-        VkDevice hDevice,
-        const VkAllocationCallbacks* pAllocationCallbacks,
+        VmaAllocator hAllocator,
         uint32_t currentFrameIndex);
 
     VkResult Defragment(
@@ -3237,8 +3268,7 @@ public:
 
 class VmaDefragmentator
 {
-    const VkDevice m_hDevice;
-    const VkAllocationCallbacks* const m_pAllocationCallbacks;
+    const VmaAllocator m_hAllocator;
     VmaBlockVector* const m_pBlockVector;
     uint32_t m_CurrentFrameIndex;
     VMA_BLOCK_VECTOR_TYPE m_BlockVectorType;
@@ -3295,36 +3325,8 @@ class VmaDefragmentator
             VMA_SORT(m_Allocations.begin(), m_Allocations.end(), AllocationInfoSizeGreater());
         }
 
-        VkResult EnsureMapping(VkDevice hDevice, void** ppMappedData)
-        {
-            // It has already been mapped for defragmentation.
-            if(m_pMappedDataForDefragmentation)
-            {
-                *ppMappedData = m_pMappedDataForDefragmentation;
-                return VK_SUCCESS;
-            }
-            
-            // It is persistently mapped.
-            if(m_pBlock->m_PersistentMap)
-            {
-                VMA_ASSERT(m_pBlock->m_pMappedData != VMA_NULL);
-                *ppMappedData = m_pBlock->m_pMappedData;
-                return VK_SUCCESS;
-            }
-            
-            // Map on first usage.
-            VkResult res = vkMapMemory(hDevice, m_pBlock->m_hMemory, 0, VK_WHOLE_SIZE, 0, &m_pMappedDataForDefragmentation);
-            *ppMappedData = m_pMappedDataForDefragmentation;
-            return res;
-        }
-
-        void Unmap(VkDevice hDevice)
-        {
-            if(m_pMappedDataForDefragmentation != VMA_NULL)
-            {
-                vkUnmapMemory(hDevice, m_pBlock->m_hMemory);
-            }
-        }
+        VkResult EnsureMapping(VmaAllocator hAllocator, void** ppMappedData);
+        void Unmap(VmaAllocator hAllocator);
 
     private:
         // Not null if mapped for defragmentation only, not persistently mapped.
@@ -3378,8 +3380,7 @@ class VmaDefragmentator
 
 public:
     VmaDefragmentator(
-        VkDevice hDevice,
-        const VkAllocationCallbacks* pAllocationCallbacks,
+        VmaAllocator hAllocator,
         VmaBlockVector* pBlockVector,
         uint32_t currentFrameIndex);
 
@@ -3428,6 +3429,10 @@ struct VmaAllocator_T
     const VkAllocationCallbacks* GetAllocationCallbacks() const
     {
         return m_AllocationCallbacksSpecified ? &m_AllocationCallbacks : 0;
+    }
+    const VmaVulkanFunctions& GetVulkanFunctions() const
+    {
+        return m_VulkanFunctions;
     }
 
     VkDeviceSize GetBufferImageGranularity() const
@@ -3499,6 +3504,10 @@ private:
     VMA_MUTEX m_PoolsMutex;
     // Protected by m_PoolsMutex. Sorted by pointer value.
     VmaVector<VmaPool, VmaStlAllocator<VmaPool> > m_Pools;
+
+    VmaVulkanFunctions m_VulkanFunctions;
+
+    void ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions);
 
     VkDeviceSize CalcPreferredBlockSize(uint32_t memTypeIndex);
 
@@ -3999,6 +4008,33 @@ VmaPool VmaAllocation_T::GetPool() const
     return m_BlockAllocation.m_hPool;
 }
 
+VkResult VmaAllocation_T::OwnAllocMapPersistentlyMappedMemory(VmaAllocator hAllocator)
+{
+    VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
+    if(m_OwnAllocation.m_PersistentMap)
+    {
+        return (*hAllocator->GetVulkanFunctions().vkMapMemory)(
+            hAllocator->m_hDevice,
+            m_OwnAllocation.m_hMemory,
+            0,
+            VK_WHOLE_SIZE,
+            0,
+            &m_OwnAllocation.m_pMappedData);
+    }
+    return VK_SUCCESS;
+}
+void VmaAllocation_T::OwnAllocUnmapPersistentlyMappedMemory(VmaAllocator hAllocator)
+{
+    VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
+    if(m_OwnAllocation.m_pMappedData)
+    {
+        VMA_ASSERT(m_OwnAllocation.m_PersistentMap);
+        (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_OwnAllocation.m_hMemory);
+        m_OwnAllocation.m_pMappedData = VMA_NULL;
+    }
+}
+    
+
 bool VmaAllocation_T::MakeLost(uint32_t currentFrameIndex, uint32_t frameInUseCount)
 {
     VMA_ASSERT(CanBecomeLost());
@@ -4166,7 +4202,7 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
     VMA_ASSERT(m_hMemory != VK_NULL_HANDLE);
     if(m_pMappedData != VMA_NULL)
     {
-        vkUnmapMemory(allocator->m_hDevice, m_hMemory);
+        (allocator->GetVulkanFunctions().vkUnmapMemory)(allocator->m_hDevice, m_hMemory);
         m_pMappedData = VMA_NULL;
     }
 
@@ -5469,7 +5505,6 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
     VkMemoryAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
     allocInfo.memoryTypeIndex = m_MemoryTypeIndex;
     allocInfo.allocationSize = blockSize;
-    const VkDevice hDevice = m_hAllocator->m_hDevice;
     VkDeviceMemory mem = VK_NULL_HANDLE;
     VkResult res = m_hAllocator->AllocateVulkanMemory(&allocInfo, &mem);
     if(res < 0)
@@ -5484,7 +5519,13 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
     const bool persistentMap = (m_BlockVectorType == VMA_BLOCK_VECTOR_TYPE_MAPPED);
     if(persistentMap && m_hAllocator->m_UnmapPersistentlyMappedMemoryCounter == 0)
     {
-        res = vkMapMemory(hDevice, mem, 0, VK_WHOLE_SIZE, 0, &pMappedData);
+        res = (*m_hAllocator->GetVulkanFunctions().vkMapMemory)(
+            m_hAllocator->m_hDevice,
+            mem,
+            0,
+            VK_WHOLE_SIZE,
+            0,
+            &pMappedData);
         if(res < 0)
         {
             VMA_DEBUG_LOG("    vkMapMemory FAILED");
@@ -5585,7 +5626,7 @@ void VmaBlockVector::UnmapPersistentlyMappedMemory()
         if(pBlock->m_pMappedData != VMA_NULL)
         {
             VMA_ASSERT(pBlock->m_PersistentMap != false);
-            vkUnmapMemory(m_hAllocator->m_hDevice, pBlock->m_hMemory);
+            (m_hAllocator->GetVulkanFunctions().vkUnmapMemory)(m_hAllocator->m_hDevice, pBlock->m_hMemory);
             pBlock->m_pMappedData = VMA_NULL;
         }
     }
@@ -5602,7 +5643,13 @@ VkResult VmaBlockVector::MapPersistentlyMappedMemory()
         if(pBlock->m_PersistentMap)
         {
             VMA_ASSERT(pBlock->m_pMappedData == nullptr);
-            VkResult localResult = vkMapMemory(m_hAllocator->m_hDevice, pBlock->m_hMemory, 0, VK_WHOLE_SIZE, 0, &pBlock->m_pMappedData);
+            VkResult localResult = (*m_hAllocator->GetVulkanFunctions().vkMapMemory)(
+                m_hAllocator->m_hDevice,
+                pBlock->m_hMemory,
+                0,
+                VK_WHOLE_SIZE,
+                0,
+                &pBlock->m_pMappedData);
             if(localResult != VK_SUCCESS)
             {
                 finalResult = localResult;
@@ -5613,15 +5660,13 @@ VkResult VmaBlockVector::MapPersistentlyMappedMemory()
 }
 
 VmaDefragmentator* VmaBlockVector::EnsureDefragmentator(
-    VkDevice hDevice,
-    const VkAllocationCallbacks* pAllocationCallbacks,
+    VmaAllocator hAllocator,
     uint32_t currentFrameIndex)
 {
     if(m_pDefragmentator == VMA_NULL)
     {
         m_pDefragmentator = vma_new(m_hAllocator, VmaDefragmentator)(
-            hDevice,
-            pAllocationCallbacks,
+            hAllocator,
             this,
             currentFrameIndex);
     }
@@ -5733,18 +5778,16 @@ void VmaBlockVector::AddStats(VmaStats* pStats)
 // VmaDefragmentator members definition
 
 VmaDefragmentator::VmaDefragmentator(
-    VkDevice hDevice,
-    const VkAllocationCallbacks* pAllocationCallbacks,
+    VmaAllocator hAllocator,
     VmaBlockVector* pBlockVector,
     uint32_t currentFrameIndex) :
-    m_hDevice(hDevice),
-    m_pAllocationCallbacks(pAllocationCallbacks),
+    m_hAllocator(hAllocator),
     m_pBlockVector(pBlockVector),
     m_CurrentFrameIndex(currentFrameIndex),
     m_BytesMoved(0),
     m_AllocationsMoved(0),
-    m_Allocations(VmaStlAllocator<AllocationInfo>(pAllocationCallbacks)),
-    m_Blocks(VmaStlAllocator<BlockInfo*>(pAllocationCallbacks))
+    m_Allocations(VmaStlAllocator<AllocationInfo>(hAllocator->GetAllocationCallbacks())),
+    m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks()))
 {
 }
 
@@ -5752,7 +5795,7 @@ VmaDefragmentator::~VmaDefragmentator()
 {
     for(size_t i = m_Blocks.size(); i--; )
     {
-        vma_delete(m_pAllocationCallbacks, m_Blocks[i]);
+        vma_delete(m_hAllocator, m_Blocks[i]);
     }
 }
 
@@ -5762,6 +5805,43 @@ void VmaDefragmentator::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
     allocInfo.m_hAllocation = hAlloc;
     allocInfo.m_pChanged = pChanged;
     m_Allocations.push_back(allocInfo);
+}
+
+VkResult VmaDefragmentator::BlockInfo::EnsureMapping(VmaAllocator hAllocator, void** ppMappedData)
+{
+    // It has already been mapped for defragmentation.
+    if(m_pMappedDataForDefragmentation)
+    {
+        *ppMappedData = m_pMappedDataForDefragmentation;
+        return VK_SUCCESS;
+    }
+            
+    // It is persistently mapped.
+    if(m_pBlock->m_PersistentMap)
+    {
+        VMA_ASSERT(m_pBlock->m_pMappedData != VMA_NULL);
+        *ppMappedData = m_pBlock->m_pMappedData;
+        return VK_SUCCESS;
+    }
+            
+    // Map on first usage.
+    VkResult res = (*hAllocator->GetVulkanFunctions().vkMapMemory)(
+        hAllocator->m_hDevice,
+        m_pBlock->m_hMemory,
+        0,
+        VK_WHOLE_SIZE,
+        0,
+        &m_pMappedDataForDefragmentation);
+    *ppMappedData = m_pMappedDataForDefragmentation;
+    return res;
+}
+
+void VmaDefragmentator::BlockInfo::Unmap(VmaAllocator hAllocator)
+{
+    if(m_pMappedDataForDefragmentation != VMA_NULL)
+    {
+        (hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_pBlock->m_hMemory);
+    }
 }
 
 VkResult VmaDefragmentator::DefragmentRound(
@@ -5836,14 +5916,14 @@ VkResult VmaDefragmentator::DefragmentRound(
                 }
 
                 void* pDstMappedData = VMA_NULL;
-                VkResult res = pDstBlockInfo->EnsureMapping(m_hDevice, &pDstMappedData);
+                VkResult res = pDstBlockInfo->EnsureMapping(m_hAllocator, &pDstMappedData);
                 if(res != VK_SUCCESS)
                 {
                     return res;
                 }
 
                 void* pSrcMappedData = VMA_NULL;
-                res = pSrcBlockInfo->EnsureMapping(m_hDevice, &pSrcMappedData);
+                res = pSrcBlockInfo->EnsureMapping(m_hAllocator, &pSrcMappedData);
                 if(res != VK_SUCCESS)
                 {
                     return res;
@@ -5908,7 +5988,7 @@ VkResult VmaDefragmentator::Defragment(
     const size_t blockCount = m_pBlockVector->m_Blocks.size();
     for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
     {
-        BlockInfo* pBlockInfo = vma_new(m_pAllocationCallbacks, BlockInfo)(m_pAllocationCallbacks);
+        BlockInfo* pBlockInfo = vma_new(m_hAllocator, BlockInfo)(m_hAllocator->GetAllocationCallbacks());
         pBlockInfo->m_pBlock = m_pBlockVector->m_Blocks[blockIndex];
         m_Blocks.push_back(pBlockInfo);
     }
@@ -5957,7 +6037,7 @@ VkResult VmaDefragmentator::Defragment(
     // Unmap blocks that were mapped for defragmentation.
     for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
     {
-        m_Blocks[blockIndex]->Unmap(m_hDevice);
+        m_Blocks[blockIndex]->Unmap(m_hAllocator);
     }
 
     return result;
@@ -6018,8 +6098,10 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         m_DeviceMemoryCallbacks.pfnFree = pCreateInfo->pDeviceMemoryCallbacks->pfnFree;
     }
 
-    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_PhysicalDeviceProperties);
-    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &m_MemProps);
+    ImportVulkanFunctions(pCreateInfo->pVulkanFunctions);
+
+    (*m_VulkanFunctions.vkGetPhysicalDeviceProperties)(m_PhysicalDevice, &m_PhysicalDeviceProperties);
+    (*m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties)(m_PhysicalDevice, &m_MemProps);
 
     m_PreferredLargeHeapBlockSize = (pCreateInfo->preferredLargeHeapBlockSize != 0) ?
         pCreateInfo->preferredLargeHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
@@ -6077,6 +6159,48 @@ VmaAllocator_T::~VmaAllocator_T()
             vma_delete(this, m_pBlockVectors[i][j]);
         }
     }
+}
+
+void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions)
+{
+#if VMA_STATIC_VULKAN_FUNCTIONS
+    m_VulkanFunctions.vkGetPhysicalDeviceProperties = &vkGetPhysicalDeviceProperties;
+    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = &vkGetPhysicalDeviceMemoryProperties;
+    m_VulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
+    m_VulkanFunctions.vkFreeMemory = &vkFreeMemory;
+    m_VulkanFunctions.vkMapMemory = &vkMapMemory;
+    m_VulkanFunctions.vkUnmapMemory = &vkUnmapMemory;
+    m_VulkanFunctions.vkBindBufferMemory = &vkBindBufferMemory;
+    m_VulkanFunctions.vkBindImageMemory = &vkBindImageMemory;
+    m_VulkanFunctions.vkGetBufferMemoryRequirements = &vkGetBufferMemoryRequirements;
+    m_VulkanFunctions.vkGetImageMemoryRequirements = &vkGetImageMemoryRequirements;
+    m_VulkanFunctions.vkCreateBuffer = &vkCreateBuffer;
+    m_VulkanFunctions.vkDestroyBuffer = &vkDestroyBuffer;
+    m_VulkanFunctions.vkCreateImage = &vkCreateImage;
+    m_VulkanFunctions.vkDestroyImage = &vkDestroyImage;
+#endif // #if VMA_STATIC_VULKAN_FUNCTIONS
+
+    if(pVulkanFunctions != VMA_NULL)
+    {
+        m_VulkanFunctions = *pVulkanFunctions;
+    }
+
+    // If these asserts are hit, you must either #define VMA_STATIC_VULKAN_FUNCTIONS 1
+    // or pass valid pointers as VmaAllocatorCreateInfo::pVulkanFunctions.
+    VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceProperties != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkAllocateMemory != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkFreeMemory != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkMapMemory != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkUnmapMemory != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkBindBufferMemory != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkBindImageMemory != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkGetBufferMemoryRequirements != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkGetImageMemoryRequirements != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkCreateBuffer != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkDestroyBuffer != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkCreateImage != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkDestroyImage != VMA_NULL);
 }
 
 VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
@@ -6410,7 +6534,7 @@ void VmaAllocator_T::UnmapPersistentlyMappedMemory()
                         for(size_t ownAllocIndex = pOwnAllocationsVector->size(); ownAllocIndex--; )
                         {
                             VmaAllocation hAlloc = (*pOwnAllocationsVector)[ownAllocIndex];
-                            hAlloc->OwnAllocUnmapPersistentlyMappedMemory(m_hDevice);
+                            hAlloc->OwnAllocUnmapPersistentlyMappedMemory(this);
                         }
                     }
 
@@ -6464,7 +6588,7 @@ VkResult VmaAllocator_T::MapPersistentlyMappedMemory()
                         for(size_t ownAllocIndex = 0, ownAllocCount = pAllocationsVector->size(); ownAllocIndex < ownAllocCount; ++ownAllocIndex)
                         {
                             VmaAllocation hAlloc = (*pAllocationsVector)[ownAllocIndex];
-                            hAlloc->OwnAllocMapPersistentlyMappedMemory(m_hDevice);
+                            hAlloc->OwnAllocMapPersistentlyMappedMemory(this);
                         }
                     }
 
@@ -6541,10 +6665,7 @@ VkResult VmaAllocator_T::Defragment(
                 pAllocBlockVector = m_pBlockVectors[memTypeIndex][hAlloc->GetBlockVectorType()];
             }
 
-            VmaDefragmentator* const pDefragmentator = pAllocBlockVector->EnsureDefragmentator(
-                m_hDevice,
-                GetAllocationCallbacks(),
-                currentFrameIndex);
+            VmaDefragmentator* const pDefragmentator = pAllocBlockVector->EnsureDefragmentator(this, currentFrameIndex);
 
             VkBool32* const pChanged = (pAllocationsChanged != VMA_NULL) ?
                 &pAllocationsChanged[allocIndex] : VMA_NULL;
@@ -6750,7 +6871,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
         VmaMutexLock lock(m_HeapSizeLimitMutex, m_UseMutex);
         if(m_HeapSizeLimit[heapIndex] >= pAllocateInfo->allocationSize)
         {
-            res = vkAllocateMemory(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
+            res = (*m_VulkanFunctions.vkAllocateMemory)(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
             if(res == VK_SUCCESS)
             {
                 m_HeapSizeLimit[heapIndex] -= pAllocateInfo->allocationSize;
@@ -6763,7 +6884,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
     }
     else
     {
-        res = vkAllocateMemory(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
+        res = (*m_VulkanFunctions.vkAllocateMemory)(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
     }
 
     if(res == VK_SUCCESS && m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
@@ -6781,7 +6902,7 @@ void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, Vk
         (*m_DeviceMemoryCallbacks.pfnFree)(this, memoryType, hMemory, size);
     }
 
-    vkFreeMemory(m_hDevice, hMemory, GetAllocationCallbacks());
+    (*m_VulkanFunctions.vkFreeMemory)(m_hDevice, hMemory, GetAllocationCallbacks());
 
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memoryType);
     if(m_HeapSizeLimit[heapIndex] != VK_WHOLE_SIZE)
@@ -6931,7 +7052,7 @@ static VkResult AllocateMemoryForImage(
     VMA_ASSERT(allocator && (image != VK_NULL_HANDLE) && pAllocationCreateInfo && pAllocation);
     
     VkMemoryRequirements vkMemReq = {};
-    vkGetImageMemoryRequirements(allocator->m_hDevice, image, &vkMemReq);
+    (*allocator->GetVulkanFunctions().vkGetImageMemoryRequirements)(allocator->m_hDevice, image, &vkMemReq);
 
     return allocator->AllocateMemory(
         vkMemReq,
@@ -7308,7 +7429,7 @@ VkResult vmaAllocateMemoryForBuffer(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     VkMemoryRequirements vkMemReq = {};
-    vkGetBufferMemoryRequirements(allocator->m_hDevice, buffer, &vkMemReq);
+    (*allocator->GetVulkanFunctions().vkGetBufferMemoryRequirements)(allocator->m_hDevice, buffer, &vkMemReq);
 
     VkResult result = allocator->AllocateMemory(
         vkMemReq,
@@ -7477,12 +7598,16 @@ VkResult vmaCreateBuffer(
     *pAllocation = VK_NULL_HANDLE;
 
     // 1. Create VkBuffer.
-    VkResult res = vkCreateBuffer(allocator->m_hDevice, pBufferCreateInfo, allocator->GetAllocationCallbacks(), pBuffer);
+    VkResult res = (*allocator->GetVulkanFunctions().vkCreateBuffer)(
+        allocator->m_hDevice,
+        pBufferCreateInfo,
+        allocator->GetAllocationCallbacks(),
+        pBuffer);
     if(res >= 0)
     {
         // 2. vkGetBufferMemoryRequirements.
         VkMemoryRequirements vkMemReq = {};
-        vkGetBufferMemoryRequirements(allocator->m_hDevice, *pBuffer, &vkMemReq);
+        (*allocator->GetVulkanFunctions().vkGetBufferMemoryRequirements)(allocator->m_hDevice, *pBuffer, &vkMemReq);
 
         // 3. Allocate memory using allocator.
         res = allocator->AllocateMemory(
@@ -7493,7 +7618,11 @@ VkResult vmaCreateBuffer(
         if(res >= 0)
         {
             // 3. Bind buffer with memory.
-            res = vkBindBufferMemory(allocator->m_hDevice, *pBuffer, (*pAllocation)->GetMemory(), (*pAllocation)->GetOffset());
+            res = (*allocator->GetVulkanFunctions().vkBindBufferMemory)(
+                allocator->m_hDevice,
+                *pBuffer,
+                (*pAllocation)->GetMemory(),
+                (*pAllocation)->GetOffset());
             if(res >= 0)
             {
                 // All steps succeeded.
@@ -7507,7 +7636,7 @@ VkResult vmaCreateBuffer(
             *pAllocation = VK_NULL_HANDLE;
             return res;
         }
-        vkDestroyBuffer(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
+        (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
         *pBuffer = VK_NULL_HANDLE;
         return res;
     }
@@ -7527,7 +7656,7 @@ void vmaDestroyBuffer(
 
         VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-        vkDestroyBuffer(allocator->m_hDevice, buffer, allocator->GetAllocationCallbacks());
+        (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, buffer, allocator->GetAllocationCallbacks());
         
         allocator->FreeMemory(allocation);
     }
@@ -7551,7 +7680,11 @@ VkResult vmaCreateImage(
     *pAllocation = VK_NULL_HANDLE;
 
     // 1. Create VkImage.
-    VkResult res = vkCreateImage(allocator->m_hDevice, pImageCreateInfo, allocator->GetAllocationCallbacks(), pImage);
+    VkResult res = (*allocator->GetVulkanFunctions().vkCreateImage)(
+        allocator->m_hDevice,
+        pImageCreateInfo,
+        allocator->GetAllocationCallbacks(),
+        pImage);
     if(res >= 0)
     {
         VmaSuballocationType suballocType = pImageCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL ?
@@ -7563,7 +7696,11 @@ VkResult vmaCreateImage(
         if(res >= 0)
         {
             // 3. Bind image with memory.
-            res = vkBindImageMemory(allocator->m_hDevice, *pImage, (*pAllocation)->GetMemory(), (*pAllocation)->GetOffset());
+            res = (*allocator->GetVulkanFunctions().vkBindImageMemory)(
+                allocator->m_hDevice,
+                *pImage,
+                (*pAllocation)->GetMemory(),
+                (*pAllocation)->GetOffset());
             if(res >= 0)
             {
                 // All steps succeeded.
@@ -7577,7 +7714,7 @@ VkResult vmaCreateImage(
             *pAllocation = VK_NULL_HANDLE;
             return res;
         }
-        vkDestroyImage(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
+        (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
         *pImage = VK_NULL_HANDLE;
         return res;
     }
@@ -7597,7 +7734,7 @@ void vmaDestroyImage(
 
         VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-        vkDestroyImage(allocator->m_hDevice, image, allocator->GetAllocationCallbacks());
+        (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, image, allocator->GetAllocationCallbacks());
 
         allocator->FreeMemory(allocation);
     }

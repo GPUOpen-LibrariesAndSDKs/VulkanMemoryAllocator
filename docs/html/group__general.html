@@ -74,6 +74,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory.  <a href="struct_vma_device_memory_callbacks.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="struct_vma_allocator_create_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -104,11 +106,16 @@ Typedefs</h2></td></tr>
 <tr class="separator:gac51ae2c316ee760ec5aebbae06d31253"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga6ffbcb80208bf4467a1104087396cf59"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a></td></tr>
 <tr class="separator:ga6ffbcb80208bf4467a1104087396cf59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga97064a1a271b0061ebfc3a079862d0c5"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga97064a1a271b0061ebfc3a079862d0c5">VmaVulkanFunctions</a></td></tr>
+<tr class="separator:ga97064a1a271b0061ebfc3a079862d0c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae0f6d1d733dded220d28134da46b4283"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gae0f6d1d733dded220d28134da46b4283">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:gae0f6d1d733dded220d28134da46b4283"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="#gae0f6d1d733dded220d28134da46b4283">More...</a><br /></td></tr>
 <tr class="separator:gae0f6d1d733dded220d28134da46b4283"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga810b009a788ee8aac72a25b42ffbe31c"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga810b009a788ee8aac72a25b42ffbe31c">VmaStatInfo</a></td></tr>
 <tr class="separator:ga810b009a788ee8aac72a25b42ffbe31c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga732be855fb4a7c248e6853d928a729af"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_stats.html">VmaStats</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga732be855fb4a7c248e6853d928a729af">VmaStats</a></td></tr>
+<tr class="memdesc:ga732be855fb4a7c248e6853d928a729af"><td class="mdescLeft">&#160;</td><td class="mdescRight">General statistics from current state of Allocator.  <a href="#ga732be855fb4a7c248e6853d928a729af">More...</a><br /></td></tr>
+<tr class="separator:ga732be855fb4a7c248e6853d928a729af"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -265,6 +272,36 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">typedef struct <a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a>  <a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ga732be855fb4a7c248e6853d928a729af"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga732be855fb4a7c248e6853d928a729af">&#9670;&nbsp;</a></span>VmaStats</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef struct <a class="el" href="struct_vma_stats.html">VmaStats</a>  <a class="el" href="struct_vma_stats.html">VmaStats</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>General statistics from current state of Allocator. </p>
+
+</div>
+</div>
+<a id="ga97064a1a271b0061ebfc3a079862d0c5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga97064a1a271b0061ebfc3a079862d0c5">&#9670;&nbsp;</a></span>VmaVulkanFunctions</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef struct <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a>  <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a></td>
         </tr>
       </table>
 </div><div class="memdoc">

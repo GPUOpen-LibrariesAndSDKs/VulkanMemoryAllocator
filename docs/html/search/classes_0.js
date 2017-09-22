@@ -9,5 +9,6 @@ var searchData=
   ['vmapoolcreateinfo',['VmaPoolCreateInfo',['../struct_vma_pool_create_info.html',1,'']]],
   ['vmapoolstats',['VmaPoolStats',['../struct_vma_pool_stats.html',1,'']]],
   ['vmastatinfo',['VmaStatInfo',['../struct_vma_stat_info.html',1,'']]],
-  ['vmastats',['VmaStats',['../struct_vma_stats.html',1,'']]]
+  ['vmastats',['VmaStats',['../struct_vma_stats.html',1,'']]],
+  ['vmavulkanfunctions',['VmaVulkanFunctions',['../struct_vma_vulkan_functions.html',1,'']]]
 ];

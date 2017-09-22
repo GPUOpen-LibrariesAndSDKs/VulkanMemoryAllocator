@@ -2,6 +2,20 @@ var searchData=
 [
   ['vulkan_20memory_20allocator',['Vulkan Memory Allocator',['../index.html',1,'']]],
   ['vk_5fmem_5falloc_2eh',['vk_mem_alloc.h',['../vk__mem__alloc_8h.html',1,'']]],
+  ['vkallocatememory',['vkAllocateMemory',['../struct_vma_vulkan_functions.html#a2943bf99dfd784a0e8f599d987e22e6c',1,'VmaVulkanFunctions']]],
+  ['vkbindbuffermemory',['vkBindBufferMemory',['../struct_vma_vulkan_functions.html#a94fc4f3a605d9880bb3c0ba2c2fc80b2',1,'VmaVulkanFunctions']]],
+  ['vkbindimagememory',['vkBindImageMemory',['../struct_vma_vulkan_functions.html#a1338d96a128a5ade648b8d934907c637',1,'VmaVulkanFunctions']]],
+  ['vkcreatebuffer',['vkCreateBuffer',['../struct_vma_vulkan_functions.html#ae8084315a25006271a2edfc3a447519f',1,'VmaVulkanFunctions']]],
+  ['vkcreateimage',['vkCreateImage',['../struct_vma_vulkan_functions.html#a23ebe70be515b9b5010a1d691200e325',1,'VmaVulkanFunctions']]],
+  ['vkdestroybuffer',['vkDestroyBuffer',['../struct_vma_vulkan_functions.html#a7e054606faddb07f0e8556f3ed317d45',1,'VmaVulkanFunctions']]],
+  ['vkdestroyimage',['vkDestroyImage',['../struct_vma_vulkan_functions.html#a90b898227039b1dcb3520f6e91f09ffa',1,'VmaVulkanFunctions']]],
+  ['vkfreememory',['vkFreeMemory',['../struct_vma_vulkan_functions.html#a4c658701778564d62034255b5dda91b4',1,'VmaVulkanFunctions']]],
+  ['vkgetbuffermemoryrequirements',['vkGetBufferMemoryRequirements',['../struct_vma_vulkan_functions.html#a5b92901df89a4194b0d12f6071d4d143',1,'VmaVulkanFunctions']]],
+  ['vkgetimagememoryrequirements',['vkGetImageMemoryRequirements',['../struct_vma_vulkan_functions.html#a475f6f49f8debe4d10800592606d53f4',1,'VmaVulkanFunctions']]],
+  ['vkgetphysicaldevicememoryproperties',['vkGetPhysicalDeviceMemoryProperties',['../struct_vma_vulkan_functions.html#a60d25c33bba06bb8592e6875cbaa9830',1,'VmaVulkanFunctions']]],
+  ['vkgetphysicaldeviceproperties',['vkGetPhysicalDeviceProperties',['../struct_vma_vulkan_functions.html#a77b7a74082823e865dd6546623468f96',1,'VmaVulkanFunctions']]],
+  ['vkmapmemory',['vkMapMemory',['../struct_vma_vulkan_functions.html#ab5c1f38dea3a2cf00dc9eb4f57218c49',1,'VmaVulkanFunctions']]],
+  ['vkunmapmemory',['vkUnmapMemory',['../struct_vma_vulkan_functions.html#acc798589736f0becb317fc2196c1d8b9',1,'VmaVulkanFunctions']]],
   ['vma_5fallocation_5fcreate_5fcan_5fbecome_5flost_5fbit',['VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT',['../group__layer1.html#ggad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fcan_5fmake_5fother_5flost_5fbit',['VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT',['../group__layer1.html#ggad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fflag_5fbits_5fmax_5fenum',['VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM',['../group__layer1.html#ggad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882',1,'vk_mem_alloc.h']]],
@@ -64,7 +78,8 @@ var searchData=
   ['vmasetallocationuserdata',['vmaSetAllocationUserData',['../group__layer2.html#gaf9147d31ffc11d62fc187bde283ed14f',1,'vk_mem_alloc.h']]],
   ['vmasetcurrentframeindex',['vmaSetCurrentFrameIndex',['../group__general.html#gade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
   ['vmastatinfo',['VmaStatInfo',['../struct_vma_stat_info.html',1,'VmaStatInfo'],['../group__general.html#ga810b009a788ee8aac72a25b42ffbe31c',1,'VmaStatInfo():&#160;vk_mem_alloc.h']]],
-  ['vmastats',['VmaStats',['../struct_vma_stats.html',1,'']]],
+  ['vmastats',['VmaStats',['../struct_vma_stats.html',1,'VmaStats'],['../group__general.html#ga732be855fb4a7c248e6853d928a729af',1,'VmaStats():&#160;vk_mem_alloc.h']]],
   ['vmaunmapmemory',['vmaUnmapMemory',['../group__layer2.html#ga9bc268595cb33f6ec4d519cfce81ff45',1,'vk_mem_alloc.h']]],
-  ['vmaunmappersistentlymappedmemory',['vmaUnmapPersistentlyMappedMemory',['../group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27',1,'vk_mem_alloc.h']]]
+  ['vmaunmappersistentlymappedmemory',['vmaUnmapPersistentlyMappedMemory',['../group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27',1,'vk_mem_alloc.h']]],
+  ['vmavulkanfunctions',['VmaVulkanFunctions',['../struct_vma_vulkan_functions.html',1,'VmaVulkanFunctions'],['../group__general.html#ga97064a1a271b0061ebfc3a079862d0c5',1,'VmaVulkanFunctions():&#160;vk_mem_alloc.h']]]
 ];

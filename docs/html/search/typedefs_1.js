@@ -15,5 +15,7 @@ var searchData=
   ['vmapoolcreateflags',['VmaPoolCreateFlags',['../group__layer2.html#ga2770e325ea42e087c1b91fdf46d0292a',1,'vk_mem_alloc.h']]],
   ['vmapoolcreateinfo',['VmaPoolCreateInfo',['../group__layer2.html#ga211706e9348dcee25a843ed4ea69bce7',1,'vk_mem_alloc.h']]],
   ['vmapoolstats',['VmaPoolStats',['../group__layer2.html#ga2e5612d871d64c5624087b837a338c34',1,'vk_mem_alloc.h']]],
-  ['vmastatinfo',['VmaStatInfo',['../group__general.html#ga810b009a788ee8aac72a25b42ffbe31c',1,'vk_mem_alloc.h']]]
+  ['vmastatinfo',['VmaStatInfo',['../group__general.html#ga810b009a788ee8aac72a25b42ffbe31c',1,'vk_mem_alloc.h']]],
+  ['vmastats',['VmaStats',['../group__general.html#ga732be855fb4a7c248e6853d928a729af',1,'vk_mem_alloc.h']]],
+  ['vmavulkanfunctions',['VmaVulkanFunctions',['../group__general.html#ga97064a1a271b0061ebfc3a079862d0c5',1,'vk_mem_alloc.h']]]
 ];
