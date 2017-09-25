@@ -575,17 +575,17 @@ void vmaSetCurrentFrameIndex(
 typedef struct VmaStatInfo
 {
     /// Number of `VkDeviceMemory` Vulkan memory blocks allocated.
-    uint32_t BlockCount;
+    uint32_t blockCount;
     /// Number of `VmaAllocation` allocation objects allocated.
-    uint32_t AllocationCount;
+    uint32_t allocationCount;
     /// Number of free ranges of memory between allocations.
-    uint32_t UnusedRangeCount;
+    uint32_t unusedRangeCount;
     /// Total number of bytes occupied by all allocations.
-    VkDeviceSize UsedBytes;
+    VkDeviceSize usedBytes;
     /// Total number of bytes occupied by unused ranges.
-    VkDeviceSize UnusedBytes;
-    VkDeviceSize AllocationSizeMin, AllocationSizeAvg, AllocationSizeMax;
-    VkDeviceSize UnusedRangeSizeMin, UnusedRangeSizeAvg, UnusedRangeSizeMax;
+    VkDeviceSize unusedBytes;
+    VkDeviceSize allocationSizeMin, allocationSizeAvg, allocationSizeMax;
+    VkDeviceSize unusedRangeSizeMin, unusedRangeSizeAvg, unusedRangeSizeMax;
 } VmaStatInfo;
 
 /// General statistics from current state of Allocator.
@@ -2933,14 +2933,14 @@ public:
     void OwnAllocCalcStatsInfo(VmaStatInfo& outInfo)
     {
         VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
-        outInfo.BlockCount = 1;
-        outInfo.AllocationCount = 1;
-        outInfo.UnusedRangeCount = 0;
-        outInfo.UsedBytes = m_Size;
-        outInfo.UnusedBytes = 0;
-        outInfo.AllocationSizeMin = outInfo.AllocationSizeMax = m_Size;
-        outInfo.UnusedRangeSizeMin = UINT64_MAX;
-        outInfo.UnusedRangeSizeMax = 0;
+        outInfo.blockCount = 1;
+        outInfo.allocationCount = 1;
+        outInfo.unusedRangeCount = 0;
+        outInfo.usedBytes = m_Size;
+        outInfo.unusedBytes = 0;
+        outInfo.allocationSizeMin = outInfo.allocationSizeMax = m_Size;
+        outInfo.unusedRangeSizeMin = UINT64_MAX;
+        outInfo.unusedRangeSizeMax = 0;
     }
 
 private:
@@ -4080,43 +4080,43 @@ static void VmaPrintStatInfo(VmaJsonWriter& json, const VmaStatInfo& stat)
     json.BeginObject();
 
     json.WriteString("Blocks");
-    json.WriteNumber(stat.BlockCount);
+    json.WriteNumber(stat.blockCount);
 
     json.WriteString("Allocations");
-    json.WriteNumber(stat.AllocationCount);
+    json.WriteNumber(stat.allocationCount);
 
     json.WriteString("UnusedRanges");
-    json.WriteNumber(stat.UnusedRangeCount);
+    json.WriteNumber(stat.unusedRangeCount);
 
     json.WriteString("UsedBytes");
-    json.WriteNumber(stat.UsedBytes);
+    json.WriteNumber(stat.usedBytes);
 
     json.WriteString("UnusedBytes");
-    json.WriteNumber(stat.UnusedBytes);
+    json.WriteNumber(stat.unusedBytes);
 
-    if(stat.AllocationCount > 1)
+    if(stat.allocationCount > 1)
     {
         json.WriteString("AllocationSize");
         json.BeginObject(true);
         json.WriteString("Min");
-        json.WriteNumber(stat.AllocationSizeMin);
+        json.WriteNumber(stat.allocationSizeMin);
         json.WriteString("Avg");
-        json.WriteNumber(stat.AllocationSizeAvg);
+        json.WriteNumber(stat.allocationSizeAvg);
         json.WriteString("Max");
-        json.WriteNumber(stat.AllocationSizeMax);
+        json.WriteNumber(stat.allocationSizeMax);
         json.EndObject();
     }
 
-    if(stat.UnusedRangeCount > 1)
+    if(stat.unusedRangeCount > 1)
     {
         json.WriteString("UnusedRangeSize");
         json.BeginObject(true);
         json.WriteString("Min");
-        json.WriteNumber(stat.UnusedRangeSizeMin);
+        json.WriteNumber(stat.unusedRangeSizeMin);
         json.WriteString("Avg");
-        json.WriteNumber(stat.UnusedRangeSizeAvg);
+        json.WriteNumber(stat.unusedRangeSizeAvg);
         json.WriteString("Max");
-        json.WriteNumber(stat.UnusedRangeSizeMax);
+        json.WriteNumber(stat.unusedRangeSizeMax);
         json.EndObject();
     }
 
@@ -5065,25 +5065,25 @@ bool VmaDeviceMemoryBlock::ValidateFreeSuballocationList() const
 static void InitStatInfo(VmaStatInfo& outInfo)
 {
     memset(&outInfo, 0, sizeof(outInfo));
-    outInfo.AllocationSizeMin = UINT64_MAX;
-    outInfo.UnusedRangeSizeMin = UINT64_MAX;
+    outInfo.allocationSizeMin = UINT64_MAX;
+    outInfo.unusedRangeSizeMin = UINT64_MAX;
 }
 
 static void CalcAllocationStatInfo(VmaStatInfo& outInfo, const VmaDeviceMemoryBlock& block)
 {
-    outInfo.BlockCount = 1;
+    outInfo.blockCount = 1;
 
     const uint32_t rangeCount = (uint32_t)block.m_Suballocations.size();
-    outInfo.AllocationCount = rangeCount - block.m_FreeCount;
-    outInfo.UnusedRangeCount = block.m_FreeCount;
+    outInfo.allocationCount = rangeCount - block.m_FreeCount;
+    outInfo.unusedRangeCount = block.m_FreeCount;
     
-    outInfo.UnusedBytes = block.m_SumFreeSize;
-    outInfo.UsedBytes = block.m_Size - outInfo.UnusedBytes;
+    outInfo.unusedBytes = block.m_SumFreeSize;
+    outInfo.usedBytes = block.m_Size - outInfo.unusedBytes;
 
-    outInfo.AllocationSizeMin = UINT64_MAX;
-    outInfo.AllocationSizeMax = 0;
-    outInfo.UnusedRangeSizeMin = UINT64_MAX;
-    outInfo.UnusedRangeSizeMax = 0;
+    outInfo.allocationSizeMin = UINT64_MAX;
+    outInfo.allocationSizeMax = 0;
+    outInfo.unusedRangeSizeMin = UINT64_MAX;
+    outInfo.unusedRangeSizeMax = 0;
 
     for(VmaSuballocationList::const_iterator suballocItem = block.m_Suballocations.cbegin();
         suballocItem != block.m_Suballocations.cend();
@@ -5092,13 +5092,13 @@ static void CalcAllocationStatInfo(VmaStatInfo& outInfo, const VmaDeviceMemoryBl
         const VmaSuballocation& suballoc = *suballocItem;
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            outInfo.AllocationSizeMin = VMA_MIN(outInfo.AllocationSizeMin, suballoc.size);
-            outInfo.AllocationSizeMax = VMA_MAX(outInfo.AllocationSizeMax, suballoc.size);
+            outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, suballoc.size);
+            outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, suballoc.size);
         }
         else
         {
-            outInfo.UnusedRangeSizeMin = VMA_MIN(outInfo.UnusedRangeSizeMin, suballoc.size);
-            outInfo.UnusedRangeSizeMax = VMA_MAX(outInfo.UnusedRangeSizeMax, suballoc.size);
+            outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, suballoc.size);
+            outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, suballoc.size);
         }
     }
 }
@@ -5106,23 +5106,23 @@ static void CalcAllocationStatInfo(VmaStatInfo& outInfo, const VmaDeviceMemoryBl
 // Adds statistics srcInfo into inoutInfo, like: inoutInfo += srcInfo.
 static void VmaAddStatInfo(VmaStatInfo& inoutInfo, const VmaStatInfo& srcInfo)
 {
-    inoutInfo.BlockCount += srcInfo.BlockCount;
-    inoutInfo.AllocationCount += srcInfo.AllocationCount;
-    inoutInfo.UnusedRangeCount += srcInfo.UnusedRangeCount;
-    inoutInfo.UsedBytes += srcInfo.UsedBytes;
-    inoutInfo.UnusedBytes += srcInfo.UnusedBytes;
-    inoutInfo.AllocationSizeMin = VMA_MIN(inoutInfo.AllocationSizeMin, srcInfo.AllocationSizeMin);
-    inoutInfo.AllocationSizeMax = VMA_MAX(inoutInfo.AllocationSizeMax, srcInfo.AllocationSizeMax);
-    inoutInfo.UnusedRangeSizeMin = VMA_MIN(inoutInfo.UnusedRangeSizeMin, srcInfo.UnusedRangeSizeMin);
-    inoutInfo.UnusedRangeSizeMax = VMA_MAX(inoutInfo.UnusedRangeSizeMax, srcInfo.UnusedRangeSizeMax);
+    inoutInfo.blockCount += srcInfo.blockCount;
+    inoutInfo.allocationCount += srcInfo.allocationCount;
+    inoutInfo.unusedRangeCount += srcInfo.unusedRangeCount;
+    inoutInfo.usedBytes += srcInfo.usedBytes;
+    inoutInfo.unusedBytes += srcInfo.unusedBytes;
+    inoutInfo.allocationSizeMin = VMA_MIN(inoutInfo.allocationSizeMin, srcInfo.allocationSizeMin);
+    inoutInfo.allocationSizeMax = VMA_MAX(inoutInfo.allocationSizeMax, srcInfo.allocationSizeMax);
+    inoutInfo.unusedRangeSizeMin = VMA_MIN(inoutInfo.unusedRangeSizeMin, srcInfo.unusedRangeSizeMin);
+    inoutInfo.unusedRangeSizeMax = VMA_MAX(inoutInfo.unusedRangeSizeMax, srcInfo.unusedRangeSizeMax);
 }
 
 static void VmaPostprocessCalcStatInfo(VmaStatInfo& inoutInfo)
 {
-    inoutInfo.AllocationSizeAvg = (inoutInfo.AllocationCount > 0) ?
-        VmaRoundDiv<VkDeviceSize>(inoutInfo.UsedBytes, inoutInfo.AllocationCount) : 0;
-    inoutInfo.UnusedRangeSizeAvg = (inoutInfo.UnusedRangeCount > 0) ?
-        VmaRoundDiv<VkDeviceSize>(inoutInfo.UnusedBytes, inoutInfo.UnusedRangeCount) : 0;
+    inoutInfo.allocationSizeAvg = (inoutInfo.allocationCount > 0) ?
+        VmaRoundDiv<VkDeviceSize>(inoutInfo.usedBytes, inoutInfo.allocationCount) : 0;
+    inoutInfo.unusedRangeSizeAvg = (inoutInfo.unusedRangeCount > 0) ?
+        VmaRoundDiv<VkDeviceSize>(inoutInfo.unusedBytes, inoutInfo.unusedRangeCount) : 0;
 }
 
 VmaPool_T::VmaPool_T(
@@ -7181,7 +7181,7 @@ void vmaBuildStatsString(
             }
             json.EndArray();
 
-            if(stats.memoryHeap[heapIndex].BlockCount > 0)
+            if(stats.memoryHeap[heapIndex].blockCount > 0)
             {
                 json.WriteString("Stats");
                 VmaPrintStatInfo(json, stats.memoryHeap[heapIndex]);
@@ -7222,7 +7222,7 @@ void vmaBuildStatsString(
                     }
                     json.EndArray();
 
-                    if(stats.memoryType[typeIndex].BlockCount > 0)
+                    if(stats.memoryType[typeIndex].blockCount > 0)
                     {
                         json.WriteString("Stats");
                         VmaPrintStatInfo(json, stats.memoryType[typeIndex]);

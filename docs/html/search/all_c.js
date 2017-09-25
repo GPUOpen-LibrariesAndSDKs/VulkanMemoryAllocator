@@ -1,11 +1,11 @@
 var searchData=
 [
-  ['unusedbytes',['UnusedBytes',['../struct_vma_stat_info.html#a394d2aef4348cb58abf73764804b4f2d',1,'VmaStatInfo']]],
-  ['unusedrangecount',['UnusedRangeCount',['../struct_vma_stat_info.html#a56c4fb4dba646479180b601854cde2a6',1,'VmaStatInfo::UnusedRangeCount()'],['../struct_vma_pool_stats.html#ae4f3546ffa4d1e598b64d8e6134854f4',1,'VmaPoolStats::unusedRangeCount()']]],
-  ['unusedrangesizeavg',['UnusedRangeSizeAvg',['../struct_vma_stat_info.html#a88ad9bdc2b3a98964a4d0c338c0c9060',1,'VmaStatInfo']]],
-  ['unusedrangesizemax',['unusedRangeSizeMax',['../struct_vma_pool_stats.html#ab4c8f52dd42ab01998f60f0b6acc722b',1,'VmaPoolStats::unusedRangeSizeMax()'],['../struct_vma_stat_info.html#a10c52c0841f01ca704e8ddb1ea6a635d',1,'VmaStatInfo::UnusedRangeSizeMax()']]],
-  ['unusedrangesizemin',['UnusedRangeSizeMin',['../struct_vma_stat_info.html#a07c508f42a4d3424bd0c259784a7f2d6',1,'VmaStatInfo']]],
+  ['unusedbytes',['unusedBytes',['../struct_vma_stat_info.html#a1859d290aca2cd582d8dc25922092669',1,'VmaStatInfo']]],
+  ['unusedrangecount',['unusedRangeCount',['../struct_vma_stat_info.html#ae06129c771bfebfd6468a7f4276502a9',1,'VmaStatInfo::unusedRangeCount()'],['../struct_vma_pool_stats.html#ae4f3546ffa4d1e598b64d8e6134854f4',1,'VmaPoolStats::unusedRangeCount()']]],
+  ['unusedrangesizeavg',['unusedRangeSizeAvg',['../struct_vma_stat_info.html#a2f9b3452af90c9768a30b7fb6ae194fc',1,'VmaStatInfo']]],
+  ['unusedrangesizemax',['unusedRangeSizeMax',['../struct_vma_stat_info.html#a5ba1a2476c4d39b10f7e2f7ebbb72ac4',1,'VmaStatInfo::unusedRangeSizeMax()'],['../struct_vma_pool_stats.html#ab4c8f52dd42ab01998f60f0b6acc722b',1,'VmaPoolStats::unusedRangeSizeMax()']]],
+  ['unusedrangesizemin',['unusedRangeSizeMin',['../struct_vma_stat_info.html#aedeba931324f16589cd2416c0d2dd0d4',1,'VmaStatInfo']]],
   ['unusedsize',['unusedSize',['../struct_vma_pool_stats.html#ad7c54874724fce7b06aba526202d82a8',1,'VmaPoolStats']]],
   ['usage',['usage',['../struct_vma_allocation_create_info.html#accb8b06b1f677d858cb9af20705fa910',1,'VmaAllocationCreateInfo']]],
-  ['usedbytes',['UsedBytes',['../struct_vma_stat_info.html#a86f82cb9cffd456b9da63eaf26c9ff04',1,'VmaStatInfo']]]
+  ['usedbytes',['usedBytes',['../struct_vma_stat_info.html#ab0c6c73837e5a70c749fbd4f6064895a',1,'VmaStatInfo']]]
 ];
