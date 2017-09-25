@@ -54,8 +54,9 @@ Additional features:
 
 # Read more
 
-See *[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/)*.
+See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/)**.
 
 # See also
 
+- **[Awesome Vulkan](https://github.com/vinjn/awesome-vulkan)** - a curated list of awesome Vulkan libraries, debuggers and resources.
 - **[vulkan-malloc](https://github.com/dylanede/vulkan-malloc)** - Vulkan memory allocation library for Rust. Based on version 1 of this library. Author: Dylan Ede. License: MIT / Apache 2.0.
