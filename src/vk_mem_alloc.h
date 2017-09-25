@@ -3035,6 +3035,7 @@ public:
 
     // Validates all data structures inside this object. If not valid, returns false.
     bool Validate() const;
+    VkDeviceSize GetSize() const { return m_Size; }
     size_t GetAllocationCount() const { return m_Suballocations.size() - m_FreeCount; }
     VkDeviceSize GetSumFreeSize() const { return m_SumFreeSize; }
     VkDeviceSize GetUnusedRangeSizeMax() const;
@@ -3133,7 +3134,6 @@ public:
     uint32_t m_MemoryTypeIndex;
     VMA_BLOCK_VECTOR_TYPE m_BlockVectorType;
     VkDeviceMemory m_hMemory;
-    VkDeviceSize m_Size;
     bool m_PersistentMap;
     void* m_pMappedData;
     VmaBlockMetadata m_Metadata;
@@ -5119,7 +5119,6 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator) :
     m_MemoryTypeIndex(UINT32_MAX),
     m_BlockVectorType(VMA_BLOCK_VECTOR_TYPE_COUNT),
     m_hMemory(VK_NULL_HANDLE),
-    m_Size(0),
     m_PersistentMap(false),
     m_pMappedData(VMA_NULL),
     m_Metadata(hAllocator)
@@ -5139,7 +5138,6 @@ void VmaDeviceMemoryBlock::Init(
     m_MemoryTypeIndex = newMemoryTypeIndex;
     m_BlockVectorType = newBlockVectorType;
     m_hMemory = newMemory;
-    m_Size = newSize;
     m_PersistentMap = persistentMap;
     m_pMappedData = pMappedData;
 
@@ -5159,14 +5157,14 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
         m_pMappedData = VMA_NULL;
     }
 
-    allocator->FreeVulkanMemory(m_MemoryTypeIndex, m_Size, m_hMemory);
+    allocator->FreeVulkanMemory(m_MemoryTypeIndex, m_Metadata.GetSize(), m_hMemory);
     m_hMemory = VK_NULL_HANDLE;
 }
 
 bool VmaDeviceMemoryBlock::Validate() const
 {
     if((m_hMemory == VK_NULL_HANDLE) ||
-        (m_Size == 0))
+        (m_Metadata.GetSize() == 0))
     {
         return false;
     }
@@ -5393,7 +5391,7 @@ VkResult VmaBlockVector::Allocate(
         if(res == VK_SUCCESS)
         {
             VmaDeviceMemoryBlock* const pBlock = m_Blocks[newBlockIndex];
-            VMA_ASSERT(pBlock->m_Size >= vkMemReq.size);
+            VMA_ASSERT(pBlock->m_Metadata.GetSize() >= vkMemReq.size);
 
             // Allocate from pBlock. Because it is empty, dstAllocRequest can be trivially filled.
             VmaAllocationRequest allocRequest;
@@ -5794,7 +5792,7 @@ VkResult VmaBlockVector::Defragment(
                 if(pDefragmentationStats != VMA_NULL)
                 {
                     ++pDefragmentationStats->deviceMemoryBlocksFreed;
-                    pDefragmentationStats->bytesFreed += pBlock->m_Size;
+                    pDefragmentationStats->bytesFreed += pBlock->m_Metadata.GetSize();
                 }
 
                 VmaVectorRemove(m_Blocks, blockIndex);
