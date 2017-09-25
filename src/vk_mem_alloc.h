@@ -33,51 +33,6 @@ Members grouped: see <a href="modules.html"><b>Modules</b></a>.
 
 All members: see vk_mem_alloc.h.
 
-\section problem Problem statement
-
-Memory allocation and resource (buffer and image) creation in Vulkan is
-difficult (comparing to older graphics API-s, like D3D11 or OpenGL) for several
-reasons:
-
-- It requires a lot of boilerplate code, just like everything else in Vulkan,
-  because it is a low-level and high-performance API.
-- There is additional level of indirection: `VkDeviceMemory` is allocated
-  separately from creating `VkBuffer`/`VkImage` and they must be bound together. The
-  binding cannot be changed later - resource must be recreated.
-- Driver must be queried for supported memory heaps and memory types. Different
-  IHV-s provide different types of it.
-- It is recommended practice to allocate bigger chunks of memory and assign
-  parts of them to particular resources.
-
-\section features Features
-
-This library is helps game developers to manage memory allocations and resource
-creation by offering some higher-level functions. Features of the library could
-be divided into several layers, low level to high level:
-
--# Functions that help to choose correct and optimal memory type based on
-   intended usage of the memory.
-   - Required or preferred traits of the memory are expressed using higher-level
-     description comparing to Vulkan flags.
--# Functions that allocate memory blocks, reserve and return parts of them
-   (`VkDeviceMemory` + offset + size) to the user.
-   - Library keeps track of allocated memory blocks, used and unused ranges
-     inside them, finds best matching unused ranges for new allocations, takes
-     all the rules of alignment into consideration.
--# Functions that can create an image/buffer, allocate memory for it and bind
-   them together - all in one call.
-
-\section prequisites Prequisites
-
-- Self-contained C++ library in single header file. No external dependencies
-  other than standard C and C++ library and of course Vulkan.
-- Public interface in C, in same convention as Vulkan API. Implementation in
-  C++.
-- Interface documented using Doxygen-style comments.
-- Platform-independent, but developed and tested on Windows using Visual Studio.
-- Error handling implemented by returning `VkResult` error codes - same way as in
-  Vulkan.
-
 \section user_guide User guide
 
 \subsection quick_start Quick start
@@ -181,10 +136,13 @@ not, you should call `vkInvalidateMappedMemoryRanges()` before reading and
         vkFlushMappedMemoryRanges(device, 1, &memRange);
     }
 
-For performance reasons it is also recommended to unmap Vulkan memory for the
-time of call to `vkQueueSubmit()` or `vkQueuePresent()`. You can do it for all
-persistently mapped memory using just one function call. For details, see
-function vmaUnmapPersistentlyMappedMemory(), vmaMapPersistentlyMappedMemory().
+On AMD GPUs on Windows, Vulkan memory from the type that has both `DEVICE_LOCAL`
+and `HOST_VISIBLE` flags should not be mapped for the time of any call to
+`vkQueueSubmit()` or `vkQueuePresent()`. Although legal, that would cause
+performance degradation because WDDM migrates such memory to system RAM.
+To ensure this, you can unmap all persistently mapped memory using just one
+function call. For details, see function
+vmaUnmapPersistentlyMappedMemory(), vmaMapPersistentlyMappedMemory().
 
 \subsection custom_memory_pools Custom memory pools
 
@@ -1058,10 +1016,13 @@ void vmaUnmapMemory(
 
 /** \brief Unmaps persistently mapped memory of types that are `HOST_COHERENT` and `DEVICE_LOCAL`.
 
-This is optional performance optimization. On Windows you should call it before
-every call to `vkQueueSubmit` and `vkQueuePresent`. After which you can remap the
-allocations again using vmaMapPersistentlyMappedMemory(). This is because of the
-internal behavior of WDDM. Example:
+This is optional performance optimization.
+On AMD GPUs on Windows, Vulkan memory from the type that has both `DEVICE_LOCAL`
+and `HOST_VISIBLE` flags should not be mapped for the time of any call to
+`vkQueueSubmit()` or `vkQueuePresent()`. Although legal, that would cause
+performance degradation because WDDM migrates such memory to system RAM.
+To ensure this, you can unmap all persistently mapped memory using this function.
+Example:
 
 
     vmaUnmapPersistentlyMappedMemory(allocator);
@@ -1222,6 +1183,14 @@ VkResult vmaCreateBuffer(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo);
 
+/** \brief Destroys Vulkan buffer and frees allocated memory.
+
+This is just a convenience function equivalent to:
+
+
+    vkDestroyBuffer(device, buffer, allocationCallbacks);
+    vmaFreeMemory(allocator, allocation);
+*/
 void vmaDestroyBuffer(
     VmaAllocator allocator,
     VkBuffer buffer,
@@ -1236,6 +1205,14 @@ VkResult vmaCreateImage(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo);
 
+/** \brief Destroys Vulkan image and frees allocated memory.
+
+This is just a convenience function equivalent to:
+
+
+    vkDestroyImage(device, image, allocationCallbacks);
+    vmaFreeMemory(allocator, allocation);
+*/
 void vmaDestroyImage(
     VmaAllocator allocator,
     VkImage image,

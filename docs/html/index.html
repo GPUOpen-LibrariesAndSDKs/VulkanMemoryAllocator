@@ -63,10 +63,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><li class="level1"><a href="#problem">Problem statement</a></li>
-<li class="level1"><a href="#features">Features</a></li>
-<li class="level1"><a href="#prequisites">Prequisites</a></li>
-<li class="level1"><a href="#user_guide">User guide</a><ul><li class="level2"><a href="#quick_start">Quick start</a></li>
+<ul><li class="level1"><a href="#user_guide">User guide</a><ul><li class="level2"><a href="#quick_start">Quick start</a></li>
 <li class="level2"><a href="#persistently_mapped_memory">Persistently mapped memory</a></li>
 <li class="level2"><a href="#custom_memory_pools">Custom memory pools</a></li>
 <li class="level2"><a href="#defragmentation">Defragmentation</a></li>
@@ -85,38 +82,6 @@ $(function() {
 <div class="textblock"><p><b>Version 2.0.0-alpha.3</b> (2017-09-12)</p>
 <p>Members grouped: see <a href="modules.html"><b>Modules</b></a>.</p>
 <p>All members: see <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a>.</p>
-<h1><a class="anchor" id="problem"></a>
-Problem statement</h1>
-<p>Memory allocation and resource (buffer and image) creation in Vulkan is difficult (comparing to older graphics API-s, like D3D11 or OpenGL) for several reasons:</p>
-<ul>
-<li>It requires a lot of boilerplate code, just like everything else in Vulkan, because it is a low-level and high-performance API.</li>
-<li>There is additional level of indirection: <code>VkDeviceMemory</code> is allocated separately from creating <code>VkBuffer</code>/<code>VkImage</code> and they must be bound together. The binding cannot be changed later - resource must be recreated.</li>
-<li>Driver must be queried for supported memory heaps and memory types. Different IHV-s provide different types of it.</li>
-<li>It is recommended practice to allocate bigger chunks of memory and assign parts of them to particular resources.</li>
-</ul>
-<h1><a class="anchor" id="features"></a>
-Features</h1>
-<p>This library is helps game developers to manage memory allocations and resource creation by offering some higher-level functions. Features of the library could be divided into several layers, low level to high level:</p>
-<ol type="1">
-<li>Functions that help to choose correct and optimal memory type based on intended usage of the memory.<ul>
-<li>Required or preferred traits of the memory are expressed using higher-level description comparing to Vulkan flags.</li>
-</ul>
-</li>
-<li>Functions that allocate memory blocks, reserve and return parts of them (<code>VkDeviceMemory</code> + offset + size) to the user.<ul>
-<li>Library keeps track of allocated memory blocks, used and unused ranges inside them, finds best matching unused ranges for new allocations, takes all the rules of alignment into consideration.</li>
-</ul>
-</li>
-<li>Functions that can create an image/buffer, allocate memory for it and bind them together - all in one call.</li>
-</ol>
-<h1><a class="anchor" id="prequisites"></a>
-Prequisites</h1>
-<ul>
-<li>Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan.</li>
-<li>Public interface in C, in same convention as Vulkan API. Implementation in C++.</li>
-<li>Interface documented using Doxygen-style comments.</li>
-<li>Platform-independent, but developed and tested on Windows using Visual Studio.</li>
-<li>Error handling implemented by returning <code>VkResult</code> error codes - same way as in Vulkan.</li>
-</ul>
 <h1><a class="anchor" id="user_guide"></a>
 User guide</h1>
 <h2><a class="anchor" id="quick_start"></a>
@@ -188,7 +153,7 @@ if((memFlags &amp; VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
     memRange.size   = allocInfo.size;
     vkFlushMappedMemoryRanges(device, 1, &amp;memRange);
 }
-</pre><p>For performance reasons it is also recommended to unmap Vulkan memory for the time of call to <code>vkQueueSubmit()</code> or <code>vkQueuePresent()</code>. You can do it for all persistently mapped memory using just one function call. For details, see function <a class="el" href="group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27" title="Unmaps persistently mapped memory of types that are HOST_COHERENT and DEVICE_LOCAL. ">vmaUnmapPersistentlyMappedMemory()</a>, <a class="el" href="group__layer2.html#ga03366170bb8e186605518d2f5d65b85a" title="Maps back persistently mapped memory of types that are HOST_COHERENT and DEVICE_LOCAL. ">vmaMapPersistentlyMappedMemory()</a>.</p>
+</pre><p>On AMD GPUs on Windows, Vulkan memory from the type that has both <code>DEVICE_LOCAL</code> and <code>HOST_VISIBLE</code> flags should not be mapped for the time of any call to <code>vkQueueSubmit()</code> or <code>vkQueuePresent()</code>. Although legal, that would cause performance degradation because WDDM migrates such memory to system RAM. To ensure this, you can unmap all persistently mapped memory using just one function call. For details, see function <a class="el" href="group__layer2.html#ga26b87244491c1fe77f11fe9ab5779c27" title="Unmaps persistently mapped memory of types that are HOST_COHERENT and DEVICE_LOCAL. ">vmaUnmapPersistentlyMappedMemory()</a>, <a class="el" href="group__layer2.html#ga03366170bb8e186605518d2f5d65b85a" title="Maps back persistently mapped memory of types that are HOST_COHERENT and DEVICE_LOCAL. ">vmaMapPersistentlyMappedMemory()</a>.</p>
 <h2><a class="anchor" id="custom_memory_pools"></a>
 Custom memory pools</h2>
 <p>The library automatically creates and manages default memory pool for each memory type available on the device. A pool contains a number of <code>VkDeviceMemory</code> blocks. You can create custom pool and allocate memory out of it. It can be useful if you want to:</p>
