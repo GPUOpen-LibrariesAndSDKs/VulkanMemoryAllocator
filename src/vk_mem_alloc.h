@@ -406,10 +406,12 @@ typedef void (VKAPI_PTR *PFN_vmaFreeDeviceMemoryFunction)(
     VkDeviceMemory    memory,
     VkDeviceSize      size);
 
-/** \brief Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory.
+/** \brief Set of callbacks that the library will call for `vkAllocateMemory` and `vkFreeMemory`.
 
 Provided for informative purpose, e.g. to gather statistics about number of
 allocations or total amount of memory allocated in Vulkan.
+
+Used in VmaAllocatorCreateInfo::pDeviceMemoryCallbacks.
 */
 typedef struct VmaDeviceMemoryCallbacks {
     /// Optional, can be null.
@@ -430,6 +432,10 @@ typedef enum VmaAllocatorFlagBits {
 } VmaAllocatorFlagBits;
 typedef VkFlags VmaAllocatorFlags;
 
+/** \brief Pointers to some Vulkan functions - a subset used by the library.
+
+Used in VmaAllocatorCreateInfo::pVulkanFunctions.
+*/
 typedef struct VmaVulkanFunctions {
     PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties;
     PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
@@ -564,6 +570,8 @@ void vmaSetCurrentFrameIndex(
     VmaAllocator allocator,
     uint32_t frameIndex);
 
+/** \brief Calculated statistics of memory usage in entire allocator.
+*/
 typedef struct VmaStatInfo
 {
     /// Number of `VkDeviceMemory` Vulkan memory blocks allocated.
@@ -830,7 +838,7 @@ typedef struct VmaPoolCreateInfo {
     uint32_t frameInUseCount;
 } VmaPoolCreateInfo;
 
-/** \brief Describes parameter of existing VmaPool.
+/** \brief Describes parameter of existing `VmaPool`.
 */
 typedef struct VmaPoolStats {
     /** \brief Total amount of `VkDeviceMemory` allocated from Vulkan for this pool, in bytes.

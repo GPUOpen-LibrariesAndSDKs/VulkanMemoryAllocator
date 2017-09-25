@@ -72,14 +72,16 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory.  <a href="struct_vma_device_memory_callbacks.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for <code>vkAllocateMemory</code> and <code>vkFreeMemory</code>.  <a href="struct_vma_device_memory_callbacks.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to some Vulkan functions - a subset used by the library.  <a href="struct_vma_vulkan_functions.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="struct_vma_allocator_create_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculated statistics of memory usage in entire allocator.  <a href="struct_vma_stat_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_stats.html">VmaStats</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">General statistics from current state of Allocator.  <a href="struct_vma_stats.html#details">More...</a><br /></td></tr>
@@ -99,7 +101,7 @@ Typedefs</h2></td></tr>
 <tr class="memdesc:gaef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called before vkFreeMemory.  <a href="#gaef2545dc2e9dd4f29ab9ba6ac6fe2f49">More...</a><br /></td></tr>
 <tr class="separator:gaef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga5e2eb68d727cfd4df25702b027b7aa31">VmaDeviceMemoryCallbacks</a></td></tr>
-<tr class="memdesc:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory.  <a href="#ga5e2eb68d727cfd4df25702b027b7aa31">More...</a><br /></td></tr>
+<tr class="memdesc:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for <code>vkAllocateMemory</code> and <code>vkFreeMemory</code>.  <a href="#ga5e2eb68d727cfd4df25702b027b7aa31">More...</a><br /></td></tr>
 <tr class="separator:ga5e2eb68d727cfd4df25702b027b7aa31"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gac51ae2c316ee760ec5aebbae06d31253"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="group__general.html#ga34fff29c218d23a7ff7dff44b77b6b6f">VmaAllocatorFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gac51ae2c316ee760ec5aebbae06d31253">VmaAllocatorFlagBits</a></td></tr>
 <tr class="memdesc:gac51ae2c316ee760ec5aebbae06d31253"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created VmaAllocator.  <a href="#gac51ae2c316ee760ec5aebbae06d31253">More...</a><br /></td></tr>
@@ -107,11 +109,13 @@ Typedefs</h2></td></tr>
 <tr class="memitem:ga6ffbcb80208bf4467a1104087396cf59"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a></td></tr>
 <tr class="separator:ga6ffbcb80208bf4467a1104087396cf59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga97064a1a271b0061ebfc3a079862d0c5"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga97064a1a271b0061ebfc3a079862d0c5">VmaVulkanFunctions</a></td></tr>
+<tr class="memdesc:ga97064a1a271b0061ebfc3a079862d0c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to some Vulkan functions - a subset used by the library.  <a href="#ga97064a1a271b0061ebfc3a079862d0c5">More...</a><br /></td></tr>
 <tr class="separator:ga97064a1a271b0061ebfc3a079862d0c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae0f6d1d733dded220d28134da46b4283"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#gae0f6d1d733dded220d28134da46b4283">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:gae0f6d1d733dded220d28134da46b4283"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="#gae0f6d1d733dded220d28134da46b4283">More...</a><br /></td></tr>
 <tr class="separator:gae0f6d1d733dded220d28134da46b4283"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga810b009a788ee8aac72a25b42ffbe31c"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga810b009a788ee8aac72a25b42ffbe31c">VmaStatInfo</a></td></tr>
+<tr class="memdesc:ga810b009a788ee8aac72a25b42ffbe31c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculated statistics of memory usage in entire allocator.  <a href="#ga810b009a788ee8aac72a25b42ffbe31c">More...</a><br /></td></tr>
 <tr class="separator:ga810b009a788ee8aac72a25b42ffbe31c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga732be855fb4a7c248e6853d928a729af"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_stats.html">VmaStats</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__general.html#ga732be855fb4a7c248e6853d928a729af">VmaStats</a></td></tr>
 <tr class="memdesc:ga732be855fb4a7c248e6853d928a729af"><td class="mdescLeft">&#160;</td><td class="mdescRight">General statistics from current state of Allocator.  <a href="#ga732be855fb4a7c248e6853d928a729af">More...</a><br /></td></tr>
@@ -259,8 +263,9 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Set of callbacks that the library will call for vkAllocateMemory and vkFreeMemory. </p>
-<p>Provided for informative purpose, e.g. to gather statistics about number of allocations or total amount of memory allocated in Vulkan. </p>
+<p>Set of callbacks that the library will call for <code>vkAllocateMemory</code> and <code>vkFreeMemory</code>. </p>
+<p>Provided for informative purpose, e.g. to gather statistics about number of allocations or total amount of memory allocated in Vulkan.</p>
+<p>Used in <a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e" title="Informative callbacks for vkAllocateMemory, vkFreeMemory. ">VmaAllocatorCreateInfo::pDeviceMemoryCallbacks</a>. </p>
 
 </div>
 </div>
@@ -275,6 +280,8 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Calculated statistics of memory usage in entire allocator. </p>
 
 </div>
 </div>
@@ -305,6 +312,9 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Pointers to some Vulkan functions - a subset used by the library. </p>
+<p>Used in <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null if you leave define VMA_STATIC_VULKAN_FUNCTIONS 1...">VmaAllocatorCreateInfo::pVulkanFunctions</a>. </p>
 
 </div>
 </div>
