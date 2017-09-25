@@ -29,7 +29,7 @@ This library can help game developers to manage memory allocations and resource 
 1. Functions that help to choose correct and optimal memory type based on intended usage of the memory.
    - Required or preferred traits of the memory are expressed using higher-level description comparing to Vulkan flags.
 2. Functions that allocate memory blocks, reserve and return parts of them (`VkDeviceMemory` + offset + size) to the user.
-   - Library keeps track of allocated memory blocks, used and unused ranges inside them, finds best matching unused ranges for new allocations, takes all the rules of alignment into consideration.
+   - Library keeps track of allocated memory blocks, used and unused ranges inside them, finds best matching unused ranges for new allocations, takes all the rules of alignment and buffer/image granularity into consideration.
 3. Functions that can create an image/buffer, allocate memory for it and bind them together - all in one call.
 
 Additional features:

@@ -845,6 +845,13 @@ typedef struct VmaPoolStats {
     /** \brief Number of continuous memory ranges in the pool not used by any `VmaAllocation`.
     */
     size_t unusedRangeCount;
+    /** \brief Size of the largest continuous free memory region.
+
+    Making a new allocation of that size is not guaranteed to succeed because of
+    possible additional margin required to respect alignment and buffer/image
+    granularity.
+    */
+    VkDeviceSize unusedRangeSizeMax;
 } VmaPoolStats;
 
 /** \brief Allocates Vulkan device memory and creates `VmaPool` object.
@@ -3049,6 +3056,8 @@ public:
     
     // Validates all data structures inside this object. If not valid, returns false.
     bool Validate() const;
+
+    VkDeviceSize GetUnusedRangeSizeMax() const;
     
     // Tries to find a place for suballocation with given parameters inside this allocation.
     // If succeeded, fills pAllocationRequest and returns true.
@@ -4281,6 +4290,18 @@ bool VmaDeviceMemoryBlock::Validate() const
         (calculatedFreeCount == m_FreeCount);
 }
 
+VkDeviceSize VmaDeviceMemoryBlock::GetUnusedRangeSizeMax() const
+{
+    if(!m_FreeSuballocationsBySize.empty())
+    {
+        return m_FreeSuballocationsBySize.back()->size;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 /*
 How many suitable free suballocations to analyze before choosing best one.
 - Set to 1 to use First-Fit algorithm - first suitable free suballocation will
@@ -5176,6 +5197,7 @@ void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
     pStats->unusedSize = 0;
     pStats->allocationCount = 0;
     pStats->unusedRangeCount = 0;
+    pStats->unusedRangeSizeMax = 0;
 
     VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
 
@@ -5191,6 +5213,7 @@ void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
         pStats->unusedSize += pBlock->m_SumFreeSize;
         pStats->allocationCount += rangeCount - pBlock->m_FreeCount;
         pStats->unusedRangeCount += pBlock->m_FreeCount;
+        pStats->unusedRangeSizeMax = VMA_MAX(pStats->unusedRangeSizeMax, pBlock->GetUnusedRangeSizeMax());
     }
 }
 

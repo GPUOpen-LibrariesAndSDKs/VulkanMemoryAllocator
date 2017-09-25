@@ -85,6 +85,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ae4f3546ffa4d1e598b64d8e6134854f4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_stats.html#ae4f3546ffa4d1e598b64d8e6134854f4">unusedRangeCount</a></td></tr>
 <tr class="memdesc:ae4f3546ffa4d1e598b64d8e6134854f4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of continuous memory ranges in the pool not used by any <code>VmaAllocation</code>.  <a href="#ae4f3546ffa4d1e598b64d8e6134854f4">More...</a><br /></td></tr>
 <tr class="separator:ae4f3546ffa4d1e598b64d8e6134854f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab4c8f52dd42ab01998f60f0b6acc722b"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_stats.html#ab4c8f52dd42ab01998f60f0b6acc722b">unusedRangeSizeMax</a></td></tr>
+<tr class="memdesc:ab4c8f52dd42ab01998f60f0b6acc722b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of the largest continuous free memory region.  <a href="#ab4c8f52dd42ab01998f60f0b6acc722b">More...</a><br /></td></tr>
+<tr class="separator:ab4c8f52dd42ab01998f60f0b6acc722b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Describes parameter of existing VmaPool. </p>
@@ -134,6 +137,23 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Number of continuous memory ranges in the pool not used by any <code>VmaAllocation</code>. </p>
+
+</div>
+</div>
+<a id="ab4c8f52dd42ab01998f60f0b6acc722b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab4c8f52dd42ab01998f60f0b6acc722b">&#9670;&nbsp;</a></span>unusedRangeSizeMax</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkDeviceSize VmaPoolStats::unusedRangeSizeMax</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Size of the largest continuous free memory region. </p>
+<p>Making a new allocation of that size is not guaranteed to succeed because of possible additional margin required to respect alignment and buffer/image granularity. </p>
 
 </div>
 </div>
