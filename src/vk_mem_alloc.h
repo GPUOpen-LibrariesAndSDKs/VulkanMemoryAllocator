@@ -373,7 +373,7 @@ The library uses following algorithm for allocation, in order:
 \section configuration Configuration
 
 Please check "CONFIGURATION SECTION" in the code to find macros that you can define
-before each `#include` of this file or change directly in this file to provide
+before each include of this file or change directly in this file to provide
 your own implementation of basic facilities like assert, `min()` and `max()` functions,
 mutex etc. C++ STL is used by default, but changing these allows you to get rid
 of any STL usage if you want, as many game developers tend to do.
@@ -384,7 +384,7 @@ The library uses Vulkan functions straight from the `vulkan.h` header by default
 If you want to provide your own pointers to these functions, e.g. fetched using
 `vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`:
 
--# Remove macro `VMA_STATIC_VULKAN_FUNCTIONS` from "CONFIGURATION SECTION".
+-# Define `VMA_STATIC_VULKAN_FUNCTIONS 0`.
 -# Provide valid pointers through VmaAllocatorCreateInfo::pVulkanFunctions.
 
 \subsection custom_memory_allocator Custom host memory allocator
@@ -544,9 +544,9 @@ typedef struct VmaAllocatorCreateInfo
       value of this limit will be reported instead when using vmaGetMemoryProperties().
     */
     const VkDeviceSize* pHeapSizeLimit;
-    /** \brief Pointers to Vulkan functions. Can be null if you leave `#define VMA_STATIC_VULKAN_FUNCTIONS 1`.
+    /** \brief Pointers to Vulkan functions. Can be null if you leave define `VMA_STATIC_VULKAN_FUNCTIONS 1`.
 
-    If you leave `#define VMA_STATIC_VULKAN_FUNCTIONS 1` in configuration section,
+    If you leave define `VMA_STATIC_VULKAN_FUNCTIONS 1` in configuration section,
     you can pass null as this member, because the library will fetch pointers to
     Vulkan functions internally in a static way, like:
 
@@ -1270,10 +1270,12 @@ internally, like:
 
     vulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
 
-Remove this macro if you are going to provide you own pointers to Vulkan
-functions via VmaAllocatorCreateInfo::pVulkanFunctions.
+Define to 0 if you are going to provide you own pointers to Vulkan functions via
+VmaAllocatorCreateInfo::pVulkanFunctions.
 */
+#ifndef VMA_STATIC_VULKAN_FUNCTIONS
 #define VMA_STATIC_VULKAN_FUNCTIONS 1
+#endif
 
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
 //#define VMA_USE_STL_CONTAINERS 1
@@ -6163,7 +6165,7 @@ VmaAllocator_T::~VmaAllocator_T()
 
 void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions)
 {
-#if VMA_STATIC_VULKAN_FUNCTIONS
+#if VMA_STATIC_VULKAN_FUNCTIONS == 1
     m_VulkanFunctions.vkGetPhysicalDeviceProperties = &vkGetPhysicalDeviceProperties;
     m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = &vkGetPhysicalDeviceMemoryProperties;
     m_VulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
@@ -6178,7 +6180,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     m_VulkanFunctions.vkDestroyBuffer = &vkDestroyBuffer;
     m_VulkanFunctions.vkCreateImage = &vkCreateImage;
     m_VulkanFunctions.vkDestroyImage = &vkDestroyImage;
-#endif // #if VMA_STATIC_VULKAN_FUNCTIONS
+#endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
 
     if(pVulkanFunctions != VMA_NULL)
     {

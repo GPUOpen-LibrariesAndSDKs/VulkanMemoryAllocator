@@ -298,13 +298,13 @@ void MyBuffer::EnsureBuffer()
 </ol>
 <h1><a class="anchor" id="configuration"></a>
 Configuration</h1>
-<p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each <code>#include</code> of this file or change directly in this file to provide your own implementation of basic facilities like assert, <code>min()</code> and <code>max()</code> functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
+<p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each include of this file or change directly in this file to provide your own implementation of basic facilities like assert, <code>min()</code> and <code>max()</code> functions, mutex etc. C++ STL is used by default, but changing these allows you to get rid of any STL usage if you want, as many game developers tend to do.</p>
 <h2><a class="anchor" id="config_Vulkan_functions"></a>
 Pointers to Vulkan functions</h2>
-<p>The library uses Vulkan functions straight from the <code>vulkan.h</code> header by default. If you want to provide your own pointers to these functions, e.g. fetched using <code>vkGetInstanceProcAddr</code> and <code>vkGetDeviceProcAddr</code>:</p>
+<p>The library uses Vulkan functions straight from the <code>vulkan.h</code> header by default. If you want to provide your own pointers to these functions, e.g. fetched using <code>vkGetInstanceProcAddr()</code> and <code>vkGetDeviceProcAddr()</code>:</p>
 <ol type="1">
-<li>Remove macro <code>VMA_STATIC_VULKAN_FUNCTIONS</code> from "CONFIGURATION SECTION" section.</li>
-<li>Provide valid pointers through <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null if you leave #define VMA_STATIC_VULKAN_FUNCTIONS 1...">VmaAllocatorCreateInfo::pVulkanFunctions</a>.</li>
+<li>Define <code>VMA_STATIC_VULKAN_FUNCTIONS 0</code>.</li>
+<li>Provide valid pointers through <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null if you leave define VMA_STATIC_VULKAN_FUNCTIONS 1...">VmaAllocatorCreateInfo::pVulkanFunctions</a>.</li>
 </ol>
 <h2><a class="anchor" id="custom_memory_allocator"></a>
 Custom host memory allocator</h2>
