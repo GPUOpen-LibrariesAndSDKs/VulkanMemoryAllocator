@@ -6393,7 +6393,13 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
     {
         if(m_UnmapPersistentlyMappedMemoryCounter == 0)
         {
-            res = vkMapMemory(m_hDevice, hMemory, 0, VK_WHOLE_SIZE, 0, &pMappedData);
+            res = (*this->GetVulkanFunctions().vkMapMemory)(
+                m_hDevice,
+                hMemory,
+                0,
+                VK_WHOLE_SIZE,
+                0,
+                &pMappedData);
             if(res < 0)
             {
                 VMA_DEBUG_LOG("    vkMapMemory FAILED");
@@ -7007,7 +7013,7 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
     
     if(allocation->GetMappedData() != VMA_NULL)
     {
-        vkUnmapMemory(m_hDevice, hMemory);
+        (*this->GetVulkanFunctions().vkUnmapMemory)(m_hDevice, hMemory);
     }
     
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
@@ -7608,8 +7614,13 @@ VkResult vmaMapMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return vkMapMemory(allocator->m_hDevice, allocation->GetMemory(),
-        allocation->GetOffset(), allocation->GetSize(), 0, ppData);
+    return (*allocator->GetVulkanFunctions().vkMapMemory)(
+        allocator->m_hDevice,
+        allocation->GetMemory(),
+        allocation->GetOffset(),
+        allocation->GetSize(),
+        0,
+        ppData);
 }
 
 void vmaUnmapMemory(
@@ -7620,7 +7631,7 @@ void vmaUnmapMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    vkUnmapMemory(allocator->m_hDevice, allocation->GetMemory());
+    (*allocator->GetVulkanFunctions().vkUnmapMemory)(allocator->m_hDevice, allocation->GetMemory());
 }
 
 void vmaUnmapPersistentlyMappedMemory(VmaAllocator allocator)
