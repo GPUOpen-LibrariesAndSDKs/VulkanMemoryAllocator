@@ -6401,7 +6401,7 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
     {
         if(m_UnmapPersistentlyMappedMemoryCounter == 0)
         {
-            res = (*this->GetVulkanFunctions().vkMapMemory)(
+            res = (*m_VulkanFunctions.vkMapMemory)(
                 m_hDevice,
                 hMemory,
                 0,
@@ -7021,7 +7021,7 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
     
     if(allocation->GetMappedData() != VMA_NULL)
     {
-        (*this->GetVulkanFunctions().vkUnmapMemory)(m_hDevice, hMemory);
+        (*m_VulkanFunctions.vkUnmapMemory)(m_hDevice, hMemory);
     }
     
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
