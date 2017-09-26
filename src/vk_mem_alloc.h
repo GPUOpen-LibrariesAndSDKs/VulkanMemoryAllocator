@@ -23,6 +23,10 @@
 #ifndef AMD_VULKAN_MEMORY_ALLOCATOR_H
 #define AMD_VULKAN_MEMORY_ALLOCATOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** \mainpage Vulkan Memory Allocator
 
 \tableofcontents
@@ -1234,6 +1238,10 @@ void vmaDestroyImage(
     VmaAllocation allocation);
 
 /** @} */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // AMD_VULKAN_MEMORY_ALLOCATOR_H
 
