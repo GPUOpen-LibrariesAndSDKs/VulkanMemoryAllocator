@@ -54,9 +54,39 @@ Additional features:
 - Platform-independent, but developed and tested on Windows using Visual Studio.
 - Error handling implemented by returning `VkResult` error codes - same way as in Vulkan.
 
+# Example
+
+Basic usage of this library is very simple. Advanced features are optional. After you created global `VmaAllocator` object, a complete code needed to create a buffer may look like this:
+
+```cpp
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufferInfo.size = 65536;
+bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+```
+
+With this one function call:
+
+1. `VkBuffer` is created.
+2. `VkDeviceMemory` block is allocated if needed.
+3. An unused region of the memory block is bound to this buffer.
+
+`VmaAllocation` is an object that represents memory assigned to this buffer. It can be queried for parameters useful e.g. if you want to map the memory on host.
+
 # Read more
 
 See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/)**.
+
+# Software using this library
+
+- **[Anvil](https://github.com/GPUOpen-LibrariesAndSDKs/Anvil)** - cross-platform framework for Vulkan
+- **[vkDOOM3](https://github.com/DustinHLand/vkDOOM3)** - Vulkan port of GPL DOOM 3 BFG Edition
 
 # See also
 

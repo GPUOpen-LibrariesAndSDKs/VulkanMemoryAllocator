@@ -113,15 +113,15 @@ vmaCreateAllocator(&amp;allocatorInfo, &amp;allocator);
 <li>Call <a class="el" href="group__layer3.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a> / <a class="el" href="group__layer3.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a> to get <code>VkBuffer</code>/<code>VkImage</code> with memory already allocated and bound to it.</li>
 </ol>
 <pre class="fragment">VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufferInfo.size = myBufferSize;
+bufferInfo.size = 65536;
 bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-VmaAllocationCreateInfo memReq = {};
-memReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
 VkBuffer buffer;
 VmaAllocation allocation;
-vmaCreateBuffer(allocator, &amp;bufferInfo, &amp;memReq, &amp;buffer, &amp;allocation, nullptr);
+vmaCreateBuffer(allocator, &amp;bufferInfo, &amp;allocInfo, &amp;buffer, &amp;allocation, nullptr);
 </pre><p>Don't forget to destroy your objects when no longer needed:</p>
 <pre class="fragment">vmaDestroyBuffer(allocator, buffer, allocation);
 vmaDestroyAllocator(allocator);

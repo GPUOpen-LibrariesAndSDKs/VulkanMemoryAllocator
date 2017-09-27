@@ -76,15 +76,15 @@ When you want to create a buffer or image:
 
 
     VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufferInfo.size = myBufferSize;
+    bufferInfo.size = 65536;
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VmaAllocationCreateInfo memReq = {};
-    memReq.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     VkBuffer buffer;
     VmaAllocation allocation;
-    vmaCreateBuffer(allocator, &bufferInfo, &memReq, &buffer, &allocation, nullptr);
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
 
 Don't forget to destroy your objects when no longer needed:
 
