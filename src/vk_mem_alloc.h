@@ -33,9 +33,11 @@ extern "C" {
 
 <b>Version 2.0.0-alpha.3</b> (2017-09-12)
 
-Members grouped: see <a href="modules.html"><b>Modules</b></a>.
+Source repository: [VulkanMemoryAllocator project on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) \n
+Product page: [Vulkan Memory Allocator on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
 
-All members: see vk_mem_alloc.h.
+Documentation of members grouped: <a href="modules.html"><b>Modules</b></a> \n
+Documentation of all members: vk_mem_alloc.h
 
 \section user_guide User guide
 
