@@ -685,6 +685,12 @@ typedef enum VmaAllocationCreateFlagBits {
 
     If VmaAllocationCreateInfo::pool is not null, usage of this flag must match
     usage of flag `VMA_POOL_CREATE_PERSISTENT_MAP_BIT` used during pool creation.
+
+    Is it valid to use this flag for allocation made from memory type that is not
+    `HOST_VISIBLE`. This flag is then ignored and memory is not mapped. This is
+    useful if you need an allocation that is efficient to use on GPU
+    (`DEVICE_LOCAL`) and still want to map it directly if possible on platforms that
+    support it (e.g. Intel GPU).
     */
     VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT = 0x00000004,
     /** Allocation created with this flag can become lost as a result of another
@@ -5315,8 +5321,8 @@ VkResult VmaBlockVector::Allocate(
     VmaAllocation* pAllocation)
 {
     // Validate flags.
-    if(((createInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0) !=
-        (m_BlockVectorType == VMA_BLOCK_VECTOR_TYPE_MAPPED))
+    if(createInfo.pool != VK_NULL_HANDLE &&
+        ((createInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0) != (m_BlockVectorType == VMA_BLOCK_VECTOR_TYPE_MAPPED))
     {
         VMA_ASSERT(0 && "Usage of VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT must match VMA_POOL_CREATE_PERSISTENT_MAP_BIT.");
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
@@ -5548,7 +5554,19 @@ void VmaBlockVector::Free(
                 m_HasEmptyBlock = true;
             }
         }
-        // Must be called after srcBlockIndex is used, because later it may become invalid!
+        // pBlock didn't become empty, but we have another empty block - find and free that one.
+        // (This is optional, heuristics.)
+        else if(m_HasEmptyBlock)
+        {
+            VmaDeviceMemoryBlock* pLastBlock = m_Blocks.back();
+            if(pLastBlock->m_Metadata.IsEmpty() && m_Blocks.size() > m_MinBlockCount)
+            {
+                pBlockToDelete = pLastBlock;
+                m_Blocks.pop_back();
+                m_HasEmptyBlock = false;
+            }
+        }
+
         IncrementallySortBlocks();
     }
 
@@ -6313,17 +6331,31 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     VmaBlockVector* const blockVector = m_pBlockVectors[memTypeIndex][blockVectorType];
     VMA_ASSERT(blockVector);
 
-    const VkDeviceSize preferredBlockSize = blockVector->GetPreferredBlockSize();
-    // Heuristics: Allocate own memory if requested size if greater than half of preferred block size.
-    const bool ownMemory =
-        (createInfo.flags & VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT) != 0 ||
-        VMA_DEBUG_ALWAYS_OWN_MEMORY ||
-        ((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0 &&
-            vkMemReq.size > preferredBlockSize / 2);
+    VmaAllocationCreateInfo finalCreateInfo = createInfo;
 
-    if(ownMemory)
+    if(VMA_DEBUG_ALWAYS_OWN_MEMORY)
     {
-        if((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
+        finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT;
+    }
+
+    // Heuristics: Allocate own memory if requested size if greater than half of preferred block size.
+    const VkDeviceSize preferredBlockSize = blockVector->GetPreferredBlockSize();
+    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0 &&
+        vkMemReq.size > preferredBlockSize / 2)
+    {
+        finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT;
+    }
+
+    // If memory type is not HOST_VISIBLE, disable PERSISTENT_MAP.
+    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0 &&
+        (m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+    {
+        finalCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
+    }
+
+    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT) != 0)
+    {
+        if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
         {
             return VK_ERROR_OUT_OF_DEVICE_MEMORY;
         }
@@ -6333,8 +6365,8 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 vkMemReq.size,
                 suballocType,
                 memTypeIndex,
-                (createInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0,
-                createInfo.pUserData,
+                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0,
+                finalCreateInfo.pUserData,
                 pAllocation);
         }
     }
@@ -6344,7 +6376,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             VK_NULL_HANDLE, // hCurrentPool
             m_CurrentFrameIndex.load(),
             vkMemReq,
-            createInfo,
+            finalCreateInfo,
             suballocType,
             pAllocation);
         if(res == VK_SUCCESS)
@@ -6353,24 +6385,31 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
         }
 
         // 5. Try own memory.
-        res = AllocateOwnMemory(
-            vkMemReq.size,
-            suballocType,
-            memTypeIndex,
-            (createInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0,
-            createInfo.pUserData,
-            pAllocation);
-        if(res == VK_SUCCESS)
+        if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
         {
-            // Succeeded: AllocateOwnMemory function already filld pMemory, nothing more to do here.
-            VMA_DEBUG_LOG("    Allocated as OwnMemory");
-            return VK_SUCCESS;
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
         }
         else
         {
-            // Everything failed: Return error code.
-            VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
-            return res;
+            res = AllocateOwnMemory(
+                vkMemReq.size,
+                suballocType,
+                memTypeIndex,
+                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0,
+                finalCreateInfo.pUserData,
+                pAllocation);
+            if(res == VK_SUCCESS)
+            {
+                // Succeeded: AllocateOwnMemory function already filld pMemory, nothing more to do here.
+                VMA_DEBUG_LOG("    Allocated as OwnMemory");
+                return VK_SUCCESS;
+            }
+            else
+            {
+                // Everything failed: Return error code.
+                VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
+                return res;
+            }
         }
     }
 }
@@ -7392,11 +7431,6 @@ VkResult vmaFindMemoryTypeIndex(
         break;
     default:
         break;
-    }
-
-    if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0)
-    {
-        requiredFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     }
 
     *pMemoryTypeIndex = UINT32_MAX;
