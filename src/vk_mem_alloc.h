@@ -31,7 +31,7 @@ extern "C" {
 
 \tableofcontents
 
-<b>Version 2.0.0-alpha.3</b> (2017-09-12)
+<b>Version 2.0.0-alpha.4</b> (2017-10-02)
 
 Source repository: [VulkanMemoryAllocator project on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) \n
 Product page: [Vulkan Memory Allocator on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
@@ -328,7 +328,7 @@ The library uses following algorithm for allocation, in order:
    specified, try to find space in existing blocks, possilby making some other
    allocations lost.
 -# If failed, try to allocate separate `VkDeviceMemory` for this allocation,
-   just like when you use `VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT`.
+   just like when you use `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT`.
 -# If failed, choose other memory type that meets the requirements specified in
    VmaAllocationCreateInfo and go to point 1.
 -# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
@@ -433,6 +433,34 @@ typedef enum VmaAllocatorFlagBits {
     Using this flag may increase performance because internal mutexes are not used.
     */
     VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT = 0x00000001,
+    /** \brief Enables usage of VK_KHR_dedicated_allocation extension.
+
+    Using this extenion will automatically allocate dedicated blocks of memory for
+    some buffers and images instead of suballocating place for them out of bigger
+    memory blocks (as if you explicitly used VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+    flag) when it is recommended by the driver. It may improve performance on some
+    GPUs.
+
+    You may set this flag only if you found out that following device extensions are
+    supported, you enabled them while creating Vulkan device passed as
+    VmaAllocatorCreateInfo::device, and you want them to be used internally by this
+    library:
+
+    - VK_KHR_get_memory_requirements2
+    - VK_KHR_dedicated_allocation
+
+    If this flag is enabled, you must also provide
+    VmaAllocatorCreateInfo::pVulkanFunctions and fill at least members:
+    VmaVulkanFunctions::vkGetBufferMemoryRequirements2KHR,
+    VmaVulkanFunctions::vkGetImageMemoryRequirements2KHR, because they are never
+    imported statically.
+
+When this flag is set, you can experience following warnings reported by Vulkan
+validation layer. You can ignore them.
+
+> vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer.
+    */
+    VMA_ALLOCATOR_KHR_DEDICATED_ALLOCATION_BIT = 0x00000002,
 
     VMA_ALLOCATOR_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocatorFlagBits;
@@ -457,6 +485,8 @@ typedef struct VmaVulkanFunctions {
     PFN_vkDestroyBuffer vkDestroyBuffer;
     PFN_vkCreateImage vkCreateImage;
     PFN_vkDestroyImage vkDestroyImage;
+    PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
+    PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 } VmaVulkanFunctions;
 
 /// Description of a Allocator to be created.
@@ -665,14 +695,14 @@ typedef enum VmaAllocationCreateFlagBits {
 
     You should not use this flag if VmaAllocationCreateInfo::pool is not null.
     */
-    VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT = 0x00000001,
+    VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT = 0x00000001,
 
     /** \brief Set this flag to only try to allocate from existing `VkDeviceMemory` blocks and never create new such block.
     
     If new allocation cannot be placed in any of the existing blocks, allocation
     fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY` error.
     
-    You should not use `VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT` and
+    You should not use `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT` and
     `VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT` at the same time. It makes no sense.
     
     If VmaAllocationCreateInfo::pool is not null, this flag is implied and ignored. */
@@ -1116,7 +1146,7 @@ allocations are considered nonmovable in this call. Basic rules:
 - Only allocations made in memory types that have
   `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag can be compacted. You may pass other
   allocations but it makes no sense - these will never be moved.
-- You may pass allocations made with `VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT` but
+- You may pass allocations made with `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT` but
   it makes no sense - they will never be moved.
 - Both allocations made with or without `VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT`
   flag can be compacted. If not persistently mapped, memory will be mapped
@@ -1453,12 +1483,12 @@ If providing your own implementation, you need to implement a subset of std::ato
    #define VMA_BEST_FIT (1)
 #endif
 
-#ifndef VMA_DEBUG_ALWAYS_OWN_MEMORY
+#ifndef VMA_DEBUG_ALWAYS_DEDICATED_MEMORY
    /**
-   Every object will have its own allocation.
+   Every allocation will have its own memory block.
    Define to 1 for debugging purposes only.
    */
-   #define VMA_DEBUG_ALWAYS_OWN_MEMORY (0)
+   #define VMA_DEBUG_ALWAYS_DEDICATED_MEMORY (0)
 #endif
 
 #ifndef VMA_DEBUG_ALIGNMENT
@@ -2826,7 +2856,7 @@ public:
     {
         ALLOCATION_TYPE_NONE,
         ALLOCATION_TYPE_BLOCK,
-        ALLOCATION_TYPE_OWN,
+        ALLOCATION_TYPE_DEDICATED,
     };
 
     VmaAllocation_T(uint32_t currentFrameIndex) :
@@ -2883,7 +2913,7 @@ public:
         m_BlockAllocation.m_Offset = offset;
     }
 
-    void InitOwnAllocation(
+    void InitDedicatedAllocation(
         uint32_t memoryTypeIndex,
         VkDeviceMemory hMemory,
         VmaSuballocationType suballocationType,
@@ -2894,15 +2924,15 @@ public:
     {
         VMA_ASSERT(m_Type == ALLOCATION_TYPE_NONE);
         VMA_ASSERT(hMemory != VK_NULL_HANDLE);
-        m_Type = ALLOCATION_TYPE_OWN;
+        m_Type = ALLOCATION_TYPE_DEDICATED;
         m_Alignment = 0;
         m_Size = size;
         m_pUserData = pUserData;
         m_SuballocationType = suballocationType;
-        m_OwnAllocation.m_MemoryTypeIndex = memoryTypeIndex;
-        m_OwnAllocation.m_hMemory = hMemory;
-        m_OwnAllocation.m_PersistentMap = persistentMap;
-        m_OwnAllocation.m_pMappedData = pMappedData;
+        m_DedicatedAllocation.m_MemoryTypeIndex = memoryTypeIndex;
+        m_DedicatedAllocation.m_hMemory = hMemory;
+        m_DedicatedAllocation.m_PersistentMap = persistentMap;
+        m_DedicatedAllocation.m_pMappedData = pMappedData;
     }
 
     ALLOCATION_TYPE GetType() const { return m_Type; }
@@ -2925,8 +2955,8 @@ public:
     bool CanBecomeLost() const;
     VmaPool GetPool() const;
 
-    VkResult OwnAllocMapPersistentlyMappedMemory(VmaAllocator hAllocator);
-    void OwnAllocUnmapPersistentlyMappedMemory(VmaAllocator hAllocator);
+    VkResult DedicatedAllocMapPersistentlyMappedMemory(VmaAllocator hAllocator);
+    void DedicatedAllocUnmapPersistentlyMappedMemory(VmaAllocator hAllocator);
     
     uint32_t GetLastUseFrameIndex() const
     {
@@ -2946,9 +2976,9 @@ public:
     */
     bool MakeLost(uint32_t currentFrameIndex, uint32_t frameInUseCount);
 
-    void OwnAllocCalcStatsInfo(VmaStatInfo& outInfo)
+    void DedicatedAllocCalcStatsInfo(VmaStatInfo& outInfo)
     {
-        VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
+        VMA_ASSERT(m_Type == ALLOCATION_TYPE_DEDICATED);
         outInfo.blockCount = 1;
         outInfo.allocationCount = 1;
         outInfo.unusedRangeCount = 0;
@@ -2977,7 +3007,7 @@ private:
     };
 
     // Allocation for an object that has its own private VkDeviceMemory.
-    struct OwnAllocation
+    struct DedicatedAllocation
     {
         uint32_t m_MemoryTypeIndex;
         VkDeviceMemory m_hMemory;
@@ -2990,7 +3020,7 @@ private:
         // Allocation out of VmaDeviceMemoryBlock.
         BlockAllocation m_BlockAllocation;
         // Allocation for an object that has its own private VkDeviceMemory.
-        OwnAllocation m_OwnAllocation;
+        DedicatedAllocation m_DedicatedAllocation;
     };
 };
 
@@ -3436,6 +3466,7 @@ public:
 struct VmaAllocator_T
 {
     bool m_UseMutex;
+    bool m_UseKhrDedicatedAllocation;
     VkDevice m_hDevice;
     bool m_AllocationCallbacksSpecified;
     VkAllocationCallbacks m_AllocationCallbacks;
@@ -3456,8 +3487,8 @@ struct VmaAllocator_T
 
     // Each vector is sorted by memory (handle value).
     typedef VmaVector< VmaAllocation, VmaStlAllocator<VmaAllocation> > AllocationVectorType;
-    AllocationVectorType* m_pOwnAllocations[VK_MAX_MEMORY_TYPES][VMA_BLOCK_VECTOR_TYPE_COUNT];
-    VMA_MUTEX m_OwnAllocationsMutex[VK_MAX_MEMORY_TYPES];
+    AllocationVectorType* m_pDedicatedAllocations[VK_MAX_MEMORY_TYPES][VMA_BLOCK_VECTOR_TYPE_COUNT];
+    VMA_MUTEX m_DedicatedAllocationsMutex[VK_MAX_MEMORY_TYPES];
 
     VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo);
     ~VmaAllocator_T();
@@ -3487,9 +3518,19 @@ struct VmaAllocator_T
         return m_MemProps.memoryTypes[memTypeIndex].heapIndex;
     }
 
+    void GetBufferMemoryRequirements(
+        VkBuffer hBuffer,
+        VkMemoryRequirements& memReq,
+        bool& dedicatedAllocation) const;
+    void GetImageMemoryRequirements(
+        VkImage hImage,
+        VkMemoryRequirements& memReq,
+        bool& dedicatedAllocation) const;
+
     // Main allocation function.
     VkResult AllocateMemory(
         const VkMemoryRequirements& vkMemReq,
+        bool dedicatedAllocation,
         const VmaAllocationCreateInfo& createInfo,
         VmaSuballocationType suballocType,
         VmaAllocation* pAllocation);
@@ -3549,13 +3590,14 @@ private:
 
     VkResult AllocateMemoryOfType(
         const VkMemoryRequirements& vkMemReq,
+        bool dedicatedAllocation,
         const VmaAllocationCreateInfo& createInfo,
         uint32_t memTypeIndex,
         VmaSuballocationType suballocType,
         VmaAllocation* pAllocation);
 
     // Allocates and registers new VkDeviceMemory specifically for single allocation.
-    VkResult AllocateOwnMemory(
+    VkResult AllocateDedicatedMemory(
         VkDeviceSize size,
         VmaSuballocationType suballocType,
         uint32_t memTypeIndex,
@@ -3563,8 +3605,8 @@ private:
         void* pUserData,
         VmaAllocation* pAllocation);
 
-    // Tries to free pMemory as Own Memory. Returns true if found and freed.
-    void FreeOwnMemory(VmaAllocation allocation);
+    // Tries to free pMemory as Dedicated Memory. Returns true if found and freed.
+    void FreeDedicatedMemory(VmaAllocation allocation);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3952,7 +3994,7 @@ VkDeviceSize VmaAllocation_T::GetOffset() const
     {
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_Offset;
-    case ALLOCATION_TYPE_OWN:
+    case ALLOCATION_TYPE_DEDICATED:
         return 0;
     default:
         VMA_ASSERT(0);
@@ -3966,8 +4008,8 @@ VkDeviceMemory VmaAllocation_T::GetMemory() const
     {
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_Block->m_hMemory;
-    case ALLOCATION_TYPE_OWN:
-        return m_OwnAllocation.m_hMemory;
+    case ALLOCATION_TYPE_DEDICATED:
+        return m_DedicatedAllocation.m_hMemory;
     default:
         VMA_ASSERT(0);
         return VK_NULL_HANDLE;
@@ -3980,8 +4022,8 @@ uint32_t VmaAllocation_T::GetMemoryTypeIndex() const
     {
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_Block->m_MemoryTypeIndex;
-    case ALLOCATION_TYPE_OWN:
-        return m_OwnAllocation.m_MemoryTypeIndex;
+    case ALLOCATION_TYPE_DEDICATED:
+        return m_DedicatedAllocation.m_MemoryTypeIndex;
     default:
         VMA_ASSERT(0);
         return UINT32_MAX;
@@ -3994,8 +4036,8 @@ VMA_BLOCK_VECTOR_TYPE VmaAllocation_T::GetBlockVectorType() const
     {
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_Block->m_BlockVectorType;
-    case ALLOCATION_TYPE_OWN:
-        return (m_OwnAllocation.m_PersistentMap ? VMA_BLOCK_VECTOR_TYPE_MAPPED : VMA_BLOCK_VECTOR_TYPE_UNMAPPED);
+    case ALLOCATION_TYPE_DEDICATED:
+        return (m_DedicatedAllocation.m_PersistentMap ? VMA_BLOCK_VECTOR_TYPE_MAPPED : VMA_BLOCK_VECTOR_TYPE_UNMAPPED);
     default:
         VMA_ASSERT(0);
         return VMA_BLOCK_VECTOR_TYPE_COUNT;
@@ -4016,8 +4058,8 @@ void* VmaAllocation_T::GetMappedData() const
             return VMA_NULL;
         }
         break;
-    case ALLOCATION_TYPE_OWN:
-        return m_OwnAllocation.m_pMappedData;
+    case ALLOCATION_TYPE_DEDICATED:
+        return m_DedicatedAllocation.m_pMappedData;
     default:
         VMA_ASSERT(0);
         return VMA_NULL;
@@ -4030,7 +4072,7 @@ bool VmaAllocation_T::CanBecomeLost() const
     {
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_CanBecomeLost;
-    case ALLOCATION_TYPE_OWN:
+    case ALLOCATION_TYPE_DEDICATED:
         return false;
     default:
         VMA_ASSERT(0);
@@ -4044,29 +4086,29 @@ VmaPool VmaAllocation_T::GetPool() const
     return m_BlockAllocation.m_hPool;
 }
 
-VkResult VmaAllocation_T::OwnAllocMapPersistentlyMappedMemory(VmaAllocator hAllocator)
+VkResult VmaAllocation_T::DedicatedAllocMapPersistentlyMappedMemory(VmaAllocator hAllocator)
 {
-    VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
-    if(m_OwnAllocation.m_PersistentMap)
+    VMA_ASSERT(m_Type == ALLOCATION_TYPE_DEDICATED);
+    if(m_DedicatedAllocation.m_PersistentMap)
     {
         return (*hAllocator->GetVulkanFunctions().vkMapMemory)(
             hAllocator->m_hDevice,
-            m_OwnAllocation.m_hMemory,
+            m_DedicatedAllocation.m_hMemory,
             0,
             VK_WHOLE_SIZE,
             0,
-            &m_OwnAllocation.m_pMappedData);
+            &m_DedicatedAllocation.m_pMappedData);
     }
     return VK_SUCCESS;
 }
-void VmaAllocation_T::OwnAllocUnmapPersistentlyMappedMemory(VmaAllocator hAllocator)
+void VmaAllocation_T::DedicatedAllocUnmapPersistentlyMappedMemory(VmaAllocator hAllocator)
 {
-    VMA_ASSERT(m_Type == ALLOCATION_TYPE_OWN);
-    if(m_OwnAllocation.m_pMappedData)
+    VMA_ASSERT(m_Type == ALLOCATION_TYPE_DEDICATED);
+    if(m_DedicatedAllocation.m_pMappedData)
     {
-        VMA_ASSERT(m_OwnAllocation.m_PersistentMap);
-        (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_OwnAllocation.m_hMemory);
-        m_OwnAllocation.m_pMappedData = VMA_NULL;
+        VMA_ASSERT(m_DedicatedAllocation.m_PersistentMap);
+        (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_DedicatedAllocation.m_hMemory);
+        m_DedicatedAllocation.m_pMappedData = VMA_NULL;
     }
 }
     
@@ -6173,6 +6215,7 @@ bool VmaDefragmentator::MoveMakesSense(
 
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
+    m_UseKhrDedicatedAllocation((pCreateInfo->flags & VMA_ALLOCATOR_KHR_DEDICATED_ALLOCATION_BIT) != 0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_hDevice(pCreateInfo->device),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
@@ -6191,7 +6234,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     memset(&m_PhysicalDeviceProperties, 0, sizeof(m_PhysicalDeviceProperties));
         
     memset(&m_pBlockVectors, 0, sizeof(m_pBlockVectors));
-    memset(&m_pOwnAllocations, 0, sizeof(m_pOwnAllocations));
+    memset(&m_pDedicatedAllocations, 0, sizeof(m_pDedicatedAllocations));
 
     for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
     {
@@ -6248,7 +6291,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
                 false); // isCustomPool
             // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
             // becase minBlockCount is 0.
-            m_pOwnAllocations[memTypeIndex][blockVectorTypeIndex] = vma_new(this, AllocationVectorType)(VmaStlAllocator<VmaAllocation>(GetAllocationCallbacks()));
+            m_pDedicatedAllocations[memTypeIndex][blockVectorTypeIndex] = vma_new(this, AllocationVectorType)(VmaStlAllocator<VmaAllocation>(GetAllocationCallbacks()));
         }
     }
 }
@@ -6261,7 +6304,7 @@ VmaAllocator_T::~VmaAllocator_T()
     {
         for(size_t j = VMA_BLOCK_VECTOR_TYPE_COUNT; j--; )
         {
-            vma_delete(this, m_pOwnAllocations[i][j]);
+            vma_delete(this, m_pDedicatedAllocations[i][j]);
             vma_delete(this, m_pBlockVectors[i][j]);
         }
     }
@@ -6284,12 +6327,34 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     m_VulkanFunctions.vkDestroyBuffer = &vkDestroyBuffer;
     m_VulkanFunctions.vkCreateImage = &vkCreateImage;
     m_VulkanFunctions.vkDestroyImage = &vkDestroyImage;
+    // Ignoring vkGetBufferMemoryRequirements2KHR.
+    // Ignoring vkGetImageMemoryRequirements2KHR.
 #endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
+
+#define VMA_COPY_IF_NOT_NULL(funcName) \
+    if(pVulkanFunctions->funcName != VMA_NULL) m_VulkanFunctions.funcName = pVulkanFunctions->funcName;
 
     if(pVulkanFunctions != VMA_NULL)
     {
-        m_VulkanFunctions = *pVulkanFunctions;
+        VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceProperties);
+        VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties);
+        VMA_COPY_IF_NOT_NULL(vkAllocateMemory);
+        VMA_COPY_IF_NOT_NULL(vkFreeMemory);
+        VMA_COPY_IF_NOT_NULL(vkMapMemory);
+        VMA_COPY_IF_NOT_NULL(vkUnmapMemory);
+        VMA_COPY_IF_NOT_NULL(vkBindBufferMemory);
+        VMA_COPY_IF_NOT_NULL(vkBindImageMemory);
+        VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements);
+        VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements);
+        VMA_COPY_IF_NOT_NULL(vkCreateBuffer);
+        VMA_COPY_IF_NOT_NULL(vkDestroyBuffer);
+        VMA_COPY_IF_NOT_NULL(vkCreateImage);
+        VMA_COPY_IF_NOT_NULL(vkDestroyImage);
+        VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements2KHR);
+        VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements2KHR);
     }
+
+#undef VMA_COPY_IF_NOT_NULL
 
     // If these asserts are hit, you must either #define VMA_STATIC_VULKAN_FUNCTIONS 1
     // or pass valid pointers as VmaAllocatorCreateInfo::pVulkanFunctions.
@@ -6307,6 +6372,11 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     VMA_ASSERT(m_VulkanFunctions.vkDestroyBuffer != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkCreateImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkDestroyImage != VMA_NULL);
+    if(m_UseKhrDedicatedAllocation)
+    {
+        VMA_ASSERT(m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR != VMA_NULL);
+        VMA_ASSERT(m_VulkanFunctions.vkGetImageMemoryRequirements2KHR != VMA_NULL);
+    }
 }
 
 VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
@@ -6319,6 +6389,7 @@ VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
 
 VkResult VmaAllocator_T::AllocateMemoryOfType(
     const VkMemoryRequirements& vkMemReq,
+    bool dedicatedAllocation,
     const VmaAllocationCreateInfo& createInfo,
     uint32_t memTypeIndex,
     VmaSuballocationType suballocType,
@@ -6333,17 +6404,18 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
 
     VmaAllocationCreateInfo finalCreateInfo = createInfo;
 
-    if(VMA_DEBUG_ALWAYS_OWN_MEMORY)
-    {
-        finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT;
-    }
-
-    // Heuristics: Allocate own memory if requested size if greater than half of preferred block size.
     const VkDeviceSize preferredBlockSize = blockVector->GetPreferredBlockSize();
-    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0 &&
-        vkMemReq.size > preferredBlockSize / 2)
+    bool preferDedicatedMemory =
+        VMA_DEBUG_ALWAYS_DEDICATED_MEMORY ||
+        dedicatedAllocation ||
+        // Heuristics: Allocate dedicated memory if requested size if greater than half of preferred block size.
+        vkMemReq.size > preferredBlockSize / 2;
+
+    if(preferDedicatedMemory &&
+        (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0 &&
+        finalCreateInfo.pool == VK_NULL_HANDLE)
     {
-        finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT;
+        finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     }
 
     // If memory type is not HOST_VISIBLE, disable PERSISTENT_MAP.
@@ -6353,7 +6425,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
         finalCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
     }
 
-    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT) != 0)
+    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0)
     {
         if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
         {
@@ -6361,7 +6433,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
         }
         else
         {
-            return AllocateOwnMemory(
+            return AllocateDedicatedMemory(
                 vkMemReq.size,
                 suballocType,
                 memTypeIndex,
@@ -6384,14 +6456,14 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             return res;
         }
 
-        // 5. Try own memory.
+        // 5. Try dedicated memory.
         if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
         {
             return VK_ERROR_OUT_OF_DEVICE_MEMORY;
         }
         else
         {
-            res = AllocateOwnMemory(
+            res = AllocateDedicatedMemory(
                 vkMemReq.size,
                 suballocType,
                 memTypeIndex,
@@ -6400,8 +6472,8 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 pAllocation);
             if(res == VK_SUCCESS)
             {
-                // Succeeded: AllocateOwnMemory function already filld pMemory, nothing more to do here.
-                VMA_DEBUG_LOG("    Allocated as OwnMemory");
+                // Succeeded: AllocateDedicatedMemory function already filld pMemory, nothing more to do here.
+                VMA_DEBUG_LOG("    Allocated as DedicatedMemory");
                 return VK_SUCCESS;
             }
             else
@@ -6414,7 +6486,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     }
 }
 
-VkResult VmaAllocator_T::AllocateOwnMemory(
+VkResult VmaAllocator_T::AllocateDedicatedMemory(
     VkDeviceSize size,
     VmaSuballocationType suballocType,
     uint32_t memTypeIndex,
@@ -6459,37 +6531,96 @@ VkResult VmaAllocator_T::AllocateOwnMemory(
     }
 
     *pAllocation = vma_new(this, VmaAllocation_T)(m_CurrentFrameIndex.load());
-    (*pAllocation)->InitOwnAllocation(memTypeIndex, hMemory, suballocType, map, pMappedData, size, pUserData);
+    (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, map, pMappedData, size, pUserData);
 
-    // Register it in m_pOwnAllocations.
+    // Register it in m_pDedicatedAllocations.
     {
-        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
-        AllocationVectorType* pOwnAllocations = m_pOwnAllocations[memTypeIndex][map ? VMA_BLOCK_VECTOR_TYPE_MAPPED : VMA_BLOCK_VECTOR_TYPE_UNMAPPED];
-        VMA_ASSERT(pOwnAllocations);
-        VmaVectorInsertSorted<VmaPointerLess>(*pOwnAllocations, *pAllocation);
+        VmaMutexLock lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+        AllocationVectorType* pDedicatedAllocations = m_pDedicatedAllocations[memTypeIndex][map ? VMA_BLOCK_VECTOR_TYPE_MAPPED : VMA_BLOCK_VECTOR_TYPE_UNMAPPED];
+        VMA_ASSERT(pDedicatedAllocations);
+        VmaVectorInsertSorted<VmaPointerLess>(*pDedicatedAllocations, *pAllocation);
     }
 
-    VMA_DEBUG_LOG("    Allocated OwnMemory MemoryTypeIndex=#%u", memTypeIndex);
+    VMA_DEBUG_LOG("    Allocated DedicatedMemory MemoryTypeIndex=#%u", memTypeIndex);
 
     return VK_SUCCESS;
 }
 
+void VmaAllocator_T::GetBufferMemoryRequirements(
+    VkBuffer hBuffer,
+    VkMemoryRequirements& memReq,
+    bool& dedicatedAllocation) const
+{
+    if(m_UseKhrDedicatedAllocation)
+    {
+        VkBufferMemoryRequirementsInfo2KHR memReqInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2_KHR };
+        memReqInfo.buffer = hBuffer;
+
+        VkMemoryDedicatedRequirementsKHR memDedicatedReq = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR };
+
+        VkMemoryRequirements2KHR memReq2 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR };
+        memReq2.pNext = &memDedicatedReq;
+
+        (*m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR)(m_hDevice, &memReqInfo, &memReq2);
+
+        memReq = memReq2.memoryRequirements;
+        dedicatedAllocation =
+            (memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
+            (memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
+    }
+    else
+    {
+        (*m_VulkanFunctions.vkGetBufferMemoryRequirements)(m_hDevice, hBuffer, &memReq);
+        dedicatedAllocation = false;
+    }
+}
+
+void VmaAllocator_T::GetImageMemoryRequirements(
+    VkImage hImage,
+    VkMemoryRequirements& memReq,
+    bool& dedicatedAllocation) const
+{
+    if(m_UseKhrDedicatedAllocation)
+    {
+        VkImageMemoryRequirementsInfo2KHR memReqInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR };
+        memReqInfo.image = hImage;
+
+        VkMemoryDedicatedRequirementsKHR memDedicatedReq = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR };
+
+        VkMemoryRequirements2KHR memReq2 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR };
+        memReq2.pNext = &memDedicatedReq;
+
+        (*m_VulkanFunctions.vkGetImageMemoryRequirements2KHR)(m_hDevice, &memReqInfo, &memReq2);
+
+        memReq = memReq2.memoryRequirements;
+        dedicatedAllocation =
+            (memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
+            (memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
+    }
+    else
+    {
+        (*m_VulkanFunctions.vkGetImageMemoryRequirements)(m_hDevice, hImage, &memReq);
+        dedicatedAllocation = false;
+    }
+}
+
 VkResult VmaAllocator_T::AllocateMemory(
     const VkMemoryRequirements& vkMemReq,
+    bool dedicatedAllocation,
     const VmaAllocationCreateInfo& createInfo,
     VmaSuballocationType suballocType,
     VmaAllocation* pAllocation)
 {
-    if((createInfo.flags & VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT) != 0 &&
+    if((createInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0 &&
         (createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
     {
-        VMA_ASSERT(0 && "Specifying VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT together with VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT makes no sense.");
+        VMA_ASSERT(0 && "Specifying VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT together with VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT makes no sense.");
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
     if((createInfo.pool != VK_NULL_HANDLE) &&
-        ((createInfo.flags & (VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT)) != 0))
+        ((createInfo.flags & (VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)) != 0))
     {
-        VMA_ASSERT(0 && "Specifying VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT when pool != null is invalid.");
+        VMA_ASSERT(0 && "Specifying VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT when pool != null is invalid.");
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
@@ -6511,7 +6642,7 @@ VkResult VmaAllocator_T::AllocateMemory(
         VkResult res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &createInfo, &memTypeIndex);
         if(res == VK_SUCCESS)
         {
-            res = AllocateMemoryOfType(vkMemReq, createInfo, memTypeIndex, suballocType, pAllocation);
+            res = AllocateMemoryOfType(vkMemReq, dedicatedAllocation, createInfo, memTypeIndex, suballocType, pAllocation);
             // Succeeded on first try.
             if(res == VK_SUCCESS)
             {
@@ -6528,7 +6659,7 @@ VkResult VmaAllocator_T::AllocateMemory(
                     res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &createInfo, &memTypeIndex);
                     if(res == VK_SUCCESS)
                     {
-                        res = AllocateMemoryOfType(vkMemReq, createInfo, memTypeIndex, suballocType, pAllocation);
+                        res = AllocateMemoryOfType(vkMemReq, dedicatedAllocation, createInfo, memTypeIndex, suballocType, pAllocation);
                         // Allocation from this alternative memory type succeeded.
                         if(res == VK_SUCCESS)
                         {
@@ -6577,8 +6708,8 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
                 pBlockVector->Free(allocation);
             }
             break;
-        case VmaAllocation_T::ALLOCATION_TYPE_OWN:
-            FreeOwnMemory(allocation);
+        case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
+            FreeDedicatedMemory(allocation);
             break;
         default:
             VMA_ASSERT(0);
@@ -6618,19 +6749,19 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
         }
     }
 
-    // Process own allocations.
+    // Process dedicated allocations.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         const uint32_t memHeapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-        VmaMutexLock ownAllocationsLock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
+        VmaMutexLock dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
         for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
         {
-            AllocationVectorType* const pOwnAllocVector = m_pOwnAllocations[memTypeIndex][blockVectorType];
-            VMA_ASSERT(pOwnAllocVector);
-            for(size_t allocIndex = 0, allocCount = pOwnAllocVector->size(); allocIndex < allocCount; ++allocIndex)
+            AllocationVectorType* const pDedicatedAllocVector = m_pDedicatedAllocations[memTypeIndex][blockVectorType];
+            VMA_ASSERT(pDedicatedAllocVector);
+            for(size_t allocIndex = 0, allocCount = pDedicatedAllocVector->size(); allocIndex < allocCount; ++allocIndex)
             {
                 VmaStatInfo allocationStatInfo;
-                (*pOwnAllocVector)[allocIndex]->OwnAllocCalcStatsInfo(allocationStatInfo);
+                (*pDedicatedAllocVector)[allocIndex]->DedicatedAllocCalcStatsInfo(allocationStatInfo);
                 VmaAddStatInfo(pStats->total, allocationStatInfo);
                 VmaAddStatInfo(pStats->memoryType[memTypeIndex], allocationStatInfo);
                 VmaAddStatInfo(pStats->memoryHeap[memHeapIndex], allocationStatInfo);
@@ -6660,14 +6791,14 @@ void VmaAllocator_T::UnmapPersistentlyMappedMemory()
                 if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 &&
                     (memFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0)
                 {
-                    // Process OwnAllocations.
+                    // Process DedicatedAllocations.
                     {
-                        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
-                        AllocationVectorType* pOwnAllocationsVector = m_pOwnAllocations[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
-                        for(size_t ownAllocIndex = pOwnAllocationsVector->size(); ownAllocIndex--; )
+                        VmaMutexLock lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+                        AllocationVectorType* pDedicatedAllocationsVector = m_pDedicatedAllocations[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
+                        for(size_t dedicatedAllocIndex = pDedicatedAllocationsVector->size(); dedicatedAllocIndex--; )
                         {
-                            VmaAllocation hAlloc = (*pOwnAllocationsVector)[ownAllocIndex];
-                            hAlloc->OwnAllocUnmapPersistentlyMappedMemory(this);
+                            VmaAllocation hAlloc = (*pDedicatedAllocationsVector)[dedicatedAllocIndex];
+                            hAlloc->DedicatedAllocUnmapPersistentlyMappedMemory(this);
                         }
                     }
 
@@ -6714,14 +6845,14 @@ VkResult VmaAllocator_T::MapPersistentlyMappedMemory()
                 if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 &&
                     (memFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0)
                 {
-                    // Process OwnAllocations.
+                    // Process DedicatedAllocations.
                     {
-                        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
-                        AllocationVectorType* pAllocationsVector = m_pOwnAllocations[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
-                        for(size_t ownAllocIndex = 0, ownAllocCount = pAllocationsVector->size(); ownAllocIndex < ownAllocCount; ++ownAllocIndex)
+                        VmaMutexLock lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+                        AllocationVectorType* pAllocationsVector = m_pDedicatedAllocations[memTypeIndex][VMA_BLOCK_VECTOR_TYPE_MAPPED];
+                        for(size_t dedicatedAllocIndex = 0, dedicatedAllocCount = pAllocationsVector->size(); dedicatedAllocIndex < dedicatedAllocCount; ++dedicatedAllocIndex)
                         {
-                            VmaAllocation hAlloc = (*pAllocationsVector)[ownAllocIndex];
-                            hAlloc->OwnAllocMapPersistentlyMappedMemory(this);
+                            VmaAllocation hAlloc = (*pAllocationsVector)[dedicatedAllocIndex];
+                            hAlloc->DedicatedAllocMapPersistentlyMappedMemory(this);
                         }
                     }
 
@@ -6777,7 +6908,7 @@ VkResult VmaAllocator_T::Defragment(
         VmaAllocation hAlloc = pAllocations[allocIndex];
         VMA_ASSERT(hAlloc);
         const uint32_t memTypeIndex = hAlloc->GetMemoryTypeIndex();
-        // OwnAlloc cannot be defragmented.
+        // DedicatedAlloc cannot be defragmented.
         if((hAlloc->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK) &&
             // Only HOST_VISIBLE memory types can be defragmented.
             ((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0) &&
@@ -7045,16 +7176,16 @@ void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, Vk
     }
 }
 
-void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
+void VmaAllocator_T::FreeDedicatedMemory(VmaAllocation allocation)
 {
-    VMA_ASSERT(allocation && allocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_OWN);
+    VMA_ASSERT(allocation && allocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_DEDICATED);
 
     const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
     {
-        VmaMutexLock lock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
-        AllocationVectorType* const pOwnAllocations = m_pOwnAllocations[memTypeIndex][allocation->GetBlockVectorType()];
-        VMA_ASSERT(pOwnAllocations);
-        bool success = VmaVectorRemoveSorted<VmaPointerLess>(*pOwnAllocations, allocation);
+        VmaMutexLock lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+        AllocationVectorType* const pDedicatedAllocations = m_pDedicatedAllocations[memTypeIndex][allocation->GetBlockVectorType()];
+        VMA_ASSERT(pDedicatedAllocations);
+        bool success = VmaVectorRemoveSorted<VmaPointerLess>(*pDedicatedAllocations, allocation);
         VMA_ASSERT(success);
     }
 
@@ -7067,27 +7198,27 @@ void VmaAllocator_T::FreeOwnMemory(VmaAllocation allocation)
     
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
 
-    VMA_DEBUG_LOG("    Freed OwnMemory MemoryTypeIndex=%u", memTypeIndex);
+    VMA_DEBUG_LOG("    Freed DedicatedMemory MemoryTypeIndex=%u", memTypeIndex);
 }
 
 #if VMA_STATS_STRING_ENABLED
 
 void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 {
-    bool ownAllocationsStarted = false;
+    bool dedicatedAllocationsStarted = false;
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        VmaMutexLock ownAllocationsLock(m_OwnAllocationsMutex[memTypeIndex], m_UseMutex);
+        VmaMutexLock dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
         for(uint32_t blockVectorType = 0; blockVectorType < VMA_BLOCK_VECTOR_TYPE_COUNT; ++blockVectorType)
         {
-            AllocationVectorType* const pOwnAllocVector = m_pOwnAllocations[memTypeIndex][blockVectorType];
-            VMA_ASSERT(pOwnAllocVector);
-            if(pOwnAllocVector->empty() == false)
+            AllocationVectorType* const pDedicatedAllocVector = m_pDedicatedAllocations[memTypeIndex][blockVectorType];
+            VMA_ASSERT(pDedicatedAllocVector);
+            if(pDedicatedAllocVector->empty() == false)
             {
-                if(ownAllocationsStarted == false)
+                if(dedicatedAllocationsStarted == false)
                 {
-                    ownAllocationsStarted = true;
-                    json.WriteString("OwnAllocations");
+                    dedicatedAllocationsStarted = true;
+                    json.WriteString("DedicatedAllocations");
                     json.BeginObject();
                 }
 
@@ -7101,9 +7232,9 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                 
                 json.BeginArray();
 
-                for(size_t i = 0; i < pOwnAllocVector->size(); ++i)
+                for(size_t i = 0; i < pDedicatedAllocVector->size(); ++i)
                 {
-                    const VmaAllocation hAlloc = (*pOwnAllocVector)[i];
+                    const VmaAllocation hAlloc = (*pDedicatedAllocVector)[i];
                     json.BeginObject(true);
                     
                     json.WriteString("Size");
@@ -7119,7 +7250,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
             }
         }
     }
-    if(ownAllocationsStarted)
+    if(dedicatedAllocationsStarted)
     {
         json.EndObject();
     }
@@ -7185,10 +7316,12 @@ static VkResult AllocateMemoryForImage(
     VMA_ASSERT(allocator && (image != VK_NULL_HANDLE) && pAllocationCreateInfo && pAllocation);
     
     VkMemoryRequirements vkMemReq = {};
-    (*allocator->GetVulkanFunctions().vkGetImageMemoryRequirements)(allocator->m_hDevice, image, &vkMemReq);
+    bool dedicatedAllocation = false;
+    allocator->GetImageMemoryRequirements(image, vkMemReq, dedicatedAllocation);
 
     return allocator->AllocateMemory(
         vkMemReq,
+        dedicatedAllocation,
         *pAllocationCreateInfo,
         suballocType,
         pAllocation);
@@ -7531,6 +7664,7 @@ VkResult vmaAllocateMemory(
 
 	VkResult result = allocator->AllocateMemory(
         *pVkMemoryRequirements,
+        false, // dedicatedAllocation
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         pAllocation);
@@ -7557,10 +7691,12 @@ VkResult vmaAllocateMemoryForBuffer(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     VkMemoryRequirements vkMemReq = {};
-    (*allocator->GetVulkanFunctions().vkGetBufferMemoryRequirements)(allocator->m_hDevice, buffer, &vkMemReq);
+    bool dedicatedAllocation = false;
+    allocator->GetBufferMemoryRequirements(buffer, vkMemReq, dedicatedAllocation);
 
     VkResult result = allocator->AllocateMemory(
         vkMemReq,
+        dedicatedAllocation,
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_BUFFER,
         pAllocation);
@@ -7740,11 +7876,13 @@ VkResult vmaCreateBuffer(
     {
         // 2. vkGetBufferMemoryRequirements.
         VkMemoryRequirements vkMemReq = {};
-        (*allocator->GetVulkanFunctions().vkGetBufferMemoryRequirements)(allocator->m_hDevice, *pBuffer, &vkMemReq);
+        bool dedicatedAllocation = false;
+        allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq, dedicatedAllocation);
 
         // 3. Allocate memory using allocator.
         res = allocator->AllocateMemory(
             vkMemReq,
+            dedicatedAllocation,
             *pAllocationCreateInfo,
             VMA_SUBALLOCATION_TYPE_BUFFER,
             pAllocation);

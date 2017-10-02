@@ -41,6 +41,7 @@ Additional features:
 - Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library, from assert, mutex, and atomic, to vector and linked list. 
 - Support for persistently mapped memory: Just allocate memory with appropriate flag and you get access to mapped pointer.
 - Custom memory pools: Create a pool with desired parameters (e.g. fixed or limited maximum size) and allocate memory out of it.
+- Support for VK_KHR_dedicated_allocation extension.
 - Defragmentation: Call one function and let the library move data around to free some memory blocks and make your allocations better compacted.
 - Lost allocations: Allocate memory with appropriate flags and let the library remove allocations that are not used for many frames to make room for new ones.
 - Statistics: Obtain detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.

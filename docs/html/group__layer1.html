@@ -99,7 +99,7 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="separator:gaa5846affa1e9da3800e3e78fae2305cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gad9889c10c798b040d59c92f257cae597"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__layer1.html#gad9889c10c798b040d59c92f257cae597">VmaAllocationCreateFlagBits</a> { <br />
-&#160;&#160;<a class="el" href="group__layer1.html#ggad9889c10c798b040d59c92f257cae597a965e035b69f8728b317803ef2d523aa4">VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT</a> = 0x00000001, 
+&#160;&#160;<a class="el" href="group__layer1.html#ggad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a> = 0x00000001, 
 <a class="el" href="group__layer1.html#ggad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff">VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT</a> = 0x00000002, 
 <a class="el" href="group__layer1.html#ggad9889c10c798b040d59c92f257cae597ae443691ef3d077c0dc3de5576ac4c312">VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT</a> = 0x00000004, 
 <a class="el" href="group__layer1.html#ggad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> = 0x00000008, 
@@ -191,14 +191,14 @@ Functions</h2></td></tr>
 
 <p>Flags to be passed as <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum. ">VmaAllocationCreateInfo::flags</a>. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a965e035b69f8728b317803ef2d523aa4"></a>VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT&#160;</td><td class="fielddoc"><p>Set this flag if the allocation should have its own memory block. </p>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f"></a>VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT&#160;</td><td class="fielddoc"><p>Set this flag if the allocation should have its own memory block. </p>
 <p>Use it for special, big resources, like fullscreen images used as attachments.</p>
 <p>This flag must also be used for host visible resources that you want to map simultaneously because otherwise they might end up as regions of the same <code>VkDeviceMemory</code>, while mapping same <code>VkDeviceMemory</code> multiple times simultaneously is illegal.</p>
 <p>You should not use this flag if <a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150" title="Pool that this allocation should be created in. ">VmaAllocationCreateInfo::pool</a> is not null. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff"></a>VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT&#160;</td><td class="fielddoc"><p>Set this flag to only try to allocate from existing <code>VkDeviceMemory</code> blocks and never create new such block. </p>
 <p>If new allocation cannot be placed in any of the existing blocks, allocation fails with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> error.</p>
-<p>You should not use <code>VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT</code> and <code>VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT</code> at the same time. It makes no sense.</p>
+<p>You should not use <code>VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</code> and <code>VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT</code> at the same time. It makes no sense.</p>
 <p>If <a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150" title="Pool that this allocation should be created in. ">VmaAllocationCreateInfo::pool</a> is not null, this flag is implied and ignored. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597ae443691ef3d077c0dc3de5576ac4c312"></a>VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT&#160;</td><td class="fielddoc"><p>Set this flag to use a memory that will be persistently mapped and retrieve pointer to it. </p>

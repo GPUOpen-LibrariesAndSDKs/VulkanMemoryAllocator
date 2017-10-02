@@ -609,7 +609,7 @@ Functions</h2></td></tr>
 <p>This function works by moving allocations to different places (different <code>VkDeviceMemory</code> objects and/or different offsets) in order to optimize memory usage. Only allocations that are in pAllocations array can be moved. All other allocations are considered nonmovable in this call. Basic rules:</p>
 <ul>
 <li>Only allocations made in memory types that have <code>VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT</code> flag can be compacted. You may pass other allocations but it makes no sense - these will never be moved.</li>
-<li>You may pass allocations made with <code>VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT</code> but it makes no sense - they will never be moved.</li>
+<li>You may pass allocations made with <code>VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</code> but it makes no sense - they will never be moved.</li>
 <li>Both allocations made with or without <code>VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT</code> flag can be compacted. If not persistently mapped, memory will be mapped temporarily inside this function if needed, so it shouldn't be mapped by you for the time of this call.</li>
 <li>You must not pass same <code>VmaAllocation</code> object multiple times in pAllocations array.</li>
 </ul>

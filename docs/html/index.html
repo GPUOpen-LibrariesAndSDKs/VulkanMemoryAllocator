@@ -259,7 +259,7 @@ void MyBuffer::EnsureBuffer()
 <li>If failed, try to create a new block of <code>VkDeviceMemory</code>, with preferred block size.</li>
 <li>If failed, try to create such block with size/2 and size/4.</li>
 <li>If failed and <code>VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</code> flag was specified, try to find space in existing blocks, possilby making some other allocations lost.</li>
-<li>If failed, try to allocate separate <code>VkDeviceMemory</code> for this allocation, just like when you use <code>VMA_ALLOCATION_CREATE_OWN_MEMORY_BIT</code>.</li>
+<li>If failed, try to allocate separate <code>VkDeviceMemory</code> for this allocation, just like when you use <code>VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</code>.</li>
 <li>If failed, choose other memory type that meets the requirements specified in <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> and go to point 1.</li>
 <li>If failed, return <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>.</li>
 </ol>
