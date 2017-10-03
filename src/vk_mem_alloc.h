@@ -6515,16 +6515,19 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     allocInfo.allocationSize = size;
 
     VkMemoryDedicatedAllocateInfoKHR dedicatedAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR };
-    if(dedicatedBuffer != VK_NULL_HANDLE)
+    if(m_UseKhrDedicatedAllocation)
     {
-        VMA_ASSERT(dedicatedImage == VK_NULL_HANDLE);
-        dedicatedAllocInfo.buffer = dedicatedBuffer;
-        allocInfo.pNext = &dedicatedAllocInfo;
-    }
-    else if(dedicatedImage != VK_NULL_HANDLE)
-    {
-        dedicatedAllocInfo.image = dedicatedImage;
-        allocInfo.pNext = &dedicatedAllocInfo;
+        if(dedicatedBuffer != VK_NULL_HANDLE)
+        {
+            VMA_ASSERT(dedicatedImage == VK_NULL_HANDLE);
+            dedicatedAllocInfo.buffer = dedicatedBuffer;
+            allocInfo.pNext = &dedicatedAllocInfo;
+        }
+        else if(dedicatedImage != VK_NULL_HANDLE)
+        {
+            dedicatedAllocInfo.image = dedicatedImage;
+            allocInfo.pNext = &dedicatedAllocInfo;
+        }
     }
 
     // Allocate VkDeviceMemory.
