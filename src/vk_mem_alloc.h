@@ -3531,6 +3531,8 @@ struct VmaAllocator_T
     VkResult AllocateMemory(
         const VkMemoryRequirements& vkMemReq,
         bool dedicatedAllocation,
+        VkBuffer dedicatedBuffer,
+        VkImage dedicatedImage,
         const VmaAllocationCreateInfo& createInfo,
         VmaSuballocationType suballocType,
         VmaAllocation* pAllocation);
@@ -3591,6 +3593,8 @@ private:
     VkResult AllocateMemoryOfType(
         const VkMemoryRequirements& vkMemReq,
         bool dedicatedAllocation,
+        VkBuffer dedicatedBuffer,
+        VkImage dedicatedImage,
         const VmaAllocationCreateInfo& createInfo,
         uint32_t memTypeIndex,
         VmaSuballocationType suballocType,
@@ -3603,6 +3607,8 @@ private:
         uint32_t memTypeIndex,
         bool map,
         void* pUserData,
+        VkBuffer dedicatedBuffer,
+        VkImage dedicatedImage,
         VmaAllocation* pAllocation);
 
     // Tries to free pMemory as Dedicated Memory. Returns true if found and freed.
@@ -6390,6 +6396,8 @@ VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
 VkResult VmaAllocator_T::AllocateMemoryOfType(
     const VkMemoryRequirements& vkMemReq,
     bool dedicatedAllocation,
+    VkBuffer dedicatedBuffer,
+    VkImage dedicatedImage,
     const VmaAllocationCreateInfo& createInfo,
     uint32_t memTypeIndex,
     VmaSuballocationType suballocType,
@@ -6439,6 +6447,8 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 memTypeIndex,
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0,
                 finalCreateInfo.pUserData,
+                dedicatedBuffer,
+                dedicatedImage,
                 pAllocation);
         }
     }
@@ -6469,6 +6479,8 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 memTypeIndex,
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0,
                 finalCreateInfo.pUserData,
+                dedicatedBuffer,
+                dedicatedImage,
                 pAllocation);
             if(res == VK_SUCCESS)
             {
@@ -6492,6 +6504,8 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     uint32_t memTypeIndex,
     bool map,
     void* pUserData,
+    VkBuffer dedicatedBuffer,
+    VkImage dedicatedImage,
     VmaAllocation* pAllocation)
 {
     VMA_ASSERT(pAllocation);
@@ -6499,6 +6513,19 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     VkMemoryAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
     allocInfo.memoryTypeIndex = memTypeIndex;
     allocInfo.allocationSize = size;
+
+    VkMemoryDedicatedAllocateInfoKHR dedicatedAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR };
+    if(dedicatedBuffer != VK_NULL_HANDLE)
+    {
+        VMA_ASSERT(dedicatedImage == VK_NULL_HANDLE);
+        dedicatedAllocInfo.buffer = dedicatedBuffer;
+        allocInfo.pNext = &dedicatedAllocInfo;
+    }
+    else if(dedicatedImage != VK_NULL_HANDLE)
+    {
+        dedicatedAllocInfo.image = dedicatedImage;
+        allocInfo.pNext = &dedicatedAllocInfo;
+    }
 
     // Allocate VkDeviceMemory.
     VkDeviceMemory hMemory = VK_NULL_HANDLE;
@@ -6607,6 +6634,8 @@ void VmaAllocator_T::GetImageMemoryRequirements(
 VkResult VmaAllocator_T::AllocateMemory(
     const VkMemoryRequirements& vkMemReq,
     bool dedicatedAllocation,
+    VkBuffer dedicatedBuffer,
+    VkImage dedicatedImage,
     const VmaAllocationCreateInfo& createInfo,
     VmaSuballocationType suballocType,
     VmaAllocation* pAllocation)
@@ -6642,7 +6671,15 @@ VkResult VmaAllocator_T::AllocateMemory(
         VkResult res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &createInfo, &memTypeIndex);
         if(res == VK_SUCCESS)
         {
-            res = AllocateMemoryOfType(vkMemReq, dedicatedAllocation, createInfo, memTypeIndex, suballocType, pAllocation);
+            res = AllocateMemoryOfType(
+                vkMemReq,
+                dedicatedAllocation,
+                dedicatedBuffer,
+                dedicatedImage,
+                createInfo,
+                memTypeIndex,
+                suballocType,
+                pAllocation);
             // Succeeded on first try.
             if(res == VK_SUCCESS)
             {
@@ -6659,7 +6696,15 @@ VkResult VmaAllocator_T::AllocateMemory(
                     res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &createInfo, &memTypeIndex);
                     if(res == VK_SUCCESS)
                     {
-                        res = AllocateMemoryOfType(vkMemReq, dedicatedAllocation, createInfo, memTypeIndex, suballocType, pAllocation);
+                        res = AllocateMemoryOfType(
+                            vkMemReq,
+                            dedicatedAllocation,
+                            dedicatedBuffer,
+                            dedicatedImage,
+                            createInfo,
+                            memTypeIndex,
+                            suballocType,
+                            pAllocation);
                         // Allocation from this alternative memory type succeeded.
                         if(res == VK_SUCCESS)
                         {
@@ -7322,6 +7367,8 @@ static VkResult AllocateMemoryForImage(
     return allocator->AllocateMemory(
         vkMemReq,
         dedicatedAllocation,
+        VK_NULL_HANDLE, // dedicatedBuffer
+        image, // dedicatedImage
         *pAllocationCreateInfo,
         suballocType,
         pAllocation);
@@ -7665,6 +7712,8 @@ VkResult vmaAllocateMemory(
 	VkResult result = allocator->AllocateMemory(
         *pVkMemoryRequirements,
         false, // dedicatedAllocation
+        VK_NULL_HANDLE, // dedicatedBuffer
+        VK_NULL_HANDLE, // dedicatedImage
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         pAllocation);
@@ -7697,6 +7746,8 @@ VkResult vmaAllocateMemoryForBuffer(
     VkResult result = allocator->AllocateMemory(
         vkMemReq,
         dedicatedAllocation,
+        buffer, // dedicatedBuffer
+        VK_NULL_HANDLE, // dedicatedImage
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_BUFFER,
         pAllocation);
@@ -7883,6 +7934,8 @@ VkResult vmaCreateBuffer(
         res = allocator->AllocateMemory(
             vkMemReq,
             dedicatedAllocation,
+            *pBuffer, // dedicatedBuffer
+            VK_NULL_HANDLE, // dedicatedImage
             *pAllocationCreateInfo,
             VMA_SUBALLOCATION_TYPE_BUFFER,
             pAllocation);
