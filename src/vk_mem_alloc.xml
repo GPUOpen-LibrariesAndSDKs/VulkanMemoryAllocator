@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<registry>
+    <!-- Command -->
+    <commands>
+        <command queues="graphics" pipeline="graphics">
+            <proto><type>void</type> <name>vmaAllocateDeviceMemoryFunction</name></proto>
+            <param><type>VmaAllocator</type> <name>allocator</name></param>
+            <param><type>uint32_t</type> <name>memoryType</name></param>
+            <param><type>VkDeviceMemory</type> <name>memory</name></param>
+            <param><type>VkDeviceSize</type> <name>size</name></param>
+        </command>
+        <command queues="graphics" pipeline="graphics">
+            <proto><type>void</type> <name>vmaFreeDeviceMemoryFunction</name></proto>
+            <param><type>VmaAllocator</type> <name>allocator</name></param>
+            <param><type>uint32_t</type> <name>memoryType</name></param>
+            <param><type>VkDeviceMemory</type> <name>memory</name></param>
+            <param><type>VkDeviceSize</type> <name>size</name></param>
+        </command>
+    </commands>
+
+    <!-- Type -->
+    <types>
+        <!-- Handle -->
+        <type category="handle" parent="VkDevice"><type>VK_DEFINE_HANDLE</type>(<name>VmaAllocator</name>)</type>
+
+        <!-- Enum -->
+        <type requires="VmaAllocatorFlagBits" category="bitmask">typedef <type>VkFlags</type> <name>VmaAllocatorFlags</name>;</type>
+        <type name="VmaAllocatorFlagBits" category="enum"/>
+
+        <!-- Struct -->
+        <type category="struct" name="VmaAllocatorCreateInfo">
+            <member><type>VmaAllocatorFlags</type> <name>flags</name></member>
+            <member><type>VkPhysicalDevice</type> <name>physicalDevice</name></member>
+            <member><type>VkDevice</type> <name>device</name></member>
+            <member><type>VkDeviceSize</type> <name>preferredLargeHeapBlockSize</name></member>
+            <member><type>VkDeviceSize</type> <name>preferredSmallHeapBlockSize</name></member>
+            <member>const <type>VkAllocationCallbacks</type>* <name>pAllocationCallbacks</name></member>
+            <member>const <type>VmaDeviceMemoryCallbacks</type>* <name>pDeviceMemoryCallbacks</name></member>
+            <member><type>uint32_t</type> <name>frameInUseCount</name></member>
+            <member>const <type>VkDeviceSize</type>* <name>pHeapSizeLimit</name></member>
+            <member>const <type>VmaVulkanFunctions</type>* <name>pVulkanFunctions</name></member>
+        </type>
+        <type category="struct" name="VmaDeviceMemoryCallbacks">
+            <member><type>PFN_vmaAllocateDeviceMemoryFunction</type> <name>pfnAllocate</name></member>
+            <member><type>PFN_vmaFreeDeviceMemoryFunction</type> <name>pfnFree</name></member>
+        </type>
+        <type category="struct" name="VmaVulkanFunctions">
+            <member><type>PFN_vkGetPhysicalDeviceProperties</type> <name>vkGetPhysicalDeviceProperties</name></member>
+            <member><type>PFN_vkGetPhysicalDeviceMemoryProperties</type> <name>vkGetPhysicalDeviceMemoryProperties</name></member>
+            <member><type>PFN_vkAllocateMemory</type> <name>vkAllocateMemory</name></member>
+            <member><type>PFN_vkFreeMemory</type> <name>vkFreeMemory</name></member>
+            <member><type>PFN_vkMapMemory</type> <name>vkMapMemory</name></member>
+            <member><type>PFN_vkUnmapMemory</type> <name>vkUnmapMemory</name></member>
+            <member><type>PFN_vkBindBufferMemory</type> <name>vkBindBufferMemory</name></member>
+            <member><type>PFN_vkBindImageMemory</type> <name>vkBindImageMemory</name></member>
+            <member><type>PFN_vkGetBufferMemoryRequirements</type> <name>vkGetBufferMemoryRequirements</name></member>
+            <member><type>PFN_vkGetImageMemoryRequirements</type> <name>vkGetImageMemoryRequirements</name></member>
+            <member><type>PFN_vkCreateBuffer</type> <name>vkCreateBuffer</name></member>
+            <member><type>PFN_vkDestroyBuffer</type> <name>vkDestroyBuffer</name></member>
+            <member><type>PFN_vkCreateImage</type> <name>vkCreateImage</name></member>
+            <member><type>PFN_vkDestroyImage</type> <name>vkDestroyImage</name></member>
+        </type>
+    </types>
+
+    <!-- Enum -->
+    <enums name="VmaAllocatorFlagBits" type="bitmask">
+        <enum bitpos="0" name="VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT" />
+        <enum bitpos="1" name="VMA_ALLOCATOR_KHR_DEDICATED_ALLOCATION_BIT" />
+    </enums>
+</registry>
