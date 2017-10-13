@@ -380,7 +380,7 @@ To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
 - By default, all calls to functions that take `VmaAllocator` as first parameter
   are safe to call from multiple threads simultaneously because they are
   synchronized internally when needed.
-- When the allocator is created with `VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT`
+- When the allocator is created with `VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT`
   flag, calls to functions that take such `VmaAllocator` object must be
   synchronized externally.
 - Access to a `VmaAllocation` object must be externally synchronized. For example,
@@ -427,12 +427,12 @@ typedef struct VmaDeviceMemoryCallbacks {
 } VmaDeviceMemoryCallbacks;
 
 /// Flags for created VmaAllocator.
-typedef enum VmaAllocatorFlagBits {
+typedef enum VmaAllocatorCreateFlagBits {
     /** \brief Allocator and all objects created from it will not be synchronized internally, so you must guarantee they are used from only one thread at a time or synchronized externally by you.
 
     Using this flag may increase performance because internal mutexes are not used.
     */
-    VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT = 0x00000001,
+    VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT = 0x00000001,
     /** \brief Enables usage of VK_KHR_dedicated_allocation extension.
 
     Using this extenion will automatically allocate dedicated blocks of memory for
@@ -460,11 +460,11 @@ validation layer. You can ignore them.
 
 > vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer.
     */
-    VMA_ALLOCATOR_KHR_DEDICATED_ALLOCATION_BIT = 0x00000002,
+    VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT = 0x00000002,
 
-    VMA_ALLOCATOR_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
-} VmaAllocatorFlagBits;
-typedef VkFlags VmaAllocatorFlags;
+    VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaAllocatorCreateFlagBits;
+typedef VkFlags VmaAllocatorCreateFlags;
 
 /** \brief Pointers to some Vulkan functions - a subset used by the library.
 
@@ -492,8 +492,8 @@ typedef struct VmaVulkanFunctions {
 /// Description of a Allocator to be created.
 typedef struct VmaAllocatorCreateInfo
 {
-    /// Flags for created allocator. Use VmaAllocatorFlagBits enum.
-    VmaAllocatorFlags flags;
+    /// Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.
+    VmaAllocatorCreateFlags flags;
     /// Vulkan physical device.
     /** It must be valid throughout whole lifetime of created allocator. */
     VkPhysicalDevice physicalDevice;
@@ -3521,16 +3521,19 @@ struct VmaAllocator_T
     void GetBufferMemoryRequirements(
         VkBuffer hBuffer,
         VkMemoryRequirements& memReq,
-        bool& dedicatedAllocation) const;
+        bool& requiresDedicatedAllocation,
+        bool& prefersDedicatedAllocation) const;
     void GetImageMemoryRequirements(
         VkImage hImage,
         VkMemoryRequirements& memReq,
-        bool& dedicatedAllocation) const;
+        bool& requiresDedicatedAllocation,
+        bool& prefersDedicatedAllocation) const;
 
     // Main allocation function.
     VkResult AllocateMemory(
         const VkMemoryRequirements& vkMemReq,
-        bool dedicatedAllocation,
+        bool requiresDedicatedAllocation,
+        bool prefersDedicatedAllocation,
         VkBuffer dedicatedBuffer,
         VkImage dedicatedImage,
         const VmaAllocationCreateInfo& createInfo,
@@ -6220,8 +6223,8 @@ bool VmaDefragmentator::MoveMakesSense(
 // VmaAllocator_T
 
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
-    m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
-    m_UseKhrDedicatedAllocation((pCreateInfo->flags & VMA_ALLOCATOR_KHR_DEDICATED_ALLOCATION_BIT) != 0),
+    m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
+    m_UseKhrDedicatedAllocation((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT) != 0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_hDevice(pCreateInfo->device),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
@@ -6579,7 +6582,8 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
 void VmaAllocator_T::GetBufferMemoryRequirements(
     VkBuffer hBuffer,
     VkMemoryRequirements& memReq,
-    bool& dedicatedAllocation) const
+    bool& requiresDedicatedAllocation,
+    bool& prefersDedicatedAllocation) const
 {
     if(m_UseKhrDedicatedAllocation)
     {
@@ -6594,21 +6598,22 @@ void VmaAllocator_T::GetBufferMemoryRequirements(
         (*m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR)(m_hDevice, &memReqInfo, &memReq2);
 
         memReq = memReq2.memoryRequirements;
-        dedicatedAllocation =
-            (memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
-            (memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
+        requiresDedicatedAllocation = (memDedicatedReq.requiresDedicatedAllocation != VK_FALSE);
+        prefersDedicatedAllocation  = (memDedicatedReq.prefersDedicatedAllocation  != VK_FALSE);
     }
     else
     {
         (*m_VulkanFunctions.vkGetBufferMemoryRequirements)(m_hDevice, hBuffer, &memReq);
-        dedicatedAllocation = false;
+        requiresDedicatedAllocation = false;
+        prefersDedicatedAllocation  = false;
     }
 }
 
 void VmaAllocator_T::GetImageMemoryRequirements(
     VkImage hImage,
     VkMemoryRequirements& memReq,
-    bool& dedicatedAllocation) const
+    bool& requiresDedicatedAllocation,
+    bool& prefersDedicatedAllocation) const
 {
     if(m_UseKhrDedicatedAllocation)
     {
@@ -6623,20 +6628,21 @@ void VmaAllocator_T::GetImageMemoryRequirements(
         (*m_VulkanFunctions.vkGetImageMemoryRequirements2KHR)(m_hDevice, &memReqInfo, &memReq2);
 
         memReq = memReq2.memoryRequirements;
-        dedicatedAllocation =
-            (memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
-            (memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
+        requiresDedicatedAllocation = (memDedicatedReq.requiresDedicatedAllocation != VK_FALSE);
+        prefersDedicatedAllocation  = (memDedicatedReq.prefersDedicatedAllocation  != VK_FALSE);
     }
     else
     {
         (*m_VulkanFunctions.vkGetImageMemoryRequirements)(m_hDevice, hImage, &memReq);
-        dedicatedAllocation = false;
+        requiresDedicatedAllocation = false;
+        prefersDedicatedAllocation  = false;
     }
 }
 
 VkResult VmaAllocator_T::AllocateMemory(
     const VkMemoryRequirements& vkMemReq,
-    bool dedicatedAllocation,
+    bool requiresDedicatedAllocation,
+    bool prefersDedicatedAllocation,
     VkBuffer dedicatedBuffer,
     VkImage dedicatedImage,
     const VmaAllocationCreateInfo& createInfo,
@@ -6648,6 +6654,19 @@ VkResult VmaAllocator_T::AllocateMemory(
     {
         VMA_ASSERT(0 && "Specifying VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT together with VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT makes no sense.");
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+    if(requiresDedicatedAllocation)
+    {
+        if((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
+        {
+            VMA_ASSERT(0 && "VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT specified while dedicated allocation is required.");
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+        if(createInfo.pool != VK_NULL_HANDLE)
+        {
+            VMA_ASSERT(0 && "Pool specified while dedicated allocation is required.");
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
     }
     if((createInfo.pool != VK_NULL_HANDLE) &&
         ((createInfo.flags & (VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)) != 0))
@@ -6676,7 +6695,7 @@ VkResult VmaAllocator_T::AllocateMemory(
         {
             res = AllocateMemoryOfType(
                 vkMemReq,
-                dedicatedAllocation,
+                requiresDedicatedAllocation || prefersDedicatedAllocation,
                 dedicatedBuffer,
                 dedicatedImage,
                 createInfo,
@@ -6701,7 +6720,7 @@ VkResult VmaAllocator_T::AllocateMemory(
                     {
                         res = AllocateMemoryOfType(
                             vkMemReq,
-                            dedicatedAllocation,
+                            requiresDedicatedAllocation || prefersDedicatedAllocation,
                             dedicatedBuffer,
                             dedicatedImage,
                             createInfo,
@@ -7364,12 +7383,15 @@ static VkResult AllocateMemoryForImage(
     VMA_ASSERT(allocator && (image != VK_NULL_HANDLE) && pAllocationCreateInfo && pAllocation);
     
     VkMemoryRequirements vkMemReq = {};
-    bool dedicatedAllocation = false;
-    allocator->GetImageMemoryRequirements(image, vkMemReq, dedicatedAllocation);
+    bool requiresDedicatedAllocation = false;
+    bool prefersDedicatedAllocation  = false;
+    allocator->GetImageMemoryRequirements(image, vkMemReq,
+        requiresDedicatedAllocation, prefersDedicatedAllocation);
 
     return allocator->AllocateMemory(
         vkMemReq,
-        dedicatedAllocation,
+        requiresDedicatedAllocation,
+        prefersDedicatedAllocation,
         VK_NULL_HANDLE, // dedicatedBuffer
         image, // dedicatedImage
         *pAllocationCreateInfo,
@@ -7714,7 +7736,8 @@ VkResult vmaAllocateMemory(
 
 	VkResult result = allocator->AllocateMemory(
         *pVkMemoryRequirements,
-        false, // dedicatedAllocation
+        false, // requiresDedicatedAllocation
+        false, // prefersDedicatedAllocation
         VK_NULL_HANDLE, // dedicatedBuffer
         VK_NULL_HANDLE, // dedicatedImage
         *pCreateInfo,
@@ -7743,12 +7766,16 @@ VkResult vmaAllocateMemoryForBuffer(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     VkMemoryRequirements vkMemReq = {};
-    bool dedicatedAllocation = false;
-    allocator->GetBufferMemoryRequirements(buffer, vkMemReq, dedicatedAllocation);
+    bool requiresDedicatedAllocation = false;
+    bool prefersDedicatedAllocation = false;
+    allocator->GetBufferMemoryRequirements(buffer, vkMemReq,
+        requiresDedicatedAllocation,
+        prefersDedicatedAllocation);
 
     VkResult result = allocator->AllocateMemory(
         vkMemReq,
-        dedicatedAllocation,
+        requiresDedicatedAllocation,
+        prefersDedicatedAllocation,
         buffer, // dedicatedBuffer
         VK_NULL_HANDLE, // dedicatedImage
         *pCreateInfo,
@@ -7930,13 +7957,16 @@ VkResult vmaCreateBuffer(
     {
         // 2. vkGetBufferMemoryRequirements.
         VkMemoryRequirements vkMemReq = {};
-        bool dedicatedAllocation = false;
-        allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq, dedicatedAllocation);
+        bool requiresDedicatedAllocation = false;
+        bool prefersDedicatedAllocation  = false;
+        allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq,
+            requiresDedicatedAllocation, prefersDedicatedAllocation);
 
         // 3. Allocate memory using allocator.
         res = allocator->AllocateMemory(
             vkMemReq,
-            dedicatedAllocation,
+            requiresDedicatedAllocation,
+            prefersDedicatedAllocation,
             *pBuffer, // dedicatedBuffer
             VK_NULL_HANDLE, // dedicatedImage
             *pAllocationCreateInfo,
