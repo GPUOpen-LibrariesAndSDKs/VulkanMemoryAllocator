@@ -890,23 +890,12 @@ static void CreateSwapchain()
         subpassDesc.pColorAttachments = &colorAttachmentRef;
         subpassDesc.pDepthStencilAttachment = &depthStencilAttachmentRef;
 
-        VkSubpassDependency subpassDependency = {};
-        subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        subpassDependency.dstSubpass = 0;
-        subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        subpassDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        subpassDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        subpassDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-
         VkRenderPassCreateInfo renderPassInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         renderPassInfo.attachmentCount = (uint32_t)_countof(attachments);
         renderPassInfo.pAttachments = attachments;
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpassDesc;
-        renderPassInfo.dependencyCount = 1;
-        renderPassInfo.pDependencies = &subpassDependency;
+        renderPassInfo.dependencyCount = 0;
         ERR_GUARD_VULKAN( vkCreateRenderPass(g_hDevice, &renderPassInfo, nullptr, &g_hRenderPass) );
     }
 
