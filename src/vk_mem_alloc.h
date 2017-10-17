@@ -45,7 +45,7 @@ Table of contents:
   - \subpage defragmentation
   - \subpage lost_allocations
 - \subpage configuration
-  - \subpage VK_KHR_dedicated_allocation
+  - \subpage vk_khr_dedicated_allocation
 - \subpage thread_safety
 
 See also:
@@ -400,7 +400,7 @@ To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
 
 
 
-\page VK_KHR_dedicated_allocation VK_KHR_dedicated_allocation
+\page vk_khr_dedicated_allocation VK_KHR_dedicated_allocation
 
 VK_KHR_dedicated_allocation is a Vulkan extension which can be used to improve
 performance on some GPUs. It augments Vulkan API with possibility to query

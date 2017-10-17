@@ -1,7 +1,7 @@
 var searchData=
 [
   ['vulkan_20memory_20allocator',['Vulkan Memory Allocator',['../index.html',1,'']]],
-  ['vk_5fkhr_5fdedicated_5fallocation',['VK_KHR_dedicated_allocation',['../_v_k__k_h_r_dedicated_allocation.html',1,'index']]],
+  ['vk_5fkhr_5fdedicated_5fallocation',['VK_KHR_dedicated_allocation',['../vk_khr_dedicated_allocation.html',1,'index']]],
   ['vk_5fmem_5falloc_2eh',['vk_mem_alloc.h',['../vk__mem__alloc_8h.html',1,'']]],
   ['vkallocatememory',['vkAllocateMemory',['../struct_vma_vulkan_functions.html#a2943bf99dfd784a0e8f599d987e22e6c',1,'VmaVulkanFunctions']]],
   ['vkbindbuffermemory',['vkBindBufferMemory',['../struct_vma_vulkan_functions.html#a94fc4f3a605d9880bb3c0ba2c2fc80b2',1,'VmaVulkanFunctions']]],
