@@ -45,6 +45,7 @@ Table of contents:
   - \subpage defragmentation
   - \subpage lost_allocations
 - \subpage configuration
+  - \subpage VK_KHR_dedicated_allocation
 - \subpage thread_safety
 
 See also:
@@ -387,6 +388,70 @@ If you want to test how your program behaves with limited amount of Vulkan devic
 memory available without switching your graphics card to one that really has
 smaller VRAM, you can use a feature of this library intended for this purpose.
 To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
+
+
+
+\page VK_KHR_dedicated_allocation VK_KHR_dedicated_allocation
+
+VK_KHR_dedicated_allocation is a Vulkan extension which can be used to improve
+performance on some GPUs. It augments Vulkan API with possibility to query
+driver whether it prefers particular buffer or image to have its own, dedicated
+allocation (separate `VkDeviceMemory` block) for better efficiency - to be able
+to do some internal optimizations.
+
+The extension is supported by this library. It will be used automatically when
+enabled. To enable it:
+
+1 . When creating Vulkan device, check if following 2 device extensions are
+supported (call `vkEnumerateDeviceExtensionProperties()`).
+If yes, enable them (fill `VkDeviceCreateInfo::ppEnabledExtensionNames`).
+
+- VK_KHR_get_memory_requirements2
+- VK_KHR_dedicated_allocation
+
+If you enabled these extensions:
+
+2 . Query device for pointers to following 2 extension functions, using
+`vkGetDeviceProcAddr()`. Pass them in structure VmaVulkanFunctions while creating
+your `VmaAllocator`.
+
+- `vkGetBufferMemoryRequirements2KHR`
+- `vkGetImageMemoryRequirements2KHR`
+
+Other members of this structure can be null as long as you leave
+`VMA_STATIC_VULKAN_FUNCTIONS` defined to 1, which is the default.
+
+\code
+VmaVulkanFunctions vulkanFunctions = {};
+vulkanFunctions.vkGetBufferMemoryRequirements2KHR =
+    (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(device, "vkGetBufferMemoryRequirements2KHR");
+vulkanFunctions.vkGetImageMemoryRequirements2KHR =
+    (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(device, "vkGetImageMemoryRequirements2KHR");
+    
+VmaAllocatorCreateInfo allocatorInfo = {};
+allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+// Fill other members of allocatorInfo...
+\endcode
+
+
+3 . Use `VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT` flag when creating
+your `VmaAllocator` to inform the library that you enabled required extensions
+and you want the library to use them.
+
+\code
+allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+
+vmaCreateAllocator(&allocatorInfo, &allocator);
+\endcode
+
+
+That's all. The extension will be automatically used whenever you create a
+buffer using vmaCreateBuffer() or image using vmaCreateImage().
+
+To learn more about this extension, see:
+
+- [VK_KHR_dedicated_allocation in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.0-extensions/html/vkspec.html#VK_KHR_dedicated_allocation)
+- [VK_KHR_dedicated_allocation unofficial manual](http://asawicki.info/articles/VK_KHR_dedicated_allocation.php5)
 
 
 
