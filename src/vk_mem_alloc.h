@@ -1305,7 +1305,15 @@ returned value is negative error code, *pBuffer and *pAllocation are null.
 
 If the function succeeded, you must destroy both buffer and allocation when you
 no longer need them using either convenience function vmaDestroyBuffer() or
-separately, using vkDestroyBuffer() and vmaFreeMemory().
+separately, using `vkDestroyBuffer()` and vmaFreeMemory().
+
+If VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag was used,
+VK_KHR_dedicated_allocation extension is used internally to query driver whether
+it requires or prefers the new buffer to have dedicated allocation. If yes,
+and if dedicated allocation is possible (VmaAllocationCreateInfo::pool is null
+and VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT is not used), it creates dedicated
+allocation for this buffer, just like when using
+VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
 */
 VkResult vmaCreateBuffer(
     VmaAllocator allocator,
@@ -1323,6 +1331,8 @@ This is just a convenience function equivalent to:
 vkDestroyBuffer(device, buffer, allocationCallbacks);
 vmaFreeMemory(allocator, allocation);
 \endcode
+
+It it safe to pass null as buffer and/or allocation.
 */
 void vmaDestroyBuffer(
     VmaAllocator allocator,
@@ -1346,6 +1356,8 @@ This is just a convenience function equivalent to:
 vkDestroyImage(device, image, allocationCallbacks);
 vmaFreeMemory(allocator, allocation);
 \endcode
+
+It it safe to pass null as image and/or allocation.
 */
 void vmaDestroyImage(
     VmaAllocator allocator,

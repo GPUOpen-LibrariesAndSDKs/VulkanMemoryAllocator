@@ -1083,7 +1083,8 @@ Functions</h2></td></tr>
 <li>Binds the buffer with the memory.</li>
 </ol>
 <p>If any of these operations fail, buffer and allocation are not created, returned value is negative error code, *pBuffer and *pAllocation are null.</p>
-<p>If the function succeeded, you must destroy both buffer and allocation when you no longer need them using either convenience function <a class="el" href="vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77" title="Destroys Vulkan buffer and frees allocated memory. ">vmaDestroyBuffer()</a> or separately, using vkDestroyBuffer() and <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a>. </p>
+<p>If the function succeeded, you must destroy both buffer and allocation when you no longer need them using either convenience function <a class="el" href="vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77" title="Destroys Vulkan buffer and frees allocated memory. ">vmaDestroyBuffer()</a> or separately, using <code>vkDestroyBuffer()</code> and <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a>.</p>
+<p>If VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag was used, VK_KHR_dedicated_allocation extension is used internally to query driver whether it requires or prefers the new buffer to have dedicated allocation. If yes, and if dedicated allocation is possible (<a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150" title="Pool that this allocation should be created in. ">VmaAllocationCreateInfo::pool</a> is null and VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT is not used), it creates dedicated allocation for this buffer, just like when using VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT. </p>
 
 </div>
 </div>
@@ -1348,7 +1349,8 @@ Functions</h2></td></tr>
 
 <p>Destroys Vulkan buffer and frees allocated memory. </p>
 <p>This is just a convenience function equivalent to:</p>
-<div class="fragment"><div class="line">vkDestroyBuffer(device, buffer, allocationCallbacks);</div><div class="line"><a class="code" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vmaFreeMemory</a>(allocator, allocation);</div></div><!-- fragment --> 
+<div class="fragment"><div class="line">vkDestroyBuffer(device, buffer, allocationCallbacks);</div><div class="line"><a class="code" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vmaFreeMemory</a>(allocator, allocation);</div></div><!-- fragment --><p>It it safe to pass null as buffer and/or allocation. </p>
+
 </div>
 </div>
 <a id="ae50d2cb3b4a3bfd4dd40987234e50e7e"></a>
@@ -1385,7 +1387,8 @@ Functions</h2></td></tr>
 
 <p>Destroys Vulkan image and frees allocated memory. </p>
 <p>This is just a convenience function equivalent to:</p>
-<div class="fragment"><div class="line">vkDestroyImage(device, image, allocationCallbacks);</div><div class="line"><a class="code" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vmaFreeMemory</a>(allocator, allocation);</div></div><!-- fragment --> 
+<div class="fragment"><div class="line">vkDestroyImage(device, image, allocationCallbacks);</div><div class="line"><a class="code" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vmaFreeMemory</a>(allocator, allocation);</div></div><!-- fragment --><p>It it safe to pass null as image and/or allocation. </p>
+
 </div>
 </div>
 <a id="a5485779c8f1948238fc4e92232fa65e1"></a>
