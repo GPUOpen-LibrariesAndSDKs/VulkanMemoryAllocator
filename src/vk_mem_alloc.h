@@ -64,9 +64,10 @@ In your project code:
 -# In exacly one C++ file define following macro before include to build library
    implementation.
 
-
-    #define VMA_IMPLEMENTATION
-    #include "vk_mem_alloc.h"
+\code
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+\endcode
 
 At program startup:
 
@@ -74,13 +75,14 @@ At program startup:
 -# Fill VmaAllocatorCreateInfo structure and create `VmaAllocator` object by
    calling vmaCreateAllocator().
 
+\code
+VmaAllocatorCreateInfo allocatorInfo = {};
+allocatorInfo.physicalDevice = physicalDevice;
+allocatorInfo.device = device;
 
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = physicalDevice;
-    allocatorInfo.device = device;
-
-    VmaAllocator allocator;
-    vmaCreateAllocator(&allocatorInfo, &allocator);
+VmaAllocator allocator;
+vmaCreateAllocator(&allocatorInfo, &allocator);
+\endcode
 
 When you want to create a buffer or image:
 
@@ -89,23 +91,25 @@ When you want to create a buffer or image:
 -# Call vmaCreateBuffer() / vmaCreateImage() to get `VkBuffer`/`VkImage` with memory
    already allocated and bound to it.
 
+\code
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufferInfo.size = 65536;
+bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufferInfo.size = 65536;
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
 
 Don't forget to destroy your objects when no longer needed:
 
-
-    vmaDestroyBuffer(allocator, buffer, allocation);
-    vmaDestroyAllocator(allocator);
+\code
+vmaDestroyBuffer(allocator, buffer, allocation);
+vmaDestroyAllocator(allocator);
+\endcode
 
 \page persistently_mapped_memory Persistently mapped memory
 
@@ -122,22 +126,23 @@ blocks that stay mapped all the time, so you can just access CPU pointer to it.
 VmaAllocationInfo::pMappedData pointer is already offseted to the beginning of
 particular allocation. Example:
 
+\code
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = 1024;
+bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufCreateInfo.size = 1024;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+allocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
 
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
 
-    VkBuffer buf;
-    VmaAllocation alloc;
-    VmaAllocationInfo allocInfo;
-    vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
-
-    .// Buffer is immediately mapped. You can access its memory.
-    memcpy(allocInfo.pMappedData, myData, 1024);
+// Buffer is immediately mapped. You can access its memory.
+memcpy(allocInfo.pMappedData, myData, 1024);
+\endcode
 
 Memory in Vulkan doesn't need to be unmapped before using it e.g. for transfers,
 but if you are not sure whether it's `HOST_COHERENT` (here is surely is because
@@ -145,17 +150,18 @@ it's created with `VMA_MEMORY_USAGE_CPU_ONLY`), you should check it. If it's
 not, you should call `vkInvalidateMappedMemoryRanges()` before reading and
 `vkFlushMappedMemoryRanges()` after writing to mapped memory on CPU. Example:
 
-
-    VkMemoryPropertyFlags memFlags;
-    vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
-    if((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
-    {
-        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-        memRange.memory = allocInfo.deviceMemory;
-        memRange.offset = allocInfo.offset;
-        memRange.size   = allocInfo.size;
-        vkFlushMappedMemoryRanges(device, 1, &memRange);
-    }
+\code
+VkMemoryPropertyFlags memFlags;
+vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+if((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
+{
+    VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+    memRange.memory = allocInfo.deviceMemory;
+    memRange.offset = allocInfo.offset;
+    memRange.size   = allocInfo.size;
+    vkFlushMappedMemoryRanges(device, 1, &memRange);
+}
+\endcode
 
 On AMD GPUs on Windows, Vulkan memory from the type that has both `DEVICE_LOCAL`
 and `HOST_VISIBLE` flags should not be mapped for the time of any call to
@@ -185,34 +191,36 @@ To use custom memory pools:
 
 Example:
 
+\code
+// Create a pool that could have at most 2 blocks, 128 MB each.
+VmaPoolCreateInfo poolCreateInfo = {};
+poolCreateInfo.memoryTypeIndex = ...
+poolCreateInfo.blockSize = 128ull * 1024 * 1024;
+poolCreateInfo.maxBlockCount = 2;
 
-    .// Create a pool that could have at most 2 blocks, 128 MB each.
-    VmaPoolCreateInfo poolCreateInfo = {};
-    poolCreateInfo.memoryTypeIndex = ...
-    poolCreateInfo.blockSize = 128ull * 1024 * 1024;
-    poolCreateInfo.maxBlockCount = 2;
+VmaPool pool;
+vmaCreatePool(allocator, &poolCreateInfo, &pool);
 
-    VmaPool pool;
-    vmaCreatePool(allocator, &poolCreateInfo, &pool);
+// Allocate a buffer out of it.
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = 1024;
+bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    .// Allocate a buffer out of it.
-    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufCreateInfo.size = 1024;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.pool = pool;
 
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.pool = pool;
-
-    VkBuffer buf;
-    VmaAllocation alloc;
-    VmaAllocationInfo allocInfo;
-    vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+\endcode
 
 You have to free all allocations made from this pool before destroying it.
 
-
-    vmaDestroyBuffer(allocator, buf, alloc);
-    vmaDestroyPool(allocator, pool);
+\code
+vmaDestroyBuffer(allocator, buf, alloc);
+vmaDestroyPool(allocator, pool);
+\endcode
 
 \page defragmentation Defragmentation
 
@@ -288,46 +296,47 @@ You need to call function vmaSetCurrentFrameIndex().
 
 Example code:
 
+\code
+struct MyBuffer
+{
+    VkBuffer m_Buf = nullptr;
+    VmaAllocation m_Alloc = nullptr;
 
-    struct MyBuffer
+    // Called when the buffer is really needed in the current frame.
+    void EnsureBuffer();
+};
+
+void MyBuffer::EnsureBuffer()
+{
+    // Buffer has been created.
+    if(m_Buf != VK_NULL_HANDLE)
     {
-        VkBuffer m_Buf = nullptr;
-        VmaAllocation m_Alloc = nullptr;
-
-        .// Called when the buffer is really needed in the current frame.
-        void EnsureBuffer();
-    };
-
-    void MyBuffer::EnsureBuffer()
-    {
-        .// Buffer has been created.
-        if(m_Buf != VK_NULL_HANDLE)
+        // Check if its allocation is not lost + mark it as used in current frame.
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, m_Alloc, &allocInfo);
+        if(allocInfo.deviceMemory != VK_NULL_HANDLE)
         {
-            .// Check if its allocation is not lost + mark it as used in current frame.
-            VmaAllocationInfo allocInfo;
-            vmaGetAllocationInfo(allocator, m_Alloc, &allocInfo);
-            if(allocInfo.deviceMemory != VK_NULL_HANDLE)
-            {
-                .// It's all OK - safe to use m_Buf.
-                return;
-            }
+            // It's all OK - safe to use m_Buf.
+            return;
         }
-
-        .// Buffer not yet exists or lost - destroy and recreate it.
-
-        vmaDestroyBuffer(allocator, m_Buf, m_Alloc);
-
-        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        bufCreateInfo.size = 1024;
-        bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-        VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
-            VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
-
-        vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &m_Buf, &m_Alloc, nullptr);
     }
+
+    // Buffer not yet exists or lost - destroy and recreate it.
+
+    vmaDestroyBuffer(allocator, m_Buf, m_Alloc);
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 1024;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
+        VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
+
+    vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &m_Buf, &m_Alloc, nullptr);
+}
+\endcode
 
 When using lost allocations, you may see some Vulkan validation layer warnings
 about overlapping regions of memory bound to different kinds of buffers and
@@ -433,7 +442,6 @@ allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 // Fill other members of allocatorInfo...
 \endcode
 
-
 3 . Use `VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT` flag when creating
 your `VmaAllocator` to inform the library that you enabled required extensions
 and you want the library to use them.
@@ -444,9 +452,18 @@ allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
 vmaCreateAllocator(&allocatorInfo, &allocator);
 \endcode
 
-
 That's all. The extension will be automatically used whenever you create a
 buffer using vmaCreateBuffer() or image using vmaCreateImage().
+
+When using the extension together with Vulkan Validation Layer, you will receive
+warnings like this:
+
+    vkBindBufferMemory(): Binding memory to buffer 0x33 but vkGetBufferMemoryRequirements() has not been called on that buffer.
+
+It is OK, you should just ignore it. It happens because you use function
+`vkGetBufferMemoryRequirements2KHR()` instead of standard
+`vkGetBufferMemoryRequirements()`, while the validation layer seems to be
+unaware of it.
 
 To learn more about this extension, see:
 
@@ -1144,10 +1161,11 @@ performance degradation because WDDM migrates such memory to system RAM.
 To ensure this, you can unmap all persistently mapped memory using this function.
 Example:
 
-
-    vmaUnmapPersistentlyMappedMemory(allocator);
-    vkQueueSubmit(...)
-    vmaMapPersistentlyMappedMemory(allocator);
+\code
+vmaUnmapPersistentlyMappedMemory(allocator);
+vkQueueSubmit(...)
+vmaMapPersistentlyMappedMemory(allocator);
+\endcode
 
 After this call VmaAllocationInfo::pMappedData of some allocations may become null.
 
@@ -1230,32 +1248,33 @@ the allocation. You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
 `vkCreateBuffer()`, `vkCreateImage()` for that purpose and NOT vmaDestroyBuffer(),
 vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage()! Example:
 
+\code
+VkDevice device = ...;
+VmaAllocator allocator = ...;
+std::vector<VkBuffer> buffers = ...;
+std::vector<VmaAllocation> allocations = ...;
 
-    VkDevice device = ...;
-    VmaAllocator allocator = ...;
-    std::vector<VkBuffer> buffers = ...;
-    std::vector<VmaAllocation> allocations = ...;
+std::vector<VkBool32> allocationsChanged(allocations.size());
+vmaDefragment(allocator, allocations.data(), allocations.size(), allocationsChanged.data(), nullptr, nullptr);
 
-    std::vector<VkBool32> allocationsChanged(allocations.size());
-    vmaDefragment(allocator, allocations.data(), allocations.size(), allocationsChanged.data(), nullptr, nullptr);
-
-    for(size_t i = 0; i < allocations.size(); ++i)
+for(size_t i = 0; i < allocations.size(); ++i)
+{
+    if(allocationsChanged[i])
     {
-        if(allocationsChanged[i])
-        {
-            VmaAllocationInfo allocInfo;
-            vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
 
-            vkDestroyBuffer(device, buffers[i], nullptr);
+        vkDestroyBuffer(device, buffers[i], nullptr);
 
-            VkBufferCreateInfo bufferInfo = ...;
-            vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
+        VkBufferCreateInfo bufferInfo = ...;
+        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
             
-            .// You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
+        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
             
-            vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
-        }
+        vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
     }
+}
+\endcode
 
 This function may be time-consuming, so you shouldn't call it too often (like
 every frame or after every resource creation/destruction), but rater you can
@@ -1300,9 +1319,10 @@ VkResult vmaCreateBuffer(
 
 This is just a convenience function equivalent to:
 
-
-    vkDestroyBuffer(device, buffer, allocationCallbacks);
-    vmaFreeMemory(allocator, allocation);
+\code
+vkDestroyBuffer(device, buffer, allocationCallbacks);
+vmaFreeMemory(allocator, allocation);
+\endcode
 */
 void vmaDestroyBuffer(
     VmaAllocator allocator,
@@ -1322,9 +1342,10 @@ VkResult vmaCreateImage(
 
 This is just a convenience function equivalent to:
 
-
-    vkDestroyImage(device, image, allocationCallbacks);
-    vmaFreeMemory(allocator, allocation);
+\code
+vkDestroyImage(device, image, allocationCallbacks);
+vmaFreeMemory(allocator, allocation);
+\endcode
 */
 void vmaDestroyImage(
     VmaAllocator allocator,
