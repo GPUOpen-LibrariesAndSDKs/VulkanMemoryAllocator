@@ -62,7 +62,7 @@ $(function() {
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="struct_vma_allocator_create_info-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">VmaAllocatorCreateInfo Struct Reference<div class="ingroups"><a class="el" href="group__general.html">General</a></div></div>  </div>
+<div class="title">VmaAllocatorCreateInfo Struct Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
@@ -73,9 +73,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a35d3b42ac5a3be3758926819dc053859"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a35d3b42ac5a3be3758926819dc053859">flags</a></td></tr>
-<tr class="memdesc:a35d3b42ac5a3be3758926819dc053859"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created allocator. Use VmaAllocatorFlagBits enum.  <a href="#a35d3b42ac5a3be3758926819dc053859">More...</a><br /></td></tr>
-<tr class="separator:a35d3b42ac5a3be3758926819dc053859"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a392ea2ecbaff93f91a7c49f735ad4346"><td class="memItemLeft" align="right" valign="top"><a class="el" href="vk__mem__alloc_8h.html#acfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">flags</a></td></tr>
+<tr class="memdesc:a392ea2ecbaff93f91a7c49f735ad4346"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.  <a href="#a392ea2ecbaff93f91a7c49f735ad4346">More...</a><br /></td></tr>
+<tr class="separator:a392ea2ecbaff93f91a7c49f735ad4346"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08230f04ae6ccf8a78150a9e829a7156"><td class="memItemLeft" align="right" valign="top">VkPhysicalDevice&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">physicalDevice</a></td></tr>
 <tr class="memdesc:a08230f04ae6ccf8a78150a9e829a7156"><td class="mdescLeft">&#160;</td><td class="mdescRight">Vulkan physical device.  <a href="#a08230f04ae6ccf8a78150a9e829a7156">More...</a><br /></td></tr>
 <tr class="separator:a08230f04ae6ccf8a78150a9e829a7156"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -124,19 +124,19 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a35d3b42ac5a3be3758926819dc053859"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a35d3b42ac5a3be3758926819dc053859">&#9670;&nbsp;</a></span>flags</h2>
+<a id="a392ea2ecbaff93f91a7c49f735ad4346"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a392ea2ecbaff93f91a7c49f735ad4346">&#9670;&nbsp;</a></span>flags</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="group__general.html#ga6ffbcb80208bf4467a1104087396cf59">VmaAllocatorFlags</a> VmaAllocatorCreateInfo::flags</td>
+          <td class="memname"><a class="el" href="vk__mem__alloc_8h.html#acfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a> VmaAllocatorCreateInfo::flags</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Flags for created allocator. Use VmaAllocatorFlagBits enum. </p>
+<p>Flags for created allocator. Use VmaAllocatorCreateFlagBits enum. </p>
 
 </div>
 </div>
@@ -211,7 +211,7 @@ Public Attributes</h2></td></tr>
 <p>If there is a limit defined for a heap:</p>
 <ul>
 <li>If user tries to allocate more memory from that heap using this allocator, the allocation fails with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>.</li>
-<li>If the limit is smaller than heap size reported in <code>VkMemoryHeap::size</code>, the value of this limit will be reported instead when using <a class="el" href="group__general.html#gab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>. </li>
+<li>If the limit is smaller than heap size reported in <code>VkMemoryHeap::size</code>, the value of this limit will be reported instead when using <a class="el" href="vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>. </li>
 </ul>
 
 </div>

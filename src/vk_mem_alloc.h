@@ -29,19 +29,33 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-\tableofcontents
-
 <b>Version 2.0.0-alpha.4</b> (2017-10-02)
 
-Source repository: [VulkanMemoryAllocator project on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) \n
-Product page: [Vulkan Memory Allocator on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
+Copyright (c) 2017 Advanced Micro Devices, Inc. All rights reserved. \n
+License: MIT
 
-Documentation of members grouped: <a href="modules.html"><b>Modules</b></a> \n
 Documentation of all members: vk_mem_alloc.h
 
-\section user_guide User guide
+Table of contents:
 
-\subsection quick_start Quick start
+- User guide
+  - \subpage quick_start
+  - \subpage persistently_mapped_memory
+  - \subpage custom_memory_pools
+  - \subpage defragmentation
+  - \subpage lost_allocations
+- \subpage configuration
+- \subpage thread_safety
+
+See also:
+
+- [Source repository on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- [Product page on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
+
+
+
+
+\page quick_start Quick start
 
 In your project code:
 
@@ -92,7 +106,7 @@ Don't forget to destroy your objects when no longer needed:
     vmaDestroyBuffer(allocator, buffer, allocation);
     vmaDestroyAllocator(allocator);
 
-\subsection persistently_mapped_memory Persistently mapped memory
+\page persistently_mapped_memory Persistently mapped memory
 
 If you need to map memory on host, it may happen that two allocations are
 assigned to the same `VkDeviceMemory` block, so if you map them both at the same
@@ -150,7 +164,7 @@ To ensure this, you can unmap all persistently mapped memory using just one
 function call. For details, see function
 vmaUnmapPersistentlyMappedMemory(), vmaMapPersistentlyMappedMemory().
 
-\subsection custom_memory_pools Custom memory pools
+\page custom_memory_pools Custom memory pools
 
 The library automatically creates and manages default memory pool for each
 memory type available on the device. A pool contains a number of
@@ -199,7 +213,7 @@ You have to free all allocations made from this pool before destroying it.
     vmaDestroyBuffer(allocator, buf, alloc);
     vmaDestroyPool(allocator, pool);
 
-\subsection defragmentation Defragmentation
+\page defragmentation Defragmentation
 
 Interleaved allocations and deallocations of many objects of varying size can
 cause fragmentation, which can lead to a situation where the library is unable
@@ -219,7 +233,7 @@ bind them to the new place in memory.
 For further details and example code, see documentation of function
 vmaDefragment().
 
-\subsection lost_allocations Lost allocations
+\page lost_allocations Lost allocations
 
 If your game oversubscribes video memory, if may work OK in previous-generation
 graphics APIs (DirectX 9, 10, 11, OpenGL) because resources are automatically
@@ -334,7 +348,8 @@ The library uses following algorithm for allocation, in order:
 -# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
 
 
-\section configuration Configuration
+
+\page configuration Configuration
 
 Please check "CONFIGURATION SECTION" in the code to find macros that you can define
 before each include of this file or change directly in this file to provide
@@ -342,7 +357,7 @@ your own implementation of basic facilities like assert, `min()` and `max()` fun
 mutex etc. C++ STL is used by default, but changing these allows you to get rid
 of any STL usage if you want, as many game developers tend to do.
 
-\subsection config_Vulkan_functions Pointers to Vulkan functions
+\section config_Vulkan_functions Pointers to Vulkan functions
 
 The library uses Vulkan functions straight from the `vulkan.h` header by default.
 If you want to provide your own pointers to these functions, e.g. fetched using
@@ -351,7 +366,7 @@ If you want to provide your own pointers to these functions, e.g. fetched using
 -# Define `VMA_STATIC_VULKAN_FUNCTIONS 0`.
 -# Provide valid pointers through VmaAllocatorCreateInfo::pVulkanFunctions.
 
-\subsection custom_memory_allocator Custom host memory allocator
+\section custom_memory_allocator Custom host memory allocator
 
 If you use custom allocator for CPU memory rather than default operator `new`
 and `delete` from C++, you can make this library using your allocator as well
@@ -359,21 +374,23 @@ by filling optional member VmaAllocatorCreateInfo::pAllocationCallbacks. These
 functions will be passed to Vulkan, as well as used by the library itself to
 make any CPU-side allocations.
 
-\subsection allocation_callbacks Device memory allocation callbacks
+\section allocation_callbacks Device memory allocation callbacks
 
 The library makes calls to `vkAllocateMemory()` and `vkFreeMemory()` internally.
 You can setup callbacks to be informed about these calls, e.g. for the purpose
 of gathering some statistics. To do it, fill optional member
 VmaAllocatorCreateInfo::pDeviceMemoryCallbacks.
 
-\subsection heap_memory_limit Device heap memory limit
+\section heap_memory_limit Device heap memory limit
 
 If you want to test how your program behaves with limited amount of Vulkan device
-memory available (without switching your graphics card to one that really has
-smaller VRAM), you can use a feature of this library intended for this purpose.
+memory available without switching your graphics card to one that really has
+smaller VRAM, you can use a feature of this library intended for this purpose.
 To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
 
-\section thread_safety Thread safety
+
+
+\page thread_safety Thread safety
 
 - The library has no global state, so separate `VmaAllocator` objects can be used
   independently. 
@@ -391,11 +408,6 @@ To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
 */
 
 #include <vulkan/vulkan.h>
-
-////////////////////////////////////////////////////////////////////////////////
-/** \defgroup general General
-@{
-*/
 
 VK_DEFINE_HANDLE(VmaAllocator)
 
@@ -655,18 +667,11 @@ void vmaFreeStatsString(
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
-/** @} */
-
-////////////////////////////////////////////////////////////////////////////////
-/** \defgroup layer1 Layer 1 Choosing Memory Type
-@{
-*/
-
 VK_DEFINE_HANDLE(VmaPool)
 
 typedef enum VmaMemoryUsage
 {
-    /// No intended memory usage specified.
+    /// No intended memory usage specified. Use other members of VmaAllocationCreateInfo to specify your requirements.
     VMA_MEMORY_USAGE_UNKNOWN = 0,
     /// Memory will be used on device only, so faster access from the device is preferred. No need to be mappable on host.
     VMA_MEMORY_USAGE_GPU_ONLY = 1,
@@ -795,13 +800,6 @@ VkResult vmaFindMemoryTypeIndex(
     uint32_t memoryTypeBits,
     const VmaAllocationCreateInfo* pAllocationCreateInfo,
     uint32_t* pMemoryTypeIndex);
-
-/** @} */
-
-////////////////////////////////////////////////////////////////////////////////
-/** \defgroup layer2 Layer 2 Allocating Memory
-@{
-*/
 
 /// Flags to be passed as VmaPoolCreateInfo::flags.
 typedef enum VmaPoolCreateFlagBits {
@@ -1207,13 +1205,6 @@ VkResult vmaDefragment(
     const VmaDefragmentationInfo *pDefragmentationInfo,
     VmaDefragmentationStats* pDefragmentationStats);
 
-/** @} */
-
-////////////////////////////////////////////////////////////////////////////////
-/** \defgroup layer3 Layer 3 Creating Buffers and Images
-@{
-*/
-
 /**
 @param[out] pBuffer Buffer that was created.
 @param[out] pAllocation Allocation that was created.
@@ -1274,8 +1265,6 @@ void vmaDestroyImage(
     VmaAllocator allocator,
     VkImage image,
     VmaAllocation allocation);
-
-/** @} */
 
 #ifdef __cplusplus
 }
