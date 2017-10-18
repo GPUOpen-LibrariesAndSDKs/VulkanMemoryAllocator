@@ -6496,11 +6496,18 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     VMA_ASSERT(pAllocation != VMA_NULL);
     VMA_DEBUG_LOG("  AllocateMemory: MemoryTypeIndex=%u, Size=%llu", memTypeIndex, vkMemReq.size);
 
-    uint32_t blockVectorType = VmaAllocationCreateFlagsToBlockVectorType(createInfo.flags);
+    VmaAllocationCreateInfo finalCreateInfo = createInfo;
+
+    // If memory type is not HOST_VISIBLE, disable PERSISTENT_MAP.
+    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0 &&
+        (m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+    {
+        finalCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
+    }
+
+    uint32_t blockVectorType = VmaAllocationCreateFlagsToBlockVectorType(finalCreateInfo.flags);
     VmaBlockVector* const blockVector = m_pBlockVectors[memTypeIndex][blockVectorType];
     VMA_ASSERT(blockVector);
-
-    VmaAllocationCreateInfo finalCreateInfo = createInfo;
 
     const VkDeviceSize preferredBlockSize = blockVector->GetPreferredBlockSize();
     bool preferDedicatedMemory =
@@ -6514,13 +6521,6 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
         finalCreateInfo.pool == VK_NULL_HANDLE)
     {
         finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    }
-
-    // If memory type is not HOST_VISIBLE, disable PERSISTENT_MAP.
-    if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT) != 0 &&
-        (m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
-    {
-        finalCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
     }
 
     if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0)
