@@ -2,7 +2,6 @@ var searchData=
 [
   ['pallocationcallbacks',['pAllocationCallbacks',['../struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d',1,'VmaAllocatorCreateInfo']]],
   ['pdevicememorycallbacks',['pDeviceMemoryCallbacks',['../struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e',1,'VmaAllocatorCreateInfo']]],
-  ['persistently_20mapped_20memory',['Persistently mapped memory',['../persistently_mapped_memory.html',1,'index']]],
   ['pfn_5fvmaallocatedevicememoryfunction',['PFN_vmaAllocateDeviceMemoryFunction',['../vk__mem__alloc_8h.html#ab6a6477cda1ce775b30bde96d766203b',1,'vk_mem_alloc.h']]],
   ['pfn_5fvmafreedevicememoryfunction',['PFN_vmaFreeDeviceMemoryFunction',['../vk__mem__alloc_8h.html#aef2545dc2e9dd4f29ab9ba6ac6fe2f49',1,'vk_mem_alloc.h']]],
   ['pfnallocate',['pfnAllocate',['../struct_vma_device_memory_callbacks.html#a4f17f7b255101e733b44d5633aceabfb',1,'VmaDeviceMemoryCallbacks']]],

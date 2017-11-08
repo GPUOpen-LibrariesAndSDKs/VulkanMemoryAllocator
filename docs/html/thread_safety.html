@@ -70,7 +70,7 @@ $(function() {
 <li>The library has no global state, so separate <code>VmaAllocator</code> objects can be used independently.</li>
 <li>By default, all calls to functions that take <code>VmaAllocator</code> as first parameter are safe to call from multiple threads simultaneously because they are synchronized internally when needed.</li>
 <li>When the allocator is created with <code>VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT</code> flag, calls to functions that take such <code>VmaAllocator</code> object must be synchronized externally.</li>
-<li>Access to a <code>VmaAllocation</code> object must be externally synchronized. For example, you must not call <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a> and <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> from different threads at the same time if you pass the same <code>VmaAllocation</code> object to these functions. </li>
+<li>Access to a <code>VmaAllocation</code> object must be externally synchronized. For example, you must not call <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation. ">vmaGetAllocationInfo()</a> and <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it. ">vmaMapMemory()</a> from different threads at the same time if you pass the same <code>VmaAllocation</code> object to these functions. </li>
 </ul>
 </div></div><!-- contents -->
 <!-- start footer part -->

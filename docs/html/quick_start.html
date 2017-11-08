@@ -66,17 +66,23 @@ $(function() {
 <div class="title">Quick start </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>In your project code:</p>
+<div class="textblock"><h1><a class="anchor" id="project_setup"></a>
+Project setup</h1>
+<p>In your project code:</p>
 <ol type="1">
 <li>Include "vk_mem_alloc.h" file wherever you want to use the library.</li>
 <li>In exacly one C++ file define following macro before include to build library implementation.</li>
 </ol>
-<div class="fragment"><div class="line"><span class="preprocessor">#define VMA_IMPLEMENTATION</span></div><div class="line"><span class="preprocessor">#include &quot;vk_mem_alloc.h&quot;</span></div></div><!-- fragment --><p>At program startup:</p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define VMA_IMPLEMENTATION</span></div><div class="line"><span class="preprocessor">#include &quot;vk_mem_alloc.h&quot;</span></div></div><!-- fragment --><h1><a class="anchor" id="initialization"></a>
+Initialization</h1>
+<p>At program startup:</p>
 <ol type="1">
 <li>Initialize Vulkan to have <code>VkPhysicalDevice</code> and <code>VkDevice</code> object.</li>
 <li>Fill <a class="el" href="struct_vma_allocator_create_info.html" title="Description of a Allocator to be created. ">VmaAllocatorCreateInfo</a> structure and create <code>VmaAllocator</code> object by calling <a class="el" href="vk__mem__alloc_8h.html#a200692051ddb34240248234f5f4c17bb" title="Creates Allocator object. ">vmaCreateAllocator()</a>.</li>
 </ol>
-<div class="fragment"><div class="line"><a class="code" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a> allocatorInfo = {};</div><div class="line">allocatorInfo.<a class="code" href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">physicalDevice</a> = physicalDevice;</div><div class="line">allocatorInfo.<a class="code" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500">device</a> = device;</div><div class="line"></div><div class="line">VmaAllocator allocator;</div><div class="line"><a class="code" href="vk__mem__alloc_8h.html#a200692051ddb34240248234f5f4c17bb">vmaCreateAllocator</a>(&amp;allocatorInfo, &amp;allocator);</div></div><!-- fragment --><p>When you want to create a buffer or image:</p>
+<div class="fragment"><div class="line"><a class="code" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a> allocatorInfo = {};</div><div class="line">allocatorInfo.<a class="code" href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">physicalDevice</a> = physicalDevice;</div><div class="line">allocatorInfo.<a class="code" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500">device</a> = device;</div><div class="line"></div><div class="line">VmaAllocator allocator;</div><div class="line"><a class="code" href="vk__mem__alloc_8h.html#a200692051ddb34240248234f5f4c17bb">vmaCreateAllocator</a>(&amp;allocatorInfo, &amp;allocator);</div></div><!-- fragment --><h1><a class="anchor" id="resource_allocation"></a>
+Resource allocation</h1>
+<p>When you want to create a buffer or image:</p>
 <ol type="1">
 <li>Fill <code>VkBufferCreateInfo</code> / <code>VkImageCreateInfo</code> structure.</li>
 <li>Fill <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> structure.</li>

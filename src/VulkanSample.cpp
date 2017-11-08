@@ -301,7 +301,7 @@ static void CreateMesh()
 
     VmaAllocationCreateInfo vbAllocCreateInfo = {};
     vbAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    vbAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
+    vbAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkBuffer stagingVertexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingVertexBufferAlloc = VK_NULL_HANDLE;
@@ -326,7 +326,7 @@ static void CreateMesh()
     
     VmaAllocationCreateInfo ibAllocCreateInfo = {};
     ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    ibAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
+    ibAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
     
     VkBuffer stagingIndexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingIndexBufferAlloc = VK_NULL_HANDLE;
@@ -426,7 +426,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     
     VmaAllocationCreateInfo stagingImageAllocCreateInfo = {};
     stagingImageAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    stagingImageAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_PERSISTENT_MAP_BIT;
+    stagingImageAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
     
     VkImage stagingImage = VK_NULL_HANDLE;
     VmaAllocation stagingImageAlloc = VK_NULL_HANDLE;
