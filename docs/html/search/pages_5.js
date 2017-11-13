@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['thread_20safety',['Thread safety',['../thread_safety.html',1,'index']]]
+  ['quick_20start',['Quick start',['../quick_start.html',1,'index']]]
 ];

@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['configuration',['Configuration',['../configuration.html',1,'index']]],
-  ['custom_20memory_20pools',['Custom memory pools',['../custom_memory_pools.html',1,'index']]]
+  ['allocation_20names_20and_20user_20data',['Allocation names and user data',['../allocation_annotation.html',1,'index']]]
 ];

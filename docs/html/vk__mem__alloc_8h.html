@@ -196,6 +196,7 @@ Enumerations</h2></td></tr>
 <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> = 0x00000008, 
 <br />
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e">VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</a> = 0x00000010, 
+<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520">VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</a> = 0x00000020, 
 <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882">VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }<tr class="memdesc:ad9889c10c798b040d59c92f257cae597"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum. ">VmaAllocationCreateInfo::flags</a>.  <a href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597">More...</a><br /></td></tr>
@@ -654,6 +655,8 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e"></a>VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT&#160;</td><td class="fielddoc"><p>While creating allocation using this flag, other allocations that were created with flag <code>VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</code> can become lost.</p>
 <p>For details about supporting lost allocations, see Lost Allocations chapter of User Guide on Main Page. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520"></a>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT&#160;</td><td class="fielddoc"><p>Set this flag to treat <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> as pointer to a null-terminated string. Instead of copying pointer value, a local copy of the string is made and stored in allocation's pUserData. The string is automatically freed together with the allocation. It is also used in <a class="el" href="vk__mem__alloc_8h.html#aa4fee7eb5253377599ef4fd38c93c2a0" title="Builds and returns statistics as string in JSON format. ">vmaBuildStatsString()</a>. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882"></a>VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
@@ -1815,6 +1818,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Sets pUserData in given allocation to new value. </p>
+<p>If the allocation was created with VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT, pUserData must be either null, or pointer to a null-terminated string. The function makes local copy of the string and sets it as allocation's pUserData. String passed as pUserData doesn't need to be valid for whole lifetime of the allocation - you can free it after this call. String previously pointed by allocation's pUserData is freed from memory.</p>
+<p>If the flag was not used, the value of pointer pUserData is just copied to allocation's pUserData. It is opaque, so you can use it however you want - e.g. as a pointer, ordinal number or some handle to you own data. </p>
 
 </div>
 </div>

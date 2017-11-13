@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.0.0-alpha.5</b> (2017-11-08)
+<b>Version 2.0.0-alpha.6</b> (2017-11-13)
 
 Copyright (c) 2017 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -44,6 +44,7 @@ Table of contents:
   - \subpage custom_memory_pools
   - \subpage defragmentation
   - \subpage lost_allocations
+  - \subpage allocation_annotation
 - \subpage configuration
   - \subpage vk_khr_dedicated_allocation
 - \subpage thread_safety
@@ -382,6 +383,83 @@ The library uses following algorithm for allocation, in order:
 -# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
 
 
+\page allocation_annotation Allocation names and user data
+
+\section allocation_user_data Allocation user data
+
+You can annotate allocations with your own information, e.g. for debugging purposes.
+To do that, fill VmaAllocationCreateInfo::pUserData field when creating
+an allocation. It's an opaque `void*` pointer. You can use it e.g. as a pointer,
+some handle, index, key, ordinal number or any other value that would associate
+the allocation with your custom metadata.
+
+\code
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+// Fill bufferInfo...
+
+MyBufferMetadata* pMetadata = CreateBufferMetadata();
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+allocCreateInfo.pUserData = pMetadata;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr);
+\endcode
+
+The pointer may be later retrieved as VmaAllocationInfo::pUserData:
+
+\code
+VmaAllocationInfo allocInfo;
+vmaGetAllocationInfo(allocator, allocation, &allocInfo);
+MyBufferMetadata* pMetadata = (MyBufferMetadata*)allocInfo.pUserData;
+\endcode
+
+It can also be changed using function vmaSetAllocationUserData().
+
+Values of (non-zero) allocations' `pUserData` are printed in JSON report created by
+vmaBuildStatsString(), in hexadecimal form.
+
+\section allocation_names Allocation names
+
+There is alternative mode available where `pUserData` pointer is used to point to
+a null-terminated string, giving a name to the allocation. To use this mode,
+set `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` flag in VmaAllocationCreateInfo::flags.
+Then `pUserData` passed as VmaAllocationCreateInfo::pUserData or argument to
+vmaSetAllocationUserData() must be either null or pointer to a null-terminated string.
+The library creates internal copy of the string, so the pointer you pass doesn't need
+to be valid for whole lifetime of the allocation. You can free it after the call.
+
+\code
+VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+// Fill imageInfo...
+
+std::string imageName = "Texture: ";
+imageName += fileName;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+allocCreateInfo.pUserData = imageName.c_str();
+
+VkImage image;
+VmaAllocation allocation;
+vmaCreateImage(allocator, &imageInfo, &allocCreateInfo, &image, &allocation, nullptr);
+\endcode
+
+The value of `pUserData` pointer of the allocation will be different than the one
+you passed when setting allocation's name - pointing to a buffer managed
+internally that holds copy of the string.
+
+\code
+VmaAllocationInfo allocInfo;
+vmaGetAllocationInfo(allocator, allocation, &allocInfo);
+const char* imageName = (const char*)allocInfo.pUserData;
+printf("Image name: %s\n", imageName);
+\endcode
+
+That string is also printed in JSON report created by vmaBuildStatsString().
 
 \page configuration Configuration
 
@@ -851,6 +929,12 @@ typedef enum VmaAllocationCreateFlagBits {
     chapter of User Guide on Main Page.
     */
     VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT = 0x00000010,
+    /** Set this flag to treat VmaAllocationCreateInfo::pUserData as pointer to a
+    null-terminated string. Instead of copying pointer value, a local copy of the
+    string is made and stored in allocation's pUserData. The string is automatically
+    freed together with the allocation. It is also used in vmaBuildStatsString().
+    */
+    VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT = 0x00000020,
 
     VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocationCreateFlagBits;
@@ -1131,7 +1215,19 @@ void vmaGetAllocationInfo(
     VmaAllocation allocation,
     VmaAllocationInfo* pAllocationInfo);
 
-/// Sets pUserData in given allocation to new value.
+/** \brief Sets pUserData in given allocation to new value.
+
+If the allocation was created with VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT,
+pUserData must be either null, or pointer to a null-terminated string. The function
+makes local copy of the string and sets it as allocation's pUserData. String
+passed as pUserData doesn't need to be valid for whole lifetime of the allocation -
+you can free it after this call. String previously pointed by allocation's
+pUserData is freed from memory.
+
+If the flag was not used, the value of pointer pUserData is just copied to
+allocation's pUserData. It is opaque, so you can use it however you want - e.g.
+as a pointer, ordinal number or some handle to you own data.
+*/
 void vmaSetAllocationUserData(
     VmaAllocator allocator,
     VmaAllocation allocation,
@@ -2946,6 +3042,11 @@ struct VmaAllocation_T
 private:
     static const uint8_t MAP_COUNT_FLAG_PERSISTENT_MAP = 0x80;
 
+    enum FLAGS
+    {
+        FLAG_USER_DATA_STRING = 0x01,
+    };
+
 public:
     enum ALLOCATION_TYPE
     {
@@ -2954,20 +3055,24 @@ public:
         ALLOCATION_TYPE_DEDICATED,
     };
 
-    VmaAllocation_T(uint32_t currentFrameIndex) :
+    VmaAllocation_T(uint32_t currentFrameIndex, bool userDataString) :
         m_Alignment(1),
         m_Size(0),
         m_pUserData(VMA_NULL),
         m_LastUseFrameIndex(currentFrameIndex),
         m_Type((uint8_t)ALLOCATION_TYPE_NONE),
         m_SuballocationType((uint8_t)VMA_SUBALLOCATION_TYPE_UNKNOWN),
-        m_MapCount(0)
+        m_MapCount(0),
+        m_Flags(userDataString ? (uint8_t)FLAG_USER_DATA_STRING : 0)
     {
     }
 
     ~VmaAllocation_T()
     {
         VMA_ASSERT((m_MapCount & ~MAP_COUNT_FLAG_PERSISTENT_MAP) == 0 && "Allocation was not unmapped before destruction.");
+
+        // Check if owned string was freed.
+        VMA_ASSERT(m_pUserData == VMA_NULL);
     }
 
     void InitBlockAllocation(
@@ -2978,7 +3083,6 @@ public:
         VkDeviceSize size,
         VmaSuballocationType suballocationType,
         bool mapped,
-        void* pUserData,
         bool canBecomeLost)
     {
         VMA_ASSERT(m_Type == ALLOCATION_TYPE_NONE);
@@ -2986,7 +3090,6 @@ public:
         m_Type = (uint8_t)ALLOCATION_TYPE_BLOCK;
         m_Alignment = alignment;
         m_Size = size;
-        m_pUserData = pUserData;
         m_MapCount = mapped ? MAP_COUNT_FLAG_PERSISTENT_MAP : 0;
         m_SuballocationType = (uint8_t)suballocationType;
         m_BlockAllocation.m_hPool = hPool;
@@ -3022,15 +3125,13 @@ public:
         VkDeviceMemory hMemory,
         VmaSuballocationType suballocationType,
         void* pMappedData,
-        VkDeviceSize size,
-        void* pUserData)
+        VkDeviceSize size)
     {
         VMA_ASSERT(m_Type == ALLOCATION_TYPE_NONE);
         VMA_ASSERT(hMemory != VK_NULL_HANDLE);
         m_Type = (uint8_t)ALLOCATION_TYPE_DEDICATED;
         m_Alignment = 0;
         m_Size = size;
-        m_pUserData = pUserData;
         m_SuballocationType = (uint8_t)suballocationType;
         m_MapCount = (pMappedData != VMA_NULL) ? MAP_COUNT_FLAG_PERSISTENT_MAP : 0;
         m_DedicatedAllocation.m_MemoryTypeIndex = memoryTypeIndex;
@@ -3041,8 +3142,9 @@ public:
     ALLOCATION_TYPE GetType() const { return (ALLOCATION_TYPE)m_Type; }
     VkDeviceSize GetAlignment() const { return m_Alignment; }
     VkDeviceSize GetSize() const { return m_Size; }
+    bool IsUserDataString() const { return (m_Flags & FLAG_USER_DATA_STRING) != 0; }
     void* GetUserData() const { return m_pUserData; }
-    void SetUserData(void* pUserData) { m_pUserData = pUserData; }
+    void SetUserData(VmaAllocator hAllocator, void* pUserData);
     VmaSuballocationType GetSuballocationType() const { return (VmaSuballocationType)m_SuballocationType; }
 
     VmaDeviceMemoryBlock* GetBlock() const
@@ -3102,6 +3204,7 @@ private:
     // Bit 0x80 is set when allocation was created with VMA_ALLOCATION_CREATE_MAPPED_BIT.
     // Bits with mask 0x7F, used only when ALLOCATION_TYPE_DEDICATED, are reference counter for vmaMapMemory()/vmaUnmapMemory().
     uint8_t m_MapCount;
+    uint8_t m_Flags; // enum FLAGS
 
     // Allocation out of VmaDeviceMemoryBlock.
     struct BlockAllocation
@@ -3127,6 +3230,8 @@ private:
         // Allocation for an object that has its own private VkDeviceMemory.
         DedicatedAllocation m_DedicatedAllocation;
     };
+
+    void FreeUserDataString(VmaAllocator hAllocator);
 };
 
 /*
@@ -3722,6 +3827,7 @@ private:
         VmaSuballocationType suballocType,
         uint32_t memTypeIndex,
         bool map,
+        bool isUserDataString,
         void* pUserData,
         VkBuffer dedicatedBuffer,
         VkImage dedicatedImage,
@@ -3856,6 +3962,7 @@ public:
     void ContinueString(const char* pStr);
     void ContinueString(uint32_t n);
     void ContinueString(uint64_t n);
+    void ContinueString_Pointer(const void* ptr);
     void EndString(const char* pStr = VMA_NULL);
     
     void WriteNumber(uint32_t n);
@@ -3992,6 +4099,12 @@ void VmaJsonWriter::ContinueString(const char* pStr)
         }
         else switch(ch)
         {
+        case '\b':
+            m_SB.Add("\\b");
+            break;
+        case '\f':
+            m_SB.Add("\\f");
+            break;
         case '\n':
             m_SB.Add("\\n");
             break;
@@ -4018,6 +4131,12 @@ void VmaJsonWriter::ContinueString(uint64_t n)
 {
     VMA_ASSERT(m_InsideString);
     m_SB.AddNumber(n);
+}
+
+void VmaJsonWriter::ContinueString_Pointer(const void* ptr)
+{
+    VMA_ASSERT(m_InsideString);
+    m_SB.AddPointer(ptr);
 }
 
 void VmaJsonWriter::EndString(const char* pStr)
@@ -4109,6 +4228,29 @@ void VmaJsonWriter::WriteIndent(bool oneLess)
 #endif // #if VMA_STATS_STRING_ENABLED
 
 ////////////////////////////////////////////////////////////////////////////////
+
+void VmaAllocation_T::SetUserData(VmaAllocator hAllocator, void* pUserData)
+{
+    if(IsUserDataString())
+    {
+        VMA_ASSERT(pUserData == VMA_NULL || pUserData != m_pUserData);
+
+        FreeUserDataString(hAllocator);
+
+        if(pUserData != VMA_NULL)
+        {
+            const char* const newStrSrc = (char*)pUserData;
+            const size_t newStrLen = strlen(newStrSrc);
+            char* const newStrDst = vma_new_array(hAllocator, char, newStrLen + 1);
+            memcpy(newStrDst, newStrSrc, newStrLen + 1);
+            m_pUserData = newStrDst;
+        }
+    }
+    else
+    {
+        m_pUserData = pUserData;
+    }
+}
 
 VkDeviceSize VmaAllocation_T::GetOffset() const
 {
@@ -4226,6 +4368,18 @@ bool VmaAllocation_T::MakeLost(uint32_t currentFrameIndex, uint32_t frameInUseCo
                 return true;
             }
         }
+    }
+}
+
+void VmaAllocation_T::FreeUserDataString(VmaAllocator hAllocator)
+{
+    VMA_ASSERT(IsUserDataString());
+    if(m_pUserData != VMA_NULL)
+    {
+        char* const oldStr = (char*)m_pUserData;
+        const size_t oldStrLen = strlen(oldStr);
+        vma_delete_array(hAllocator, oldStr, oldStrLen + 1);
+        m_pUserData = VMA_NULL;
     }
 }
 
@@ -4587,6 +4741,25 @@ void VmaBlockMetadata::PrintDetailedMap(class VmaJsonWriter& json) const
 
         json.WriteString("Offset");
         json.WriteNumber(suballocItem->offset);
+
+        if(suballocItem->type != VMA_SUBALLOCATION_TYPE_FREE)
+        {
+            const void* pUserData = suballocItem->hAllocation->GetUserData();
+            if(pUserData != VMA_NULL)
+            {
+                json.WriteString("UserData");
+                if(suballocItem->hAllocation->IsUserDataString())
+                {
+                    json.WriteString((const char*)pUserData);
+                }
+                else
+                {
+                    json.BeginString();
+                    json.ContinueString_Pointer(pUserData);
+                    json.EndString();
+                }
+            }
+        }
 
         json.EndObject();
     }
@@ -5561,6 +5734,7 @@ VkResult VmaBlockVector::Allocate(
     VmaAllocation* pAllocation)
 {
     const bool mapped = (createInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
+    const bool isUserDataString = (createInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0;
 
     VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
 
@@ -5599,7 +5773,7 @@ VkResult VmaBlockVector::Allocate(
                 m_HasEmptyBlock = false;
             }
             
-            *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex);
+            *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
             pCurrBlock->m_Metadata.Alloc(currRequest, suballocType, vkMemReq.size, *pAllocation);
             (*pAllocation)->InitBlockAllocation(
                 hCurrentPool,
@@ -5609,10 +5783,10 @@ VkResult VmaBlockVector::Allocate(
                 vkMemReq.size,
                 suballocType,
                 mapped,
-                createInfo.pUserData,
                 (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
             VMA_HEAVY_ASSERT(pCurrBlock->Validate());
             VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
+            (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
             return VK_SUCCESS;
         }
     }
@@ -5665,7 +5839,7 @@ VkResult VmaBlockVector::Allocate(
             // Allocate from pBlock. Because it is empty, dstAllocRequest can be trivially filled.
             VmaAllocationRequest allocRequest;
             pBlock->m_Metadata.CreateFirstAllocationRequest(&allocRequest);
-            *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex);
+            *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
             pBlock->m_Metadata.Alloc(allocRequest, suballocType, vkMemReq.size, *pAllocation);
             (*pAllocation)->InitBlockAllocation(
                 hCurrentPool,
@@ -5675,11 +5849,10 @@ VkResult VmaBlockVector::Allocate(
                 vkMemReq.size,
                 suballocType,
                 mapped,
-                createInfo.pUserData,
                 (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
             VMA_HEAVY_ASSERT(pBlock->Validate());
             VMA_DEBUG_LOG("    Created new allocation Size=%llu", allocInfo.allocationSize);
-
+            (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
             return VK_SUCCESS;
         }
     }
@@ -5751,7 +5924,7 @@ VkResult VmaBlockVector::Allocate(
                         m_HasEmptyBlock = false;
                     }
                     // Allocate from this pBlock.
-                    *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex);
+                    *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
                     pBestRequestBlock->m_Metadata.Alloc(bestRequest, suballocType, vkMemReq.size, *pAllocation);
                     (*pAllocation)->InitBlockAllocation(
                         hCurrentPool,
@@ -5761,10 +5934,10 @@ VkResult VmaBlockVector::Allocate(
                         vkMemReq.size,
                         suballocType,
                         mapped,
-                        createInfo.pUserData,
                         (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
                     VMA_HEAVY_ASSERT(pBlock->Validate());
                     VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
+                    (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
                     return VK_SUCCESS;
                 }
                 // else: Some allocations must have been touched while we are here. Next try.
@@ -6579,6 +6752,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 suballocType,
                 memTypeIndex,
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
+                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0,
                 finalCreateInfo.pUserData,
                 dedicatedBuffer,
                 dedicatedImage,
@@ -6611,6 +6785,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 suballocType,
                 memTypeIndex,
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
+                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0,
                 finalCreateInfo.pUserData,
                 dedicatedBuffer,
                 dedicatedImage,
@@ -6636,6 +6811,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     VmaSuballocationType suballocType,
     uint32_t memTypeIndex,
     bool map,
+    bool isUserDataString,
     void* pUserData,
     VkBuffer dedicatedBuffer,
     VkImage dedicatedImage,
@@ -6690,8 +6866,9 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
         }
     }
 
-    *pAllocation = vma_new(this, VmaAllocation_T)(m_CurrentFrameIndex.load());
-    (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size, pUserData);
+    *pAllocation = vma_new(this, VmaAllocation_T)(m_CurrentFrameIndex.load(), isUserDataString);
+    (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size);
+    (*pAllocation)->SetUserData(this, pUserData);
 
     // Register it in m_pDedicatedAllocations.
     {
@@ -6915,6 +7092,7 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
         }
     }
 
+    allocation->SetUserData(this, VMA_NULL);
     vma_delete(this, allocation);
 }
 
@@ -7204,7 +7382,7 @@ void VmaAllocator_T::MakePoolAllocationsLost(
 
 void VmaAllocator_T::CreateLostAllocation(VmaAllocation* pAllocation)
 {
-    *pAllocation = vma_new(this, VmaAllocation_T)(VMA_FRAME_INDEX_LOST);
+    *pAllocation = vma_new(this, VmaAllocation_T)(VMA_FRAME_INDEX_LOST, false);
     (*pAllocation)->InitLost();
 }
 
@@ -7905,7 +8083,7 @@ void vmaSetAllocationUserData(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    allocation->SetUserData(pUserData);
+    allocation->SetUserData(allocator, pUserData);
 }
 
 void vmaCreateLostAllocation(
