@@ -364,45 +364,6 @@ static void CreateMesh()
     vmaDestroyBuffer(g_hAllocator, stagingVertexBuffer, stagingVertexBufferAlloc);
 }
 
-static void ImageBarrier(
-   VkImage image,
-   VkImageAspectFlags aspectMask,
-   uint32_t mipLevelCount,
-   VkImageLayout oldLayout,
-   VkImageLayout newLayout,
-   VkAccessFlags srcAccessMask,
-   VkAccessFlags dstAccessMask,
-   VkPipelineStageFlags srcStageMask,
-   VkPipelineStageFlags dstStageMask)
-{
-    BeginSingleTimeCommands();
-
-    VkImageMemoryBarrier imgMemBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-    imgMemBarrier.oldLayout = oldLayout;
-    imgMemBarrier.newLayout = newLayout;
-    imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imgMemBarrier.image = image;
-    imgMemBarrier.subresourceRange.aspectMask = aspectMask;
-    imgMemBarrier.subresourceRange.baseMipLevel = 0;
-    imgMemBarrier.subresourceRange.levelCount = mipLevelCount;
-    imgMemBarrier.subresourceRange.baseArrayLayer = 0;
-    imgMemBarrier.subresourceRange.layerCount = 1;
-    imgMemBarrier.srcAccessMask = srcAccessMask;
-    imgMemBarrier.dstAccessMask = dstAccessMask;
-
-    vkCmdPipelineBarrier(
-        g_hTemporaryCommandBuffer,
-        srcStageMask,
-        dstStageMask,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &imgMemBarrier);
-
-    EndSingleTimeCommands();
-}
-
 static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
 {
     // Create Image
@@ -793,9 +754,36 @@ static void CreateSwapchain()
 
     ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &depthImageViewInfo, nullptr, &g_hDepthImageView) );
 
-    // Transition image layout of g_hDepthImage.
-
     BeginSingleTimeCommands();
+
+    // Transition image layout of g_SwapchainImages.
+    for(uint32_t i = 0; i < swapchainImageCount; ++i)
+    {
+        VkImageMemoryBarrier imgMemBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imgMemBarrier.image = g_SwapchainImages[i];
+        imgMemBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imgMemBarrier.subresourceRange.baseMipLevel = 0;
+        imgMemBarrier.subresourceRange.levelCount = 1;
+        imgMemBarrier.subresourceRange.baseArrayLayer = 0;
+        imgMemBarrier.subresourceRange.layerCount = 1;
+        imgMemBarrier.srcAccessMask = 0;
+        imgMemBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+        vkCmdPipelineBarrier(
+            g_hTemporaryCommandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &imgMemBarrier);
+    }
+
+    // Transition image layout of g_hDepthImage.
 
     VkImageMemoryBarrier imgMemBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
     imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -864,7 +852,7 @@ static void CreateSwapchain()
         attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
         attachments[1].format = g_DepthFormat;
@@ -873,7 +861,7 @@ static void CreateSwapchain()
         attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         VkAttachmentReference colorAttachmentRef = {};
