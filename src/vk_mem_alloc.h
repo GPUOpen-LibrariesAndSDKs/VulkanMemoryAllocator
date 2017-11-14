@@ -3191,6 +3191,8 @@ public:
         outInfo.unusedRangeSizeMax = 0;
     }
 
+    void BlockAllocMap();
+    void BlockAllocUnmap();
     VkResult DedicatedAllocMap(VmaAllocator hAllocator, void** ppData);
     void DedicatedAllocUnmap(VmaAllocator hAllocator);
 
@@ -4380,6 +4382,34 @@ void VmaAllocation_T::FreeUserDataString(VmaAllocator hAllocator)
         const size_t oldStrLen = strlen(oldStr);
         vma_delete_array(hAllocator, oldStr, oldStrLen + 1);
         m_pUserData = VMA_NULL;
+    }
+}
+
+void VmaAllocation_T::BlockAllocMap()
+{
+    VMA_ASSERT(GetType() == ALLOCATION_TYPE_BLOCK);
+
+    if((m_MapCount & ~MAP_COUNT_FLAG_PERSISTENT_MAP) < 0x7F)
+    {
+        ++m_MapCount;
+    }
+    else
+    {
+        VMA_ASSERT(0 && "Allocation mapped too many times simultaneously.");
+    }
+}
+
+void VmaAllocation_T::BlockAllocUnmap()
+{
+    VMA_ASSERT(GetType() == ALLOCATION_TYPE_BLOCK);
+
+    if((m_MapCount & ~MAP_COUNT_FLAG_PERSISTENT_MAP) != 0)
+    {
+        --m_MapCount;
+    }
+    else
+    {
+        VMA_ASSERT(0 && "Unmapping allocation not previously mapped.");
     }
 }
 
@@ -7454,6 +7484,7 @@ VkResult VmaAllocator_T::Map(VmaAllocation hAllocation, void** ppData)
             if(res == VK_SUCCESS)
             {
                 *ppData = pBytes + (ptrdiff_t)hAllocation->GetOffset();
+                hAllocation->BlockAllocMap();
             }
             return res;
         }
@@ -7472,6 +7503,7 @@ void VmaAllocator_T::Unmap(VmaAllocation hAllocation)
     case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
         {
             VmaDeviceMemoryBlock* const pBlock = hAllocation->GetBlock();
+            hAllocation->BlockAllocUnmap();
             pBlock->Unmap(this);
         }
         break;
