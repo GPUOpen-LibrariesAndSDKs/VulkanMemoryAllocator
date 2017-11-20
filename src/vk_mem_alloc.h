@@ -8246,6 +8246,8 @@ VkResult vmaCreateBuffer(
             }
             allocator->FreeMemory(*pAllocation);
             *pAllocation = VK_NULL_HANDLE;
+            (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
+            *pBuffer = VK_NULL_HANDLE;
             return res;
         }
         (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
@@ -8324,6 +8326,8 @@ VkResult vmaCreateImage(
             }
             allocator->FreeMemory(*pAllocation);
             *pAllocation = VK_NULL_HANDLE;
+            (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
+            *pImage = VK_NULL_HANDLE;
             return res;
         }
         (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
