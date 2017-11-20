@@ -7570,11 +7570,27 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                 const VmaAllocation hAlloc = (*pDedicatedAllocVector)[i];
                 json.BeginObject(true);
                     
+                json.WriteString("Type");
+                json.WriteString(VMA_SUBALLOCATION_TYPE_NAMES[hAlloc->GetSuballocationType()]);
+
                 json.WriteString("Size");
                 json.WriteNumber(hAlloc->GetSize());
 
-                json.WriteString("Type");
-                json.WriteString(VMA_SUBALLOCATION_TYPE_NAMES[hAlloc->GetSuballocationType()]);
+                const void* pUserData = hAlloc->GetUserData();
+                if(pUserData != VMA_NULL)
+                {
+                    json.WriteString("UserData");
+                    if(hAlloc->IsUserDataString())
+                    {
+                        json.WriteString((const char*)pUserData);
+                    }
+                    else
+                    {
+                        json.BeginString();
+                        json.ContinueString_Pointer(pUserData);
+                        json.EndString();
+                    }
+                }
 
                 json.EndObject();
             }
