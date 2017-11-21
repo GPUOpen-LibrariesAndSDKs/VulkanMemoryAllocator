@@ -40,6 +40,7 @@ Table of contents:
 
 - User guide
   - \subpage quick_start
+  - \subpage choosing_memory_type
   - \subpage memory_mapping
   - \subpage custom_memory_pools
   - \subpage defragmentation
@@ -117,6 +118,121 @@ Don't forget to destroy your objects when no longer needed:
 vmaDestroyBuffer(allocator, buffer, allocation);
 vmaDestroyAllocator(allocator);
 \endcode
+
+
+\page choosing_memory_type Choosing memory type
+
+Physical devices in Vulkan support various combinations of memory heaps and
+types. Help with choosing correct and optimal memory type for your specific
+resource is one of the key features of this library. You can use it by filling
+appropriate members of VmaAllocationCreateInfo structure, as described below.
+You can also combine multiple methods.
+
+-# If you just want to find memory type index that meets your requirements, you
+   can use function vmaFindMemoryTypeIndex().
+-# If you want to allocate a region of device memory without association with any
+   specific image or buffer, you can use function vmaAllocateMemory(). Usage of
+   this function is not recommended and usually not needed.
+-# If you already have a buffer or an image created, you want to allocate memory
+   for it and then you will bind it yourself, you can use function
+   vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
+-# If you want to create a buffer or an image, allocate memory for it and bind
+   them together, all in one call, you can use function vmaCreateBuffer(),
+   vmaCreateImage(). This is the recommended way to use this library.
+
+When using 3. or 4., the library internally queries Vulkan for memory types
+supported for that buffer or image (function `vkGetBufferMemoryRequirements()`)
+and uses only one of these types.
+
+If no memory type can be found that meets all the requirements, these functions
+return `VK_ERROR_FEATURE_NOT_PRESENT`.
+
+You can leave VmaAllocationCreateInfo structure completely filled with zeros.
+It means no requirements are specified for memory type.
+It is valid, although not very useful.
+
+\section choosing_memory_type_usage Usage
+
+The easiest way to specify memory requirements is to fill member
+VmaAllocationCreateInfo::usage using one of the values of enum `VmaMemoryUsage`.
+It defines high level, common usage types.
+
+For example, if you want to create a uniform buffer that will be filled using
+transfer only once or infrequently and used for rendering every frame, you can
+do it using following code:
+
+\code
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufferInfo.size = 65536;
+bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+\section choosing_memory_type_required_preferred_flags Required and preferred flags
+
+You can specify more detailed requirements by filling members
+VmaAllocationCreateInfo::requiredFlags and VmaAllocationCreateInfo::preferredFlags
+with a combination of bits from enum `VkMemoryPropertyFlags`. For example,
+if you want to create a buffer that will be persistently mapped on host (so it
+must be `HOST_VISIBLE`) and preferably will also be `HOST_COHERENT` and `HOST_CACHED`,
+use following code:
+
+\code
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+A memory type is chosen that has all the required flags and as many preferred
+flags set as possible.
+
+If you use VmaAllocationCreateInfo::usage, it is just internally converted to
+a set of required and preferred flags.
+
+\section choosing_memory_type_explicit_memory_types Explicit memory types
+
+If you inspected memory types available on the physical device and you have
+a preference for memory types that you want to use, you can fill member
+VmaAllocationCreateInfo::memoryTypeBits. It is a bit mask, where each bit set
+means that a memory type with that index is allowed to be used for the
+allocation. Special value 0, just like UINT32_MAX, means there are no
+restrictions to memory type index.
+
+Please note that this member is NOT just a memory type index.
+Still you can use it to choose just one, specific memory type.
+For example, if you already determined that your buffer should be created in
+memory type 2, use following code:
+
+\code
+uint32_t memoryTypeIndex = 2;
+
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.memoryTypeBits = 1u << memoryTypeIndex;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+\section choosing_memory_type_custom_memory_pools Custom memory pools
+
+If you allocate from custom memory pool, all the ways of specifying memory
+requirements described above are not applicable and the aforementioned members
+of VmaAllocationCreateInfo structure are ignored. Memory type is selected
+explicitly when creating the pool and then used to make all the allocations from
+that pool. For further details, see \ref custom_memory_pools.
+
 
 \page memory_mapping Memory mapping
 
@@ -839,18 +955,42 @@ VK_DEFINE_HANDLE(VmaPool)
 
 typedef enum VmaMemoryUsage
 {
-    /// No intended memory usage specified. Use other members of VmaAllocationCreateInfo to specify your requirements.
+    /** No intended memory usage specified.
+    Use other members of VmaAllocationCreateInfo to specify your requirements.
+    */
     VMA_MEMORY_USAGE_UNKNOWN = 0,
-    /// Memory will be used on device only, so faster access from the device is preferred. No need to be mappable on host.
+    /** Memory will be used on device only, so faster access from the device is preferred.
+    It usually means device-local GPU memory.
+    No need to be mappable on host.
+    Good e.g. for images to be used as attachments, images containing textures to be sampled,
+    buffers used as vertex buffer, index buffer, uniform buffer and majority of
+    other types of resources used by device.
+    You can still do transfers from/to such resource to/from host memory.
+
+    The allocation may still end up in `HOST_VISIBLE` memory on some implementations.
+    In such case, you are free to map it.
+    You can also use `VMA_ALLOCATION_CREATE_MAPPED_BIT` with this usage type.
+    */
     VMA_MEMORY_USAGE_GPU_ONLY = 1,
-    /// Memory will be mapped on host. Could be used for transfer to/from device.
-    /** Guarantees to be `HOST_VISIBLE` and `HOST_COHERENT`. */
+    /** Memory will be mapped and used on host.
+    It usually means CPU system memory.
+    Could be used for transfer to/from device.
+    Good e.g. for "staging" copy of buffers and images, used as transfer source or destination.
+    Resources created in this pool may still be accessible to the device, but access to them can be slower.
+    
+    Guarantees to be `HOST_VISIBLE` and `HOST_COHERENT`.
+    */
     VMA_MEMORY_USAGE_CPU_ONLY = 2,
-    /// Memory will be used for frequent (dynamic) updates from host and reads on device (upload).
-    /** Guarantees to be `HOST_VISIBLE`. */
+    /** Memory will be used for frequent (dynamic) updates from host and reads on device (upload).
+    Good e.g. for vertex buffers or uniform buffers updated every frame.
+
+    Guarantees to be `HOST_VISIBLE`.
+    */
     VMA_MEMORY_USAGE_CPU_TO_GPU = 3,
-    /// Memory will be used for frequent writing on device and readback on host (download).
-    /** Guarantees to be `HOST_VISIBLE`. */
+    /** Memory will be used for frequent writing on device and readback on host (download).
+
+    Guarantees to be `HOST_VISIBLE`.
+    */
     VMA_MEMORY_USAGE_GPU_TO_CPU = 4,
     VMA_MEMORY_USAGE_MAX_ENUM = 0x7FFFFFFF
 } VmaMemoryUsage;
@@ -930,28 +1070,41 @@ typedef struct VmaAllocationCreateInfo
     VmaAllocationCreateFlags flags;
     /** \brief Intended usage of memory.
     
-    Leave `VMA_MEMORY_USAGE_UNKNOWN` if you specify `requiredFlags`. You can also use both. \n
+    You can leave `VMA_MEMORY_USAGE_UNKNOWN` if you specify memory requirements in other way. \n
     If `pool` is not null, this member is ignored.
     */
     VmaMemoryUsage usage;
     /** \brief Flags that must be set in a Memory Type chosen for an allocation.
     
-    Leave 0 if you specify requirement via usage. \n
+    Leave 0 if you specify memory requirements in other way. \n
     If `pool` is not null, this member is ignored.*/
     VkMemoryPropertyFlags requiredFlags;
-    /** \brief Flags that preferably should be set in a Memory Type chosen for an allocation.
+    /** \brief Flags that preferably should be set in a memory type chosen for an allocation.
     
-    Set to 0 if no additional flags are prefered and only `requiredFlags` should be used. \n
-    If not 0, it must be a superset or equal to `requiredFlags`. \n
+    Set to 0 if no additional flags are prefered. \n
     If `pool` is not null, this member is ignored. */
     VkMemoryPropertyFlags preferredFlags;
-    /** \brief Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo::pUserData and changed using vmaSetAllocationUserData(). */
-    void* pUserData;
+    /** \brief Bitmask containing one bit set for every memory type acceptable for this allocation.
+
+    Value 0 is equivalent to `UINT32_MAX` - it means any memory type is accepted if
+    it meets other requirements specified by this structure, with no further
+    restrictions on memory type index. \n
+    If `pool` is not null, this member is ignored.
+    */
+    uint32_t memoryTypeBits;
     /** \brief Pool that this allocation should be created in.
 
-    Leave `VK_NULL_HANDLE` to allocate from general memory.
+    Leave `VK_NULL_HANDLE` to allocate from default pool. If not null, members:
+    `usage`, `requiredFlags`, `preferredFlags`, `memoryTypeBits` are ignored.
     */
     VmaPool pool;
+    /** \brief Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo::pUserData and changed using vmaSetAllocationUserData().
+    
+    If `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` is used, it must be either
+    null or pointer to a null-terminated string. The string will be then copied to
+    internal buffer, so it doesn't need to be valid after allocation call.
+    */
+    void* pUserData;
 } VmaAllocationCreateInfo;
 
 /**
@@ -1734,7 +1887,7 @@ static VkAllocationCallbacks VmaEmptyAllocationCallbacks = {
     VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL };
 
 // Returns number of bits set to 1 in (v).
-static inline uint32_t CountBitsSet(uint32_t v)
+static inline uint32_t VmaCountBitsSet(uint32_t v)
 {
 	uint32_t c = v - ((v >> 1) & 0x55555555);
 	c = ((c >>  2) & 0x33333333) + (c & 0x33333333);
@@ -7857,7 +8010,8 @@ void vmaFreeStatsString(
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
-/** This function is not protected by any mutex because it just reads immutable data.
+/*
+This function is not protected by any mutex because it just reads immutable data.
 */
 VkResult vmaFindMemoryTypeIndex(
     VmaAllocator allocator,
@@ -7868,15 +8022,14 @@ VkResult vmaFindMemoryTypeIndex(
     VMA_ASSERT(allocator != VK_NULL_HANDLE);
     VMA_ASSERT(pAllocationCreateInfo != VMA_NULL);
     VMA_ASSERT(pMemoryTypeIndex != VMA_NULL);
+
+    if(pAllocationCreateInfo->memoryTypeBits != 0)
+    {
+        memoryTypeBits &= pAllocationCreateInfo->memoryTypeBits;
+    }
     
     uint32_t requiredFlags = pAllocationCreateInfo->requiredFlags;
     uint32_t preferredFlags = pAllocationCreateInfo->preferredFlags;
-    if(preferredFlags == 0)
-    {
-        preferredFlags = requiredFlags;
-    }
-    // preferredFlags, if not 0, must be a superset of requiredFlags.
-    VMA_ASSERT((requiredFlags & ~preferredFlags) == 0);
 
     // Convert usage to requiredFlags and preferredFlags.
     switch(pAllocationCreateInfo->usage)
@@ -7916,7 +8069,7 @@ VkResult vmaFindMemoryTypeIndex(
             if((requiredFlags & ~currFlags) == 0)
             {
                 // Calculate cost as number of bits from preferredFlags not present in this memory type.
-                uint32_t currCost = CountBitsSet(preferredFlags & ~currFlags);
+                uint32_t currCost = VmaCountBitsSet(preferredFlags & ~currFlags);
                 // Remember memory type with lowest cost.
                 if(currCost < minCost)
                 {

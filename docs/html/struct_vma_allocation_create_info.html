@@ -80,14 +80,17 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a9166390303ff42d783305bc31c2b6b90"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags that must be set in a Memory Type chosen for an allocation.  <a href="#a9166390303ff42d783305bc31c2b6b90">More...</a><br /></td></tr>
 <tr class="separator:a9166390303ff42d783305bc31c2b6b90"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fe8d81a1ad10b2a2faacacee5b15d6d"><td class="memItemLeft" align="right" valign="top">VkMemoryPropertyFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d">preferredFlags</a></td></tr>
-<tr class="memdesc:a7fe8d81a1ad10b2a2faacacee5b15d6d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags that preferably should be set in a Memory Type chosen for an allocation.  <a href="#a7fe8d81a1ad10b2a2faacacee5b15d6d">More...</a><br /></td></tr>
+<tr class="memdesc:a7fe8d81a1ad10b2a2faacacee5b15d6d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags that preferably should be set in a memory type chosen for an allocation.  <a href="#a7fe8d81a1ad10b2a2faacacee5b15d6d">More...</a><br /></td></tr>
 <tr class="separator:a7fe8d81a1ad10b2a2faacacee5b15d6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8259e85c272683434f4abb4ddddffe19"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19">pUserData</a></td></tr>
-<tr class="memdesc:a8259e85c272683434f4abb4ddddffe19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#a8259e85c272683434f4abb4ddddffe19">More...</a><br /></td></tr>
-<tr class="separator:a8259e85c272683434f4abb4ddddffe19"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3bf940c0271d85d6ba32a4d820075055"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a3bf940c0271d85d6ba32a4d820075055">memoryTypeBits</a></td></tr>
+<tr class="memdesc:a3bf940c0271d85d6ba32a4d820075055"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bitmask containing one bit set for every memory type acceptable for this allocation.  <a href="#a3bf940c0271d85d6ba32a4d820075055">More...</a><br /></td></tr>
+<tr class="separator:a3bf940c0271d85d6ba32a4d820075055"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6272c0555cfd1fe28bff1afeb6190150"><td class="memItemLeft" align="right" valign="top">VmaPool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150">pool</a></td></tr>
 <tr class="memdesc:a6272c0555cfd1fe28bff1afeb6190150"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pool that this allocation should be created in.  <a href="#a6272c0555cfd1fe28bff1afeb6190150">More...</a><br /></td></tr>
 <tr class="separator:a6272c0555cfd1fe28bff1afeb6190150"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8259e85c272683434f4abb4ddddffe19"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19">pUserData</a></td></tr>
+<tr class="memdesc:a8259e85c272683434f4abb4ddddffe19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#a8259e85c272683434f4abb4ddddffe19">More...</a><br /></td></tr>
+<tr class="separator:a8259e85c272683434f4abb4ddddffe19"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="add09658ac14fe290ace25470ddd6d41b"></a>
@@ -106,6 +109,24 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a3bf940c0271d85d6ba32a4d820075055"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3bf940c0271d85d6ba32a4d820075055">&#9670;&nbsp;</a></span>memoryTypeBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t VmaAllocationCreateInfo::memoryTypeBits</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Bitmask containing one bit set for every memory type acceptable for this allocation. </p>
+<p>Value 0 is equivalent to <code>UINT32_MAX</code> - it means any memory type is accepted if it meets other requirements specified by this structure, with no further restrictions on memory type index. <br />
+If <code>pool</code> is not null, this member is ignored. </p>
+
+</div>
+</div>
 <a id="a6272c0555cfd1fe28bff1afeb6190150"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6272c0555cfd1fe28bff1afeb6190150">&#9670;&nbsp;</a></span>pool</h2>
 
@@ -119,7 +140,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pool that this allocation should be created in. </p>
-<p>Leave <code>VK_NULL_HANDLE</code> to allocate from general memory. </p>
+<p>Leave <code>VK_NULL_HANDLE</code> to allocate from default pool. If not null, members: <code>usage</code>, <code>requiredFlags</code>, <code>preferredFlags</code>, <code>memoryTypeBits</code> are ignored. </p>
 
 </div>
 </div>
@@ -135,9 +156,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Flags that preferably should be set in a Memory Type chosen for an allocation. </p>
-<p>Set to 0 if no additional flags are prefered and only <code>requiredFlags</code> should be used. <br />
-If not 0, it must be a superset or equal to <code>requiredFlags</code>. <br />
+<p>Flags that preferably should be set in a memory type chosen for an allocation. </p>
+<p>Set to 0 if no additional flags are prefered. <br />
 If <code>pool</code> is not null, this member is ignored. </p>
 
 </div>
@@ -155,6 +175,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
 </div><div class="memdoc">
 
 <p>Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
+<p>If <code>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</code> is used, it must be either null or pointer to a null-terminated string. The string will be then copied to internal buffer, so it doesn't need to be valid after allocation call. </p>
 
 </div>
 </div>
@@ -171,7 +192,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
 </div><div class="memdoc">
 
 <p>Flags that must be set in a Memory Type chosen for an allocation. </p>
-<p>Leave 0 if you specify requirement via usage. <br />
+<p>Leave 0 if you specify memory requirements in other way. <br />
 If <code>pool</code> is not null, this member is ignored. </p>
 
 </div>
@@ -189,7 +210,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
 </div><div class="memdoc">
 
 <p>Intended usage of memory. </p>
-<p>Leave <code>VMA_MEMORY_USAGE_UNKNOWN</code> if you specify <code>requiredFlags</code>. You can also use both. <br />
+<p>You can leave <code>VMA_MEMORY_USAGE_UNKNOWN</code> if you specify memory requirements in other way. <br />
 If <code>pool</code> is not null, this member is ignored. </p>
 
 </div>
