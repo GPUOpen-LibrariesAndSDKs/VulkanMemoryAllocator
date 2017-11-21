@@ -522,29 +522,7 @@ If yes, enable them (fill `VkDeviceCreateInfo::ppEnabledExtensionNames`).
 
 If you enabled these extensions:
 
-2 . Query device for pointers to following 2 extension functions, using
-`vkGetDeviceProcAddr()`. Pass them in structure VmaVulkanFunctions while creating
-your `VmaAllocator`.
-
-- `vkGetBufferMemoryRequirements2KHR`
-- `vkGetImageMemoryRequirements2KHR`
-
-Other members of this structure can be null as long as you leave
-`VMA_STATIC_VULKAN_FUNCTIONS` defined to 1, which is the default.
-
-\code
-VmaVulkanFunctions vulkanFunctions = {};
-vulkanFunctions.vkGetBufferMemoryRequirements2KHR =
-    (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(device, "vkGetBufferMemoryRequirements2KHR");
-vulkanFunctions.vkGetImageMemoryRequirements2KHR =
-    (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(device, "vkGetImageMemoryRequirements2KHR");
-    
-VmaAllocatorCreateInfo allocatorInfo = {};
-allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-// Fill other members of allocatorInfo...
-\endcode
-
-3 . Use `VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT` flag when creating
+2 . Use `VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT` flag when creating
 your `VmaAllocator` to inform the library that you enabled required extensions
 and you want the library to use them.
 
@@ -6676,8 +6654,13 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     m_VulkanFunctions.vkDestroyBuffer = &vkDestroyBuffer;
     m_VulkanFunctions.vkCreateImage = &vkCreateImage;
     m_VulkanFunctions.vkDestroyImage = &vkDestroyImage;
-    // Ignoring vkGetBufferMemoryRequirements2KHR.
-    // Ignoring vkGetImageMemoryRequirements2KHR.
+    if(m_UseKhrDedicatedAllocation)
+    {
+        m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR =
+            (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements2KHR");
+        m_VulkanFunctions.vkGetImageMemoryRequirements2KHR =
+            (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2KHR");
+    }
 #endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
 
 #define VMA_COPY_IF_NOT_NULL(funcName) \
