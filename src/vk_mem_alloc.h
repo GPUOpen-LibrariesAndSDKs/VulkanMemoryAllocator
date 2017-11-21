@@ -738,6 +738,12 @@ typedef struct VmaAllocatorCreateInfo
       the allocation fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
     - If the limit is smaller than heap size reported in `VkMemoryHeap::size`, the
       value of this limit will be reported instead when using vmaGetMemoryProperties().
+
+    Warning! Using this feature may not be equivalent to installing a GPU with
+    smaller amount of memory, because graphics driver doesn't necessary fail new
+    allocations with `VK_ERROR_OUT_OF_DEVICE_MEMORY` result when memory capacity is
+    exceeded. It may return success and just silently migrate some device memory
+    blocks to system RAM.
     */
     const VkDeviceSize* pHeapSizeLimit;
     /** \brief Pointers to Vulkan functions. Can be null if you leave define `VMA_STATIC_VULKAN_FUNCTIONS 1`.
