@@ -8359,6 +8359,24 @@ VkResult vmaCreateBuffer(
         allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq,
             requiresDedicatedAllocation, prefersDedicatedAllocation);
 
+         // Make sure alignment requirements for specific buffer usages reported
+         // in Physical Device Properties are included in alignment reported by memory requirements.
+        if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT) != 0)
+        {
+           VMA_ASSERT(vkMemReq.alignment %
+              allocator->m_PhysicalDeviceProperties.limits.minTexelBufferOffsetAlignment == 0);
+        }
+        if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) != 0)
+        {
+           VMA_ASSERT(vkMemReq.alignment %
+              allocator->m_PhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment == 0);
+        }
+        if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) != 0)
+        {
+           VMA_ASSERT(vkMemReq.alignment %
+              allocator->m_PhysicalDeviceProperties.limits.minStorageBufferOffsetAlignment == 0);
+        }
+
         // 3. Allocate memory using allocator.
         res = allocator->AllocateMemory(
             vkMemReq,
