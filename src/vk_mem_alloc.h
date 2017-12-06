@@ -739,12 +739,6 @@ typedef enum VmaAllocatorCreateFlagBits {
     - VK_KHR_get_memory_requirements2
     - VK_KHR_dedicated_allocation
 
-    If this flag is enabled, you must also provide
-    VmaAllocatorCreateInfo::pVulkanFunctions and fill at least members:
-    VmaVulkanFunctions::vkGetBufferMemoryRequirements2KHR,
-    VmaVulkanFunctions::vkGetImageMemoryRequirements2KHR, because they are never
-    imported statically.
-
 When this flag is set, you can experience following warnings reported by Vulkan
 validation layer. You can ignore them.
 
