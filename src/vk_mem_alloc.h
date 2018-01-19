@@ -6698,13 +6698,13 @@ bool VmaDefragmentator::MoveMakesSense(
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
     m_UseKhrDedicatedAllocation((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT) != 0),
-    m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_hDevice(pCreateInfo->device),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
     m_AllocationCallbacks(pCreateInfo->pAllocationCallbacks ?
         *pCreateInfo->pAllocationCallbacks : VmaEmptyAllocationCallbacks),
     m_PreferredLargeHeapBlockSize(0),
     m_PreferredSmallHeapBlockSize(0),
+    m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
     m_Pools(VmaStlAllocator<VmaPool>(GetAllocationCallbacks()))
 {
@@ -7274,7 +7274,7 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     // Process default pools.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
+        //const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
         VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex];
         VMA_ASSERT(pBlockVector);
         pBlockVector->AddStats(pStats);
