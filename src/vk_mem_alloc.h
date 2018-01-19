@@ -6862,8 +6862,10 @@ VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
 {
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
     const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
-    return (heapSize <= VMA_SMALL_HEAP_MAX_SIZE) ?
-        m_PreferredSmallHeapBlockSize : m_PreferredLargeHeapBlockSize;
+    const bool isSmallHeap = heapSize <= VMA_SMALL_HEAP_MAX_SIZE ||
+       // HOST_CACHED memory type is treated as small despite it has full size of CPU memory heap, because we usually don't use much of it.
+       (m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0;
+    return isSmallHeap ? m_PreferredSmallHeapBlockSize : m_PreferredLargeHeapBlockSize;
 }
 
 VkResult VmaAllocator_T::AllocateMemoryOfType(
