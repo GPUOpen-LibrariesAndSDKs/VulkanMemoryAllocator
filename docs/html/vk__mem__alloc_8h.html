@@ -687,7 +687,6 @@ Functions</h2></td></tr>
 <li>VK_KHR_get_memory_requirements2</li>
 <li>VK_KHR_dedicated_allocation</li>
 </ul>
-<p>If this flag is enabled, you must also provide <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null if you leave define VMA_STATIC_VULKAN_FUNCTIONS 1...">VmaAllocatorCreateInfo::pVulkanFunctions</a> and fill at least members: <a class="el" href="struct_vma_vulkan_functions.html#a9d8d1b05d2b1e7e1d9b27f6f585acf9c">VmaVulkanFunctions::vkGetBufferMemoryRequirements2KHR</a>, <a class="el" href="struct_vma_vulkan_functions.html#a9cdcdc1e2b2ea7c571f7d27e30ba6875">VmaVulkanFunctions::vkGetImageMemoryRequirements2KHR</a>, because they are never imported statically.</p>
 <p>When this flag is set, you can experience following warnings reported by Vulkan validation layer. You can ignore them.</p>
 <blockquote class="doxtable">
 <p>vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer.</p>
