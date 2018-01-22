@@ -7276,7 +7276,6 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     // Process default pools.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        //const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
         VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex];
         VMA_ASSERT(pBlockVector);
         pBlockVector->AddStats(pStats);
