@@ -333,7 +333,7 @@ To use custom memory pools:
 Example:
 
 \code
-// Create a pool that could have at most 2 blocks, 128 MB each.
+// Create a pool that could have at most 2 blocks, 128 MiB each.
 VmaPoolCreateInfo poolCreateInfo = {};
 poolCreateInfo.memoryTypeIndex = ...
 poolCreateInfo.blockSize = 128ull * 1024 * 1024;
@@ -785,10 +785,10 @@ typedef struct VmaAllocatorCreateInfo
     /** It must be valid throughout whole lifetime of created allocator. */
     VkDevice device;
     /// Preferred size of a single `VkDeviceMemory` block to be allocated from large heaps.
-    /** Set to 0 to use default, which is currently 256 MB. */
+    /** Set to 0 to use default, which is currently 256 MiB. */
     VkDeviceSize preferredLargeHeapBlockSize;
-    /// Preferred size of a single `VkDeviceMemory` block to be allocated from small heaps <= 512 MB.
-    /** Set to 0 to use default, which is currently 64 MB. */
+    /// Preferred size of a single `VkDeviceMemory` block to be allocated from small heaps <= 512 MiB.
+    /** Set to 0 to use default, which is currently 64 MiB. */
     VkDeviceSize preferredSmallHeapBlockSize;
     /// Custom CPU memory allocation callbacks.
     /** Optional, can be null. When specified, will also be used for all CPU-side memory allocations. */
