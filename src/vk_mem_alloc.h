@@ -6379,7 +6379,7 @@ void VmaBlockVector::DestroyDefragmentator()
 
 void VmaBlockVector::MakePoolAllocationsLost(
     uint32_t currentFrameIndex,
-    size_t* pLostAllocationCount)
+    size_t* /*pLostAllocationCount*/)
 {
     VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
     size_t lostAllocationCount = 0;
