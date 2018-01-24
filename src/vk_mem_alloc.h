@@ -6382,12 +6382,16 @@ void VmaBlockVector::MakePoolAllocationsLost(
     size_t* pLostAllocationCount)
 {
     VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
-
+    size_t lostAllocationCount = 0;
     for(uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
     {
         VmaDeviceMemoryBlock* const pBlock = m_Blocks[blockIndex];
         VMA_ASSERT(pBlock);
-        pBlock->m_Metadata.MakeAllocationsLost(currentFrameIndex, m_FrameInUseCount);
+        lostAllocationCount += pBlock->m_Metadata.MakeAllocationsLost(currentFrameIndex, m_FrameInUseCount);
+    }
+    if(pLostAllocationCount != VMA_NULL)
+    {
+        *pLostAllocationCount = lostAllocationCount;
     }
 }
 
