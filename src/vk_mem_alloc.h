@@ -1644,7 +1644,7 @@ internally, like:
 Define to 0 if you are going to provide you own pointers to Vulkan functions via
 VmaAllocatorCreateInfo::pVulkanFunctions.
 */
-#ifndef VMA_STATIC_VULKAN_FUNCTIONS
+#if !defined(VMA_STATIC_VULKAN_FUNCTIONS) && !defined(VK_NO_PROTOTYPES)
 #define VMA_STATIC_VULKAN_FUNCTIONS 1
 #endif
 
