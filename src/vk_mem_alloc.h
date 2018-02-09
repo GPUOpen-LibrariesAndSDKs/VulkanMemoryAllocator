@@ -5971,6 +5971,10 @@ VkResult VmaBlockVector::Allocate(
                     newBlockSize = smallerNewBlockSize;
                     ++newBlockSizeShift;
                 }
+                else
+                {
+                    break;
+                }
             }
         }
 
