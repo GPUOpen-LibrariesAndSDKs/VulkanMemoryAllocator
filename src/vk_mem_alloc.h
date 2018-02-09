@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.0.0-alpha.6</b> (2017-11-13)
+<b>Version 2.0.0-alpha.7</b> (2018-02-09)
 
 Copyright (c) 2017 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -784,12 +784,9 @@ typedef struct VmaAllocatorCreateInfo
     /// Vulkan device.
     /** It must be valid throughout whole lifetime of created allocator. */
     VkDevice device;
-    /// Preferred size of a single `VkDeviceMemory` block to be allocated from large heaps.
+    /// Preferred size of a single `VkDeviceMemory` block to be allocated from large heaps > 1 GiB.
     /** Set to 0 to use default, which is currently 256 MiB. */
     VkDeviceSize preferredLargeHeapBlockSize;
-    /// Preferred size of a single `VkDeviceMemory` block to be allocated from small heaps <= 512 MiB.
-    /** Set to 0 to use default, which is currently 64 MiB. */
-    VkDeviceSize preferredSmallHeapBlockSize;
     /// Custom CPU memory allocation callbacks.
     /** Optional, can be null. When specified, will also be used for all CPU-side memory allocations. */
     const VkAllocationCallbacks* pAllocationCallbacks;
@@ -1858,17 +1855,12 @@ If providing your own implementation, you need to implement a subset of std::ato
 
 #ifndef VMA_SMALL_HEAP_MAX_SIZE
    /// Maximum size of a memory heap in Vulkan to consider it "small".
-   #define VMA_SMALL_HEAP_MAX_SIZE (512 * 1024 * 1024)
+   #define VMA_SMALL_HEAP_MAX_SIZE (1024ull * 1024 * 1024)
 #endif
 
 #ifndef VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE
    /// Default size of a block allocated as single VkDeviceMemory from a "large" heap.
-   #define VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE (256 * 1024 * 1024)
-#endif
-
-#ifndef VMA_DEFAULT_SMALL_HEAP_BLOCK_SIZE
-   /// Default size of a block allocated as single VkDeviceMemory from a "small" heap.
-   #define VMA_DEFAULT_SMALL_HEAP_BLOCK_SIZE (64 * 1024 * 1024)
+   #define VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE (256ull * 1024 * 1024)
 #endif
 
 static const uint32_t VMA_FRAME_INDEX_LOST = UINT32_MAX;
@@ -3660,6 +3652,8 @@ private:
     bool m_HasEmptyBlock;
     VmaDefragmentator* m_pDefragmentator;
 
+    size_t CalcMaxBlockSize() const;
+
     // Finds and removes given block from vector.
     void Remove(VmaDeviceMemoryBlock* pBlock);
 
@@ -3929,7 +3923,6 @@ struct VmaAllocator_T
 
 private:
     VkDeviceSize m_PreferredLargeHeapBlockSize;
-    VkDeviceSize m_PreferredSmallHeapBlockSize;
 
     VkPhysicalDevice m_PhysicalDevice;
     VMA_ATOMIC_UINT32 m_CurrentFrameIndex;
@@ -5959,30 +5952,49 @@ VkResult VmaBlockVector::Allocate(
     // 2. Try to create new block.
     if(canCreateNewBlock)
     {
-        // 2.1. Start with full preferredBlockSize.
-        VkDeviceSize blockSize = m_PreferredBlockSize;
-        size_t newBlockIndex = 0;
-        VkResult res = CreateBlock(blockSize, &newBlockIndex);
+        // Calculate optimal size for new block.
+        VkDeviceSize newBlockSize = m_PreferredBlockSize;
+        uint32_t newBlockSizeShift = 0;
+        const uint32_t NEW_BLOCK_SIZE_SHIFT_MAX = 3;
+
         // Allocating blocks of other sizes is allowed only in default pools.
         // In custom pools block size is fixed.
-        if(res < 0 && m_IsCustomPool == false)
+        if(m_IsCustomPool == false)
         {
-            // 2.2. Try half the size.
-            blockSize /= 2;
-            if(blockSize >= vkMemReq.size)
+            // Allocate 1/8, 1/4, 1/2 as first blocks.
+            const VkDeviceSize maxExistingBlockSize = CalcMaxBlockSize();
+            for(uint32_t i = 0; i < NEW_BLOCK_SIZE_SHIFT_MAX; ++i)
             {
-                res = CreateBlock(blockSize, &newBlockIndex);
-                if(res < 0)
+                const VkDeviceSize smallerNewBlockSize = newBlockSize / 2;
+                if(smallerNewBlockSize > maxExistingBlockSize && smallerNewBlockSize >= vkMemReq.size * 2)
                 {
-                    // 2.3. Try quarter the size.
-                    blockSize /= 2;
-                    if(blockSize >= vkMemReq.size)
-                    {
-                        res = CreateBlock(blockSize, &newBlockIndex);
-                    }
+                    newBlockSize = smallerNewBlockSize;
+                    ++newBlockSizeShift;
                 }
             }
         }
+
+        size_t newBlockIndex = 0;
+        VkResult res = CreateBlock(newBlockSize, &newBlockIndex);
+        // Allocation of this size failed? Try 1/2, 1/4, 1/8 of m_PreferredBlockSize.
+        if(m_IsCustomPool == false)
+        {
+            while(res < 0 && newBlockSizeShift < NEW_BLOCK_SIZE_SHIFT_MAX)
+            {
+                const VkDeviceSize smallerNewBlockSize = newBlockSize / 2;
+                if(smallerNewBlockSize >= vkMemReq.size)
+                {
+                    newBlockSize = smallerNewBlockSize;
+                    ++newBlockSizeShift;
+                    res = CreateBlock(newBlockSize, &newBlockIndex);
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
         if(res == VK_SUCCESS)
         {
             VmaDeviceMemoryBlock* const pBlock = m_Blocks[newBlockIndex];
@@ -6181,6 +6193,20 @@ void VmaBlockVector::Free(
         pBlockToDelete->Destroy(m_hAllocator);
         vma_delete(m_hAllocator, pBlockToDelete);
     }
+}
+
+size_t VmaBlockVector::CalcMaxBlockSize() const
+{
+    size_t result = 0;
+    for(size_t i = m_Blocks.size(); i--; )
+    {
+        result = VMA_MAX(result, m_Blocks[i]->m_Metadata.GetSize());
+        if(result >= m_PreferredBlockSize)
+        {
+            break;
+        }
+    }
+    return result;
 }
 
 void VmaBlockVector::Remove(VmaDeviceMemoryBlock* pBlock)
@@ -6707,7 +6733,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_AllocationCallbacks(pCreateInfo->pAllocationCallbacks ?
         *pCreateInfo->pAllocationCallbacks : VmaEmptyAllocationCallbacks),
     m_PreferredLargeHeapBlockSize(0),
-    m_PreferredSmallHeapBlockSize(0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
     m_Pools(VmaStlAllocator<VmaPool>(GetAllocationCallbacks()))
@@ -6739,8 +6764,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
 
     m_PreferredLargeHeapBlockSize = (pCreateInfo->preferredLargeHeapBlockSize != 0) ?
         pCreateInfo->preferredLargeHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
-    m_PreferredSmallHeapBlockSize = (pCreateInfo->preferredSmallHeapBlockSize != 0) ?
-        pCreateInfo->preferredSmallHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_SMALL_HEAP_BLOCK_SIZE);
 
     if(pCreateInfo->pHeapSizeLimit != VMA_NULL)
     {
@@ -6866,10 +6889,8 @@ VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
 {
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
     const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
-    const bool isSmallHeap = heapSize <= VMA_SMALL_HEAP_MAX_SIZE ||
-       // HOST_CACHED memory type is treated as small despite it has full size of CPU memory heap, because we usually don't use much of it.
-       (m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0;
-    return isSmallHeap ? m_PreferredSmallHeapBlockSize : m_PreferredLargeHeapBlockSize;
+    const bool isSmallHeap = heapSize <= VMA_SMALL_HEAP_MAX_SIZE;
+    return isSmallHeap ? (heapSize / 8) : m_PreferredLargeHeapBlockSize;
 }
 
 VkResult VmaAllocator_T::AllocateMemoryOfType(
