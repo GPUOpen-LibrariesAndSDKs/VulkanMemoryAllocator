@@ -953,6 +953,7 @@ typedef enum VmaMemoryUsage
     /** Memory will be used on device only, so fast access from the device is preferred.
     It usually means device-local GPU (video) memory.
     No need to be mappable on host.
+    It is roughly equivalent of D3D12_HEAP_TYPE_DEFAULT.
 
     Usage:
     
@@ -971,6 +972,7 @@ typedef enum VmaMemoryUsage
     Resources created in this pool are still accessible to the device, but access to them can be slower.
     Guarantees to be `HOST_VISIBLE` and `HOST_COHERENT`.
     CPU read may be uncached.
+    It is roughly equivalent of D3D12_HEAP_TYPE_UPLOAD.
 
     Usage: Staging copy of resources used as transfer source.
     */
@@ -983,6 +985,7 @@ typedef enum VmaMemoryUsage
     */
     VMA_MEMORY_USAGE_CPU_TO_GPU = 3,
     /** Memory mappable on host (guarantees to be `HOST_VISIBLE`) and cached.
+    It is roughly equivalent of D3D12_HEAP_TYPE_READBACK.
 
     Usage:
 
