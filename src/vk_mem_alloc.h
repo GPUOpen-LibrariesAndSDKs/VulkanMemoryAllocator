@@ -2916,7 +2916,7 @@ public:
             }
             else
             {
-                VMA_HEAVY_ASSERT(!m_pList.IsEmpty());
+                VMA_HEAVY_ASSERT(!m_pList->IsEmpty());
                 m_pItem = m_pList->Back();
             }
             return *this;
@@ -3243,14 +3243,9 @@ public:
     }
 
     void ChangeBlockAllocation(
+        VmaAllocator hAllocator,
         VmaDeviceMemoryBlock* block,
-        VkDeviceSize offset)
-    {
-        VMA_ASSERT(block != VMA_NULL);
-        VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK);
-        m_BlockAllocation.m_Block = block;
-        m_BlockAllocation.m_Offset = offset;
-    }
+        VkDeviceSize offset);
 
     // pMappedData not null means allocation is created with MAPPED flag.
     void InitDedicatedAllocation(
@@ -3337,7 +3332,7 @@ private:
     uint8_t m_Type; // ALLOCATION_TYPE
     uint8_t m_SuballocationType; // VmaSuballocationType
     // Bit 0x80 is set when allocation was created with VMA_ALLOCATION_CREATE_MAPPED_BIT.
-    // Bits with mask 0x7F, used only when ALLOCATION_TYPE_DEDICATED, are reference counter for vmaMapMemory()/vmaUnmapMemory().
+    // Bits with mask 0x7F are reference counter for vmaMapMemory()/vmaUnmapMemory().
     uint8_t m_MapCount;
     uint8_t m_Flags; // enum FLAGS
 
@@ -3472,6 +3467,7 @@ public:
 
     // Frees suballocation assigned to given memory region.
     void Free(const VmaAllocation allocation);
+    void FreeAtOffset(VkDeviceSize offset);
 
 private:
     VkDeviceSize m_Size;
@@ -3523,8 +3519,8 @@ public:
     void* GetMappedData() const { return m_pMappedData; }
 
     // ppData can be null.
-    VkResult Map(VmaAllocator hAllocator, VkDeviceMemory hMemory, void **ppData);
-    void Unmap(VmaAllocator hAllocator, VkDeviceMemory hMemory);
+    VkResult Map(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count, void **ppData);
+    void Unmap(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count);
 
 private:
     VMA_MUTEX m_Mutex;
@@ -3565,8 +3561,8 @@ public:
     bool Validate() const;
 
     // ppData can be null.
-    VkResult Map(VmaAllocator hAllocator, void** ppData);
-    void Unmap(VmaAllocator hAllocator);
+    VkResult Map(VmaAllocator hAllocator, uint32_t count, void** ppData);
+    void Unmap(VmaAllocator hAllocator, uint32_t count);
 };
 
 struct VmaPointerLess
@@ -4388,6 +4384,28 @@ void VmaAllocation_T::SetUserData(VmaAllocator hAllocator, void* pUserData)
     }
 }
 
+void VmaAllocation_T::ChangeBlockAllocation(
+    VmaAllocator hAllocator,
+    VmaDeviceMemoryBlock* block,
+    VkDeviceSize offset)
+{
+    VMA_ASSERT(block != VMA_NULL);
+    VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK);
+
+    // Move mapping reference counter from old block to new block.
+    if(block != m_BlockAllocation.m_Block)
+    {
+        uint32_t mapRefCount = m_MapCount & ~MAP_COUNT_FLAG_PERSISTENT_MAP;
+        if(IsPersistentMap())
+            ++mapRefCount;
+        m_BlockAllocation.m_Block->Unmap(hAllocator, mapRefCount);
+        block->Map(hAllocator, mapRefCount, VMA_NULL);
+    }
+
+    m_BlockAllocation.m_Block = block;
+    m_BlockAllocation.m_Offset = offset;
+}
+
 VkDeviceSize VmaAllocation_T::GetOffset() const
 {
     switch(m_Type)
@@ -4754,7 +4772,6 @@ bool VmaBlockMetadata::Validate() const
         {
             return false;
         }
-        prevFree = currFree;
 
         if(currFree != (subAlloc.hAllocation == VK_NULL_HANDLE))
         {
@@ -4770,8 +4787,20 @@ bool VmaBlockMetadata::Validate() const
                 ++freeSuballocationsToRegister;
             }
         }
+        else
+        {
+            if(subAlloc.hAllocation->GetOffset() != subAlloc.offset)
+            {
+                return false;
+            }
+            if(subAlloc.hAllocation->GetSize() != subAlloc.size)
+            {
+                return false;
+            }
+        }
 
         calculatedOffset += subAlloc.size;
+        prevFree = currFree;
     }
 
     // Number of free suballocations registered in m_FreeSuballocationsBySize doesn't
@@ -4801,11 +4830,15 @@ bool VmaBlockMetadata::Validate() const
     }
 
     // Check if totals match calculacted values.
-    return
-        ValidateFreeSuballocationList() &&
-        (calculatedOffset == m_Size) &&
-        (calculatedSumFreeSize == m_SumFreeSize) &&
-        (calculatedFreeCount == m_FreeCount);
+    if(!ValidateFreeSuballocationList() ||
+        (calculatedOffset != m_Size) ||
+        (calculatedSumFreeSize != m_SumFreeSize) ||
+        (calculatedFreeCount != m_FreeCount))
+    {
+        return false;
+    }
+
+    return true;
 }
 
 VkDeviceSize VmaBlockMetadata::GetUnusedRangeSizeMax() const
@@ -5208,6 +5241,22 @@ void VmaBlockMetadata::Free(const VmaAllocation allocation)
         {
             FreeSuballocation(suballocItem);
             VMA_HEAVY_ASSERT(Validate());
+            return;
+        }
+    }
+    VMA_ASSERT(0 && "Not found!");
+}
+
+void VmaBlockMetadata::FreeAtOffset(VkDeviceSize offset)
+{
+    for(VmaSuballocationList::iterator suballocItem = m_Suballocations.begin();
+        suballocItem != m_Suballocations.end();
+        ++suballocItem)
+    {
+        VmaSuballocation& suballoc = *suballocItem;
+        if(suballoc.offset == offset)
+        {
+            FreeSuballocation(suballocItem);
             return;
         }
     }
@@ -5663,12 +5712,17 @@ VmaDeviceMemoryMapping::~VmaDeviceMemoryMapping()
     VMA_ASSERT(m_MapCount == 0 && "VkDeviceMemory block is being destroyed while it is still mapped.");
 }
 
-VkResult VmaDeviceMemoryMapping::Map(VmaAllocator hAllocator, VkDeviceMemory hMemory, void **ppData)
+VkResult VmaDeviceMemoryMapping::Map(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count, void **ppData)
 {
+    if(count == 0)
+    {
+        return VK_SUCCESS;
+    }
+
     VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
     if(m_MapCount != 0)
     {
-        ++m_MapCount;
+        m_MapCount += count;
         VMA_ASSERT(m_pMappedData != VMA_NULL);
         if(ppData != VMA_NULL)
         {
@@ -5691,18 +5745,24 @@ VkResult VmaDeviceMemoryMapping::Map(VmaAllocator hAllocator, VkDeviceMemory hMe
             {
                 *ppData = m_pMappedData;
             }
-            m_MapCount = 1;
+            m_MapCount = count;
         }
         return result;
     }
 }
 
-void VmaDeviceMemoryMapping::Unmap(VmaAllocator hAllocator, VkDeviceMemory hMemory)
+void VmaDeviceMemoryMapping::Unmap(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count)
 {
-    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
-    if(m_MapCount != 0)
+    if(count == 0)
     {
-        if(--m_MapCount == 0)
+        return;
+    }
+
+    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
+    if(m_MapCount >= count)
+    {
+        m_MapCount -= count;
+        if(m_MapCount == 0)
         {
             m_pMappedData = VMA_NULL;
             (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, hMemory);
@@ -5759,14 +5819,14 @@ bool VmaDeviceMemoryBlock::Validate() const
     return m_Metadata.Validate();
 }
 
-VkResult VmaDeviceMemoryBlock::Map(VmaAllocator hAllocator, void** ppData)
+VkResult VmaDeviceMemoryBlock::Map(VmaAllocator hAllocator, uint32_t count, void** ppData)
 {
-    return m_Mapping.Map(hAllocator, m_hMemory, ppData);
+    return m_Mapping.Map(hAllocator, m_hMemory, count, ppData);
 }
 
-void VmaDeviceMemoryBlock::Unmap(VmaAllocator hAllocator)
+void VmaDeviceMemoryBlock::Unmap(VmaAllocator hAllocator, uint32_t count)
 {
-    m_Mapping.Unmap(hAllocator, m_hMemory);
+    m_Mapping.Unmap(hAllocator, m_hMemory, count);
 }
 
 static void InitStatInfo(VmaStatInfo& outInfo)
@@ -5924,7 +5984,7 @@ VkResult VmaBlockVector::Allocate(
 
             if(mapped)
             {
-                VkResult res = pCurrBlock->Map(m_hAllocator, nullptr);
+                VkResult res = pCurrBlock->Map(m_hAllocator, 1, VMA_NULL);
                 if(res != VK_SUCCESS)
                 {
                     return res;
@@ -6016,7 +6076,7 @@ VkResult VmaBlockVector::Allocate(
 
             if(mapped)
             {
-                res = pBlock->Map(m_hAllocator, nullptr);
+                res = pBlock->Map(m_hAllocator, 1, VMA_NULL);
                 if(res != VK_SUCCESS)
                 {
                     return res;
@@ -6093,7 +6153,7 @@ VkResult VmaBlockVector::Allocate(
             {
                 if(mapped)
                 {
-                    VkResult res = pBestRequestBlock->Map(m_hAllocator, nullptr);
+                    VkResult res = pBestRequestBlock->Map(m_hAllocator, 1, VMA_NULL);
                     if(res != VK_SUCCESS)
                     {
                         return res;
@@ -6122,7 +6182,7 @@ VkResult VmaBlockVector::Allocate(
                         suballocType,
                         mapped,
                         (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
-                    VMA_HEAVY_ASSERT(pBlock->Validate());
+                    VMA_HEAVY_ASSERT(pBestRequestBlock->Validate());
                     VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
                     (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
                     return VK_SUCCESS;
@@ -6160,7 +6220,7 @@ void VmaBlockVector::Free(
 
         if(hAllocation->IsPersistentMap())
         {
-            pBlock->m_Mapping.Unmap(m_hAllocator, pBlock->m_hMemory);
+            pBlock->m_Mapping.Unmap(m_hAllocator, pBlock->m_hMemory, 1);
         }
 
         pBlock->m_Metadata.Free(hAllocation);
@@ -6505,7 +6565,7 @@ VkResult VmaDefragmentator::BlockInfo::EnsureMapping(VmaAllocator hAllocator, vo
     }
             
     // Map on first usage.
-    VkResult res = m_pBlock->Map(hAllocator, &m_pMappedDataForDefragmentation);
+    VkResult res = m_pBlock->Map(hAllocator, 1, &m_pMappedDataForDefragmentation);
     *ppMappedData = m_pMappedDataForDefragmentation;
     return res;
 }
@@ -6514,7 +6574,7 @@ void VmaDefragmentator::BlockInfo::Unmap(VmaAllocator hAllocator)
 {
     if(m_pMappedDataForDefragmentation != VMA_NULL)
     {
-        m_pBlock->Unmap(hAllocator);
+        m_pBlock->Unmap(hAllocator, 1);
     }
 }
 
@@ -6610,10 +6670,10 @@ VkResult VmaDefragmentator::DefragmentRound(
                     static_cast<size_t>(size));
                 
                 pDstBlockInfo->m_pBlock->m_Metadata.Alloc(dstAllocRequest, suballocType, size, allocInfo.m_hAllocation);
-                pSrcBlockInfo->m_pBlock->m_Metadata.Free(allocInfo.m_hAllocation);
+                pSrcBlockInfo->m_pBlock->m_Metadata.FreeAtOffset(srcOffset);
                 
-                allocInfo.m_hAllocation->ChangeBlockAllocation(pDstBlockInfo->m_pBlock, dstAllocRequest.offset);
-                
+                allocInfo.m_hAllocation->ChangeBlockAllocation(m_hAllocator, pDstBlockInfo->m_pBlock, dstAllocRequest.offset);
+
                 if(allocInfo.m_pChanged != VMA_NULL)
                 {
                     *allocInfo.m_pChanged = VK_TRUE;
@@ -7055,7 +7115,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
         return res;
     }
 
-    void* pMappedData = nullptr;
+    void* pMappedData = VMA_NULL;
     if(map)
     {
         res = (*m_VulkanFunctions.vkMapMemory)(
@@ -7391,7 +7451,7 @@ VkResult VmaAllocator_T::Defragment(
             // Lost allocation cannot be defragmented.
             (hAlloc->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST))
         {
-            VmaBlockVector* pAllocBlockVector = nullptr;
+            VmaBlockVector* pAllocBlockVector = VMA_NULL;
 
             const VmaPool hAllocPool = hAlloc->GetPool();
             // This allocation belongs to custom pool.
@@ -7655,8 +7715,8 @@ VkResult VmaAllocator_T::Map(VmaAllocation hAllocation, void** ppData)
     case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
         {
             VmaDeviceMemoryBlock* const pBlock = hAllocation->GetBlock();
-            char *pBytes = nullptr;
-            VkResult res = pBlock->Map(this, (void**)&pBytes);
+            char *pBytes = VMA_NULL;
+            VkResult res = pBlock->Map(this, 1, (void**)&pBytes);
             if(res == VK_SUCCESS)
             {
                 *ppData = pBytes + (ptrdiff_t)hAllocation->GetOffset();
@@ -7680,7 +7740,7 @@ void VmaAllocator_T::Unmap(VmaAllocation hAllocation)
         {
             VmaDeviceMemoryBlock* const pBlock = hAllocation->GetBlock();
             hAllocation->BlockAllocUnmap();
-            pBlock->Unmap(this);
+            pBlock->Unmap(this, 1);
         }
         break;
     case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
