@@ -363,6 +363,41 @@ vmaDestroyBuffer(allocator, buf, alloc);
 vmaDestroyPool(allocator, pool);
 \endcode
 
+\section custom_memory_pools_MemTypeIndex Choosing memory type index
+
+When creating a pool, you must explicitly specify memory type index.
+To find the one suitable for your buffers or images, you can use code similar to the following:
+
+\code
+VkBufferCreateInfo dummyBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+dummyBufCreateInfo.size = 1024; // Whatever.
+dummyBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change if needed.
+
+VkBuffer dummyBuf;
+vkCreateBuffer(device, &dummyBufCreateInfo, nullptr, &dummyBuf);
+
+VkMemoryRequirements memReq;
+vkGetBufferMemoryRequirements(device, dummyBuf, &memReq);
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Change if needed.
+
+uint32_t memTypeIndex;
+vmaFindMemoryTypeIndex(allocator, memReq.memoryTypeBits, &allocCreateInfo, &memTypeIndex);
+
+vkDestroyBuffer(device, dummyBuf, nullptr);
+
+VmaPoolCreateInfo poolCreateInfo = {};
+poolCreateInfo.memoryTypeIndex = memTypeIndex;
+// ...
+\endcode
+
+Dummy buffer is needed to query driver for `memReq.memoryTypeBits`.
+Memory is never allocated for this buffer.
+You should fill structures `dummyBufCreateInfo` and `allocCreateInfo` with the same parameters
+as you are going to use for buffers created in your pool.
+
+
 \page defragmentation Defragmentation
 
 Interleaved allocations and deallocations of many objects of varying size can

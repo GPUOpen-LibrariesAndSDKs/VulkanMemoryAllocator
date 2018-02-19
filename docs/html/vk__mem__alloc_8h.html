@@ -711,7 +711,7 @@ Functions</h2></td></tr>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd"></a>VMA_MEMORY_USAGE_UNKNOWN&#160;</td><td class="fielddoc"><p>No intended memory usage specified. Use other members of <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> to specify your requirements. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7"></a>VMA_MEMORY_USAGE_GPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be used on device only, so fast access from the device is preferred. It usually means device-local GPU (video) memory. No need to be mappable on host.</p>
+<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7"></a>VMA_MEMORY_USAGE_GPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be used on device only, so fast access from the device is preferred. It usually means device-local GPU (video) memory. No need to be mappable on host. It is roughly equivalent of D3D12_HEAP_TYPE_DEFAULT.</p>
 <p>Usage:</p>
 <ul>
 <li>Resources written and read by device, e.g. images used as attachments.</li>
@@ -719,13 +719,13 @@ Functions</h2></td></tr>
 </ul>
 <p>Allocation may still end up in <code>HOST_VISIBLE</code> memory on some implementations. In such case, you are free to map it. You can use <code>VMA_ALLOCATION_CREATE_MAPPED_BIT</code> with this usage type. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5"></a>VMA_MEMORY_USAGE_CPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be mappable on host. It usually means CPU (system) memory. Resources created in this pool are still accessible to the device, but access to them can be slower. Guarantees to be <code>HOST_VISIBLE</code> and <code>HOST_COHERENT</code>. CPU read may be uncached.</p>
+<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5"></a>VMA_MEMORY_USAGE_CPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be mappable on host. It usually means CPU (system) memory. Resources created in this pool are still accessible to the device, but access to them can be slower. Guarantees to be <code>HOST_VISIBLE</code> and <code>HOST_COHERENT</code>. CPU read may be uncached. It is roughly equivalent of D3D12_HEAP_TYPE_UPLOAD.</p>
 <p>Usage: Staging copy of resources used as transfer source. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca9066b52c5a7079bb74a69aaf8b92ff67"></a>VMA_MEMORY_USAGE_CPU_TO_GPU&#160;</td><td class="fielddoc"><p>Memory that is both mappable on host (guarantees to be <code>HOST_VISIBLE</code>) and preferably fast to access by GPU. CPU reads may be uncached and very slow.</p>
 <p>Usage: Resources written frequently by host (dynamic), read by device. E.g. textures, vertex buffers, uniform buffers updated every frame or every draw call. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27"></a>VMA_MEMORY_USAGE_GPU_TO_CPU&#160;</td><td class="fielddoc"><p>Memory mappable on host (guarantees to be <code>HOST_VISIBLE</code>) and cached.</p>
+<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27"></a>VMA_MEMORY_USAGE_GPU_TO_CPU&#160;</td><td class="fielddoc"><p>Memory mappable on host (guarantees to be <code>HOST_VISIBLE</code>) and cached. It is roughly equivalent of D3D12_HEAP_TYPE_READBACK.</p>
 <p>Usage:</p>
 <ul>
 <li>Resources written by device, read by host - results of some computations, e.g. screen capture, average scene luminance for HDR tone mapping.</li>
