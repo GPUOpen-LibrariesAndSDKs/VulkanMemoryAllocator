@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Vulkan Memory Allocator: Vulkan Memory Allocator</title>
+<title>Vulkan Memory Allocator: About the library</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -42,7 +42,6 @@ $(function() {
 });
 </script>
 <div id="main-nav"></div>
-</div><!-- top -->
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -57,38 +56,22 @@ $(function() {
 </iframe>
 </div>
 
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="index.html">Vulkan Memory Allocator</a></li>  </ul>
+</div>
+</div><!-- top -->
 <div class="header">
   <div class="headertitle">
-<div class="title">Vulkan Memory Allocator </div>  </div>
+<div class="title">About the library </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><b>Version 2.0.0-alpha.7</b> (2018-02-09)</p>
-<p>Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. <br />
-License: MIT</p>
-<p>Documentation of all members: <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a></p>
-<p>Table of contents:</p>
+<div class="textblock"><h1><a class="anchor" id="about_the_library_features_not_supported"></a>
+Features not supported</h1>
+<p>Features deliberately excluded from the scope of this library:</p>
 <ul>
-<li>User guide<ul>
-<li><a class="el" href="quick_start.html">Quick start</a></li>
-<li><a class="el" href="choosing_memory_type.html">Choosing memory type</a></li>
-<li><a class="el" href="memory_mapping.html">Memory mapping</a></li>
-<li><a class="el" href="custom_memory_pools.html">Custom memory pools</a></li>
-<li><a class="el" href="defragmentation.html">Defragmentation</a></li>
-<li><a class="el" href="lost_allocations.html">Lost allocations</a></li>
-<li><a class="el" href="allocation_annotation.html">Allocation names and user data</a></li>
-</ul>
-</li>
-<li><a class="el" href="configuration.html">Configuration</a><ul>
-<li><a class="el" href="vk_khr_dedicated_allocation.html">VK_KHR_dedicated_allocation</a></li>
-</ul>
-</li>
-<li><a class="el" href="thread_safety.html">Thread safety</a></li>
-<li><a class="el" href="about_the_library.html">About the library</a></li>
-</ul>
-<p>See also:</p>
-<ul>
-<li><a href="https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator">Source repository on GitHub</a></li>
-<li><a href="https://gpuopen.com/gaming-product/vulkan-memory-allocator/">Product page on GPUOpen</a> </li>
+<li>Data transfer - issuing commands that transfer data between buffers or images, any usage of <code>VkCommandList</code> or <code>VkCommandQueue</code> and related synchronization is responsibility of the user.</li>
+<li>Support for any programming languages other than C/C++. Bindings to other languages are welcomed as external projects. </li>
 </ul>
 </div></div><!-- contents -->
 <!-- start footer part -->

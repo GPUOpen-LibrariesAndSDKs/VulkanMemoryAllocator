@@ -31,7 +31,7 @@ extern "C" {
 
 <b>Version 2.0.0-alpha.7</b> (2018-02-09)
 
-Copyright (c) 2017 Advanced Micro Devices, Inc. All rights reserved. \n
+Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
 
 Documentation of all members: vk_mem_alloc.h
@@ -49,6 +49,7 @@ Table of contents:
 - \subpage configuration
   - \subpage vk_khr_dedicated_allocation
 - \subpage thread_safety
+- \subpage about_the_library
 
 See also:
 
@@ -717,6 +718,18 @@ To learn more about this extension, see:
   you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
   threads at the same time if you pass the same `VmaAllocation` object to these
   functions.
+
+
+\page about_the_library About the library
+
+\section about_the_library_features_not_supported Features not supported
+
+Features deliberately excluded from the scope of this library:
+
+- Data transfer - issuing commands that transfer data between buffers or images, any usage of
+  `VkCommandList` or `VkCommandQueue` and related synchronization is responsibility of the user.
+- Support for any programming languages other than C/C++.
+  Bindings to other languages are welcomed as external projects.
 
 */
 
