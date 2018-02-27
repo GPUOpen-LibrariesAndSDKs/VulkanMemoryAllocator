@@ -1739,8 +1739,18 @@ remove them if not needed.
 #include <mutex> // for std::mutex
 #include <atomic> // for std::atomic
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__APPLE__)
     #include <malloc.h> // for aligned_alloc()
+#endif
+
+#if defined(__APPLE__)
+#include <cstdlib>
+void *aligned_alloc(size_t alignment, size_t size)
+{
+    void *pointer;
+    posix_memalign(&pointer, alignment, size);
+    return pointer;
+}
 #endif
 
 // Normal assert to check for programmer's errors, especially in Debug configuration.
@@ -4964,7 +4974,7 @@ void VmaBlockMetadata::PrintDetailedMap(class VmaJsonWriter& json) const
     json.WriteNumber(m_SumFreeSize);
 
     json.WriteString("Allocations");
-    json.WriteNumber(m_Suballocations.size() - m_FreeCount);
+    json.WriteNumber((uint64_t)m_Suballocations.size() - m_FreeCount);
 
     json.WriteString("UnusedRanges");
     json.WriteNumber(m_FreeCount);
@@ -6322,7 +6332,7 @@ size_t VmaBlockVector::CalcMaxBlockSize() const
     size_t result = 0;
     for(size_t i = m_Blocks.size(); i--; )
     {
-        result = VMA_MAX(result, m_Blocks[i]->m_Metadata.GetSize());
+        result = VMA_MAX((uint64_t)result, (uint64_t)m_Blocks[i]->m_Metadata.GetSize());
         if(result >= m_PreferredBlockSize)
         {
             break;
@@ -6408,15 +6418,15 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
         if(m_MinBlockCount > 0)
         {
             json.WriteString("Min");
-            json.WriteNumber(m_MinBlockCount);
+            json.WriteNumber((uint64_t)m_MinBlockCount);
         }
         if(m_MaxBlockCount < SIZE_MAX)
         {
             json.WriteString("Max");
-            json.WriteNumber(m_MaxBlockCount);
+            json.WriteNumber((uint64_t)m_MaxBlockCount);
         }
         json.WriteString("Cur");
-        json.WriteNumber(m_Blocks.size());
+        json.WriteNumber((uint64_t)m_Blocks.size());
         json.EndObject();
 
         if(m_FrameInUseCount > 0)
