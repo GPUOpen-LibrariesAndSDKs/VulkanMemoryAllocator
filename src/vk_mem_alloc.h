@@ -1747,9 +1747,16 @@ remove them if not needed.
 #include <cstdlib>
 void *aligned_alloc(size_t alignment, size_t size)
 {
+    // alignment must be >= sizeof(void*)
+    if(alignment < sizeof(void*))
+    {
+        alignment = sizeof(void*);
+    }
+
     void *pointer;
-    posix_memalign(&pointer, alignment, size);
-    return pointer;
+    if(posix_memalign(&pointer, alignment, size) == 0)
+        return pointer;
+    return VMA_NULL;
 }
 #endif
 
