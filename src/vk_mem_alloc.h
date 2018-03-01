@@ -155,8 +155,9 @@ It is valid, although not very useful.
 \section choosing_memory_type_usage Usage
 
 The easiest way to specify memory requirements is to fill member
-VmaAllocationCreateInfo::usage using one of the values of enum `VmaMemoryUsage`.
+VmaAllocationCreateInfo::usage using one of the values of enum #VmaMemoryUsage.
 It defines high level, common usage types.
+For more details, see description of this enum.
 
 For example, if you want to create a uniform buffer that will be filled using
 transfer only once or infrequently and used for rendering every frame, you can
@@ -237,26 +238,62 @@ that pool. For further details, see \ref custom_memory_pools.
 
 \page memory_mapping Memory mapping
 
-\section persistently_mapped_memory Persistently mapped memory
+To "map memory" in Vulkan means to obtain a CPU pointer to `VkDeviceMemory`,
+to be able to read from it or write to it in CPU code.
+Mapping is possible only of memory allocated from a memory type that has
+`VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag.
+Functions `vkMapMemory()`, `vkUnmapMemory()` are designed for this purpose.
+You can use them directly with memory allocated by this library,
+but it is not recommended because of following issue:
+Mapping the same `VkDeviceMemory` block multiple times is illegal - only one mapping at a time is allowed.
+This includes mapping disjoint regions. Mapping is not reference-counted internally by Vulkan.
+Because of this, Vulkan Memory Allocator provides following facilities:
 
-If you need to map memory on host, it may happen that two allocations are
-assigned to the same `VkDeviceMemory` block, so if you map them both at the same
-time, it will cause error because mapping single memory block multiple times is
-illegal in Vulkan.
+\section memory_mapping_mapping_functions Mapping functions
 
-TODO update this...
+The library provides following functions for mapping of a specific `VmaAllocation`: vmaMapMemory(), vmaUnmapMemory().
+They are safer and more convenient to use than standard Vulkan functions.
+You can map an allocation multiple times simultaneously - mapping is reference-counted internally.
+You can also map different allocations simultaneously regardless of whether they use the same `VkDeviceMemory` block.
+They way it's implemented is that the library always maps entire memory block, not just region of the allocation.
+For further details, see description of vmaMapMemory() function.
+Example:
 
-It is safer, more convenient and more efficient to use special feature designed
-for that: persistently mapped memory. Allocations made with
-`VMA_ALLOCATION_CREATE_MAPPED_BIT` flag set in
-VmaAllocationCreateInfo::flags are returned from device memory
-blocks that stay mapped all the time, so you can just access CPU pointer to it.
-VmaAllocationInfo::pMappedData pointer is already offseted to the beginning of
-particular allocation. Example:
+\code
+// Having these objects initialized:
+
+struct ConstantBuffer
+{
+    ...
+};
+ConstantBuffer constantBufferData;
+
+VmaAllocator allocator;
+VmaBuffer constantBuffer;
+VmaAllocation constantBufferAllocation;
+
+// You can map and fill your buffer using following code:
+
+void* mappedData;
+vmaMapMemory(allocator, constantBufferAllocation, &mappedData);
+memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
+vmaUnmapMemory(allocator, constantBufferAllocation);
+\endcode
+
+\section memory_mapping_persistently_mapped_memory Persistently mapped memory
+
+Kepping your memory persistently mapped is generally OK in Vulkan.
+You don't need to unmap it before using its data on the GPU.
+The library provides a special feature designed for that:
+Allocations made with `VMA_ALLOCATION_CREATE_MAPPED_BIT` flag set in
+VmaAllocationCreateInfo::flags stay mapped all the time,
+so you can just access CPU pointer to it any time
+without a need to call any "map" or "unmap" function.
+Example:
 
 \code
 VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufCreateInfo.size = 1024;
+bufCreateInfo.size = sizeof(ConstantBuffer);
 bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
 VmaAllocationCreateInfo allocCreateInfo = {};
@@ -268,17 +305,36 @@ VmaAllocation alloc;
 VmaAllocationInfo allocInfo;
 vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
 
-// Buffer is immediately mapped. You can access its memory.
-memcpy(allocInfo.pMappedData, myData, 1024);
+// Buffer is already mapped. You can access its memory.
+memcpy(allocInfo.pMappedData, &constantBufferData, sizeof(constantBufferData));
 \endcode
 
-Memory in Vulkan doesn't need to be unmapped before using it e.g. for transfers,
-but if you are not sure whether it's `HOST_COHERENT` (here is surely is because
-it's created with `VMA_MEMORY_USAGE_CPU_ONLY`), you should check it. If it's
-not, you should call `vkInvalidateMappedMemoryRanges()` before reading and
-`vkFlushMappedMemoryRanges()` after writing to mapped memory on CPU. Example:
+There are some exceptions though, when you should consider mapping memory only for a short period of time:
+
+- When operating system is Windows 7 or 8.x (Windows 10 is not affected because it uses WDDM2),
+  device is discrete AMD GPU,
+  and memory type is the special 256 MiB pool of `DEVICE_LOCAL + HOST_VISIBLE` memory
+  (selected when you use `VMA_MEMORY_USAGE_CPU_TO_GPU`),
+  then whenever a memory block allocated from this memory type stays mapped
+  for the time of any call to `vkQueueSubmit()` or `vkQueuePresentKHR()`, this
+  block is migrated by WDDM to system RAM, which degrades performance. It doesn't
+  matter if that particular memory block is actually used by the command buffer
+  being submitted. 
+- Keeping many large memory blocks mapped may impact performance or stability of some debugging tools.
+
+\section memory_mapping_cache_control Cache control
+  
+Memory in Vulkan doesn't need to be unmapped before using it on GPU,
+but unless a memory types has `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` flag set,
+you need to manually invalidate cache before reading of mapped pointer
+using function `vkvkInvalidateMappedMemoryRanges()`
+and flush cache after writing to mapped pointer
+using function `vkFlushMappedMemoryRanges()`.
+Example:
 
 \code
+memcpy(allocInfo.pMappedData, &constantBufferData, sizeof(constantBufferData));
+
 VkMemoryPropertyFlags memFlags;
 vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
 if((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
@@ -291,27 +347,12 @@ if((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
 }
 \endcode
 
-\section amd_perf_note Note on performance
+Please note that memory allocated with `VMA_MEMORY_USAGE_CPU_ONLY` is guaranteed to be host coherent.
 
-There is a situation that you should be careful about. It happens only if all of
-following conditions are met:
+Also, Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA)
+currently provide `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` flag on all memory types that are
+`VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT`, so on this platform you may not need to bother.
 
--# You use AMD GPU.
--# You use the memory type that is both `DEVICE_LOCAL` and `HOST_VISIBLE`
-   (used when you specify `VMA_MEMORY_USAGE_CPU_TO_GPU`).
--# Operating system is Windows 7 or 8.x (Windows 10 is not affected because it
-   uses WDDM2).
-
-Then whenever a `VkDeviceMemory` block allocated from this memory type is mapped
-for the time of any call to `vkQueueSubmit()` or `vkQueuePresentKHR()`, this
-block is migrated by WDDM to system RAM, which degrades performance. It doesn't
-matter if that particular memory block is actually used by the command buffer
-being submitted.
-
-To avoid this problem, either make sure to unmap all allocations made from this
-memory type before your Submit and Present, or use `VMA_MEMORY_USAGE_GPU_ONLY`
-and transfer from a staging buffer in `VMA_MEMORY_USAGE_CPU_ONLY`, which can
-safely stay mapped all the time.
 
 \page custom_memory_pools Custom memory pools
 
@@ -824,7 +865,7 @@ typedef struct VmaVulkanFunctions {
 /// Description of a Allocator to be created.
 typedef struct VmaAllocatorCreateInfo
 {
-    /// Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.
+    /// Flags for created allocator. Use #VmaAllocatorCreateFlagBits enum.
     VmaAllocatorCreateFlags flags;
     /// Vulkan physical device.
     /** It must be valid throughout whole lifetime of created allocator. */
@@ -1001,7 +1042,7 @@ typedef enum VmaMemoryUsage
     /** Memory will be used on device only, so fast access from the device is preferred.
     It usually means device-local GPU (video) memory.
     No need to be mappable on host.
-    It is roughly equivalent of D3D12_HEAP_TYPE_DEFAULT.
+    It is roughly equivalent of `D3D12_HEAP_TYPE_DEFAULT`.
 
     Usage:
     
@@ -1017,10 +1058,10 @@ typedef enum VmaMemoryUsage
     VMA_MEMORY_USAGE_GPU_ONLY = 1,
     /** Memory will be mappable on host.
     It usually means CPU (system) memory.
-    Resources created in this pool are still accessible to the device, but access to them can be slower.
+    Resources created in this pool may still be accessible to the device, but access to them can be slower.
     Guarantees to be `HOST_VISIBLE` and `HOST_COHERENT`.
     CPU read may be uncached.
-    It is roughly equivalent of D3D12_HEAP_TYPE_UPLOAD.
+    It is roughly equivalent of `D3D12_HEAP_TYPE_UPLOAD`.
 
     Usage: Staging copy of resources used as transfer source.
     */
@@ -1033,12 +1074,12 @@ typedef enum VmaMemoryUsage
     */
     VMA_MEMORY_USAGE_CPU_TO_GPU = 3,
     /** Memory mappable on host (guarantees to be `HOST_VISIBLE`) and cached.
-    It is roughly equivalent of D3D12_HEAP_TYPE_READBACK.
+    It is roughly equivalent of `D3D12_HEAP_TYPE_READBACK`.
 
     Usage:
 
     - Resources written by device, read by host - results of some computations, e.g. screen capture, average scene luminance for HDR tone mapping.
-    - Any resources read on host, e.g. CPU-side copy of vertex buffer used as source of transfer, but also used for collision detection.
+    - Any resources read or accessed randomly on host, e.g. CPU-side copy of vertex buffer used as source of transfer, but also used for collision detection.
     */
     VMA_MEMORY_USAGE_GPU_TO_CPU = 4,
     VMA_MEMORY_USAGE_MAX_ENUM = 0x7FFFFFFF
@@ -1207,7 +1248,7 @@ typedef struct VmaPoolCreateInfo {
     /** \brief Vulkan memory type index to allocate this pool from.
     */
     uint32_t memoryTypeIndex;
-    /** \brief Use combination of `VmaPoolCreateFlagBits`.
+    /** \brief Use combination of #VmaPoolCreateFlagBits.
     */
     VmaPoolCreateFlags flags;
     /** \brief Size of a single `VkDeviceMemory` block to be allocated as part of this pool, in bytes.
