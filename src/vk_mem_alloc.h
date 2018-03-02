@@ -362,6 +362,9 @@ allocation from video memory might have failed, so the library chose system memo
 
 You can detect this case and map such allocation to access its memory on CPU directly,
 instead of launching a transfer operation.
+In order to do that: inspect `allocInfo.memoryType`, call vmaGetMemoryTypeProperties(),
+and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag in properties of that memory type.
+
 You can even use `VMA_ALLOCATION_CREATE_MAPPED_BIT` flag while creating allocations
 that are not necessarily `HOST_VISIBLE` (e.g. using `VMA_MEMORY_USAGE_GPU_ONLY`).
 If the allocation ends up in memory type that is `HOST_VISIBLE`, it will be persistently mapped and you can use it directly.
