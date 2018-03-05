@@ -1839,6 +1839,11 @@ remove them if not needed.
     #include <malloc.h> // for aligned_alloc()
 #endif
 
+#ifndef VMA_NULL
+   // Value used as null pointer. Define it to e.g.: nullptr, NULL, 0, (void*)0.
+   #define VMA_NULL   nullptr
+#endif
+
 #if defined(__APPLE__)
 #include <cstdlib>
 void *aligned_alloc(size_t alignment, size_t size)
@@ -1873,11 +1878,6 @@ void *aligned_alloc(size_t alignment, size_t size)
    #else
        #define VMA_HEAVY_ASSERT(expr)
    #endif
-#endif
-
-#ifndef VMA_NULL
-   // Value used as null pointer. Define it to e.g.: nullptr, NULL, 0, (void*)0.
-   #define VMA_NULL   nullptr
 #endif
 
 #ifndef VMA_ALIGN_OF
