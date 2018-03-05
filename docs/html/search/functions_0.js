@@ -16,6 +16,8 @@ var searchData=
   ['vmadestroyimage',['vmaDestroyImage',['../vk__mem__alloc_8h.html#ae50d2cb3b4a3bfd4dd40987234e50e7e',1,'vk_mem_alloc.h']]],
   ['vmadestroypool',['vmaDestroyPool',['../vk__mem__alloc_8h.html#a5485779c8f1948238fc4e92232fa65e1',1,'vk_mem_alloc.h']]],
   ['vmafindmemorytypeindex',['vmaFindMemoryTypeIndex',['../vk__mem__alloc_8h.html#aef15a94b58fbcb0fe706d5720e84a74a',1,'vk_mem_alloc.h']]],
+  ['vmafindmemorytypeindexforbufferinfo',['vmaFindMemoryTypeIndexForBufferInfo',['../vk__mem__alloc_8h.html#ae790ab9ffaf7667fb8f62523e6897888',1,'vk_mem_alloc.h']]],
+  ['vmafindmemorytypeindexforimageinfo',['vmaFindMemoryTypeIndexForImageInfo',['../vk__mem__alloc_8h.html#a088da83d8eaf3ce9056d9ea0b981d472',1,'vk_mem_alloc.h']]],
   ['vmafreememory',['vmaFreeMemory',['../vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568',1,'vk_mem_alloc.h']]],
   ['vmafreestatsstring',['vmaFreeStatsString',['../vk__mem__alloc_8h.html#a3104eb30d8122c84dd8541063f145288',1,'vk_mem_alloc.h']]],
   ['vmagetallocationinfo',['vmaGetAllocationInfo',['../vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b',1,'vk_mem_alloc.h']]],
@@ -27,5 +29,6 @@ var searchData=
   ['vmamapmemory',['vmaMapMemory',['../vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069',1,'vk_mem_alloc.h']]],
   ['vmasetallocationuserdata',['vmaSetAllocationUserData',['../vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f',1,'vk_mem_alloc.h']]],
   ['vmasetcurrentframeindex',['vmaSetCurrentFrameIndex',['../vk__mem__alloc_8h.html#ade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
+  ['vmatouchallocation',['vmaTouchAllocation',['../vk__mem__alloc_8h.html#a108cb6dcb9ad32b81f0d61c08d1b4323',1,'vk_mem_alloc.h']]],
   ['vmaunmapmemory',['vmaUnmapMemory',['../vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45',1,'vk_mem_alloc.h']]]
 ];

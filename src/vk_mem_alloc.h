@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.0.0-alpha.7</b> (2018-02-09)
+<b>Version 2.0.0-alpha.8</b> (2018-03-05)
 
 Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -1247,6 +1247,8 @@ typedef struct VmaAllocationCreateInfo
 } VmaAllocationCreateInfo;
 
 /**
+\brief Helps to find memoryTypeIndex, given memoryTypeBits and VmaAllocationCreateInfo.
+
 This algorithm tries to find a memory type that:
 
 - Is allowed by memoryTypeBits.
@@ -1263,6 +1265,42 @@ resource, like image layout (OPTIMAL versus LINEAR) or mip level count.
 VkResult vmaFindMemoryTypeIndex(
     VmaAllocator allocator,
     uint32_t memoryTypeBits,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    uint32_t* pMemoryTypeIndex);
+
+/**
+\brief Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.
+
+It can be useful e.g. to determine value to be used as VmaPoolCreateInfo::memoryTypeIndex.
+It internally creates a temporary, dummy buffer that never has memory bound.
+It is just a convenience function, equivalent to calling:
+
+- `vkCreateBuffer`
+- `vkGetBufferMemoryRequirements`
+- `vmaFindMemoryTypeIndex`
+- `vkDestroyBuffer`
+*/
+VkResult vmaFindMemoryTypeIndexForBufferInfo(
+    VmaAllocator allocator,
+    const VkBufferCreateInfo* pBufferCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    uint32_t* pMemoryTypeIndex);
+
+/**
+\brief Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.
+
+It can be useful e.g. to determine value to be used as VmaPoolCreateInfo::memoryTypeIndex.
+It internally creates a temporary, dummy image that never has memory bound.
+It is just a convenience function, equivalent to calling:
+
+- `vkCreateImage`
+- `vkGetImageMemoryRequirements`
+- `vmaFindMemoryTypeIndex`
+- `vkDestroyImage`
+*/
+VkResult vmaFindMemoryTypeIndexForImageInfo(
+    VmaAllocator allocator,
+    const VkImageCreateInfo* pImageCreateInfo,
     const VmaAllocationCreateInfo* pAllocationCreateInfo,
     uint32_t* pMemoryTypeIndex);
 
@@ -1485,11 +1523,20 @@ void vmaFreeMemory(
     VmaAllocator allocator,
     VmaAllocation allocation);
 
-/// Returns current information about specified allocation.
+/** \brief Returns current information about specified allocation.
+
+It also "touches" allocation... TODO finish documentation.
+*/
 void vmaGetAllocationInfo(
     VmaAllocator allocator,
     VmaAllocation allocation,
     VmaAllocationInfo* pAllocationInfo);
+
+/** \brief TODO finish documentation...
+*/
+bool vmaTouchAllocation(
+    VmaAllocator allocator,
+    VmaAllocation allocation);
 
 /** \brief Sets pUserData in given allocation to new value.
 
@@ -4069,6 +4116,7 @@ struct VmaAllocator_T
         VmaDefragmentationStats* pDefragmentationStats);
 
     void GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationInfo* pAllocationInfo);
+    bool TouchAllocation(VmaAllocation hAllocation);
 
     VkResult CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool);
     void DestroyPool(VmaPool pool);
@@ -7742,6 +7790,38 @@ void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationI
     }
 }
 
+bool VmaAllocator_T::TouchAllocation(VmaAllocation hAllocation)
+{
+    // This is a stripped-down version of VmaAllocator_T::GetAllocationInfo.
+    if(hAllocation->CanBecomeLost())
+    {
+        uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
+        uint32_t localLastUseFrameIndex = hAllocation->GetLastUseFrameIndex();
+        for(;;)
+        {
+            if(localLastUseFrameIndex == VMA_FRAME_INDEX_LOST)
+            {
+                return false;
+            }
+            else if(localLastUseFrameIndex == localCurrFrameIndex)
+            {
+                return true;
+            }
+            else // Last use time earlier than current time.
+            {
+                if(hAllocation->CompareExchangeLastUseFrameIndex(localLastUseFrameIndex, localCurrFrameIndex))
+                {
+                    localLastUseFrameIndex = localCurrFrameIndex;
+                }
+            }
+        }
+    }
+    else
+    {
+        return true;
+    }
+}
+
 VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool)
 {
     VMA_DEBUG_LOG("  CreatePool: MemoryTypeIndex=%u", pCreateInfo->memoryTypeIndex);
@@ -8341,6 +8421,72 @@ VkResult vmaFindMemoryTypeIndex(
     return (*pMemoryTypeIndex != UINT32_MAX) ? VK_SUCCESS : VK_ERROR_FEATURE_NOT_PRESENT;
 }
 
+VkResult vmaFindMemoryTypeIndexForBufferInfo(
+    VmaAllocator allocator,
+    const VkBufferCreateInfo* pBufferCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    uint32_t* pMemoryTypeIndex)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE);
+    VMA_ASSERT(pBufferCreateInfo != VMA_NULL);
+    VMA_ASSERT(pAllocationCreateInfo != VMA_NULL);
+    VMA_ASSERT(pMemoryTypeIndex != VMA_NULL);
+
+    const VkDevice hDev = allocator->m_hDevice;
+    VkBuffer hBuffer = VK_NULL_HANDLE;
+    VkResult res = allocator->GetVulkanFunctions().vkCreateBuffer(
+        hDev, pBufferCreateInfo, allocator->GetAllocationCallbacks(), &hBuffer);
+    if(res == VK_SUCCESS)
+    {
+        VkMemoryRequirements memReq = {};
+        allocator->GetVulkanFunctions().vkGetBufferMemoryRequirements(
+            hDev, hBuffer, &memReq);
+
+        res = vmaFindMemoryTypeIndex(
+            allocator,
+            memReq.memoryTypeBits,
+            pAllocationCreateInfo,
+            pMemoryTypeIndex);
+
+        allocator->GetVulkanFunctions().vkDestroyBuffer(
+            hDev, hBuffer, allocator->GetAllocationCallbacks());
+    }
+    return res;
+}
+
+VkResult vmaFindMemoryTypeIndexForImageInfo(
+    VmaAllocator allocator,
+    const VkImageCreateInfo* pImageCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    uint32_t* pMemoryTypeIndex)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE);
+    VMA_ASSERT(pImageCreateInfo != VMA_NULL);
+    VMA_ASSERT(pAllocationCreateInfo != VMA_NULL);
+    VMA_ASSERT(pMemoryTypeIndex != VMA_NULL);
+
+    const VkDevice hDev = allocator->m_hDevice;
+    VkImage hImage = VK_NULL_HANDLE;
+    VkResult res = allocator->GetVulkanFunctions().vkCreateImage(
+        hDev, pImageCreateInfo, allocator->GetAllocationCallbacks(), &hImage);
+    if(res == VK_SUCCESS)
+    {
+        VkMemoryRequirements memReq = {};
+        allocator->GetVulkanFunctions().vkGetImageMemoryRequirements(
+            hDev, hImage, &memReq);
+
+        res = vmaFindMemoryTypeIndex(
+            allocator,
+            memReq.memoryTypeBits,
+            pAllocationCreateInfo,
+            pMemoryTypeIndex);
+
+        allocator->GetVulkanFunctions().vkDestroyImage(
+            hDev, hImage, allocator->GetAllocationCallbacks());
+    }
+    return res;
+}
+
 VkResult vmaCreatePool(
 	VmaAllocator allocator,
 	const VmaPoolCreateInfo* pCreateInfo,
@@ -8517,6 +8663,17 @@ void vmaGetAllocationInfo(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     allocator->GetAllocationInfo(allocation, pAllocationInfo);
+}
+
+bool vmaTouchAllocation(
+    VmaAllocator allocator,
+    VmaAllocation allocation)
+{
+    VMA_ASSERT(allocator && allocation);
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    return allocator->TouchAllocation(allocation);
 }
 
 void vmaSetAllocationUserData(

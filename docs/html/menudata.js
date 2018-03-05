@@ -37,7 +37,8 @@ var menudata={children:[
 {text:"All",url:"globals.html",children:[
 {text:"p",url:"globals.html#index_p"},
 {text:"v",url:"globals.html#index_v"}]},
-{text:"Functions",url:"globals_func.html"},
+{text:"Functions",url:"globals_func.html",children:[
+{text:"v",url:"globals_func.html#index_v"}]},
 {text:"Typedefs",url:"globals_type.html"},
 {text:"Enumerations",url:"globals_enum.html"},
 {text:"Enumerator",url:"globals_eval.html"},
