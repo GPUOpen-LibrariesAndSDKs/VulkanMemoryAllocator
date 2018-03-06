@@ -29,6 +29,6 @@ var searchData=
   ['vmamapmemory',['vmaMapMemory',['../vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069',1,'vk_mem_alloc.h']]],
   ['vmasetallocationuserdata',['vmaSetAllocationUserData',['../vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f',1,'vk_mem_alloc.h']]],
   ['vmasetcurrentframeindex',['vmaSetCurrentFrameIndex',['../vk__mem__alloc_8h.html#ade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
-  ['vmatouchallocation',['vmaTouchAllocation',['../vk__mem__alloc_8h.html#a108cb6dcb9ad32b81f0d61c08d1b4323',1,'vk_mem_alloc.h']]],
+  ['vmatouchallocation',['vmaTouchAllocation',['../vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a',1,'vk_mem_alloc.h']]],
   ['vmaunmapmemory',['vmaUnmapMemory',['../vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45',1,'vk_mem_alloc.h']]]
 ];

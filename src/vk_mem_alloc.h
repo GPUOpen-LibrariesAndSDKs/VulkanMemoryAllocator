@@ -1534,7 +1534,7 @@ void vmaGetAllocationInfo(
 
 /** \brief TODO finish documentation...
 */
-bool vmaTouchAllocation(
+VkBool32 vmaTouchAllocation(
     VmaAllocator allocator,
     VmaAllocation allocation);
 
@@ -8665,7 +8665,7 @@ void vmaGetAllocationInfo(
     allocator->GetAllocationInfo(allocation, pAllocationInfo);
 }
 
-bool vmaTouchAllocation(
+VkBool32 vmaTouchAllocation(
     VmaAllocator allocator,
     VmaAllocation allocation)
 {

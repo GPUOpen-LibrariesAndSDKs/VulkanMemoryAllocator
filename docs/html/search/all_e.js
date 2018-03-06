@@ -84,7 +84,7 @@ var searchData=
   ['vmasetcurrentframeindex',['vmaSetCurrentFrameIndex',['../vk__mem__alloc_8h.html#ade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
   ['vmastatinfo',['VmaStatInfo',['../struct_vma_stat_info.html',1,'VmaStatInfo'],['../vk__mem__alloc_8h.html#a810b009a788ee8aac72a25b42ffbe31c',1,'VmaStatInfo():&#160;vk_mem_alloc.h']]],
   ['vmastats',['VmaStats',['../struct_vma_stats.html',1,'VmaStats'],['../vk__mem__alloc_8h.html#a732be855fb4a7c248e6853d928a729af',1,'VmaStats():&#160;vk_mem_alloc.h']]],
-  ['vmatouchallocation',['vmaTouchAllocation',['../vk__mem__alloc_8h.html#a108cb6dcb9ad32b81f0d61c08d1b4323',1,'vk_mem_alloc.h']]],
+  ['vmatouchallocation',['vmaTouchAllocation',['../vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a',1,'vk_mem_alloc.h']]],
   ['vmaunmapmemory',['vmaUnmapMemory',['../vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45',1,'vk_mem_alloc.h']]],
   ['vmavulkanfunctions',['VmaVulkanFunctions',['../struct_vma_vulkan_functions.html',1,'VmaVulkanFunctions'],['../vk__mem__alloc_8h.html#a97064a1a271b0061ebfc3a079862d0c5',1,'VmaVulkanFunctions():&#160;vk_mem_alloc.h']]]
 ];
