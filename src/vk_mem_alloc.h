@@ -1891,7 +1891,7 @@ remove them if not needed.
    #define VMA_NULL   nullptr
 #endif
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__ANDROID__)
 #include <cstdlib>
 void *aligned_alloc(size_t alignment, size_t size)
 {
