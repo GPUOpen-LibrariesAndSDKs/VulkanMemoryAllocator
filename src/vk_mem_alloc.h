@@ -1565,16 +1565,40 @@ void vmaFreeMemory(
     VmaAllocator allocator,
     VmaAllocation allocation);
 
-/** \brief Returns current information about specified allocation.
+/** \brief Returns current information about specified allocation and atomically marks it as used in current frame.
 
-It also "touches" allocation... TODO finish documentation.
+Current paramters of given allocation are returned in `pAllocationInfo`.
+
+This function also atomically "touches" allocation - marks it as used in current frame,
+just like vmaTouchAllocation().
+If the allocation is in lost state, `pAllocationInfo->deviceMemory == VK_NULL_HANDLE`.
+
+Although this function uses atomics and doesn't lock any mutex, so it should be quite efficient,
+you can avoid calling it too often.
+
+- You can retrieve same VmaAllocationInfo structure while creating your resource, from function
+  vmaCreateBuffer(), vmaCreateImage(). You can remember it if you are sure parameters don't change
+  (e.g. due to defragmentation or allocation becoming lost).
+- If you just want to check if allocation is not lost, vmaTouchAllocation() will work faster.
 */
 void vmaGetAllocationInfo(
     VmaAllocator allocator,
     VmaAllocation allocation,
     VmaAllocationInfo* pAllocationInfo);
 
-/** \brief TODO finish documentation...
+/** \brief Returns `VK_TRUE` if allocation is not lost and atomically marks it as used in current frame.
+
+If the allocation has been created with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag,
+this function returns `VK_TRUE` if it's not in lost state, so it can still be used.
+It then also atomically "touches" the allocation - marks it as used in current frame,
+so that you can be sure it won't become lost in current frame or next `frameInUseCount` frames.
+
+If the allocation is in lost state, the function returns `VK_FALSE`.
+Memory of such allocation, as well as buffer or image bound to it, should not be used.
+Lost allocation and the buffer/image still need to be destroyed.
+
+If the allocation has been created without #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag,
+this function always returns `VK_TRUE`.
 */
 VkBool32 vmaTouchAllocation(
     VmaAllocator allocator,
