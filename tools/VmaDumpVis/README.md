@@ -1,6 +1,6 @@
 # VMA Dump Vis
 
-Vulkan Memory Allocator Dump Visualization. It is an auxiliary tool that can visualize internal state of [Vulkan Memory Allocator](../README.md) library on a picture. It is a Python script that must be launched from command line with appropriate parameters.
+Vulkan Memory Allocator Dump Visualization. It is an auxiliary tool that can visualize internal state of [Vulkan Memory Allocator](../../README.md) library on a picture. It is a Python script that must be launched from command line with appropriate parameters.
 
 ## Requirements
 
