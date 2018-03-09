@@ -61,18 +61,30 @@ See also:
 
 \page quick_start Quick start
 
-\section project_setup Project setup
+\section quick_start_project_setup Project setup
 
-In your project code:
+Vulkan Memory Allocator comes in form of a single header file.
+You don't need to build it as a separate library project.
+You can add this file directly to your project and submit it to code repository next to your other source files.
 
--# Include "vk_mem_alloc.h" file wherever you want to use the library.
--# In exacly one C++ file define following macro before include to build library
-   implementation.
+"Single header" doesn't mean that everything is contained in C/C++ declarations,
+like it tends to be in case of inline functions or C++ templates.
+It means that implementation is bundled with interface in a single file and needs to be extracted using preprocessor macro.
+If you don't do it properly, you will get linker errors.
+
+To do it properly:
+
+-# Include "vk_mem_alloc.h" file in each CPP file where you want to use the library.
+   This includes declarations of all members of the library.
+-# In exacly one CPP file define following macro before this include.
+   It enables also internal definitions.
 
 \code
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 \endcode
+
+It may be a good idea to create dedicated CPP file just for this purpose.
 
 \section initialization Initialization
 
@@ -364,6 +376,36 @@ You can detect this case and map such allocation to access its memory on CPU dir
 instead of launching a transfer operation.
 In order to do that: inspect `allocInfo.memoryType`, call vmaGetMemoryTypeProperties(),
 and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag in properties of that memory type.
+
+\code
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = sizeof(ConstantBuffer);
+bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+
+VkMemoryPropertyFlags memFlags;
+vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+{
+    // Allocation ended up in mappable memory. You can map it and access it directly.
+    void* mappedData;
+    vmaMapMemory(allocator, alloc, &mappedData);
+    memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
+    vmaUnmapMemory(allocator, alloc);
+}
+else
+{
+    // Allocation ended up in non-mappable memory.
+    // You need to create CPU-side buffer in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
+}
+\endcode
 
 You can even use #VMA_ALLOCATION_CREATE_MAPPED_BIT flag while creating allocations
 that are not necessarily `HOST_VISIBLE` (e.g. using #VMA_MEMORY_USAGE_GPU_ONLY).

@@ -66,14 +66,17 @@ $(function() {
 <div class="title">Quick start </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h1><a class="anchor" id="project_setup"></a>
+<div class="textblock"><h1><a class="anchor" id="quick_start_project_setup"></a>
 Project setup</h1>
-<p>In your project code:</p>
+<p>Vulkan Memory Allocator comes in form of a single header file. You don't need to build it as a separate library project. You can add this file directly to your project and submit it to code repository next to your other source files.</p>
+<p>"Single header" doesn't mean that everything is contained in C/C++ declarations, like it tends to be in case of inline functions or C++ templates. It means that implementation is bundled with interface in a single file and needs to be extracted using preprocessor macro. If you don't do it properly, you will get linker errors.</p>
+<p>To do it properly:</p>
 <ol type="1">
-<li>Include "vk_mem_alloc.h" file wherever you want to use the library.</li>
-<li>In exacly one C++ file define following macro before include to build library implementation.</li>
+<li>Include "vk_mem_alloc.h" file in each CPP file where you want to use the library. This includes declarations of all members of the library.</li>
+<li>In exacly one CPP file define following macro before this include. It enables also internal definitions.</li>
 </ol>
-<div class="fragment"><div class="line"><span class="preprocessor">#define VMA_IMPLEMENTATION</span></div><div class="line"><span class="preprocessor">#include &quot;vk_mem_alloc.h&quot;</span></div></div><!-- fragment --><h1><a class="anchor" id="initialization"></a>
+<div class="fragment"><div class="line"><span class="preprocessor">#define VMA_IMPLEMENTATION</span></div><div class="line"><span class="preprocessor">#include &quot;vk_mem_alloc.h&quot;</span></div></div><!-- fragment --><p>It may be a good idea to create dedicated CPP file just for this purpose.</p>
+<h1><a class="anchor" id="initialization"></a>
 Initialization</h1>
 <p>At program startup:</p>
 <ol type="1">
