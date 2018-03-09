@@ -499,36 +499,35 @@ vmaDestroyPool(allocator, pool);
 \section custom_memory_pools_MemTypeIndex Choosing memory type index
 
 When creating a pool, you must explicitly specify memory type index.
-To find the one suitable for your buffers or images, you can use code similar to the following:
+To find the one suitable for your buffers or images, you can use helper functions
+vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo().
+You need to provide structures with example parameters of buffers or images
+that you are going to create in that pool.
 
 \code
-VkBufferCreateInfo dummyBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-dummyBufCreateInfo.size = 1024; // Whatever.
-dummyBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change if needed.
-
-VkBuffer dummyBuf;
-vkCreateBuffer(device, &dummyBufCreateInfo, nullptr, &dummyBuf);
-
-VkMemoryRequirements memReq;
-vkGetBufferMemoryRequirements(device, dummyBuf, &memReq);
+VkBufferCreateInfo exampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+exampleBufCreateInfo.size = 1024; // Whatever.
+exampleBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change if needed.
 
 VmaAllocationCreateInfo allocCreateInfo = {};
 allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Change if needed.
 
 uint32_t memTypeIndex;
-vmaFindMemoryTypeIndex(allocator, memReq.memoryTypeBits, &allocCreateInfo, &memTypeIndex);
-
-vkDestroyBuffer(device, dummyBuf, nullptr);
+vmaFindMemoryTypeIndexForBufferInfo(allocator, &exampleBufCreateInfo, &allocCreateInfo, &memTypeIndex);
 
 VmaPoolCreateInfo poolCreateInfo = {};
 poolCreateInfo.memoryTypeIndex = memTypeIndex;
 // ...
 \endcode
 
-Dummy buffer is needed to query driver for `memReq.memoryTypeBits`.
-Memory is never allocated for this buffer.
-You should fill structures `dummyBufCreateInfo` and `allocCreateInfo` with the same parameters
-as you are going to use for buffers created in your pool.
+When creating buffers/images allocated in that pool, provide following parameters:
+
+- `VkBufferCreateInfo`: Prefer to pass same parameters as above.
+  Otherwise you risk creating resources in a memory type that is not suitable for them, which may result in undefined behavior.
+  Using different `VK_BUFFER_USAGE_` flags may work, but you shouldn't create images in a pool intended for buffers
+  or the other way around.
+- VmaAllocationCreateInfo: You don't need to pass same parameters. Fill only `pool` member.
+  Other members are ignored anyway.
 
 
 \page defragmentation Defragmentation
