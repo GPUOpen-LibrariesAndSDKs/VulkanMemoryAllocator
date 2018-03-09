@@ -47,6 +47,7 @@ Additional features:
 - Statistics: Obtain detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.
 - Debug annotations: Associate string with name or opaque pointer to your own data with every allocation.
 - JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations and gaps between them.
+- Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
 
 # Prequisites
 
@@ -94,5 +95,5 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 # See also
 
 - **[Awesome Vulkan](https://github.com/vinjn/awesome-vulkan)** - a curated list of awesome Vulkan libraries, debuggers and resources.
-- **[PyVMA](https://github.com/realitix/pyvma)** - Python wrapper for this library. Author: Jean-Sébastien B. (@realitix). License: Apache 2.0.
+- **[PyVMA](https://github.com/realitix/pyvma)** - Python wrapper for this library. Author: Jean-SÃ©bastien B. (@realitix). License: Apache 2.0.
 - **[vulkan-malloc](https://github.com/dylanede/vulkan-malloc)** - Vulkan memory allocation library for Rust. Based on version 1 of this library. Author: Dylan Ede (@dylanede). License: MIT / Apache 2.0.
