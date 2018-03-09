@@ -86,7 +86,7 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:ad8006fb803185c0a699d30f3e9a865ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimum number of blocks to be always allocated in this pool, even if they stay empty.  <a href="#ad8006fb803185c0a699d30f3e9a865ae">More...</a><br /></td></tr>
 <tr class="separator:ad8006fb803185c0a699d30f3e9a865ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae41142f2834fcdc82baa4883c187b75c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c">maxBlockCount</a></td></tr>
-<tr class="memdesc:ae41142f2834fcdc82baa4883c187b75c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of blocks that can be allocated in this pool.  <a href="#ae41142f2834fcdc82baa4883c187b75c">More...</a><br /></td></tr>
+<tr class="memdesc:ae41142f2834fcdc82baa4883c187b75c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of blocks that can be allocated in this pool. Optional.  <a href="#ae41142f2834fcdc82baa4883c187b75c">More...</a><br /></td></tr>
 <tr class="separator:ae41142f2834fcdc82baa4883c187b75c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9437e43ffbb644dbbf7fc4e50cfad6aa"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#a9437e43ffbb644dbbf7fc4e50cfad6aa">frameInUseCount</a></td></tr>
 <tr class="memdesc:a9437e43ffbb644dbbf7fc4e50cfad6aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of additional frames that are in use at the same time as current frame.  <a href="#a9437e43ffbb644dbbf7fc4e50cfad6aa">More...</a><br /></td></tr>
@@ -141,7 +141,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Maximum number of additional frames that are in use at the same time as current frame. </p>
-<p>This value is used only when you make allocations with <code>VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</code> flag. Such allocation cannot become lost if allocation.lastUseFrameIndex &gt;= allocator.currentFrameIndex - frameInUseCount.</p>
+<p>This value is used only when you make allocations with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag. Such allocation cannot become lost if allocation.lastUseFrameIndex &gt;= allocator.currentFrameIndex - frameInUseCount.</p>
 <p>For example, if you double-buffer your command buffers, so resources used for rendering in previous frame may still be in use by the GPU at the moment you allocate resources needed for the current frame, set this value to 1.</p>
 <p>If you want to allow any allocations other than used in the current frame to become lost, set this value to 0. </p>
 
@@ -159,7 +159,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Maximum number of blocks that can be allocated in this pool. </p>
+<p>Maximum number of blocks that can be allocated in this pool. Optional. </p>
 <p>Optional. Set to 0 to use <code>SIZE_MAX</code>, which means no limit.</p>
 <p>Set to same value as minBlockCount to have fixed amount of memory allocated throuout whole lifetime of this pool. </p>
 

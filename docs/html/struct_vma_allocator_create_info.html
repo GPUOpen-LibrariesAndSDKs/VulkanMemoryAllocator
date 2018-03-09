@@ -83,19 +83,19 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:ad924ddd77b04039c88d0c09b0ffcd500"><td class="mdescLeft">&#160;</td><td class="mdescRight">Vulkan device.  <a href="#ad924ddd77b04039c88d0c09b0ffcd500">More...</a><br /></td></tr>
 <tr class="separator:ad924ddd77b04039c88d0c09b0ffcd500"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e4714298e3121cdd8b214a1ae7a637a"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a">preferredLargeHeapBlockSize</a></td></tr>
-<tr class="memdesc:a8e4714298e3121cdd8b214a1ae7a637a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Preferred size of a single <code>VkDeviceMemory</code> block to be allocated from large heaps &gt; 1 GiB.  <a href="#a8e4714298e3121cdd8b214a1ae7a637a">More...</a><br /></td></tr>
+<tr class="memdesc:a8e4714298e3121cdd8b214a1ae7a637a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Preferred size of a single <code>VkDeviceMemory</code> block to be allocated from large heaps &gt; 1 GiB. Optional.  <a href="#a8e4714298e3121cdd8b214a1ae7a637a">More...</a><br /></td></tr>
 <tr class="separator:a8e4714298e3121cdd8b214a1ae7a637a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e409087e3be55400d0e4ccbe43c608d"><td class="memItemLeft" align="right" valign="top">const VkAllocationCallbacks *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d">pAllocationCallbacks</a></td></tr>
-<tr class="memdesc:a6e409087e3be55400d0e4ccbe43c608d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom CPU memory allocation callbacks.  <a href="#a6e409087e3be55400d0e4ccbe43c608d">More...</a><br /></td></tr>
+<tr class="memdesc:a6e409087e3be55400d0e4ccbe43c608d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom CPU memory allocation callbacks. Optional.  <a href="#a6e409087e3be55400d0e4ccbe43c608d">More...</a><br /></td></tr>
 <tr class="separator:a6e409087e3be55400d0e4ccbe43c608d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af1380969b5e1ea4c3184a877892d260e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e">pDeviceMemoryCallbacks</a></td></tr>
-<tr class="memdesc:af1380969b5e1ea4c3184a877892d260e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Informative callbacks for vkAllocateMemory, vkFreeMemory.  <a href="#af1380969b5e1ea4c3184a877892d260e">More...</a><br /></td></tr>
+<tr class="memdesc:af1380969b5e1ea4c3184a877892d260e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Informative callbacks for <code>vkAllocateMemory</code>, <code>vkFreeMemory</code>. Optional.  <a href="#af1380969b5e1ea4c3184a877892d260e">More...</a><br /></td></tr>
 <tr class="separator:af1380969b5e1ea4c3184a877892d260e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a21ea188dd212b8171cb9ecbed4a2a3a7"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a21ea188dd212b8171cb9ecbed4a2a3a7">frameInUseCount</a></td></tr>
 <tr class="memdesc:a21ea188dd212b8171cb9ecbed4a2a3a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of additional frames that are in use at the same time as current frame.  <a href="#a21ea188dd212b8171cb9ecbed4a2a3a7">More...</a><br /></td></tr>
 <tr class="separator:a21ea188dd212b8171cb9ecbed4a2a3a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="memItemLeft" align="right" valign="top">const VkDeviceSize *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a31c192aa6cbffa33279f6d9f0c47c44b">pHeapSizeLimit</a></td></tr>
-<tr class="memdesc:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Either NULL or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap.  <a href="#a31c192aa6cbffa33279f6d9f0c47c44b">More...</a><br /></td></tr>
+<tr class="memdesc:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Either null or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap.  <a href="#a31c192aa6cbffa33279f6d9f0c47c44b">More...</a><br /></td></tr>
 <tr class="separator:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3dc197be3227da7338b1643f70db36bd"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd">pVulkanFunctions</a></td></tr>
 <tr class="memdesc:a3dc197be3227da7338b1643f70db36bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to Vulkan functions. Can be null if you leave define <code>VMA_STATIC_VULKAN_FUNCTIONS 1</code>.  <a href="#a3dc197be3227da7338b1643f70db36bd">More...</a><br /></td></tr>
@@ -168,7 +168,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Custom CPU memory allocation callbacks. </p>
+<p>Custom CPU memory allocation callbacks. Optional. </p>
 <p>Optional, can be null. When specified, will also be used for all CPU-side memory allocations. </p>
 
 </div>
@@ -185,7 +185,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Informative callbacks for vkAllocateMemory, vkFreeMemory. </p>
+<p>Informative callbacks for <code>vkAllocateMemory</code>, <code>vkFreeMemory</code>. Optional. </p>
 <p>Optional, can be null. </p>
 
 </div>
@@ -202,7 +202,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Either NULL or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap. </p>
+<p>Either null or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap. </p>
 <p>If not NULL, it must be a pointer to an array of <code>VkPhysicalDeviceMemoryProperties::memoryHeapCount</code> elements, defining limit on maximum number of bytes that can be allocated out of particular Vulkan memory heap.</p>
 <p>Any of the elements may be equal to <code>VK_WHOLE_SIZE</code>, which means no limit on that heap. This is also the default in case of <code>pHeapSizeLimit</code> = NULL.</p>
 <p>If there is a limit defined for a heap:</p>
@@ -243,7 +243,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Preferred size of a single <code>VkDeviceMemory</code> block to be allocated from large heaps &gt; 1 GiB. </p>
+<p>Preferred size of a single <code>VkDeviceMemory</code> block to be allocated from large heaps &gt; 1 GiB. Optional. </p>
 <p>Set to 0 to use default, which is currently 256 MiB. </p>
 
 </div>

@@ -175,7 +175,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
 </div><div class="memdoc">
 
 <p>Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
-<p>If <code>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</code> is used, it must be either null or pointer to a null-terminated string. The string will be then copied to internal buffer, so it doesn't need to be valid after allocation call. </p>
+<p>If <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520">VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</a> is used, it must be either null or pointer to a null-terminated string. The string will be then copied to internal buffer, so it doesn't need to be valid after allocation call. </p>
 
 </div>
 </div>
@@ -210,7 +210,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
 </div><div class="memdoc">
 
 <p>Intended usage of memory. </p>
-<p>You can leave <code>VMA_MEMORY_USAGE_UNKNOWN</code> if you specify memory requirements in other way. <br />
+<p>You can leave <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd">VMA_MEMORY_USAGE_UNKNOWN</a> if you specify memory requirements in other way. <br />
 If <code>pool</code> is not null, this member is ignored. </p>
 
 </div>

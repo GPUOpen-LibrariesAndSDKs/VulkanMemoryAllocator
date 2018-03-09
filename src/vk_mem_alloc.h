@@ -208,7 +208,7 @@ If you inspected memory types available on the physical device and you have
 a preference for memory types that you want to use, you can fill member
 VmaAllocationCreateInfo::memoryTypeBits. It is a bit mask, where each bit set
 means that a memory type with that index is allowed to be used for the
-allocation. Special value 0, just like UINT32_MAX, means there are no
+allocation. Special value 0, just like `UINT32_MAX`, means there are no
 restrictions to memory type index.
 
 Please note that this member is NOT just a memory type index.
@@ -285,7 +285,7 @@ vmaUnmapMemory(allocator, constantBufferAllocation);
 Kepping your memory persistently mapped is generally OK in Vulkan.
 You don't need to unmap it before using its data on the GPU.
 The library provides a special feature designed for that:
-Allocations made with `VMA_ALLOCATION_CREATE_MAPPED_BIT` flag set in
+Allocations made with #VMA_ALLOCATION_CREATE_MAPPED_BIT flag set in
 VmaAllocationCreateInfo::flags stay mapped all the time,
 so you can just access CPU pointer to it any time
 without a need to call any "map" or "unmap" function.
@@ -314,7 +314,7 @@ There are some exceptions though, when you should consider mapping memory only f
 - When operating system is Windows 7 or 8.x (Windows 10 is not affected because it uses WDDM2),
   device is discrete AMD GPU,
   and memory type is the special 256 MiB pool of `DEVICE_LOCAL + HOST_VISIBLE` memory
-  (selected when you use `VMA_MEMORY_USAGE_CPU_TO_GPU`),
+  (selected when you use #VMA_MEMORY_USAGE_CPU_TO_GPU),
   then whenever a memory block allocated from this memory type stays mapped
   for the time of any call to `vkQueueSubmit()` or `vkQueuePresentKHR()`, this
   block is migrated by WDDM to system RAM, which degrades performance. It doesn't
@@ -347,7 +347,7 @@ if((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
 }
 \endcode
 
-Please note that memory allocated with `VMA_MEMORY_USAGE_CPU_ONLY` is guaranteed to be host coherent.
+Please note that memory allocated with #VMA_MEMORY_USAGE_CPU_ONLY is guaranteed to be host coherent.
 
 Also, Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA)
 currently provide `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` flag on all memory types that are
@@ -365,8 +365,8 @@ instead of launching a transfer operation.
 In order to do that: inspect `allocInfo.memoryType`, call vmaGetMemoryTypeProperties(),
 and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag in properties of that memory type.
 
-You can even use `VMA_ALLOCATION_CREATE_MAPPED_BIT` flag while creating allocations
-that are not necessarily `HOST_VISIBLE` (e.g. using `VMA_MEMORY_USAGE_GPU_ONLY`).
+You can even use #VMA_ALLOCATION_CREATE_MAPPED_BIT flag while creating allocations
+that are not necessarily `HOST_VISIBLE` (e.g. using #VMA_MEMORY_USAGE_GPU_ONLY).
 If the allocation ends up in memory type that is `HOST_VISIBLE`, it will be persistently mapped and you can use it directly.
 If not, the flag is just ignored.
 Example:
@@ -394,7 +394,7 @@ if(allocInfo.pUserData != nullptr)
 else
 {
     // Allocation ended up in non-mappable memory.
-    // You need to create CPU-side copy in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
+    // You need to create CPU-side buffer in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
 }
 \endcode
 
@@ -521,7 +521,7 @@ for the new ones, effectively using VRAM (or a cartain memory pool) as a form of
 cache. Vulkan Memory Allocator can help you with that by supporting a concept of
 "lost allocations".
 
-To create an allocation that can become lost, include `VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT`
+To create an allocation that can become lost, include #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT
 flag in VmaAllocationCreateInfo::flags. Before using a buffer or image bound to
 such allocation in every new frame, you need to query it if it's not lost. To
 check it: call vmaGetAllocationInfo() and see if VmaAllocationInfo::deviceMemory
@@ -530,16 +530,16 @@ buffer/image bound to it. You mustn't forget to destroy this allocation and this
 buffer/image.
 
 To create an allocation that can make some other allocations lost to make room
-for it, use `VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT` flag. You will
-usually use both flags `VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT` and
-`VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT` at the same time.
+for it, use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag. You will
+usually use both flags #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT and
+#VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT at the same time.
 
 Warning! Current implementation uses quite naive, brute force algorithm,
-which can make allocation calls that use `VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT`
+which can make allocation calls that use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT
 flag quite slow. A new, more optimal algorithm and data structure to speed this
 up is planned for the future.
 
-<b>When interleaving creation of new allocations with usage of existing ones,
+<b>Q: When interleaving creation of new allocations with usage of existing ones,
 how do you make sure that an allocation won't become lost while it's used in the
 current frame?</b>
 
@@ -549,7 +549,7 @@ atomically marks it as used in the current frame, which makes it impossible to
 become lost in that frame. It uses lockless algorithm, so it works fast and
 doesn't involve locking any internal mutex.
 
-<b>What if my allocation may still be in use by the GPU when it's rendering a
+<b>Q: What if my allocation may still be in use by the GPU when it's rendering a
 previous frame while I already submit new frame on the CPU?</b>
 
 You can make sure that allocations "touched" by vmaGetAllocationInfo() will not
@@ -557,7 +557,7 @@ become lost for a number of additional frames back from the current one by
 specifying this number as VmaAllocatorCreateInfo::frameInUseCount (for default
 memory pool) and VmaPoolCreateInfo::frameInUseCount (for custom pool).
 
-<b>How do you inform the library when new frame starts?</b>
+<b>Q: How do you inform the library when new frame starts?</b>
 
 You need to call function vmaSetCurrentFrameIndex().
 
@@ -615,11 +615,11 @@ The library uses following algorithm for allocation, in order:
 -# Try to find free range of memory in existing blocks.
 -# If failed, try to create a new block of `VkDeviceMemory`, with preferred block size.
 -# If failed, try to create such block with size/2 and size/4.
--# If failed and `VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT` flag was
+-# If failed and #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag was
    specified, try to find space in existing blocks, possilby making some other
    allocations lost.
 -# If failed, try to allocate separate `VkDeviceMemory` for this allocation,
-   just like when you use `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT`.
+   just like when you use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
 -# If failed, choose other memory type that meets the requirements specified in
    VmaAllocationCreateInfo and go to point 1.
 -# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
@@ -667,7 +667,7 @@ vmaBuildStatsString(), in hexadecimal form.
 
 There is alternative mode available where `pUserData` pointer is used to point to
 a null-terminated string, giving a name to the allocation. To use this mode,
-set `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` flag in VmaAllocationCreateInfo::flags.
+set #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT flag in VmaAllocationCreateInfo::flags.
 Then `pUserData` passed as VmaAllocationCreateInfo::pUserData or argument to
 vmaSetAllocationUserData() must be either null or pointer to a null-terminated string.
 The library creates internal copy of the string, so the pointer you pass doesn't need
@@ -764,7 +764,7 @@ If yes, enable them (fill `VkDeviceCreateInfo::ppEnabledExtensionNames`).
 
 If you enabled these extensions:
 
-2 . Use `VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT` flag when creating
+2 . Use #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag when creating
 your `VmaAllocator` to inform the library that you enabled required extensions
 and you want the library to use them.
 
@@ -797,11 +797,12 @@ To learn more about this extension, see:
 \page thread_safety Thread safety
 
 - The library has no global state, so separate `VmaAllocator` objects can be used
-  independently. 
+  independently.
+  There should be no need to create multiple such objects though - one per `VkDevice` is enough.
 - By default, all calls to functions that take `VmaAllocator` as first parameter
   are safe to call from multiple threads simultaneously because they are
   synchronized internally when needed.
-- When the allocator is created with `VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT`
+- When the allocator is created with #VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
   flag, calls to functions that take such `VmaAllocator` object must be
   synchronized externally.
 - Access to a `VmaAllocation` object must be externally synchronized. For example,
@@ -865,7 +866,7 @@ typedef enum VmaAllocatorCreateFlagBits {
 
     Using this extenion will automatically allocate dedicated blocks of memory for
     some buffers and images instead of suballocating place for them out of bigger
-    memory blocks (as if you explicitly used VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+    memory blocks (as if you explicitly used #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
     flag) when it is recommended by the driver. It may improve performance on some
     GPUs.
 
@@ -922,13 +923,13 @@ typedef struct VmaAllocatorCreateInfo
     /// Vulkan device.
     /** It must be valid throughout whole lifetime of created allocator. */
     VkDevice device;
-    /// Preferred size of a single `VkDeviceMemory` block to be allocated from large heaps > 1 GiB.
+    /// Preferred size of a single `VkDeviceMemory` block to be allocated from large heaps > 1 GiB. Optional.
     /** Set to 0 to use default, which is currently 256 MiB. */
     VkDeviceSize preferredLargeHeapBlockSize;
-    /// Custom CPU memory allocation callbacks.
+    /// Custom CPU memory allocation callbacks. Optional.
     /** Optional, can be null. When specified, will also be used for all CPU-side memory allocations. */
     const VkAllocationCallbacks* pAllocationCallbacks;
-    /// Informative callbacks for vkAllocateMemory, vkFreeMemory.
+    /// Informative callbacks for `vkAllocateMemory`, `vkFreeMemory`. Optional.
     /** Optional, can be null. */
     const VmaDeviceMemoryCallbacks* pDeviceMemoryCallbacks;
     /** \brief Maximum number of additional frames that are in use at the same time as current frame.
@@ -945,7 +946,7 @@ typedef struct VmaAllocatorCreateInfo
     become lost, set this value to 0.
     */
     uint32_t frameInUseCount;
-    /** \brief Either NULL or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap.
+    /** \brief Either null or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap.
 
     If not NULL, it must be a pointer to an array of
     `VkPhysicalDeviceMemoryProperties::memoryHeapCount` elements, defining limit on
@@ -1022,8 +1023,8 @@ void vmaGetMemoryTypeProperties(
 /** \brief Sets index of the current frame.
 
 This function must be used if you make allocations with
-`VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT` and
-`VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT` flags to inform the allocator
+#VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT and
+#VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flags to inform the allocator
 when a new frame begins. Allocations queried using vmaGetAllocationInfo() cannot
 become lost in the current frame.
 */
@@ -1102,7 +1103,7 @@ typedef enum VmaMemoryUsage
 
     Allocation may still end up in `HOST_VISIBLE` memory on some implementations.
     In such case, you are free to map it.
-    You can use `VMA_ALLOCATION_CREATE_MAPPED_BIT` with this usage type.
+    You can use #VMA_ALLOCATION_CREATE_MAPPED_BIT with this usage type.
     */
     VMA_MEMORY_USAGE_GPU_ONLY = 1,
     /** Memory will be mappable on host.
@@ -1154,8 +1155,8 @@ typedef enum VmaAllocationCreateFlagBits {
     If new allocation cannot be placed in any of the existing blocks, allocation
     fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY` error.
     
-    You should not use `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT` and
-    `VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT` at the same time. It makes no sense.
+    You should not use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT and
+    #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT at the same time. It makes no sense.
     
     If VmaAllocationCreateInfo::pool is not null, this flag is implied and ignored. */
     VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT = 0x00000002,
@@ -1169,11 +1170,11 @@ typedef enum VmaAllocationCreateFlagBits {
     (`DEVICE_LOCAL`) and still want to map it directly if possible on platforms that
     support it (e.g. Intel GPU).
 
-    You should not use this flag together with `VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT`.
+    You should not use this flag together with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT.
     */
     VMA_ALLOCATION_CREATE_MAPPED_BIT = 0x00000004,
     /** Allocation created with this flag can become lost as a result of another
-    allocation with `VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT` flag, so you
+    allocation with #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag, so you
     must check it before use.
 
     To check if allocation is not lost, call vmaGetAllocationInfo() and check if
@@ -1182,11 +1183,11 @@ typedef enum VmaAllocationCreateFlagBits {
     For details about supporting lost allocations, see Lost Allocations
     chapter of User Guide on Main Page.
 
-    You should not use this flag together with `VMA_ALLOCATION_CREATE_MAPPED_BIT`.
+    You should not use this flag together with #VMA_ALLOCATION_CREATE_MAPPED_BIT.
     */
     VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT = 0x00000008,
     /** While creating allocation using this flag, other allocations that were
-    created with flag `VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT` can become lost.
+    created with flag #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT can become lost.
 
     For details about supporting lost allocations, see Lost Allocations
     chapter of User Guide on Main Page.
@@ -1194,7 +1195,7 @@ typedef enum VmaAllocationCreateFlagBits {
     VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT = 0x00000010,
     /** Set this flag to treat VmaAllocationCreateInfo::pUserData as pointer to a
     null-terminated string. Instead of copying pointer value, a local copy of the
-    string is made and stored in allocation's pUserData. The string is automatically
+    string is made and stored in allocation's `pUserData`. The string is automatically
     freed together with the allocation. It is also used in vmaBuildStatsString().
     */
     VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT = 0x00000020,
@@ -1209,7 +1210,7 @@ typedef struct VmaAllocationCreateInfo
     VmaAllocationCreateFlags flags;
     /** \brief Intended usage of memory.
     
-    You can leave `VMA_MEMORY_USAGE_UNKNOWN` if you specify memory requirements in other way. \n
+    You can leave #VMA_MEMORY_USAGE_UNKNOWN if you specify memory requirements in other way. \n
     If `pool` is not null, this member is ignored.
     */
     VmaMemoryUsage usage;
@@ -1239,7 +1240,7 @@ typedef struct VmaAllocationCreateInfo
     VmaPool pool;
     /** \brief Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo::pUserData and changed using vmaSetAllocationUserData().
     
-    If `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` is used, it must be either
+    If #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is used, it must be either
     null or pointer to a null-terminated string. The string will be then copied to
     internal buffer, so it doesn't need to be valid after allocation call.
     */
@@ -1348,7 +1349,7 @@ typedef struct VmaPoolCreateInfo {
     Set to 0 to have no preallocated blocks and let the pool be completely empty.
     */
     size_t minBlockCount;
-    /** \brief Maximum number of blocks that can be allocated in this pool.
+    /** \brief Maximum number of blocks that can be allocated in this pool. Optional.
 
     Optional. Set to 0 to use `SIZE_MAX`, which means no limit.
     
@@ -1359,7 +1360,7 @@ typedef struct VmaPoolCreateInfo {
     /** \brief Maximum number of additional frames that are in use at the same time as current frame.
 
     This value is used only when you make allocations with
-    `VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT` flag. Such allocation cannot become
+    #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag. Such allocation cannot become
     lost if allocation.lastUseFrameIndex >= allocator.currentFrameIndex - frameInUseCount.
 
     For example, if you double-buffer your command buffers, so resources used for
@@ -1467,7 +1468,7 @@ typedef struct VmaAllocationInfo {
     /** \brief Pointer to the beginning of this allocation as mapped data.
 
     If the allocation hasn't been mapped using vmaMapMemory() and hasn't been
-    created with `VMA_ALLOCATION_CREATE_MAPPED_BIT` flag, this value null.
+    created with #VMA_ALLOCATION_CREATE_MAPPED_BIT flag, this value null.
 
     It can change after call to vmaMapMemory(), vmaUnmapMemory().
     It can also change after call to vmaDefragment() if this allocation is passed to the function.
@@ -1542,13 +1543,13 @@ VkBool32 vmaTouchAllocation(
 
 If the allocation was created with VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT,
 pUserData must be either null, or pointer to a null-terminated string. The function
-makes local copy of the string and sets it as allocation's pUserData. String
+makes local copy of the string and sets it as allocation's `pUserData`. String
 passed as pUserData doesn't need to be valid for whole lifetime of the allocation -
 you can free it after this call. String previously pointed by allocation's
 pUserData is freed from memory.
 
-If the flag was not used, the value of pointer pUserData is just copied to
-allocation's pUserData. It is opaque, so you can use it however you want - e.g.
+If the flag was not used, the value of pointer `pUserData` is just copied to
+allocation's `pUserData`. It is opaque, so you can use it however you want - e.g.
 as a pointer, ordinal number or some handle to you own data.
 */
 void vmaSetAllocationUserData(
@@ -1592,16 +1593,16 @@ It also safe to call this function multiple times on the same allocation. You
 must call vmaUnmapMemory() same number of times as you called vmaMapMemory().
 
 It is also safe to call this function on allocation created with
-`VMA_ALLOCATION_CREATE_MAPPED_BIT` flag. Its memory stays mapped all the time.
+#VMA_ALLOCATION_CREATE_MAPPED_BIT flag. Its memory stays mapped all the time.
 You must still call vmaUnmapMemory() same number of times as you called
 vmaMapMemory(). You must not call vmaUnmapMemory() additional time to free the
-"0-th" mapping made automatically due to `VMA_ALLOCATION_CREATE_MAPPED_BIT` flag.
+"0-th" mapping made automatically due to #VMA_ALLOCATION_CREATE_MAPPED_BIT flag.
 
 This function fails when used on allocation made in memory type that is not
 `HOST_VISIBLE`.
 
 This function always fails when called for allocation that was created with
-`VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT` flag. Such allocations cannot be
+#VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag. Such allocations cannot be
 mapped.
 */
 VkResult vmaMapMemory(
@@ -1660,9 +1661,9 @@ allocations are considered nonmovable in this call. Basic rules:
 - Only allocations made in memory types that have
   `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag can be compacted. You may pass other
   allocations but it makes no sense - these will never be moved.
-- You may pass allocations made with `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT` but
+- You may pass allocations made with #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT but
   it makes no sense - they will never be moved.
-- Both allocations made with or without `VMA_ALLOCATION_CREATE_MAPPED_BIT`
+- Both allocations made with or without #VMA_ALLOCATION_CREATE_MAPPED_BIT
   flag can be compacted. If not persistently mapped, memory will be mapped
   temporarily inside this function if needed.
 - You must not pass same `VmaAllocation` object multiple times in pAllocations array.
