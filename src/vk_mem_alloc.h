@@ -36,25 +36,45 @@ License: MIT
 
 Documentation of all members: vk_mem_alloc.h
 
-Table of contents:
+\section main_table_of_contents Table of contents
 
-- User guide
+- <b>User guide</b>
   - \subpage quick_start
+    - [Project setup](@ref quick_start_project_setup)
+    - [Initialization](@ref quick_start_initialization)
+    - [Resource allocation](@ref quick_start_resource_allocation)
   - \subpage choosing_memory_type
+    - [Usage](@ref choosing_memory_type_usage)
+    - [Required and preferred flags](@ref choosing_memory_type_required_preferred_flags)
+    - [Explicit memory types](@ref choosing_memory_type_explicit_memory_types)
+    - [Custom memory pools](@ref choosing_memory_type_custom_memory_pools)
   - \subpage memory_mapping
+    - [Mapping functions](@ref memory_mapping_mapping_functions)
+    - [Persistently mapped memory](@ref memory_mapping_persistently_mapped_memory)
+    - [Cache control](@ref memory_mapping_cache_control)
+    - [Finding out if memory is mappable](@ref memory_mapping_finding_if_memory_mappable)
   - \subpage custom_memory_pools
+    - [Choosing memory type index](@ref custom_memory_pools_MemTypeIndex)
   - \subpage defragmentation
   - \subpage lost_allocations
   - \subpage allocation_annotation
+    - [Allocation user data](@ref allocation_user_data)
+    - [Allocation names](@ref allocation_names)
 - \subpage configuration
+  - [Pointers to Vulkan functions](@ref config_Vulkan_functions)
+  - [Custom host memory allocator](@ref custom_memory_allocator)
+  - [Device memory allocation callbacks](@ref allocation_callbacks)
+  - [Device heap memory limit](@ref heap_memory_limit)
   - \subpage vk_khr_dedicated_allocation
-- \subpage thread_safety
 - \subpage general_considerations
+  - [Thread safety](@ref general_considerations_thread_safety)
+  - [Allocation algorithm](@ref general_considerations_allocation_algorithm)
+  - [Features not supported](@ref general_considerations_features_not_supported)
 
-See also:
+\section main_see_also See also
 
-- [Source repository on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 - [Product page on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
+- [Source repository on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 
 
@@ -86,7 +106,7 @@ To do it properly:
 
 It may be a good idea to create dedicated CPP file just for this purpose.
 
-\section initialization Initialization
+\section quick_start_initialization Initialization
 
 At program startup:
 
@@ -103,7 +123,7 @@ VmaAllocator allocator;
 vmaCreateAllocator(&allocatorInfo, &allocator);
 \endcode
 
-\section resource_allocation Resource allocation
+\section quick_start_resource_allocation Resource allocation
 
 When you want to create a buffer or image:
 
@@ -651,6 +671,11 @@ images. This is still valid as long as you implement proper handling of lost
 allocations (like in the example above) and don't use them.
 
 
+\page statistics Statistics
+
+
+
+
 \page allocation_annotation Allocation names and user data
 
 \section allocation_user_data Allocation user data
@@ -820,7 +845,9 @@ To learn more about this extension, see:
 
 
 
-\page thread_safety Thread safety
+\page general_considerations General considerations
+
+\section general_considerations_thread_safety Thread safety
 
 - The library has no global state, so separate `VmaAllocator` objects can be used
   independently.
@@ -835,9 +862,6 @@ To learn more about this extension, see:
   you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
   threads at the same time if you pass the same `VmaAllocation` object to these
   functions.
-
-
-\page general_considerations General considerations
 
 \section general_considerations_allocation_algorithm Allocation algorithm
 
