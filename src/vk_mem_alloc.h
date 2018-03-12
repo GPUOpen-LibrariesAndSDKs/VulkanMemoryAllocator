@@ -800,8 +800,9 @@ That string is also printed in JSON report created by vmaBuildStatsString().
 Please check "CONFIGURATION SECTION" in the code to find macros that you can define
 before each include of this file or change directly in this file to provide
 your own implementation of basic facilities like assert, `min()` and `max()` functions,
-mutex etc. C++ STL is used by default, but changing these allows you to get rid
-of any STL usage if you want, as many game developers tend to do.
+mutex, atomic etc.
+The library uses its own implementation of containers by default, but you can switch to using
+STL containers instead.
 
 \section config_Vulkan_functions Pointers to Vulkan functions
 
