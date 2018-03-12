@@ -57,6 +57,9 @@ Documentation of all members: vk_mem_alloc.h
     - [Choosing memory type index](@ref custom_memory_pools_MemTypeIndex)
   - \subpage defragmentation
   - \subpage lost_allocations
+  - \subpage statistics
+    - [Numeric statistics](@ref statistics_numeric_statistics)
+    - [JSON dump](@ref statistics_json_dump)
   - \subpage allocation_annotation
     - [Allocation user data](@ref allocation_user_data)
     - [Allocation names](@ref allocation_names)
@@ -673,7 +676,45 @@ allocations (like in the example above) and don't use them.
 
 \page statistics Statistics
 
+This library contains functions that return information about its internal state,
+especially the amount of memory allocated from Vulkan.
+Please keep in mind that these functions need to traverse all internal data structures
+to gather these information, so they may be quite time-consuming.
+Don't call them too often.
 
+\section statistics_numeric_statistics Numeric statistics
+
+You can query for overall statistics of the allocator using function vmaCalculateStats().
+Information are returned using structure #VmaStats.
+It contains #VmaStatInfo - number of allocated blocks, number of allocations
+(occupied ranges in these blocks), number of unused (free) ranges in these blocks,
+number of bytes used and unused (but still allocated from Vulkan) and other information.
+They are summed across memory heaps, memory types and total for whole allocator.
+
+You can query for statistics of a custom pool using function vmaGetPoolStats().
+Information are returned using structure #VmaPoolStats.
+
+You can query for information about specific allocation using function vmaGetAllocationInfo().
+It fill structure #VmaAllocationInfo.
+
+\section statistics_json_dump JSON dump
+
+You can dump internal state of the allocator to a string in JSON format using function vmaBuildStatsString().
+The result is guaranteed to be correct JSON.
+It uses ANSI encoding.
+Any strings provided by user (see [Allocation names](@ref allocation_names))
+are copied as-is and properly escaped for JSON, so if they use UTF-8, ISO-8859-2 or any other encoding,
+this JSON string can be treted as using this encoding.
+It must be freed using function vmaFreeStatsString().
+
+The format of this string is not part of official documentation of the library,
+but it will not change in backward-incompatible way without increasing library major version number
+and mention in changelog.
+
+The string contains all the data that can be obtained using vmaCalculateStats().
+It can also contain detailed map of allocated memory blocks and their regions -
+free and occupied by allocations.
+This allows e.g. to visualize the memory or assess fragmentation.
 
 
 \page allocation_annotation Allocation names and user data

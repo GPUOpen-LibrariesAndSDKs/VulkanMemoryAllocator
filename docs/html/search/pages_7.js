@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['statistics',['Statistics',['../statistics.html',1,'']]]
+  ['statistics',['Statistics',['../statistics.html',1,'index']]]
 ];
