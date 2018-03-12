@@ -673,6 +673,14 @@ about overlapping regions of memory bound to different kinds of buffers and
 images. This is still valid as long as you implement proper handling of lost
 allocations (like in the example above) and don't use them.
 
+You can create an allocation that is already in lost state from the beginning using function
+vmaCreateLostAllocation(). It may be useful if you need a "dummy" allocation that is not null.
+
+You can call function vmaMakePoolAllocationsLost() to set all eligible allocations
+in a specified custom pool to lost state.
+Allocations that have been "touched" in current frame or VmaPoolCreateInfo::frameInUseCount frames back
+cannot become lost.
+
 
 \page statistics Statistics
 
