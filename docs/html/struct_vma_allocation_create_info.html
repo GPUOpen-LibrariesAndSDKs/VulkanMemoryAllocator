@@ -85,11 +85,11 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a3bf940c0271d85d6ba32a4d820075055"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a3bf940c0271d85d6ba32a4d820075055">memoryTypeBits</a></td></tr>
 <tr class="memdesc:a3bf940c0271d85d6ba32a4d820075055"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bitmask containing one bit set for every memory type acceptable for this allocation.  <a href="#a3bf940c0271d85d6ba32a4d820075055">More...</a><br /></td></tr>
 <tr class="separator:a3bf940c0271d85d6ba32a4d820075055"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6272c0555cfd1fe28bff1afeb6190150"><td class="memItemLeft" align="right" valign="top">VmaPool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150">pool</a></td></tr>
+<tr class="memitem:a6272c0555cfd1fe28bff1afeb6190150"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_vma_pool.html">VmaPool</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150">pool</a></td></tr>
 <tr class="memdesc:a6272c0555cfd1fe28bff1afeb6190150"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pool that this allocation should be created in.  <a href="#a6272c0555cfd1fe28bff1afeb6190150">More...</a><br /></td></tr>
 <tr class="separator:a6272c0555cfd1fe28bff1afeb6190150"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8259e85c272683434f4abb4ddddffe19"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19">pUserData</a></td></tr>
-<tr class="memdesc:a8259e85c272683434f4abb4ddddffe19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#a8259e85c272683434f4abb4ddddffe19">More...</a><br /></td></tr>
+<tr class="memdesc:a8259e85c272683434f4abb4ddddffe19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that will be stored in <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a>, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>.  <a href="#a8259e85c272683434f4abb4ddddffe19">More...</a><br /></td></tr>
 <tr class="separator:a8259e85c272683434f4abb4ddddffe19"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Data Documentation</h2>
@@ -134,7 +134,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">VmaPool VmaAllocationCreateInfo::pool</td>
+          <td class="memname"><a class="el" href="struct_vma_pool.html">VmaPool</a> VmaAllocationCreateInfo::pool</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -174,7 +174,7 @@ If <code>pool</code> is not null, this member is ignored. </p>
       </table>
 </div><div class="memdoc">
 
-<p>Custom general-purpose pointer that will be stored in VmaAllocation, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
+<p>Custom general-purpose pointer that will be stored in <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a>, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value. ">vmaSetAllocationUserData()</a>. </p>
 <p>If <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520">VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</a> is used, it must be either null or pointer to a null-terminated string. The string will be then copied to internal buffer, so it doesn't need to be valid after allocation call. </p>
 
 </div>

@@ -114,7 +114,7 @@ It may be a good idea to create dedicated CPP file just for this purpose.
 At program startup:
 
 -# Initialize Vulkan to have `VkPhysicalDevice` and `VkDevice` object.
--# Fill VmaAllocatorCreateInfo structure and create `VmaAllocator` object by
+-# Fill VmaAllocatorCreateInfo structure and create #VmaAllocator object by
    calling vmaCreateAllocator().
 
 \code
@@ -286,7 +286,7 @@ Because of this, Vulkan Memory Allocator provides following facilities:
 
 \section memory_mapping_mapping_functions Mapping functions
 
-The library provides following functions for mapping of a specific `VmaAllocation`: vmaMapMemory(), vmaUnmapMemory().
+The library provides following functions for mapping of a specific #VmaAllocation: vmaMapMemory(), vmaUnmapMemory().
 They are safer and more convenient to use than standard Vulkan functions.
 You can map an allocation multiple times simultaneously - mapping is reference-counted internally.
 You can also map different allocations simultaneously regardless of whether they use the same `VkDeviceMemory` block.
@@ -482,7 +482,7 @@ It can be useful if you want to:
 To use custom memory pools:
 
 -# Fill VmaPoolCreateInfo structure.
--# Call vmaCreatePool() to obtain `VmaPool` handle.
+-# Call vmaCreatePool() to obtain #VmaPool handle.
 -# When making an allocation, set VmaAllocationCreateInfo::pool to this handle.
    You don't need to specify any other parameters of this structure, like usage.
 
@@ -866,7 +866,7 @@ If yes, enable them (fill `VkDeviceCreateInfo::ppEnabledExtensionNames`).
 If you enabled these extensions:
 
 2 . Use #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag when creating
-your `VmaAllocator` to inform the library that you enabled required extensions
+your #VmaAllocator`to inform the library that you enabled required extensions
 and you want the library to use them.
 
 \code
@@ -899,18 +899,18 @@ To learn more about this extension, see:
 
 \section general_considerations_thread_safety Thread safety
 
-- The library has no global state, so separate `VmaAllocator` objects can be used
+- The library has no global state, so separate #VmaAllocator objects can be used
   independently.
   There should be no need to create multiple such objects though - one per `VkDevice` is enough.
-- By default, all calls to functions that take `VmaAllocator` as first parameter
+- By default, all calls to functions that take #VmaAllocator as first parameter
   are safe to call from multiple threads simultaneously because they are
   synchronized internally when needed.
 - When the allocator is created with #VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
-  flag, calls to functions that take such `VmaAllocator` object must be
+  flag, calls to functions that take such #VmaAllocator object must be
   synchronized externally.
-- Access to a `VmaAllocation` object must be externally synchronized. For example,
+- Access to a #VmaAllocation object must be externally synchronized. For example,
   you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
-  threads at the same time if you pass the same `VmaAllocation` object to these
+  threads at the same time if you pass the same #VmaAllocation object to these
   functions.
 
 \section general_considerations_allocation_algorithm Allocation algorithm
@@ -942,6 +942,15 @@ Features deliberately excluded from the scope of this library:
 
 #include <vulkan/vulkan.h>
 
+/** \struct VmaAllocator
+\brief Represents main object of this library initialized.
+
+Fill structure VmaAllocatorCreateInfo and call function vmaCreateAllocator() to create it.
+Call function vmaDestroyAllocator() to destroy it.
+
+It is recommended to create just one object of this type per `VkDevice` object,
+right after Vulkan is initialized and keep it alive until before Vulkan device is destroyed.
+*/
 VK_DEFINE_HANDLE(VmaAllocator)
 
 /// Callback function called after successful vkAllocateMemory.
@@ -971,7 +980,7 @@ typedef struct VmaDeviceMemoryCallbacks {
     PFN_vmaFreeDeviceMemoryFunction pfnFree;
 } VmaDeviceMemoryCallbacks;
 
-/// Flags for created VmaAllocator.
+/// Flags for created #VmaAllocator.
 typedef enum VmaAllocatorCreateFlagBits {
     /** \brief Allocator and all objects created from it will not be synchronized internally, so you must guarantee they are used from only one thread at a time or synchronized externally by you.
 
@@ -1154,7 +1163,7 @@ typedef struct VmaStatInfo
 {
     /// Number of `VkDeviceMemory` Vulkan memory blocks allocated.
     uint32_t blockCount;
-    /// Number of `VmaAllocation` allocation objects allocated.
+    /// Number of #VmaAllocation allocation objects allocated.
     uint32_t allocationCount;
     /// Number of free ranges of memory between allocations.
     uint32_t unusedRangeCount;
@@ -1197,6 +1206,14 @@ void vmaFreeStatsString(
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
+/** \struct VmaPool
+\brief Represents custom memory pool
+
+Fill structure VmaPoolCreateInfo and call function vmaCreatePool() to create it.
+Call function vmaDestroyPool() to destroy it.
+
+For more information see [Custom memory pools](@ref choosing_memory_type_custom_memory_pools).
+*/
 VK_DEFINE_HANDLE(VmaPool)
 
 typedef enum VmaMemoryUsage
@@ -1354,7 +1371,7 @@ typedef struct VmaAllocationCreateInfo
     `usage`, `requiredFlags`, `preferredFlags`, `memoryTypeBits` are ignored.
     */
     VmaPool pool;
-    /** \brief Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo::pUserData and changed using vmaSetAllocationUserData().
+    /** \brief Custom general-purpose pointer that will be stored in #VmaAllocation, can be read as VmaAllocationInfo::pUserData and changed using vmaSetAllocationUserData().
     
     If #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is used, it must be either
     null or pointer to a null-terminated string. The string will be then copied to
@@ -1446,7 +1463,7 @@ typedef enum VmaPoolCreateFlagBits {
 } VmaPoolCreateFlagBits;
 typedef VkFlags VmaPoolCreateFlags;
 
-/** \brief Describes parameter of created `VmaPool`.
+/** \brief Describes parameter of created #VmaPool.
 */
 typedef struct VmaPoolCreateInfo {
     /** \brief Vulkan memory type index to allocate this pool from.
@@ -1489,19 +1506,19 @@ typedef struct VmaPoolCreateInfo {
     uint32_t frameInUseCount;
 } VmaPoolCreateInfo;
 
-/** \brief Describes parameter of existing `VmaPool`.
+/** \brief Describes parameter of existing #VmaPool.
 */
 typedef struct VmaPoolStats {
     /** \brief Total amount of `VkDeviceMemory` allocated from Vulkan for this pool, in bytes.
     */
     VkDeviceSize size;
-    /** \brief Total number of bytes in the pool not used by any `VmaAllocation`.
+    /** \brief Total number of bytes in the pool not used by any #VmaAllocation.
     */
     VkDeviceSize unusedSize;
-    /** \brief Number of VmaAllocation objects created from this pool that were not destroyed or lost.
+    /** \brief Number of #VmaAllocation objects created from this pool that were not destroyed or lost.
     */
     size_t allocationCount;
-    /** \brief Number of continuous memory ranges in the pool not used by any `VmaAllocation`.
+    /** \brief Number of continuous memory ranges in the pool not used by any #VmaAllocation.
     */
     size_t unusedRangeCount;
     /** \brief Size of the largest continuous free memory region.
@@ -1513,7 +1530,7 @@ typedef struct VmaPoolStats {
     VkDeviceSize unusedRangeSizeMax;
 } VmaPoolStats;
 
-/** \brief Allocates Vulkan device memory and creates `VmaPool` object.
+/** \brief Allocates Vulkan device memory and creates #VmaPool object.
 
 @param allocator Allocator object.
 @param pCreateInfo Parameters of pool to create.
@@ -1524,13 +1541,13 @@ VkResult vmaCreatePool(
 	const VmaPoolCreateInfo* pCreateInfo,
 	VmaPool* pPool);
 
-/** \brief Destroys VmaPool object and frees Vulkan device memory.
+/** \brief Destroys #VmaPool object and frees Vulkan device memory.
 */
 void vmaDestroyPool(
     VmaAllocator allocator,
     VmaPool pool);
 
-/** \brief Retrieves statistics of existing VmaPool object.
+/** \brief Retrieves statistics of existing #VmaPool object.
 
 @param allocator Allocator object.
 @param pool Pool object.
@@ -1552,9 +1569,33 @@ void vmaMakePoolAllocationsLost(
     VmaPool pool,
     size_t* pLostAllocationCount);
 
+/** \struct VmaAllocation
+\brief Represents single memory allocation.
+
+It may be either dedicated block of `VkDeviceMemory` or a specific region of a bigger block of this type
+plus unique offset.
+
+There are multiple ways to create such object.
+You need to fill structure VmaAllocationCreateInfo.
+For more information see [Choosing memory type](@ref choosing_memory_type).
+
+Although the library provides convenience functions that create Vulkan buffer or image,
+allocate memory for it and bind them together,
+binding of the allocation to a buffer or an image is out of scope of the allocation itself.
+Allocation object can exist without buffer/image bound,
+binding can be done manually by the user, and destruction of it can be done
+independently of destruction of the allocation.
+
+The object also remembers its size and some other information.
+To retrieve this information, use function vmaGetAllocationInfo() and inspect
+returned structure VmaAllocationInfo.
+
+Some kinds allocations can be in lost state.
+For more information, see [Lost allocations](@ref lost_allocations).
+*/
 VK_DEFINE_HANDLE(VmaAllocation)
 
-/** \brief Parameters of `VmaAllocation` objects, that can be retrieved using function vmaGetAllocationInfo().
+/** \brief Parameters of #VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().
 */
 typedef struct VmaAllocationInfo {
     /** \brief Memory type index that this allocation was allocated from.
@@ -1806,7 +1847,7 @@ allocations are considered nonmovable in this call. Basic rules:
 - Both allocations made with or without #VMA_ALLOCATION_CREATE_MAPPED_BIT
   flag can be compacted. If not persistently mapped, memory will be mapped
   temporarily inside this function if needed.
-- You must not pass same `VmaAllocation` object multiple times in pAllocations array.
+- You must not pass same #VmaAllocation object multiple times in pAllocations array.
 
 The function also frees empty `VkDeviceMemory` blocks.
 
@@ -3879,7 +3920,7 @@ private:
 
 /*
 Represents a single block of device memory (`VkDeviceMemory`) with all the
-data about its regions (aka suballocations, `VmaAllocation`), assigned and free.
+data about its regions (aka suballocations, #VmaAllocation), assigned and free.
 
 Thread-safety: This class must be externally synchronized.
 */
