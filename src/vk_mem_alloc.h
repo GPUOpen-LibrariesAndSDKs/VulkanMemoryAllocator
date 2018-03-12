@@ -564,11 +564,12 @@ cache. Vulkan Memory Allocator can help you with that by supporting a concept of
 
 To create an allocation that can become lost, include #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT
 flag in VmaAllocationCreateInfo::flags. Before using a buffer or image bound to
-such allocation in every new frame, you need to query it if it's not lost. To
-check it: call vmaGetAllocationInfo() and see if VmaAllocationInfo::deviceMemory
-is not `VK_NULL_HANDLE`. If the allocation is lost, you should not use it or
-buffer/image bound to it. You mustn't forget to destroy this allocation and this
-buffer/image.
+such allocation in every new frame, you need to query it if it's not lost.
+To check it, call vmaTouchAllocation().
+If the allocation is lost, you should not use it or buffer/image bound to it.
+You mustn't forget to destroy this allocation and this buffer/image.
+vmaGetAllocationInfo() can also be used for checking status of the allocation.
+Allocation is lost when returned VmaAllocationInfo::deviceMemory == `VK_NULL_HANDLE`.
 
 To create an allocation that can make some other allocations lost to make room
 for it, use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag. You will
@@ -584,8 +585,8 @@ up is planned for the future.
 how do you make sure that an allocation won't become lost while it's used in the
 current frame?</b>
 
-It is ensured because vmaGetAllocationInfo() not only returns allocation
-parameters and checks whether it's not lost, but when it's not, it also
+It is ensured because vmaTouchAllocation() / vmaGetAllocationInfo() not only returns allocation
+status/parameters and checks whether it's not lost, but when it's not, it also
 atomically marks it as used in the current frame, which makes it impossible to
 become lost in that frame. It uses lockless algorithm, so it works fast and
 doesn't involve locking any internal mutex.
@@ -593,7 +594,7 @@ doesn't involve locking any internal mutex.
 <b>Q: What if my allocation may still be in use by the GPU when it's rendering a
 previous frame while I already submit new frame on the CPU?</b>
 
-You can make sure that allocations "touched" by vmaGetAllocationInfo() will not
+You can make sure that allocations "touched" by vmaTouchAllocation() / vmaGetAllocationInfo() will not
 become lost for a number of additional frames back from the current one by
 specifying this number as VmaAllocatorCreateInfo::frameInUseCount (for default
 memory pool) and VmaPoolCreateInfo::frameInUseCount (for custom pool).
@@ -620,9 +621,7 @@ void MyBuffer::EnsureBuffer()
     if(m_Buf != VK_NULL_HANDLE)
     {
         // Check if its allocation is not lost + mark it as used in current frame.
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(allocator, m_Alloc, &allocInfo);
-        if(allocInfo.deviceMemory != VK_NULL_HANDLE)
+        if(vmaTouchAllocation(allocator, m_Alloc))
         {
             // It's all OK - safe to use m_Buf.
             return;
