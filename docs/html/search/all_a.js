@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['requiredflags',['requiredFlags',['../struct_vma_allocation_create_info.html#a9166390303ff42d783305bc31c2b6b90',1,'VmaAllocationCreateInfo']]]
+  ['quick_20start',['Quick start',['../quick_start.html',1,'index']]]
 ];

@@ -49,7 +49,7 @@ Table of contents:
 - \subpage configuration
   - \subpage vk_khr_dedicated_allocation
 - \subpage thread_safety
-- \subpage about_the_library
+- \subpage general_considerations
 
 See also:
 
@@ -650,20 +650,6 @@ about overlapping regions of memory bound to different kinds of buffers and
 images. This is still valid as long as you implement proper handling of lost
 allocations (like in the example above) and don't use them.
 
-The library uses following algorithm for allocation, in order:
-
--# Try to find free range of memory in existing blocks.
--# If failed, try to create a new block of `VkDeviceMemory`, with preferred block size.
--# If failed, try to create such block with size/2 and size/4.
--# If failed and #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag was
-   specified, try to find space in existing blocks, possilby making some other
-   allocations lost.
--# If failed, try to allocate separate `VkDeviceMemory` for this allocation,
-   just like when you use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
--# If failed, choose other memory type that meets the requirements specified in
-   VmaAllocationCreateInfo and go to point 1.
--# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
-
 
 \page allocation_annotation Allocation names and user data
 
@@ -851,9 +837,25 @@ To learn more about this extension, see:
   functions.
 
 
-\page about_the_library About the library
+\page general_considerations General considerations
 
-\section about_the_library_features_not_supported Features not supported
+\section general_considerations_allocation_algorithm Allocation algorithm
+
+The library uses following algorithm for allocation, in order:
+
+-# Try to find free range of memory in existing blocks.
+-# If failed, try to create a new block of `VkDeviceMemory`, with preferred block size.
+-# If failed, try to create such block with size/2, size/4, size/8.
+-# If failed and #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag was
+   specified, try to find space in existing blocks, possilby making some other
+   allocations lost.
+-# If failed, try to allocate separate `VkDeviceMemory` for this allocation,
+   just like when you use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
+-# If failed, choose other memory type that meets the requirements specified in
+   VmaAllocationCreateInfo and go to point 1.
+-# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+
+\section general_considerations_features_not_supported Features not supported
 
 Features deliberately excluded from the scope of this library:
 
