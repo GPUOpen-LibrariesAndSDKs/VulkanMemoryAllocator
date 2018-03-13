@@ -20,50 +20,18 @@
 // THE SOFTWARE.
 //
 
-#ifdef WIN32
+#ifdef _WIN32
 
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan.h>
-
-#pragma warning(push, 4)
-#pragma warning(disable: 4127) // warning C4127: conditional expression is constant
-#pragma warning(disable: 4100) // warning C4100: '...': unreferenced formal parameter
-#pragma warning(disable: 4189) // warning C4189: '...': local variable is initialized but not referenced
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
-#pragma warning(pop)
-
-#define MATHFU_COMPILE_WITHOUT_SIMD_SUPPORT
-#include <mathfu/glsl_mappings.h>
-#include <mathfu/constants.h>
-
-#include <fstream>
-#include <vector>
-#include <string>
-#include <memory>
-#include <algorithm>
-#include <numeric>
-#include <array>
-#include <type_traits>
-#include <utility>
-
-#include <cmath>
-#include <cassert>
-#include <cstdlib>
-#include <cstdio>
-
-#define ERR_GUARD_VULKAN(Expr) do { VkResult res__ = (Expr); if (res__ < 0) assert(0); } while(0)
+#include "Tests.h"
+#include "VmaUsage.h"
+#include "Common.h"
 
 static const char* const SHADER_PATH1 = "./";
 static const char* const SHADER_PATH2 = "../bin/";
 static const wchar_t* const WINDOW_CLASS_NAME = L"VULKAN_MEMORY_ALLOCATOR_SAMPLE";
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_validation";
-static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 1.0";
-static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 1.0";
+static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 2.0";
+static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 2.0";
 
 static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;
@@ -1689,14 +1657,12 @@ int main()
     return 0;
 }
 
-#else // #ifdef WIN32
+#else // #ifdef _WIN32
 
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
+#include "VmaUsage.h"
 
 int main()
 {
 }
 
-#endif // #ifdef WIN32
-
+#endif // #ifdef _WIN32
