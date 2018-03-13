@@ -175,6 +175,7 @@ You can also combine multiple methods.
 -# If you already have a buffer or an image created, you want to allocate memory
    for it and then you will bind it yourself, you can use function
    vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
+   For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory().
 -# If you want to create a buffer or an image, allocate memory for it and bind
    them together, all in one call, you can use function vmaCreateBuffer(),
    vmaCreateImage(). This is the recommended way to use this library.
@@ -715,14 +716,14 @@ The result is guaranteed to be correct JSON.
 It uses ANSI encoding.
 Any strings provided by user (see [Allocation names](@ref allocation_names))
 are copied as-is and properly escaped for JSON, so if they use UTF-8, ISO-8859-2 or any other encoding,
-this JSON string can be treted as using this encoding.
+this JSON string can be treated as using this encoding.
 It must be freed using function vmaFreeStatsString().
 
-The format of this string is not part of official documentation of the library,
+The format of this JSON string is not part of official documentation of the library,
 but it will not change in backward-incompatible way without increasing library major version number
-and mention in changelog.
+and appropriate mention in changelog.
 
-The string contains all the data that can be obtained using vmaCalculateStats().
+The JSON string contains all the data that can be obtained using vmaCalculateStats().
 It can also contain detailed map of allocated memory blocks and their regions -
 free and occupied by allocations.
 This allows e.g. to visualize the memory or assess fragmentation.
@@ -2044,6 +2045,40 @@ VkResult vmaDefragment(
     VkBool32* pAllocationsChanged,
     const VmaDefragmentationInfo *pDefragmentationInfo,
     VmaDefragmentationStats* pDefragmentationStats);
+
+/** \brief Binds buffer to allocation.
+
+Binds specified buffer to region of memory represented by specified allocation.
+Gets `VkDeviceMemory` handle and offset from the allocation.
+If you want to create a buffer, allocate memory for it and bind them together separately,
+you should use this function for binding instead of standard `vkBindBufferMemory()`,
+because it ensures proper synchronization so that when a `VkDeviceMemory` object is used by multiple
+allocations, calls to `vkBind*Memory()` or `vkMapMemory()` won't happen from multiple threads simultaneously
+(which is illegal in Vulkan).
+
+It is recommended to use function vmaCreateBuffer() instead of this one.
+*/
+VkResult vmaBindBufferMemory(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkBuffer buffer);
+
+/** \brief Binds image to allocation.
+
+Binds specified image to region of memory represented by specified allocation.
+Gets `VkDeviceMemory` handle and offset from the allocation.
+If you want to create an image, allocate memory for it and bind them together separately,
+you should use this function for binding instead of standard `vkBindImageMemory()`,
+because it ensures proper synchronization so that when a `VkDeviceMemory` object is used by multiple
+allocations, calls to `vkBind*Memory()` or `vkMapMemory()` won't happen from multiple threads simultaneously
+(which is illegal in Vulkan).
+
+It is recommended to use function vmaCreateImage() instead of this one.
+*/
+VkResult vmaBindImageMemory(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkImage image);
 
 /**
 @param[out] pBuffer Buffer that was created.
@@ -4029,25 +4064,6 @@ private:
     void UnregisterFreeSuballocation(VmaSuballocationList::iterator item);
 };
 
-// Helper class that represents mapped memory. Synchronized internally.
-class VmaDeviceMemoryMapping
-{
-public:
-    VmaDeviceMemoryMapping();
-    ~VmaDeviceMemoryMapping();
-
-    void* GetMappedData() const { return m_pMappedData; }
-
-    // ppData can be null.
-    VkResult Map(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count, void **ppData);
-    void Unmap(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count);
-
-private:
-    VMA_MUTEX m_Mutex;
-    uint32_t m_MapCount;
-    void* m_pMappedData;
-};
-
 /*
 Represents a single block of device memory (`VkDeviceMemory`) with all the
 data about its regions (aka suballocations, #VmaAllocation), assigned and free.
@@ -4057,15 +4073,13 @@ Thread-safety: This class must be externally synchronized.
 class VmaDeviceMemoryBlock
 {
 public:
-    uint32_t m_MemoryTypeIndex;
-    VkDeviceMemory m_hMemory;
-    VmaDeviceMemoryMapping m_Mapping;    
     VmaBlockMetadata m_Metadata;
 
     VmaDeviceMemoryBlock(VmaAllocator hAllocator);
 
     ~VmaDeviceMemoryBlock()
     {
+        VMA_ASSERT(m_MapCount == 0 && "VkDeviceMemory block is being destroyed while it is still mapped.");
         VMA_ASSERT(m_hMemory == VK_NULL_HANDLE);
     }
 
@@ -4077,12 +4091,35 @@ public:
     // Always call before destruction.
     void Destroy(VmaAllocator allocator);
     
+    VkDeviceMemory GetDeviceMemory() const { return m_hMemory; }
+    uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
+    void* GetMappedData() const { return m_pMappedData; }
+
     // Validates all data structures inside this object. If not valid, returns false.
     bool Validate() const;
 
     // ppData can be null.
     VkResult Map(VmaAllocator hAllocator, uint32_t count, void** ppData);
     void Unmap(VmaAllocator hAllocator, uint32_t count);
+
+    VkResult BindBufferMemory(
+        const VmaAllocator hAllocator,
+        const VmaAllocation hAllocation,
+        VkBuffer hBuffer);
+    VkResult BindImageMemory(
+        const VmaAllocator hAllocator,
+        const VmaAllocation hAllocation,
+        VkImage hImage);
+
+private:
+    uint32_t m_MemoryTypeIndex;
+    VkDeviceMemory m_hMemory;
+
+    // Protects access to m_hMemory so it's not used by multiple threads simultaneously, e.g. vkMapMemory, vkBindBufferMemory.
+    // Also protects m_MapCount, m_pMappedData.
+    VMA_MUTEX m_Mutex;
+    uint32_t m_MapCount;
+    void* m_pMappedData;
 };
 
 struct VmaPointerLess
@@ -4447,6 +4484,9 @@ struct VmaAllocator_T
 
     VkResult Map(VmaAllocation hAllocation, void** ppData);
     void Unmap(VmaAllocation hAllocation);
+
+    VkResult BindBufferMemory(VmaAllocation hAllocation, VkBuffer hBuffer);
+    VkResult BindImageMemory(VmaAllocation hAllocation, VkImage hImage);
 
 private:
     VkDeviceSize m_PreferredLargeHeapBlockSize;
@@ -4946,7 +4986,7 @@ VkDeviceMemory VmaAllocation_T::GetMemory() const
     switch(m_Type)
     {
     case ALLOCATION_TYPE_BLOCK:
-        return m_BlockAllocation.m_Block->m_hMemory;
+        return m_BlockAllocation.m_Block->GetDeviceMemory();
     case ALLOCATION_TYPE_DEDICATED:
         return m_DedicatedAllocation.m_hMemory;
     default:
@@ -4960,7 +5000,7 @@ uint32_t VmaAllocation_T::GetMemoryTypeIndex() const
     switch(m_Type)
     {
     case ALLOCATION_TYPE_BLOCK:
-        return m_BlockAllocation.m_Block->m_MemoryTypeIndex;
+        return m_BlockAllocation.m_Block->GetMemoryTypeIndex();
     case ALLOCATION_TYPE_DEDICATED:
         return m_DedicatedAllocation.m_MemoryTypeIndex;
     default:
@@ -4976,7 +5016,7 @@ void* VmaAllocation_T::GetMappedData() const
     case ALLOCATION_TYPE_BLOCK:
         if(m_MapCount != 0)
         {
-            void* pBlockData = m_BlockAllocation.m_Block->m_Mapping.GetMappedData();
+            void* pBlockData = m_BlockAllocation.m_Block->GetMappedData();
             VMA_ASSERT(pBlockData != VMA_NULL);
             return (char*)pBlockData + m_BlockAllocation.m_Offset;
         }
@@ -6220,88 +6260,14 @@ void VmaBlockMetadata::UnregisterFreeSuballocation(VmaSuballocationList::iterato
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// class VmaDeviceMemoryMapping
-
-VmaDeviceMemoryMapping::VmaDeviceMemoryMapping() :
-    m_MapCount(0),
-    m_pMappedData(VMA_NULL)
-{
-}
-
-VmaDeviceMemoryMapping::~VmaDeviceMemoryMapping()
-{
-    VMA_ASSERT(m_MapCount == 0 && "VkDeviceMemory block is being destroyed while it is still mapped.");
-}
-
-VkResult VmaDeviceMemoryMapping::Map(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count, void **ppData)
-{
-    if(count == 0)
-    {
-        return VK_SUCCESS;
-    }
-
-    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
-    if(m_MapCount != 0)
-    {
-        m_MapCount += count;
-        VMA_ASSERT(m_pMappedData != VMA_NULL);
-        if(ppData != VMA_NULL)
-        {
-            *ppData = m_pMappedData;
-        }
-        return VK_SUCCESS;
-    }
-    else
-    {
-        VkResult result = (*hAllocator->GetVulkanFunctions().vkMapMemory)(
-            hAllocator->m_hDevice,
-            hMemory,
-            0, // offset
-            VK_WHOLE_SIZE,
-            0, // flags
-            &m_pMappedData);
-        if(result == VK_SUCCESS)
-        {
-            if(ppData != VMA_NULL)
-            {
-                *ppData = m_pMappedData;
-            }
-            m_MapCount = count;
-        }
-        return result;
-    }
-}
-
-void VmaDeviceMemoryMapping::Unmap(VmaAllocator hAllocator, VkDeviceMemory hMemory, uint32_t count)
-{
-    if(count == 0)
-    {
-        return;
-    }
-
-    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
-    if(m_MapCount >= count)
-    {
-        m_MapCount -= count;
-        if(m_MapCount == 0)
-        {
-            m_pMappedData = VMA_NULL;
-            (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, hMemory);
-        }
-    }
-    else
-    {
-        VMA_ASSERT(0 && "VkDeviceMemory block is being unmapped while it was not previously mapped.");
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // class VmaDeviceMemoryBlock
 
 VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator) :
+    m_Metadata(hAllocator),
     m_MemoryTypeIndex(UINT32_MAX),
     m_hMemory(VK_NULL_HANDLE),
-    m_Metadata(hAllocator)
+    m_MapCount(0),
+    m_pMappedData(VMA_NULL)
 {
 }
 
@@ -6342,12 +6308,96 @@ bool VmaDeviceMemoryBlock::Validate() const
 
 VkResult VmaDeviceMemoryBlock::Map(VmaAllocator hAllocator, uint32_t count, void** ppData)
 {
-    return m_Mapping.Map(hAllocator, m_hMemory, count, ppData);
+    if(count == 0)
+    {
+        return VK_SUCCESS;
+    }
+
+    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
+    if(m_MapCount != 0)
+    {
+        m_MapCount += count;
+        VMA_ASSERT(m_pMappedData != VMA_NULL);
+        if(ppData != VMA_NULL)
+        {
+            *ppData = m_pMappedData;
+        }
+        return VK_SUCCESS;
+    }
+    else
+    {
+        VkResult result = (*hAllocator->GetVulkanFunctions().vkMapMemory)(
+            hAllocator->m_hDevice,
+            m_hMemory,
+            0, // offset
+            VK_WHOLE_SIZE,
+            0, // flags
+            &m_pMappedData);
+        if(result == VK_SUCCESS)
+        {
+            if(ppData != VMA_NULL)
+            {
+                *ppData = m_pMappedData;
+            }
+            m_MapCount = count;
+        }
+        return result;
+    }
 }
 
 void VmaDeviceMemoryBlock::Unmap(VmaAllocator hAllocator, uint32_t count)
 {
-    m_Mapping.Unmap(hAllocator, m_hMemory, count);
+    if(count == 0)
+    {
+        return;
+    }
+
+    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
+    if(m_MapCount >= count)
+    {
+        m_MapCount -= count;
+        if(m_MapCount == 0)
+        {
+            m_pMappedData = VMA_NULL;
+            (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_hMemory);
+        }
+    }
+    else
+    {
+        VMA_ASSERT(0 && "VkDeviceMemory block is being unmapped while it was not previously mapped.");
+    }
+}
+
+VkResult VmaDeviceMemoryBlock::BindBufferMemory(
+    const VmaAllocator hAllocator,
+    const VmaAllocation hAllocation,
+    VkBuffer hBuffer)
+{
+    VMA_ASSERT(hAllocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK &&
+        hAllocation->GetBlock() == this);
+    // This lock is important so that we don't call vkBind... and/or vkMap... simultaneously on the same VkDeviceMemory from multiple threads.
+    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
+    return hAllocator->GetVulkanFunctions().vkBindBufferMemory(
+        hAllocator->m_hDevice,
+        hBuffer,
+        m_hMemory,
+        hAllocation->GetOffset());
+}
+
+VkResult VmaDeviceMemoryBlock::BindImageMemory(
+    const VmaAllocator hAllocator,
+    const VmaAllocation hAllocation,
+    VkImage hImage)
+{
+    VMA_ASSERT(hAllocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK &&
+        hAllocation->GetBlock() == this);
+    // This lock is important so that we don't call vkBind... and/or vkMap... simultaneously on the same VkDeviceMemory from multiple threads.
+    VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
+    return hAllocator->GetVulkanFunctions().vkBindImageMemory(
+        hAllocator->m_hDevice,
+        hImage,
+        m_hMemory,
+        hAllocation->GetOffset());
 }
 
 static void InitStatInfo(VmaStatInfo& outInfo)
@@ -6741,7 +6791,7 @@ void VmaBlockVector::Free(
 
         if(hAllocation->IsPersistentMap())
         {
-            pBlock->m_Mapping.Unmap(m_hAllocator, pBlock->m_hMemory, 1);
+            pBlock->Unmap(m_hAllocator, 1);
         }
 
         pBlock->m_Metadata.Free(hAllocation);
@@ -7079,9 +7129,9 @@ VkResult VmaDefragmentator::BlockInfo::EnsureMapping(VmaAllocator hAllocator, vo
     }
             
     // It is originally mapped.
-    if(m_pBlock->m_Mapping.GetMappedData())
+    if(m_pBlock->GetMappedData())
     {
-        *ppMappedData = m_pBlock->m_Mapping.GetMappedData();
+        *ppMappedData = m_pBlock->GetMappedData();
         return VK_SUCCESS;
     }
             
@@ -8304,6 +8354,56 @@ void VmaAllocator_T::Unmap(VmaAllocation hAllocation)
     }
 }
 
+VkResult VmaAllocator_T::BindBufferMemory(VmaAllocation hAllocation, VkBuffer hBuffer)
+{
+    VkResult res = VK_SUCCESS;
+    switch(hAllocation->GetType())
+    {
+    case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
+        res = GetVulkanFunctions().vkBindBufferMemory(
+            m_hDevice,
+            hBuffer,
+            hAllocation->GetMemory(),
+            0); //memoryOffset
+        break;
+    case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
+    {
+        VmaDeviceMemoryBlock* pBlock = hAllocation->GetBlock();
+        VMA_ASSERT(pBlock && "Binding buffer to allocation that doesn't belong to any block. Is the allocation lost?");
+        res = pBlock->BindBufferMemory(this, hAllocation, hBuffer);
+        break;
+    }
+    default:
+        VMA_ASSERT(0);
+    }
+    return res;
+}
+
+VkResult VmaAllocator_T::BindImageMemory(VmaAllocation hAllocation, VkImage hImage)
+{
+    VkResult res = VK_SUCCESS;
+    switch(hAllocation->GetType())
+    {
+    case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
+        res = GetVulkanFunctions().vkBindImageMemory(
+            m_hDevice,
+            hImage,
+            hAllocation->GetMemory(),
+            0); //memoryOffset
+        break;
+    case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
+    {
+        VmaDeviceMemoryBlock* pBlock = hAllocation->GetBlock();
+        VMA_ASSERT(pBlock && "Binding image to allocation that doesn't belong to any block. Is the allocation lost?");
+        res = pBlock->BindImageMemory(this, hAllocation, hImage);
+        break;
+    }
+    default:
+        VMA_ASSERT(0);
+    }
+    return res;
+}
+
 void VmaAllocator_T::FreeDedicatedMemory(VmaAllocation allocation)
 {
     VMA_ASSERT(allocation && allocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_DEDICATED);
@@ -9051,6 +9151,34 @@ VkResult vmaDefragment(
     return allocator->Defragment(pAllocations, allocationCount, pAllocationsChanged, pDefragmentationInfo, pDefragmentationStats);
 }
 
+VkResult vmaBindBufferMemory(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkBuffer buffer)
+{
+    VMA_ASSERT(allocator && allocation && buffer);
+
+    VMA_DEBUG_LOG("vmaBindBufferMemory");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    return allocator->BindBufferMemory(allocation, buffer);
+}
+
+VkResult vmaBindImageMemory(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkImage image)
+{
+    VMA_ASSERT(allocator && allocation && image);
+
+    VMA_DEBUG_LOG("vmaBindImageMemory");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    return allocator->BindImageMemory(allocation, image);
+}
+
 VkResult vmaCreateBuffer(
     VmaAllocator allocator,
     const VkBufferCreateInfo* pBufferCreateInfo,
@@ -9114,11 +9242,7 @@ VkResult vmaCreateBuffer(
         if(res >= 0)
         {
             // 3. Bind buffer with memory.
-            res = (*allocator->GetVulkanFunctions().vkBindBufferMemory)(
-                allocator->m_hDevice,
-                *pBuffer,
-                (*pAllocation)->GetMemory(),
-                (*pAllocation)->GetOffset());
+            res = allocator->BindBufferMemory(*pAllocation, *pBuffer);
             if(res >= 0)
             {
                 // All steps succeeded.
@@ -9194,11 +9318,7 @@ VkResult vmaCreateImage(
         if(res >= 0)
         {
             // 3. Bind image with memory.
-            res = (*allocator->GetVulkanFunctions().vkBindImageMemory)(
-                allocator->m_hDevice,
-                *pImage,
-                (*pAllocation)->GetMemory(),
-                (*pAllocation)->GetOffset());
+            res = allocator->BindImageMemory(*pAllocation, *pImage);
             if(res >= 0)
             {
                 // All steps succeeded.
