@@ -43,6 +43,9 @@ VkDevice g_hDevice;
 VmaAllocator g_hAllocator;
 bool g_MemoryAliasingWarningEnabled = true;
 
+static bool VK_KHR_get_memory_requirements2_enabled = false;
+static bool VK_KHR_dedicated_allocation_enabled = false;
+
 static HINSTANCE g_hAppInstance;
 static HWND g_hWnd;
 static LONG g_SizeX = 1280, g_SizeY = 720;
@@ -1208,14 +1211,39 @@ static void InitializeApplication()
     deviceFeatures.fillModeNonSolid = VK_TRUE;
     deviceFeatures.samplerAnisotropy = VK_TRUE;
 
+    // Determine list of device extensions to enable.
     std::vector<const char*> enabledDeviceExtensions;
     enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    {
+        uint32_t propertyCount = 0;
+        ERR_GUARD_VULKAN( vkEnumerateDeviceExtensionProperties(g_hPhysicalDevice, nullptr, &propertyCount, nullptr) );
+
+        if(propertyCount)
+        {
+            std::vector<VkExtensionProperties> properties{propertyCount};
+            ERR_GUARD_VULKAN( vkEnumerateDeviceExtensionProperties(g_hPhysicalDevice, nullptr, &propertyCount, properties.data()) );
+
+            for(uint32_t i = 0; i < propertyCount; ++i)
+            {
+                if(strcmp(properties[i].extensionName, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME) == 0)
+                {
+                    enabledDeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+                    VK_KHR_get_memory_requirements2_enabled = true;
+                }
+                else if(strcmp(properties[i].extensionName, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME) == 0)
+                {
+                    enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+                    VK_KHR_dedicated_allocation_enabled = true;
+                }
+            }
+        }
+    }
 
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
     deviceCreateInfo.enabledLayerCount = 0;
     deviceCreateInfo.ppEnabledLayerNames = nullptr;
     deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledDeviceExtensions.size();
-    deviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensions.data();
+    deviceCreateInfo.ppEnabledExtensionNames = !enabledDeviceExtensions.empty() ? enabledDeviceExtensions.data() : nullptr;
     deviceCreateInfo.queueCreateInfoCount = g_PresentQueueFamilyIndex != g_GraphicsQueueFamilyIndex ? 2 : 1;
     deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfo;
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
@@ -1227,6 +1255,10 @@ static void InitializeApplication()
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice = g_hPhysicalDevice;
     allocatorInfo.device = g_hDevice;
+    if(VK_KHR_dedicated_allocation_enabled)
+    {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+    }
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
 
     // Retrieve queue (doesn't need to be destroyed)
