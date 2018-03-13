@@ -38,12 +38,16 @@ static const uint32_t COMMAND_BUFFER_COUNT = 2;
 
 static bool g_EnableValidationLayer = true;
 
+VkPhysicalDevice g_hPhysicalDevice;
+VkDevice g_hDevice;
+VmaAllocator g_hAllocator;
+bool g_MemoryAliasingWarningEnabled = true;
+
 static HINSTANCE g_hAppInstance;
 static HWND g_hWnd;
 static LONG g_SizeX = 1280, g_SizeY = 720;
 static VkInstance g_hVulkanInstance;
 static VkSurfaceKHR g_hSurface;
-static VkPhysicalDevice g_hPhysicalDevice;
 static VkQueue g_hPresentQueue;
 static VkSurfaceFormatKHR g_SurfaceFormat;
 static VkExtent2D g_Extent;
@@ -77,8 +81,6 @@ static PFN_vkDebugReportMessageEXT g_pvkDebugReportMessageEXT;
 static PFN_vkDestroyDebugReportCallbackEXT g_pvkDestroyDebugReportCallbackEXT;
 static VkDebugReportCallbackEXT g_hCallback;
 
-static VkDevice g_hDevice;
-static VmaAllocator g_hAllocator;
 static VkQueue g_hGraphicsQueue;
 static VkCommandBuffer g_hTemporaryCommandBuffer;
 
@@ -144,10 +146,43 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
     const char* pMessage,
     void* pUserData)
 {
+    // "Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug."
+    if(!g_MemoryAliasingWarningEnabled && flags == VK_DEBUG_REPORT_WARNING_BIT_EXT &&
+        (strstr(pMessage, " is aliased with non-linear ") || strstr(pMessage, " is aliased with linear ")))
+    {
+        return VK_FALSE;
+    }
+
+    // Ignoring because when VK_KHR_dedicated_allocation extension is enabled,
+    // vkGetBufferMemoryRequirements2KHR function is used instead, while Validation
+    // Layer seems to be unaware of it.
+    if (strstr(pMessage, "but vkGetBufferMemoryRequirements() has not been called on that buffer") != nullptr)
+    {
+        return VK_FALSE;
+    }
+    if (strstr(pMessage, "but vkGetImageMemoryRequirements() has not been called on that image") != nullptr)
+    {
+        return VK_FALSE;
+    }
+    
+    switch(flags)
+    {
+    case VK_DEBUG_REPORT_WARNING_BIT_EXT:
+        SetConsoleColor(CONSOLE_COLOR::WARNING);
+        break;
+    case VK_DEBUG_REPORT_ERROR_BIT_EXT:
+        SetConsoleColor(CONSOLE_COLOR::ERROR_);
+        break;
+    default:
+        SetConsoleColor(CONSOLE_COLOR::INFO);
+    }
+
     printf("%s \xBA %s\n", pLayerPrefix, pMessage);
 
-    if((flags == VK_DEBUG_REPORT_WARNING_BIT_EXT) ||
-        (flags == VK_DEBUG_REPORT_ERROR_BIT_EXT))
+    SetConsoleColor(CONSOLE_COLOR::NORMAL);
+
+    if(flags == VK_DEBUG_REPORT_WARNING_BIT_EXT ||
+        flags == VK_DEBUG_REPORT_ERROR_BIT_EXT)
     {
         OutputDebugStringA(pMessage);
         OutputDebugStringA("\n");
@@ -1602,8 +1637,15 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_KEYDOWN:
-        if(wParam == VK_ESCAPE)
+        switch(wParam)
+        {
+        case VK_ESCAPE:
             PostMessage(hWnd, WM_CLOSE, 0, 0);
+            break;
+        case 'T':
+            Test();
+            break;
+        }
         return 0;
 
     default:
