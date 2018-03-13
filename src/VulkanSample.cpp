@@ -35,14 +35,15 @@ static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 2.0";
 
 static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;
-
-static bool g_EnableValidationLayer = true;
+static void* const CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA = (void*)(intptr_t)43564544;
+static const bool USE_CUSTOM_CPU_ALLOCATION_CALLBACKS = false;
 
 VkPhysicalDevice g_hPhysicalDevice;
 VkDevice g_hDevice;
 VmaAllocator g_hAllocator;
 bool g_MemoryAliasingWarningEnabled = true;
 
+static bool g_EnableValidationLayer = true;
 static bool VK_KHR_get_memory_requirements2_enabled = false;
 static bool VK_KHR_dedicated_allocation_enabled = false;
 
@@ -101,6 +102,28 @@ static uint32_t g_IndexCount;
 static VkImage g_hTextureImage;
 static VmaAllocation g_hTextureImageAlloc;
 static VkImageView g_hTextureImageView;
+
+static void* CustomCpuAllocation(
+    void* pUserData, size_t size, size_t alignment,
+    VkSystemAllocationScope allocationScope)
+{
+    assert(pUserData == CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA);
+    return _aligned_malloc(size, alignment);
+}
+
+static void* CustomCpuReallocation(
+    void* pUserData, void* pOriginal, size_t size, size_t alignment,
+    VkSystemAllocationScope allocationScope)
+{
+    assert(pUserData == CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA);
+    return _aligned_realloc(pOriginal, size, alignment);
+}
+
+static void CustomCpuFree(void* pUserData, void* pMemory)
+{
+    assert(pUserData == CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA);
+    _aligned_free(pMemory);
+}
 
 static void BeginSingleTimeCommands()
 {
@@ -1255,10 +1278,22 @@ static void InitializeApplication()
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice = g_hPhysicalDevice;
     allocatorInfo.device = g_hDevice;
+
     if(VK_KHR_dedicated_allocation_enabled)
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
+
+    VkAllocationCallbacks cpuAllocationCallbacks = {};
+    if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
+    {
+        cpuAllocationCallbacks.pUserData = CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA;
+        cpuAllocationCallbacks.pfnAllocation = &CustomCpuAllocation;
+        cpuAllocationCallbacks.pfnReallocation = &CustomCpuReallocation;
+        cpuAllocationCallbacks.pfnFree = &CustomCpuFree;
+        allocatorInfo.pAllocationCallbacks = &cpuAllocationCallbacks;
+    }
+
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
 
     // Retrieve queue (doesn't need to be destroyed)
