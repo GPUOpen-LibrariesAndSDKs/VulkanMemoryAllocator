@@ -810,6 +810,10 @@ That string is also printed in JSON report created by vmaBuildStatsString().
 
 \page usage_patterns Recommended usage patterns
 
+See also slides from talk:
+[Sawicki, Adam. Advanced Graphics Techniques Tutorial: Memory management in Vulkan and DX12. Game Developers Conference, 2018](https://www.gdcvault.com/play/1025458/Advanced-Graphics-Techniques-Tutorial-New)
+
+
 \section usage_patterns_simple Simple patterns
 
 \subsection usage_patterns_simple_render_targets Render targets
