@@ -20,6 +20,8 @@ include all public interface declarations. Example:
 
 //#define VMA_HEAVY_ASSERT(expr)
 
+//#define VMA_DEDICATED_ALLOCATION 0
+
 #pragma warning(push, 4)
 #pragma warning(disable: 4127) // conditional expression is constant
 #pragma warning(disable: 4100) // unreferenced formal parameter
