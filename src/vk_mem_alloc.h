@@ -9089,13 +9089,13 @@ void vmaFreeMemory(
     VmaAllocator allocator,
     VmaAllocation allocation)
 {
-    VMA_ASSERT(allocator && allocation);
-
+    VMA_ASSERT(allocator);
     VMA_DEBUG_LOG("vmaFreeMemory");
-
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
-    allocator->FreeMemory(allocation);
+    if(allocation != VK_NULL_HANDLE)
+    {
+        allocator->FreeMemory(allocation);
+    }
 }
 
 void vmaGetAllocationInfo(
@@ -9303,16 +9303,15 @@ void vmaDestroyBuffer(
     VkBuffer buffer,
     VmaAllocation allocation)
 {
+    VMA_ASSERT(allocator);
+    VMA_DEBUG_LOG("vmaDestroyBuffer");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
     if(buffer != VK_NULL_HANDLE)
     {
-        VMA_ASSERT(allocator);
-
-        VMA_DEBUG_LOG("vmaDestroyBuffer");
-
-        VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
         (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, buffer, allocator->GetAllocationCallbacks());
-        
+    }
+    if(allocation != VK_NULL_HANDLE)
+    {
         allocator->FreeMemory(allocation);
     }
 }
@@ -9379,16 +9378,15 @@ void vmaDestroyImage(
     VkImage image,
     VmaAllocation allocation)
 {
+    VMA_ASSERT(allocator);
+    VMA_DEBUG_LOG("vmaDestroyImage");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
     if(image != VK_NULL_HANDLE)
     {
-        VMA_ASSERT(allocator);
-
-        VMA_DEBUG_LOG("vmaDestroyImage");
-
-        VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
         (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, image, allocator->GetAllocationCallbacks());
-
+    }
+    if(allocation != VK_NULL_HANDLE)
+    {
         allocator->FreeMemory(allocation);
     }
 }
