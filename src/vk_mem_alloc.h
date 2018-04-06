@@ -932,7 +932,7 @@ solutions are possible:
 You should take some measurements to decide which option is faster in case of your specific
 resource.
 
-If you don't want to specialize your code for specific types of GPUs, yon can still make
+If you don't want to specialize your code for specific types of GPUs, you can still make
 an simple optimization for cases when your resource ends up in mappable memory to use it
 directly in this case instead of creating CPU-side staging copy.
 For details see [Finding out if memory is mappable](@ref memory_mapping_finding_if_memory_mappable).
@@ -1070,6 +1070,10 @@ Features deliberately excluded from the scope of this library:
 
 - Data transfer - issuing commands that transfer data between buffers or images, any usage of
   `VkCommandList` or `VkCommandQueue` and related synchronization is responsibility of the user.
+- Allocations for imported/exported external memory. They tend to require
+  explicit memory type index and dedicated allocation anyway, so they don't
+  interact with main features of this library. Such special purpose allocations
+  should be made manually, using `vkCreateBuffer()` and `vkAllocateMemory()`.
 - Support for any programming languages other than C/C++.
   Bindings to other languages are welcomed as external projects.
 
@@ -1377,7 +1381,7 @@ typedef enum VmaMemoryUsage
     - Resources written and read by device, e.g. images used as attachments.
     - Resources transferred from host once (immutable) or infrequently and read by
       device multiple times, e.g. textures to be sampled, vertex buffers, uniform
-      (constant) buffers, and majority of other types of resources used by device.
+      (constant) buffers, and majority of other types of resources used on GPU.
 
     Allocation may still end up in `HOST_VISIBLE` memory on some implementations.
     In such case, you are free to map it.
@@ -1386,9 +1390,9 @@ typedef enum VmaMemoryUsage
     VMA_MEMORY_USAGE_GPU_ONLY = 1,
     /** Memory will be mappable on host.
     It usually means CPU (system) memory.
-    Resources created in this pool may still be accessible to the device, but access to them can be slower.
     Guarantees to be `HOST_VISIBLE` and `HOST_COHERENT`.
-    CPU read may be uncached.
+    CPU access is typically uncached. Writes may be write-combined.
+    Resources created in this pool may still be accessible to the device, but access to them can be slow.
     It is roughly equivalent of `D3D12_HEAP_TYPE_UPLOAD`.
 
     Usage: Staging copy of resources used as transfer source.
@@ -1396,7 +1400,7 @@ typedef enum VmaMemoryUsage
     VMA_MEMORY_USAGE_CPU_ONLY = 2,
     /**
     Memory that is both mappable on host (guarantees to be `HOST_VISIBLE`) and preferably fast to access by GPU.
-    CPU reads may be uncached and very slow.
+    CPU access is typically uncached. Writes may be write-combined.
 
     Usage: Resources written frequently by host (dynamic), read by device. E.g. textures, vertex buffers, uniform buffers updated every frame or every draw call.
     */

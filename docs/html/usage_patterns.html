@@ -115,7 +115,7 @@ Direct access versus transfer</h2>
 <li>Create just single copy using <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27">VMA_MEMORY_USAGE_GPU_TO_CPU</a>, write to it directly on GPU, map it and read it on CPU.</li>
 </ol>
 <p>You should take some measurements to decide which option is faster in case of your specific resource.</p>
-<p>If you don't want to specialize your code for specific types of GPUs, yon can still make an simple optimization for cases when your resource ends up in mappable memory to use it directly in this case instead of creating CPU-side staging copy. For details see <a class="el" href="memory_mapping.html#memory_mapping_finding_if_memory_mappable">Finding out if memory is mappable</a>. </p>
+<p>If you don't want to specialize your code for specific types of GPUs, you can still make an simple optimization for cases when your resource ends up in mappable memory to use it directly in this case instead of creating CPU-side staging copy. For details see <a class="el" href="memory_mapping.html#memory_mapping_finding_if_memory_mappable">Finding out if memory is mappable</a>. </p>
 </div></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

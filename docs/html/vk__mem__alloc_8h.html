@@ -109,6 +109,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
+<tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
+<tr class="separator:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae25f0d55fd91cb166f002b63244800e1"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1">VMA_STATS_STRING_ENABLED</a>&#160;&#160;&#160;1</td></tr>
 <tr class="separator:ae25f0d55fd91cb166f002b63244800e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -306,6 +308,20 @@ Functions</h2></td></tr>
 <tr class="separator:ae50d2cb3b4a3bfd4dd40987234e50e7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
+<a id="af7b860e63b96d11e44ae8587ba06bbf4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af7b860e63b96d11e44ae8587ba06bbf4">&#9670;&nbsp;</a></span>VMA_DEDICATED_ALLOCATION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VMA_DEDICATED_ALLOCATION&#160;&#160;&#160;0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ae25f0d55fd91cb166f002b63244800e1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae25f0d55fd91cb166f002b63244800e1">&#9670;&nbsp;</a></span>VMA_STATS_STRING_ENABLED</h2>
 
@@ -731,14 +747,14 @@ Functions</h2></td></tr>
 <p>Usage:</p>
 <ul>
 <li>Resources written and read by device, e.g. images used as attachments.</li>
-<li>Resources transferred from host once (immutable) or infrequently and read by device multiple times, e.g. textures to be sampled, vertex buffers, uniform (constant) buffers, and majority of other types of resources used by device.</li>
+<li>Resources transferred from host once (immutable) or infrequently and read by device multiple times, e.g. textures to be sampled, vertex buffers, uniform (constant) buffers, and majority of other types of resources used on GPU.</li>
 </ul>
 <p>Allocation may still end up in <code>HOST_VISIBLE</code> memory on some implementations. In such case, you are free to map it. You can use <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it...">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> with this usage type. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5"></a>VMA_MEMORY_USAGE_CPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be mappable on host. It usually means CPU (system) memory. Resources created in this pool may still be accessible to the device, but access to them can be slower. Guarantees to be <code>HOST_VISIBLE</code> and <code>HOST_COHERENT</code>. CPU read may be uncached. It is roughly equivalent of <code>D3D12_HEAP_TYPE_UPLOAD</code>.</p>
+<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5"></a>VMA_MEMORY_USAGE_CPU_ONLY&#160;</td><td class="fielddoc"><p>Memory will be mappable on host. It usually means CPU (system) memory. Guarantees to be <code>HOST_VISIBLE</code> and <code>HOST_COHERENT</code>. CPU access is typically uncached. Writes may be write-combined. Resources created in this pool may still be accessible to the device, but access to them can be slow. It is roughly equivalent of <code>D3D12_HEAP_TYPE_UPLOAD</code>.</p>
 <p>Usage: Staging copy of resources used as transfer source. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca9066b52c5a7079bb74a69aaf8b92ff67"></a>VMA_MEMORY_USAGE_CPU_TO_GPU&#160;</td><td class="fielddoc"><p>Memory that is both mappable on host (guarantees to be <code>HOST_VISIBLE</code>) and preferably fast to access by GPU. CPU reads may be uncached and very slow.</p>
+<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca9066b52c5a7079bb74a69aaf8b92ff67"></a>VMA_MEMORY_USAGE_CPU_TO_GPU&#160;</td><td class="fielddoc"><p>Memory that is both mappable on host (guarantees to be <code>HOST_VISIBLE</code>) and preferably fast to access by GPU. CPU access is typically uncached. Writes may be write-combined.</p>
 <p>Usage: Resources written frequently by host (dynamic), read by device. E.g. textures, vertex buffers, uniform buffers updated every frame or every draw call. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27"></a>VMA_MEMORY_USAGE_GPU_TO_CPU&#160;</td><td class="fielddoc"><p>Memory mappable on host (guarantees to be <code>HOST_VISIBLE</code>) and cached. It is roughly equivalent of <code>D3D12_HEAP_TYPE_READBACK</code>.</p>
