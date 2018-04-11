@@ -4246,7 +4246,7 @@ private:
     bool m_HasEmptyBlock;
     VmaDefragmentator* m_pDefragmentator;
 
-    size_t CalcMaxBlockSize() const;
+    VkDeviceSize CalcMaxBlockSize() const;
 
     // Finds and removes given block from vector.
     void Remove(VmaDeviceMemoryBlock* pBlock);
@@ -6882,12 +6882,12 @@ void VmaBlockVector::Free(
     }
 }
 
-size_t VmaBlockVector::CalcMaxBlockSize() const
+VkDeviceSize VmaBlockVector::CalcMaxBlockSize() const
 {
-    size_t result = 0;
+    VkDeviceSize result = 0;
     for(size_t i = m_Blocks.size(); i--; )
     {
-        result = VMA_MAX((uint64_t)result, (uint64_t)m_Blocks[i]->m_Metadata.GetSize());
+        result = VMA_MAX(result, m_Blocks[i]->m_Metadata.GetSize());
         if(result >= m_PreferredBlockSize)
         {
             break;
