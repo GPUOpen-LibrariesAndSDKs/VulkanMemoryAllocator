@@ -2447,6 +2447,13 @@ If providing your own implementation, you need to implement a subset of std::ato
    #define VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE (256ull * 1024 * 1024)
 #endif
 
+#ifndef VMA_CLASS_NO_COPY
+    #define VMA_CLASS_NO_COPY(className) \
+        private: \
+            className(const className&) = delete; \
+            className& operator=(const className&) = delete;
+#endif
+
 static const uint32_t VMA_FRAME_INDEX_LOST = UINT32_MAX;
 
 /*******************************************************************************
@@ -2598,6 +2605,7 @@ static inline bool VmaIsBufferImageGranularityConflict(
 // Helper RAII class to lock a mutex in constructor and unlock it in destructor (at the end of scope).
 struct VmaMutexLock
 {
+    VMA_CLASS_NO_COPY(VmaMutexLock)
 public:
     VmaMutexLock(VMA_MUTEX& mutex, bool useMutex) :
         m_pMutex(useMutex ? &mutex : VMA_NULL)
@@ -3053,6 +3061,7 @@ allocator can create multiple blocks.
 template<typename T>
 class VmaPoolAllocator
 {
+    VMA_CLASS_NO_COPY(VmaPoolAllocator)
 public:
     VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, size_t itemsPerBlock);
     ~VmaPoolAllocator();
@@ -3185,6 +3194,7 @@ struct VmaListItem
 template<typename T>
 class VmaRawList
 {
+    VMA_CLASS_NO_COPY(VmaRawList)
 public:
     typedef VmaListItem<T> ItemType;
 
@@ -3223,10 +3233,6 @@ private:
     ItemType* m_pFront;
     ItemType* m_pBack;
     size_t m_Count;
-
-    // Declared not defined, to block copy constructor and assignment operator.
-    VmaRawList(const VmaRawList<T>& src);
-    VmaRawList<T>& operator=(const VmaRawList<T>& rhs);
 };
 
 template<typename T>
@@ -3455,6 +3461,7 @@ VmaListItem<T>* VmaRawList<T>::InsertAfter(ItemType* pItem, const T& value)
 template<typename T, typename AllocatorT>
 class VmaList
 {
+    VMA_CLASS_NO_COPY(VmaList)
 public:
     class iterator
     {
@@ -3746,6 +3753,7 @@ class VmaDeviceMemoryBlock;
 
 struct VmaAllocation_T
 {
+    VMA_CLASS_NO_COPY(VmaAllocation_T)
 private:
     static const uint8_t MAP_COUNT_FLAG_PERSISTENT_MAP = 0x80;
 
@@ -3988,6 +3996,7 @@ in a single VkDeviceMemory block.
 */
 class VmaBlockMetadata
 {
+    VMA_CLASS_NO_COPY(VmaBlockMetadata)
 public:
     VmaBlockMetadata(VmaAllocator hAllocator);
     ~VmaBlockMetadata();
@@ -4091,6 +4100,7 @@ Thread-safety: This class must be externally synchronized.
 */
 class VmaDeviceMemoryBlock
 {
+    VMA_CLASS_NO_COPY(VmaDeviceMemoryBlock)
 public:
     VmaBlockMetadata m_Metadata;
 
@@ -4159,6 +4169,8 @@ Synchronized internally with a mutex.
 */
 struct VmaBlockVector
 {
+    VMA_CLASS_NO_COPY(VmaBlockVector)
+public:
     VmaBlockVector(
         VmaAllocator hAllocator,
         uint32_t memoryTypeIndex,
@@ -4248,6 +4260,7 @@ private:
 
 struct VmaPool_T
 {
+    VMA_CLASS_NO_COPY(VmaPool_T)
 public:
     VmaBlockVector m_BlockVector;
 
@@ -4266,6 +4279,8 @@ public:
 
 class VmaDefragmentator
 {
+    VMA_CLASS_NO_COPY(VmaDefragmentator)
+private:
     const VmaAllocator m_hAllocator;
     VmaBlockVector* const m_pBlockVector;
     uint32_t m_CurrentFrameIndex;
@@ -4395,6 +4410,8 @@ public:
 // Main allocator object.
 struct VmaAllocator_T
 {
+    VMA_CLASS_NO_COPY(VmaAllocator_T)
+public:
     bool m_UseMutex;
     bool m_UseKhrDedicatedAllocation;
     VkDevice m_hDevice;
@@ -4664,6 +4681,7 @@ void VmaStringBuilder::AddPointer(const void* ptr)
 
 class VmaJsonWriter
 {
+    VMA_CLASS_NO_COPY(VmaJsonWriter)
 public:
     VmaJsonWriter(const VkAllocationCallbacks* pAllocationCallbacks, VmaStringBuilder& sb);
     ~VmaJsonWriter();
