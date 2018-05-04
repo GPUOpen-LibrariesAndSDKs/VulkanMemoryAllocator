@@ -2181,7 +2181,7 @@ void vmaDestroyImage(
 #endif // AMD_VULKAN_MEMORY_ALLOCATOR_H
 
 // For Visual Studio IntelliSense.
-#ifdef __INTELLISENSE__
+#if defined(__cplusplus) && defined(__INTELLISENSE__)
 #define VMA_IMPLEMENTATION
 #endif
 
