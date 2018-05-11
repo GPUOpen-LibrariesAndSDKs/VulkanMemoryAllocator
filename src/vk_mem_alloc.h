@@ -3780,6 +3780,10 @@ public:
         m_MapCount(0),
         m_Flags(userDataString ? (uint8_t)FLAG_USER_DATA_STRING : 0)
     {
+#if VMA_STATS_STRING_ENABLED
+        m_CreationFrameIndex = currentFrameIndex;
+        m_BufferImageUsage = 0;
+#endif
     }
 
     ~VmaAllocation_T()
@@ -3906,6 +3910,19 @@ public:
     VkResult DedicatedAllocMap(VmaAllocator hAllocator, void** ppData);
     void DedicatedAllocUnmap(VmaAllocator hAllocator);
 
+#if VMA_STATS_STRING_ENABLED
+    uint32_t GetCreationFrameIndex() const { return m_CreationFrameIndex; }
+    uint32_t GetBufferImageUsage() const { return m_BufferImageUsage; }
+
+    void InitBufferImageUsage(uint32_t bufferImageUsage)
+    {
+        VMA_ASSERT(m_BufferImageUsage == 0);
+        m_BufferImageUsage = bufferImageUsage;
+    }
+
+    void PrintParameters(class VmaJsonWriter& json) const;
+#endif
+
 private:
     VkDeviceSize m_Alignment;
     VkDeviceSize m_Size;
@@ -3942,6 +3959,11 @@ private:
         // Allocation for an object that has its own private VkDeviceMemory.
         DedicatedAllocation m_DedicatedAllocation;
     };
+
+#if VMA_STATS_STRING_ENABLED
+    uint32_t m_CreationFrameIndex;
+    uint32_t m_BufferImageUsage; // 0 if unknown.
+#endif
 
     void FreeUserDataString(VmaAllocator hAllocator);
 };
@@ -5128,6 +5150,53 @@ bool VmaAllocation_T::MakeLost(uint32_t currentFrameIndex, uint32_t frameInUseCo
     }
 }
 
+#if VMA_STATS_STRING_ENABLED
+
+// Correspond to values of enum VmaSuballocationType.
+static const char* VMA_SUBALLOCATION_TYPE_NAMES[] = {
+    "FREE",
+    "UNKNOWN",
+    "BUFFER",
+    "IMAGE_UNKNOWN",
+    "IMAGE_LINEAR",
+    "IMAGE_OPTIMAL",
+};
+
+void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
+{
+    json.WriteString("Type");
+    json.WriteString(VMA_SUBALLOCATION_TYPE_NAMES[m_SuballocationType]);
+
+    json.WriteString("Size");
+    json.WriteNumber(m_Size);
+
+    if(m_pUserData != VMA_NULL)
+    {
+        json.WriteString("UserData");
+        if(IsUserDataString())
+        {
+            json.WriteString((const char*)m_pUserData);
+        }
+        else
+        {
+            json.BeginString();
+            json.ContinueString_Pointer(m_pUserData);
+            json.EndString();
+        }
+    }
+
+    json.WriteString("CreationFrameIndex");
+    json.WriteNumber(m_CreationFrameIndex);
+
+    if(m_BufferImageUsage != 0)
+    {
+        json.WriteString("Usage");
+        json.WriteNumber(m_BufferImageUsage);
+    }
+}
+
+#endif
+
 void VmaAllocation_T::FreeUserDataString(VmaAllocator hAllocator)
 {
     VMA_ASSERT(IsUserDataString());
@@ -5227,16 +5296,6 @@ void VmaAllocation_T::DedicatedAllocUnmap(VmaAllocator hAllocator)
 }
 
 #if VMA_STATS_STRING_ENABLED
-
-// Correspond to values of enum VmaSuballocationType.
-static const char* VMA_SUBALLOCATION_TYPE_NAMES[] = {
-    "FREE",
-    "UNKNOWN",
-    "BUFFER",
-    "IMAGE_UNKNOWN",
-    "IMAGE_LINEAR",
-    "IMAGE_OPTIMAL",
-};
 
 static void VmaPrintStatInfo(VmaJsonWriter& json, const VmaStatInfo& stat)
 {
@@ -5533,32 +5592,20 @@ void VmaBlockMetadata::PrintDetailedMap(class VmaJsonWriter& json) const
     {
         json.BeginObject(true);
         
-        json.WriteString("Type");
-        json.WriteString(VMA_SUBALLOCATION_TYPE_NAMES[suballocItem->type]);
-
-        json.WriteString("Size");
-        json.WriteNumber(suballocItem->size);
-
         json.WriteString("Offset");
         json.WriteNumber(suballocItem->offset);
 
-        if(suballocItem->type != VMA_SUBALLOCATION_TYPE_FREE)
+        if(suballocItem->type == VMA_SUBALLOCATION_TYPE_FREE)
         {
-            const void* pUserData = suballocItem->hAllocation->GetUserData();
-            if(pUserData != VMA_NULL)
-            {
-                json.WriteString("UserData");
-                if(suballocItem->hAllocation->IsUserDataString())
-                {
-                    json.WriteString((const char*)pUserData);
-                }
-                else
-                {
-                    json.BeginString();
-                    json.ContinueString_Pointer(pUserData);
-                    json.EndString();
-                }
-            }
+            json.WriteString("Type");
+            json.WriteString(VMA_SUBALLOCATION_TYPE_NAMES[VMA_SUBALLOCATION_TYPE_FREE]);
+
+            json.WriteString("Size");
+            json.WriteNumber(suballocItem->size);
+        }
+        else
+        {
+            suballocItem->hAllocation->PrintParameters(json);
         }
 
         json.EndObject();
@@ -8517,31 +8564,9 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 
             for(size_t i = 0; i < pDedicatedAllocVector->size(); ++i)
             {
-                const VmaAllocation hAlloc = (*pDedicatedAllocVector)[i];
                 json.BeginObject(true);
-                    
-                json.WriteString("Type");
-                json.WriteString(VMA_SUBALLOCATION_TYPE_NAMES[hAlloc->GetSuballocationType()]);
-
-                json.WriteString("Size");
-                json.WriteNumber(hAlloc->GetSize());
-
-                const void* pUserData = hAlloc->GetUserData();
-                if(pUserData != VMA_NULL)
-                {
-                    json.WriteString("UserData");
-                    if(hAlloc->IsUserDataString())
-                    {
-                        json.WriteString((const char*)pUserData);
-                    }
-                    else
-                    {
-                        json.BeginString();
-                        json.ContinueString_Pointer(pUserData);
-                        json.EndString();
-                    }
-                }
-
+                const VmaAllocation hAlloc = (*pDedicatedAllocVector)[i];
+                hAlloc->PrintParameters(json);
                 json.EndObject();
             }
 
@@ -9319,6 +9344,9 @@ VkResult vmaCreateBuffer(
             if(res >= 0)
             {
                 // All steps succeeded.
+                #if VMA_STATS_STRING_ENABLED
+                    (*pAllocation)->InitBufferImageUsage(pBufferCreateInfo->usage);
+                #endif
                 if(pAllocationInfo != VMA_NULL)
                 {
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
@@ -9394,6 +9422,9 @@ VkResult vmaCreateImage(
             if(res >= 0)
             {
                 // All steps succeeded.
+                #if VMA_STATS_STRING_ENABLED
+                    (*pAllocation)->InitBufferImageUsage(pImageCreateInfo->usage);
+                #endif
                 if(pAllocationInfo != VMA_NULL)
                 {
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
