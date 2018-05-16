@@ -686,6 +686,15 @@ in a specified custom pool to lost state.
 Allocations that have been "touched" in current frame or VmaPoolCreateInfo::frameInUseCount frames back
 cannot become lost.
 
+<b>Q: Can I touch allocation that cannot become lost?</b>
+
+Yes, although it has no visible effect.
+Calls to vmaGetAllocationInfo() and vmaTouchAllocation() update last use frame index
+also for allocations that cannot become lost, but the only way to observe it is to dump
+internal allocator state using vmaBuildStatsString().
+You can use this feature for debugging purposes to explicitly mark allocations that you use
+in current frame and then analyze JSON dump to see for how long each allocation stays unused.
+
 
 \page statistics Statistics
 
@@ -5188,6 +5197,9 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
     json.WriteString("CreationFrameIndex");
     json.WriteNumber(m_CreationFrameIndex);
 
+    json.WriteString("LastUseFrameIndex");
+    json.WriteNumber(GetLastUseFrameIndex());
+
     if(m_BufferImageUsage != 0)
     {
         json.WriteString("Usage");
@@ -8251,6 +8263,26 @@ void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationI
     }
     else
     {
+#if VMA_STATS_STRING_ENABLED
+        uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
+        uint32_t localLastUseFrameIndex = hAllocation->GetLastUseFrameIndex();
+        for(;;)
+        {
+            VMA_ASSERT(localLastUseFrameIndex != VMA_FRAME_INDEX_LOST);
+            if(localLastUseFrameIndex == localCurrFrameIndex)
+            {
+                break;
+            }
+            else // Last use time earlier than current time.
+            {
+                if(hAllocation->CompareExchangeLastUseFrameIndex(localLastUseFrameIndex, localCurrFrameIndex))
+                {
+                    localLastUseFrameIndex = localCurrFrameIndex;
+                }
+            }
+        }
+#endif
+
         pAllocationInfo->memoryType = hAllocation->GetMemoryTypeIndex();
         pAllocationInfo->deviceMemory = hAllocation->GetMemory();
         pAllocationInfo->offset = hAllocation->GetOffset();
@@ -8288,6 +8320,26 @@ bool VmaAllocator_T::TouchAllocation(VmaAllocation hAllocation)
     }
     else
     {
+#if VMA_STATS_STRING_ENABLED
+        uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
+        uint32_t localLastUseFrameIndex = hAllocation->GetLastUseFrameIndex();
+        for(;;)
+        {
+            VMA_ASSERT(localLastUseFrameIndex != VMA_FRAME_INDEX_LOST);
+            if(localLastUseFrameIndex == localCurrFrameIndex)
+            {
+                break;
+            }
+            else // Last use time earlier than current time.
+            {
+                if(hAllocation->CompareExchangeLastUseFrameIndex(localLastUseFrameIndex, localCurrFrameIndex))
+                {
+                    localLastUseFrameIndex = localCurrFrameIndex;
+                }
+            }
+        }
+#endif
+
         return true;
     }
 }
