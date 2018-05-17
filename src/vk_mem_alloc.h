@@ -6909,7 +6909,7 @@ void VmaBlockVector::Free(
                 pBlockToDelete = pBlock;
                 Remove(pBlock);
             }
-            // We now have first empty Allocation.
+            // We now have first empty block.
             else
             {
                 m_HasEmptyBlock = true;
