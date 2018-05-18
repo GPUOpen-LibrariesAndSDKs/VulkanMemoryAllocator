@@ -32,7 +32,7 @@ FONT_SIZE = 10
 MAP_SIZE = 24
 COLOR_TEXT_H1 = (0, 0, 0, 255)
 COLOR_TEXT_H2 = (150, 150, 150, 255)
-COLOR_OUTLINE = (160, 160, 160, 255)
+COLOR_OUTLINE = (155, 155, 155, 255)
 COLOR_OUTLINE_HARD = (0, 0, 0, 255)
 COLOR_GRID_LINE = (224, 224, 224, 255)
 
@@ -52,7 +52,7 @@ def ProcessBlock(dstBlockList, objBlock):
     dstBlockObj = {'Size':iBlockSize, 'Suballocations':[]}
     dstBlockList.append(dstBlockObj)
     for objSuballoc in arrSuballocs:
-        dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size'])))
+        dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size']), int(objSuballoc['Usage']) if ('Usage' in objSuballoc) else 0))
 
 
 def GetDataForMemoryType(iMemTypeIndex):
@@ -88,31 +88,49 @@ def CalcParams():
     return iImgSizeY, fPixelsPerByte
 
 
-def TypeToColor(sType):
+def TypeToColor(sType, iUsage):
     if sType == 'FREE':
         return 220, 220, 220, 255
     elif sType == 'BUFFER':
-        return 255, 255, 0, 255
+        if (iUsage & 0x1C0) != 0: # INDIRECT_BUFFER | VERTEX_BUFFER | INDEX_BUFFER
+            return 255, 148, 148, 255 # Red
+        elif (iUsage & 0x28) != 0: # STORAGE_BUFFER | STORAGE_TEXEL_BUFFER
+            return 255, 187, 121, 255 # Orange
+        elif (iUsage & 0x14) != 0: # UNIFORM_BUFFER | UNIFORM_TEXEL_BUFFER
+            return 255, 255, 0, 255 # Yellow
+        else:
+            return 255, 255, 165, 255 # Light yellow
     elif sType == 'IMAGE_OPTIMAL':
-        return 128, 255, 255, 255
+        if (iUsage & 0x20) != 0: # DEPTH_STENCIL_ATTACHMENT
+            return 246, 128, 255, 255 # Pink
+        elif (iUsage & 0xD0) != 0: # INPUT_ATTACHMENT | TRANSIENT_ATTACHMENT | COLOR_ATTACHMENT
+            return 179, 179, 255, 255 # Blue
+        elif (iUsage & 0x4) != 0: # SAMPLED
+            return 0, 255, 255, 255 # Aqua
+        else:
+            return 183, 255, 255, 255 # Light aqua
     elif sType == 'IMAGE_LINEAR':
-        return 64, 255, 64, 255
+        return 0, 255, 0, 255 # Green
+    elif sType == 'IMAGE_UNKNOWN':
+        return 0, 255, 164, 255 # Green/aqua
+    elif sType == 'UNKNOWN':
+        return 175, 175, 175, 255 # Gray
     assert False
     return 0, 0, 0, 255
 
 
-def DrawDedicatedAllocationBlock(draw, y, tDedicatedAlloc):
+def DrawDedicatedAllocationBlock(draw, y, tDedicatedAlloc): 
     global fPixelsPerByte
     iSizeBytes = tDedicatedAlloc[1]
     iSizePixels = int(iSizeBytes * fPixelsPerByte)
-    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor(tDedicatedAlloc[0]), outline=COLOR_OUTLINE)
+    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor(tDedicatedAlloc[0], tDedicatedAlloc[2]), outline=COLOR_OUTLINE)
 
 
 def DrawBlock(draw, y, objBlock):
     global fPixelsPerByte
     iSizeBytes = objBlock['Size']
     iSizePixels = int(iSizeBytes * fPixelsPerByte)
-    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor('FREE'), outline=None)
+    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor('FREE', 0), outline=None)
     iByte = 0
     iX = 0
     iLastHardLineX = -1
@@ -122,7 +140,8 @@ def DrawBlock(draw, y, objBlock):
         iXEnd = int(iByteEnd * fPixelsPerByte)
         if sType != 'FREE':
             if iXEnd > iX + 1:
-                draw.rectangle([IMG_MARGIN + iX, y, IMG_MARGIN + iXEnd, y + MAP_SIZE], fill=TypeToColor(sType), outline=COLOR_OUTLINE)
+                iUsage = tSuballoc[2]
+                draw.rectangle([IMG_MARGIN + iX, y, IMG_MARGIN + iXEnd, y + MAP_SIZE], fill=TypeToColor(sType, iUsage), outline=COLOR_OUTLINE)
                 # Hard line was been overwritten by rectangle outline: redraw it.
                 if iLastHardLineX == iX:
                     draw.line([IMG_MARGIN + iX, y, IMG_MARGIN + iX, y + MAP_SIZE], fill=COLOR_OUTLINE_HARD)
@@ -154,7 +173,7 @@ if 'DedicatedAllocations' in jsonSrc:
         iType = int(sType[5:])
         typeData = GetDataForMemoryType(iType)
         for objAlloc in tType[1]:
-            typeData['DedicatedAllocations'].append((objAlloc['Type'], int(objAlloc['Size'])))
+            typeData['DedicatedAllocations'].append((objAlloc['Type'], int(objAlloc['Size']), int(objAlloc['Usage']) if ('Usage' in objAlloc) else 0))
 if 'DefaultPools' in jsonSrc:
     for tType in jsonSrc['DefaultPools'].items():
         sType = tType[0]
@@ -171,7 +190,6 @@ if 'Pools' in jsonSrc:
         arrBlocks = objPool['Blocks']
         for objBlock in arrBlocks:
             ProcessBlock(typeData['CustomPoolBlocks'], objBlock)
-            
 
 iImgSizeY, fPixelsPerByte = CalcParams()
 
@@ -234,6 +252,7 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
 - Fixed key 'DedicatedAllocations'. Value is list of tuples, each containing:
     - [0]: Type : string
     - [1]: Size : integer
+    - [2]: Usage : integer (0 if unknown)
 - Fixed key 'DefaultPoolBlocks'. Value is list of objects, each containing dictionary with:
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
