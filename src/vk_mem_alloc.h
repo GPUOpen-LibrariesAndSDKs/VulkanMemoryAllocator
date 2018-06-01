@@ -4147,12 +4147,14 @@ public:
     void Init(
         uint32_t newMemoryTypeIndex,
         VkDeviceMemory newMemory,
-        VkDeviceSize newSize);
+        VkDeviceSize newSize,
+        uint32_t id);
     // Always call before destruction.
     void Destroy(VmaAllocator allocator);
     
     VkDeviceMemory GetDeviceMemory() const { return m_hMemory; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
+    uint32_t GetId() const { return m_Id; }
     void* GetMappedData() const { return m_pMappedData; }
 
     // Validates all data structures inside this object. If not valid, returns false.
@@ -4173,6 +4175,7 @@ public:
 
 private:
     uint32_t m_MemoryTypeIndex;
+    uint32_t m_Id;
     VkDeviceMemory m_hMemory;
 
     // Protects access to m_hMemory so it's not used by multiple threads simultaneously, e.g. vkMapMemory, vkBindBufferMemory.
@@ -4276,6 +4279,7 @@ private:
     of a VkDeviceMemory. */
     bool m_HasEmptyBlock;
     VmaDefragmentator* m_pDefragmentator;
+    uint32_t m_NextBlockId;
 
     VkDeviceSize CalcMaxBlockSize() const;
 
@@ -4295,17 +4299,21 @@ struct VmaPool_T
 public:
     VmaBlockVector m_BlockVector;
 
-    // Takes ownership.
     VmaPool_T(
         VmaAllocator hAllocator,
         const VmaPoolCreateInfo& createInfo);
     ~VmaPool_T();
 
     VmaBlockVector& GetBlockVector() { return m_BlockVector; }
+    uint32_t GetId() const { return m_Id; }
+    void SetId(uint32_t id) { VMA_ASSERT(m_Id == 0); m_Id = id; }
 
 #if VMA_STATS_STRING_ENABLED
     //void PrintDetailedMap(class VmaStringBuilder& sb);
 #endif
+
+private:
+    uint32_t m_Id;
 };
 
 class VmaDefragmentator
@@ -4569,6 +4577,7 @@ private:
     VMA_MUTEX m_PoolsMutex;
     // Protected by m_PoolsMutex. Sorted by pointer value.
     VmaVector<VmaPool, VmaStlAllocator<VmaPool> > m_Pools;
+    uint32_t m_NextPoolId;
 
     VmaVulkanFunctions m_VulkanFunctions;
 
@@ -6366,6 +6375,7 @@ void VmaBlockMetadata::UnregisterFreeSuballocation(VmaSuballocationList::iterato
 VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator) :
     m_Metadata(hAllocator),
     m_MemoryTypeIndex(UINT32_MAX),
+    m_Id(0),
     m_hMemory(VK_NULL_HANDLE),
     m_MapCount(0),
     m_pMappedData(VMA_NULL)
@@ -6375,11 +6385,13 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator) :
 void VmaDeviceMemoryBlock::Init(
     uint32_t newMemoryTypeIndex,
     VkDeviceMemory newMemory,
-    VkDeviceSize newSize)
+    VkDeviceSize newSize,
+    uint32_t id)
 {
     VMA_ASSERT(m_hMemory == VK_NULL_HANDLE);
 
     m_MemoryTypeIndex = newMemoryTypeIndex;
+    m_Id = id;
     m_hMemory = newMemory;
 
     m_Metadata.Init(newSize);
@@ -6572,7 +6584,8 @@ VmaBlockVector::VmaBlockVector(
     m_IsCustomPool(isCustomPool),
     m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_HasEmptyBlock(false),
-    m_pDefragmentator(VMA_NULL)
+    m_pDefragmentator(VMA_NULL),
+    m_NextBlockId(0)
 {
 }
 
@@ -7000,7 +7013,8 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
     pBlock->Init(
         m_MemoryTypeIndex,
         mem,
-        allocInfo.allocationSize);
+        allocInfo.allocationSize,
+        m_NextBlockId++);
 
     m_Blocks.push_back(pBlock);
     if(pNewBlockIndex != VMA_NULL)
@@ -7056,12 +7070,16 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
     }
 
     json.WriteString("Blocks");
-    json.BeginArray();
+    json.BeginObject();
     for(size_t i = 0; i < m_Blocks.size(); ++i)
     {
+        json.BeginString();
+        json.ContinueString(m_Blocks[i]->GetId());
+        json.EndString();
+
         m_Blocks[i]->m_Metadata.PrintDetailedMap(json);
     }
-    json.EndArray();
+    json.EndObject();
 
     json.EndObject();
 }
@@ -7481,7 +7499,8 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_PreferredLargeHeapBlockSize(0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
-    m_Pools(VmaStlAllocator<VmaPool>(GetAllocationCallbacks()))
+    m_Pools(VmaStlAllocator<VmaPool>(GetAllocationCallbacks())),
+    m_NextPoolId(0)
 {
     VMA_ASSERT(pCreateInfo->physicalDevice && pCreateInfo->device);
 
@@ -8372,6 +8391,7 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
     // Add to m_Pools.
     {
         VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        (*pPool)->SetId(m_NextPoolId++);
         VmaVectorInsertSorted<VmaPointerLess>(m_Pools, *pPool);
     }
 
@@ -8662,12 +8682,16 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
         if(poolCount > 0)
         {
             json.WriteString("Pools");
-            json.BeginArray();
+            json.BeginObject();
             for(size_t poolIndex = 0; poolIndex < poolCount; ++poolIndex)
             {
+                json.BeginString();
+                json.ContinueString(m_Pools[poolIndex]->GetId());
+                json.EndString();
+
                 m_Pools[poolIndex]->m_BlockVector.PrintDetailedMap(json);
             }
-            json.EndArray();
+            json.EndObject();
         }
     }
 }

@@ -46,10 +46,10 @@ args = argParser.parse_args()
 data = {}
 
 
-def ProcessBlock(dstBlockList, objBlock):
+def ProcessBlock(dstBlockList, iBlockId, objBlock):
     iBlockSize = int(objBlock['TotalBytes'])
     arrSuballocs  = objBlock['Suballocations']
-    dstBlockObj = {'Size':iBlockSize, 'Suballocations':[]}
+    dstBlockObj = {'ID': iBlockId, 'Size':iBlockSize, 'Suballocations':[]}
     dstBlockList.append(dstBlockObj)
     for objSuballoc in arrSuballocs:
         dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size']), int(objSuballoc['Usage']) if ('Usage' in objSuballoc) else 0))
@@ -60,7 +60,7 @@ def GetDataForMemoryType(iMemTypeIndex):
     if iMemTypeIndex in data:
         return data[iMemTypeIndex]
     else:
-        newMemTypeData = {'DedicatedAllocations':[], 'DefaultPoolBlocks':[], 'CustomPoolBlocks':[]}
+        newMemTypeData = {'DedicatedAllocations':[], 'DefaultPoolBlocks':[], 'CustomPools':{}}
         data[iMemTypeIndex] = newMemTypeData
         return newMemTypeData
 
@@ -81,9 +81,10 @@ def CalcParams():
         iImgSizeY += len(dictMemType['DefaultPoolBlocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
         for objBlock in dictMemType['DefaultPoolBlocks']:
             iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
-        iImgSizeY += len(dictMemType['CustomPoolBlocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for objBlock in dictMemType['CustomPoolBlocks']:
-            iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
+        iImgSizeY += len(dictMemType['CustomPools']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+        for listPool in dictMemType['CustomPools'].values():
+            for objBlock in listPool:
+                iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
     fPixelsPerByte = (IMG_SIZE_X - IMG_MARGIN * 2) / float(iMaxBlockSize)
     return iImgSizeY, fPixelsPerByte
 
@@ -180,16 +181,17 @@ if 'DefaultPools' in jsonSrc:
         assert sType[:5] == 'Type '
         iType = int(sType[5:])
         typeData = GetDataForMemoryType(iType)
-        for objBlock in tType[1]['Blocks']:
-            ProcessBlock(typeData['DefaultPoolBlocks'], objBlock)
+        for sBlockId, objBlock in tType[1]['Blocks'].items():
+            ProcessBlock(typeData['DefaultPoolBlocks'], int(sBlockId), objBlock)
 if 'Pools' in jsonSrc:
-    arrPools = jsonSrc['Pools']
-    for objPool in arrPools:
+    objPools = jsonSrc['Pools']
+    for sPoolId, objPool in objPools.items():
         iType = int(objPool['MemoryTypeIndex'])
         typeData = GetDataForMemoryType(iType)
-        arrBlocks = objPool['Blocks']
-        for objBlock in arrBlocks:
-            ProcessBlock(typeData['CustomPoolBlocks'], objBlock)
+        objBlocks = objPool['Blocks']
+        for sBlockId, objBlock in objBlocks.items():
+            typeData['CustomPools'][int(sPoolId)] = []
+            ProcessBlock(typeData['CustomPools'][int(sPoolId)], int(sBlockId), objBlock)
 
 iImgSizeY, fPixelsPerByte = CalcParams()
 
@@ -230,20 +232,19 @@ for iMemTypeIndex in sorted(data.keys()):
         DrawDedicatedAllocationBlock(draw, y, tDedicatedAlloc)
         y += MAP_SIZE + IMG_MARGIN
         index += 1
-    index = 0
     for objBlock in dictMemType['DefaultPoolBlocks']:
-        draw.text((IMG_MARGIN, y), "Default pool block %d" % index, fill=COLOR_TEXT_H2, font=font)
+        draw.text((IMG_MARGIN, y), "Default pool block %d" % objBlock['ID'], fill=COLOR_TEXT_H2, font=font)
         y += FONT_SIZE + IMG_MARGIN
         DrawBlock(draw, y, objBlock)
         y += MAP_SIZE + IMG_MARGIN
-        index += 1
     index = 0
-    for objBlock in dictMemType['CustomPoolBlocks']:
-        draw.text((IMG_MARGIN, y), "Custom pool block %d" % index, fill=COLOR_TEXT_H2, font=font)
-        y += FONT_SIZE + IMG_MARGIN
-        DrawBlock(draw, y, objBlock)
-        y += MAP_SIZE + IMG_MARGIN
-        index += 1
+    for iPoolId, listPool in dictMemType['CustomPools'].items():
+        for objBlock in listPool:
+          draw.text((IMG_MARGIN, y), "Custom pool %d block %d" % (iPoolId, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
+          y += FONT_SIZE + IMG_MARGIN
+          DrawBlock(draw, y, objBlock)
+          y += MAP_SIZE + IMG_MARGIN
+          index += 1
 del draw
 img.save(args.output)
 
@@ -254,9 +255,12 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
     - [1]: Size : integer
     - [2]: Usage : integer (0 if unknown)
 - Fixed key 'DefaultPoolBlocks'. Value is list of objects, each containing dictionary with:
+    - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
-- Fixed key 'CustomPoolBlocks'. Value is list of objects, each containing dictionary with:
+- Fixed key 'CustomPools'. Value is dictionary.
+  - Key is integer pool ID. Value is list of objects, each containing dictionary with:
+    - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
 """
