@@ -41,6 +41,7 @@ Additional features:
 - Configuration: Fill optional members of CreateInfo structure to provide custom CPU memory allocator, pointers to Vulkan functions and other parameters.
 - Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library, from assert, mutex, and atomic, to vector and linked list. 
 - Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and you get access to mapped pointer.
+- Support for non-coherent memory. Functions that flush/invalidate memory. nonCoherentAtomSize is respected automatically.
 - Custom memory pools: Create a pool with desired parameters (e.g. fixed or limited maximum size) and allocate memory out of it.
 - Support for VK_KHR_dedicated_allocation extension: Just enable it and it will be used automatically by the library.
 - Defragmentation: Call one function and let the library move data around to free some memory blocks and make your allocations better compacted.

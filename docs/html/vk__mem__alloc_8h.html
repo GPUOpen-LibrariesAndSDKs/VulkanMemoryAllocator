@@ -286,6 +286,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a9bc268595cb33f6ec4d519cfce81ff45"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45">vmaUnmapMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
 <tr class="memdesc:a9bc268595cb33f6ec4d519cfce81ff45"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unmaps memory represented by given allocation, mapped previously using <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it. ">vmaMapMemory()</a>.  <a href="#a9bc268595cb33f6ec4d519cfce81ff45">More...</a><br /></td></tr>
 <tr class="separator:a9bc268595cb33f6ec4d519cfce81ff45"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc34ee6f021f459aff885f3758c435de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#abc34ee6f021f459aff885f3758c435de">vmaFlushAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize offset, VkDeviceSize size)</td></tr>
+<tr class="memdesc:abc34ee6f021f459aff885f3758c435de"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flushes memory of given allocation.  <a href="#abc34ee6f021f459aff885f3758c435de">More...</a><br /></td></tr>
+<tr class="separator:abc34ee6f021f459aff885f3758c435de"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0d0eb0c1102268fa9a476d12ecbe4006"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0d0eb0c1102268fa9a476d12ecbe4006">vmaInvalidateAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize offset, VkDeviceSize size)</td></tr>
+<tr class="memdesc:a0d0eb0c1102268fa9a476d12ecbe4006"><td class="mdescLeft">&#160;</td><td class="mdescRight">Invalidates memory of given allocation.  <a href="#a0d0eb0c1102268fa9a476d12ecbe4006">More...</a><br /></td></tr>
+<tr class="separator:a0d0eb0c1102268fa9a476d12ecbe4006"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6aced90fcc7b39882b6654a740a0b9bb"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb">vmaDefragment</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations, size_t allocationCount, VkBool32 *pAllocationsChanged, const <a class="el" href="struct_vma_defragmentation_info.html">VmaDefragmentationInfo</a> *pDefragmentationInfo, <a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a> *pDefragmentationStats)</td></tr>
 <tr class="memdesc:a6aced90fcc7b39882b6654a740a0b9bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compacts memory by moving allocations.  <a href="#a6aced90fcc7b39882b6654a740a0b9bb">More...</a><br /></td></tr>
 <tr class="separator:a6aced90fcc7b39882b6654a740a0b9bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1683,6 +1689,56 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="abc34ee6f021f459aff885f3758c435de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abc34ee6f021f459aff885f3758c435de">&#9670;&nbsp;</a></span>vmaFlushAllocation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaFlushAllocation </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>offset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flushes memory of given allocation. </p>
+<p>Calls <code>vkFlushMappedMemoryRanges()</code> for memory associated with given range of given allocation.</p>
+<ul>
+<li><code>offset</code> must be relative to the beginning of allocation.</li>
+<li><code>size</code> can be <code>VK_WHOLE_SIZE</code>. It means all memory from <code>offset</code> the the end of given allocation.</li>
+<li><code>offset</code> and <code>size</code> don't have to be aligned. They are internally rounded down/up to multiply of <code>nonCoherentAtomSize</code>.</li>
+<li>If <code>size</code> is 0, this call is ignored.</li>
+<li>If memory type that the <code>allocation</code> belongs to is not <code>HOST_VISIBLE</code> or it is <code>HOST_COHERENT</code>, this call is ignored. </li>
+</ul>
+
+</div>
+</div>
 <a id="a11f0fbc034fa81a4efedd73d61ce7568"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a11f0fbc034fa81a4efedd73d61ce7568">&#9670;&nbsp;</a></span>vmaFreeMemory()</h2>
 
@@ -1920,6 +1976,56 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="a0d0eb0c1102268fa9a476d12ecbe4006"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0d0eb0c1102268fa9a476d12ecbe4006">&#9670;&nbsp;</a></span>vmaInvalidateAllocation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaInvalidateAllocation </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>offset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Invalidates memory of given allocation. </p>
+<p>Calls <code>vkInvalidateMappedMemoryRanges()</code> for memory associated with given range of given allocation.</p>
+<ul>
+<li><code>offset</code> must be relative to the beginning of allocation.</li>
+<li><code>size</code> can be <code>VK_WHOLE_SIZE</code>. It means all memory from <code>offset</code> the the end of given allocation.</li>
+<li><code>offset</code> and <code>size</code> don't have to be aligned. They are internally rounded down/up to multiply of <code>nonCoherentAtomSize</code>.</li>
+<li>If <code>size</code> is 0, this call is ignored.</li>
+<li>If memory type that the <code>allocation</code> belongs to is not <code>HOST_VISIBLE</code> or it is <code>HOST_COHERENT</code>, this call is ignored. </li>
+</ul>
 
 </div>
 </div>
