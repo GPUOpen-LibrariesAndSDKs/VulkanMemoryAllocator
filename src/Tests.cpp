@@ -1322,6 +1322,57 @@ void TestHeapSizeLimit()
     vmaDestroyAllocator(hAllocator);
 }
 
+static void TestDebugMargin()
+{
+    if(VMA_DEBUG_MARGIN == 0)
+    {
+        return;
+    }
+
+    VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    // Create few buffers of different size.
+    const size_t BUF_COUNT = 10;
+    BufferInfo buffers[BUF_COUNT];
+    VmaAllocationInfo allocInfo[BUF_COUNT];
+    for(size_t i = 0; i < 10; ++i)
+    {
+        bufInfo.size = (VkDeviceSize)(i + 1) * 64;
+
+        VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[i].Buffer, &buffers[i].Allocation, &allocInfo[i]);
+        assert(res == VK_SUCCESS);
+        // Margin is preserved also at the beginning of a block.
+        assert(allocInfo[i].offset >= VMA_DEBUG_MARGIN);
+    }
+
+    // Check if their offsets preserve margin between them.
+    std::sort(allocInfo, allocInfo + BUF_COUNT, [](const VmaAllocationInfo& lhs, const VmaAllocationInfo& rhs) -> bool
+    {
+        if(lhs.deviceMemory != rhs.deviceMemory)
+        {
+            return lhs.deviceMemory < rhs.deviceMemory;
+        }
+        return lhs.offset < rhs.offset;
+    });
+    for(size_t i = 1; i < BUF_COUNT; ++i)
+    {
+        if(allocInfo[i].deviceMemory == allocInfo[i - 1].deviceMemory)
+        {
+            assert(allocInfo[i].offset >= allocInfo[i - 1].offset + VMA_DEBUG_MARGIN);
+        }
+    }
+
+    // Destroy all buffers.
+    for(size_t i = BUF_COUNT; i--; )
+    {
+        vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
+    }
+}
+
 static void TestPool_SameSize()
 {
     const VkDeviceSize BUF_SIZE = 1024 * 1024;
@@ -2956,8 +3007,15 @@ void Test()
     // # Simple tests
 
     TestBasics();
-    TestPool_SameSize();
-    TestHeapSizeLimit();
+    if(VMA_DEBUG_MARGIN)
+    {
+        TestDebugMargin();
+    }
+    else
+    {
+        TestPool_SameSize();
+        TestHeapSizeLimit();
+    }
     TestMapping();
     TestMappingMultithreaded();
     TestDefragmentationSimple();

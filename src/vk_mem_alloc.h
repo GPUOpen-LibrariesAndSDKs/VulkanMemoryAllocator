@@ -2447,7 +2447,7 @@ If providing your own implementation, you need to implement a subset of std::ato
 
 #ifndef VMA_DEBUG_MARGIN
    /**
-   Minimum margin between suballocations, in bytes.
+   Minimum margin before and after every allocation, in bytes.
    Set nonzero for debugging purposes only.
    */
    #define VMA_DEBUG_MARGIN (0)
@@ -4081,9 +4081,6 @@ public:
     void PrintDetailedMap(class VmaJsonWriter& json) const;
 #endif
 
-    // Creates trivial request for case when block is empty.
-    void CreateFirstAllocationRequest(VmaAllocationRequest* pAllocationRequest);
-
     // Tries to find a place for suballocation with given parameters inside this block.
     // If succeeded, fills pAllocationRequest and returns true.
     // If failed, returns false.
@@ -5486,7 +5483,7 @@ bool VmaBlockMetadata::Validate() const
     // Expected number of free suballocations that should be registered in
     // m_FreeSuballocationsBySize calculated from traversing their list.
     size_t freeSuballocationsToRegister = 0;
-    // True if previous visisted suballocation was free.
+    // True if previous visited suballocation was free.
     bool prevFree = false;
 
     for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
@@ -5521,6 +5518,12 @@ bool VmaBlockMetadata::Validate() const
             {
                 ++freeSuballocationsToRegister;
             }
+
+            // Margin required between allocations - every free space must be at least that large.
+            if(subAlloc.size < VMA_DEBUG_MARGIN)
+            {
+                return false;
+            }
         }
         else
         {
@@ -5529,6 +5532,12 @@ bool VmaBlockMetadata::Validate() const
                 return false;
             }
             if(subAlloc.hAllocation->GetSize() != subAlloc.size)
+            {
+                return false;
+            }
+
+            // Margin required between allocations - previous allocation must be free.
+            if(VMA_DEBUG_MARGIN > 0 && !prevFree)
             {
                 return false;
             }
@@ -5700,16 +5709,6 @@ How many suitable free suballocations to analyze before choosing best one.
 */
 //static const uint32_t MAX_SUITABLE_SUBALLOCATIONS_TO_CHECK = 8;
 
-void VmaBlockMetadata::CreateFirstAllocationRequest(VmaAllocationRequest* pAllocationRequest)
-{
-    VMA_ASSERT(IsEmpty());
-    pAllocationRequest->offset = 0;
-    pAllocationRequest->sumFreeSize = m_SumFreeSize;
-    pAllocationRequest->sumItemSize = 0;
-    pAllocationRequest->item = m_Suballocations.begin();
-    pAllocationRequest->itemsToMakeLostCount = 0;
-}
-
 bool VmaBlockMetadata::CreateAllocationRequest(
     uint32_t currentFrameIndex,
     uint32_t frameInUseCount,
@@ -5726,7 +5725,7 @@ bool VmaBlockMetadata::CreateAllocationRequest(
     VMA_HEAVY_ASSERT(Validate());
 
     // There is not enough total free space in this block to fullfill the request: Early return.
-    if(canMakeOtherLost == false && m_SumFreeSize < allocSize)
+    if(canMakeOtherLost == false && m_SumFreeSize < allocSize + 2 * VMA_DEBUG_MARGIN)
     {
         return false;
     }
@@ -5737,11 +5736,11 @@ bool VmaBlockMetadata::CreateAllocationRequest(
     {
         if(VMA_BEST_FIT)
         {
-            // Find first free suballocation with size not less than allocSize.
+            // Find first free suballocation with size not less than allocSize + 2 * VMA_DEBUG_MARGIN.
             VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
                 m_FreeSuballocationsBySize.data(),
                 m_FreeSuballocationsBySize.data() + freeSuballocCount,
-                allocSize,
+                allocSize + 2 * VMA_DEBUG_MARGIN,
                 VmaSuballocationItemSizeLess());
             size_t index = it - m_FreeSuballocationsBySize.data();
             for(; index < freeSuballocCount; ++index)
@@ -6067,7 +6066,7 @@ bool VmaBlockMetadata::CheckAllocation(
         *pOffset = suballocItem->offset;
     
         // Apply VMA_DEBUG_MARGIN at the beginning.
-        if((VMA_DEBUG_MARGIN > 0) && suballocItem != m_Suballocations.cbegin())
+        if(VMA_DEBUG_MARGIN > 0)
         {
             *pOffset += VMA_DEBUG_MARGIN;
         }
@@ -6113,11 +6112,8 @@ bool VmaBlockMetadata::CheckAllocation(
         // Calculate padding at the beginning based on current offset.
         const VkDeviceSize paddingBegin = *pOffset - suballocItem->offset;
 
-        // Calculate required margin at the end if this is not last suballocation.
-        VmaSuballocationList::const_iterator next = suballocItem;
-        ++next;
-        const VkDeviceSize requiredEndMargin =
-            (next != m_Suballocations.cend()) ? VMA_DEBUG_MARGIN : 0;
+        // Calculate required margin at the end.
+        const VkDeviceSize requiredEndMargin = VMA_DEBUG_MARGIN;
 
         const VkDeviceSize totalSize = paddingBegin + allocSize + requiredEndMargin;
         // Another early return check.
@@ -6213,7 +6209,7 @@ bool VmaBlockMetadata::CheckAllocation(
         *pOffset = suballoc.offset;
     
         // Apply VMA_DEBUG_MARGIN at the beginning.
-        if((VMA_DEBUG_MARGIN > 0) && suballocItem != m_Suballocations.cbegin())
+        if(VMA_DEBUG_MARGIN > 0)
         {
             *pOffset += VMA_DEBUG_MARGIN;
         }
@@ -6252,11 +6248,8 @@ bool VmaBlockMetadata::CheckAllocation(
         // Calculate padding at the beginning based on current offset.
         const VkDeviceSize paddingBegin = *pOffset - suballoc.offset;
 
-        // Calculate required margin at the end if this is not last suballocation.
-        VmaSuballocationList::const_iterator next = suballocItem;
-        ++next;
-        const VkDeviceSize requiredEndMargin =
-            (next != m_Suballocations.cend()) ? VMA_DEBUG_MARGIN : 0;
+        // Calculate required margin at the end.
+        const VkDeviceSize requiredEndMargin = VMA_DEBUG_MARGIN;
 
         // Fail if requested size plus margin before and after is bigger than size of this suballocation.
         if(paddingBegin + allocSize + requiredEndMargin > suballoc.size)
@@ -6695,7 +6688,7 @@ VkResult VmaBlockVector::Allocate(
     VmaAllocation* pAllocation)
 {
     // Early reject: requested allocation size is larger that maximum block size for this block vector.
-    if(size > m_PreferredBlockSize)
+    if(size + 2 * VMA_DEBUG_MARGIN > m_PreferredBlockSize)
     {
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
@@ -6828,22 +6821,37 @@ VkResult VmaBlockVector::Allocate(
 
             // Allocate from pBlock. Because it is empty, dstAllocRequest can be trivially filled.
             VmaAllocationRequest allocRequest;
-            pBlock->m_Metadata.CreateFirstAllocationRequest(&allocRequest);
-            *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
-            pBlock->m_Metadata.Alloc(allocRequest, suballocType, size, *pAllocation);
-            (*pAllocation)->InitBlockAllocation(
-                hCurrentPool,
-                pBlock,
-                allocRequest.offset,
-                alignment,
+            if(pBlock->m_Metadata.CreateAllocationRequest(
+                currentFrameIndex,
+                m_FrameInUseCount,
+                m_BufferImageGranularity,
                 size,
+                alignment,
                 suballocType,
-                mapped,
-                (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
-            VMA_HEAVY_ASSERT(pBlock->Validate());
-            VMA_DEBUG_LOG("    Created new allocation Size=%llu", allocInfo.allocationSize);
-            (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
-            return VK_SUCCESS;
+                false, // canMakeOtherLost
+                &allocRequest))
+            {
+                *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
+                pBlock->m_Metadata.Alloc(allocRequest, suballocType, size, *pAllocation);
+                (*pAllocation)->InitBlockAllocation(
+                    hCurrentPool,
+                    pBlock,
+                    allocRequest.offset,
+                    alignment,
+                    size,
+                    suballocType,
+                    mapped,
+                    (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
+                VMA_HEAVY_ASSERT(pBlock->Validate());
+                VMA_DEBUG_LOG("    Created new allocation Size=%llu", allocInfo.allocationSize);
+                (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
+                return VK_SUCCESS;
+            }
+            else
+            {
+                // Allocation from empty block failed, possibly due to VMA_DEBUG_MARGIN or alignment.
+                return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+            }
         }
     }
 
