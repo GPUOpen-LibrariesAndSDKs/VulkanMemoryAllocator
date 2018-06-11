@@ -6694,6 +6694,12 @@ VkResult VmaBlockVector::Allocate(
     VmaSuballocationType suballocType,
     VmaAllocation* pAllocation)
 {
+    // Early reject: requested allocation size is larger that maximum block size for this block vector.
+    if(size > m_PreferredBlockSize)
+    {
+        return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
     const bool mapped = (createInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
     const bool isUserDataString = (createInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0;
 

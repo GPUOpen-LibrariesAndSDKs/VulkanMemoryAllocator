@@ -1585,6 +1585,23 @@ static void TestPool_SameSize()
 
     items.clear();
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // Test for allocation too large for pool
+
+    {
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.pool = pool;
+
+        VkMemoryRequirements memReq;
+        memReq.memoryTypeBits = UINT32_MAX;
+        memReq.alignment = 1;
+        memReq.size = poolCreateInfo.blockSize + 4;
+        
+        VmaAllocation alloc = nullptr;
+        res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+        assert(res == VK_ERROR_OUT_OF_DEVICE_MEMORY && alloc == nullptr);
+    }
+
     vmaDestroyPool(g_hAllocator, pool);
 }
 
