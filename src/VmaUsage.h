@@ -18,9 +18,12 @@ include all public interface declarations. Example:
 
 //#define VMA_USE_STL_CONTAINERS 1
 
-//#define VMA_HEAVY_ASSERT(expr)
+//#define VMA_HEAVY_ASSERT(expr) assert(expr)
 
 //#define VMA_DEDICATED_ALLOCATION 0
+
+//#define VMA_DEBUG_MARGIN 16
+//#define VMA_DEBUG_DETECT_CORRUPTION 1
 
 #pragma warning(push, 4)
 #pragma warning(disable: 4127) // conditional expression is constant

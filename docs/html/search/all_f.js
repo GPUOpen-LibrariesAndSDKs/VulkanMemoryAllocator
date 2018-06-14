@@ -55,6 +55,8 @@ var searchData=
   ['vmabindimagememory',['vmaBindImageMemory',['../vk__mem__alloc_8h.html#a3d3ca45799923aa5d138e9e5f9eb2da5',1,'vk_mem_alloc.h']]],
   ['vmabuildstatsstring',['vmaBuildStatsString',['../vk__mem__alloc_8h.html#aa4fee7eb5253377599ef4fd38c93c2a0',1,'vk_mem_alloc.h']]],
   ['vmacalculatestats',['vmaCalculateStats',['../vk__mem__alloc_8h.html#a333b61c1788cb23559177531e6a93ca3',1,'vk_mem_alloc.h']]],
+  ['vmacheckcorruption',['vmaCheckCorruption',['../vk__mem__alloc_8h.html#a49329a7f030dafcf82f7b73334c22e98',1,'vk_mem_alloc.h']]],
+  ['vmacheckpoolcorruption',['vmaCheckPoolCorruption',['../vk__mem__alloc_8h.html#ad535935619c7a549bf837e1bb0068f89',1,'vk_mem_alloc.h']]],
   ['vmacreateallocator',['vmaCreateAllocator',['../vk__mem__alloc_8h.html#a200692051ddb34240248234f5f4c17bb',1,'vk_mem_alloc.h']]],
   ['vmacreatebuffer',['vmaCreateBuffer',['../vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51',1,'vk_mem_alloc.h']]],
   ['vmacreateimage',['vmaCreateImage',['../vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73',1,'vk_mem_alloc.h']]],

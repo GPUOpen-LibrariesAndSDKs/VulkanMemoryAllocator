@@ -257,6 +257,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a736bd6cbda886f36c891727e73bd4024"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a736bd6cbda886f36c891727e73bd4024">vmaMakePoolAllocationsLost</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_pool.html">VmaPool</a> pool, size_t *pLostAllocationCount)</td></tr>
 <tr class="memdesc:a736bd6cbda886f36c891727e73bd4024"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks all allocations in given pool as lost if they are not used in current frame or <a class="el" href="struct_vma_pool_create_info.html#a9437e43ffbb644dbbf7fc4e50cfad6aa" title="Maximum number of additional frames that are in use at the same time as current frame. ">VmaPoolCreateInfo::frameInUseCount</a> back from now.  <a href="#a736bd6cbda886f36c891727e73bd4024">More...</a><br /></td></tr>
 <tr class="separator:a736bd6cbda886f36c891727e73bd4024"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad535935619c7a549bf837e1bb0068f89"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ad535935619c7a549bf837e1bb0068f89">vmaCheckPoolCorruption</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_pool.html">VmaPool</a> pool)</td></tr>
+<tr class="memdesc:ad535935619c7a549bf837e1bb0068f89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks magic number in margins around all allocations in given memory pool in search for corruptions.  <a href="#ad535935619c7a549bf837e1bb0068f89">More...</a><br /></td></tr>
+<tr class="separator:ad535935619c7a549bf837e1bb0068f89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf28077dbf82d0908b8acbe8ee8dd9b8"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8">vmaAllocateMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkMemoryRequirements *pVkMemoryRequirements, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:abf28077dbf82d0908b8acbe8ee8dd9b8"><td class="mdescLeft">&#160;</td><td class="mdescRight">General purpose memory allocation.  <a href="#abf28077dbf82d0908b8acbe8ee8dd9b8">More...</a><br /></td></tr>
 <tr class="separator:abf28077dbf82d0908b8acbe8ee8dd9b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -292,6 +295,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a0d0eb0c1102268fa9a476d12ecbe4006"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0d0eb0c1102268fa9a476d12ecbe4006">vmaInvalidateAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize offset, VkDeviceSize size)</td></tr>
 <tr class="memdesc:a0d0eb0c1102268fa9a476d12ecbe4006"><td class="mdescLeft">&#160;</td><td class="mdescRight">Invalidates memory of given allocation.  <a href="#a0d0eb0c1102268fa9a476d12ecbe4006">More...</a><br /></td></tr>
 <tr class="separator:a0d0eb0c1102268fa9a476d12ecbe4006"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a49329a7f030dafcf82f7b73334c22e98"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a49329a7f030dafcf82f7b73334c22e98">vmaCheckCorruption</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryTypeBits)</td></tr>
+<tr class="memdesc:a49329a7f030dafcf82f7b73334c22e98"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions.  <a href="#a49329a7f030dafcf82f7b73334c22e98">More...</a><br /></td></tr>
+<tr class="separator:a49329a7f030dafcf82f7b73334c22e98"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6aced90fcc7b39882b6654a740a0b9bb"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb">vmaDefragment</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations, size_t allocationCount, VkBool32 *pAllocationsChanged, const <a class="el" href="struct_vma_defragmentation_info.html">VmaDefragmentationInfo</a> *pDefragmentationInfo, <a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a> *pDefragmentationStats)</td></tr>
 <tr class="memdesc:a6aced90fcc7b39882b6654a740a0b9bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compacts memory by moving allocations.  <a href="#a6aced90fcc7b39882b6654a740a0b9bb">More...</a><br /></td></tr>
 <tr class="separator:a6aced90fcc7b39882b6654a740a0b9bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1104,6 +1110,88 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Retrieves statistics from current state of the Allocator. </p>
+
+</div>
+</div>
+<a id="a49329a7f030dafcf82f7b73334c22e98"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a49329a7f030dafcf82f7b73334c22e98">&#9670;&nbsp;</a></span>vmaCheckCorruption()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaCheckCorruption </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t&#160;</td>
+          <td class="paramname"><em>memoryTypeBits</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">memoryTypeBits</td><td>Bit mask, where each bit set means that a memory type with that index should be checked.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Corruption detection is enabled only when <code>VMA_DEBUG_DETECT_CORRUPTION</code> macro is defined to nonzero, <code>VMA_DEBUG_MARGIN</code> is defined to nonzero and only for memory types that are <code>HOST_VISIBLE</code> and <code>HOST_COHERENT</code>. For more information, see <a class="el" href="corruption_detection.html">Corruption detection</a>.</p>
+<p>Possible return values:</p>
+<ul>
+<li><code>VK_ERROR_FEATURE_NOT_PRESENT</code> - corruption detection is not enabled for any of specified memory types.</li>
+<li><code>VK_SUCCESS</code> - corruption detection has been performed and succeeded.</li>
+<li><code>VK_ERROR_VALIDATION_FAILED_EXT</code> - corruption detection has been performed and found memory corruptions around one of the allocations. <code>VMA_ASSERT</code> is also fired in that case.</li>
+<li>Other value: Error returned by Vulkan, e.g. memory mapping failure. </li>
+</ul>
+
+</div>
+</div>
+<a id="ad535935619c7a549bf837e1bb0068f89"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad535935619c7a549bf837e1bb0068f89">&#9670;&nbsp;</a></span>vmaCheckPoolCorruption()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaCheckPoolCorruption </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_pool.html">VmaPool</a>&#160;</td>
+          <td class="paramname"><em>pool</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Checks magic number in margins around all allocations in given memory pool in search for corruptions. </p>
+<p>Corruption detection is enabled only when <code>VMA_DEBUG_DETECT_CORRUPTION</code> macro is defined to nonzero, <code>VMA_DEBUG_MARGIN</code> is defined to nonzero and the pool is created in memory type that is <code>HOST_VISIBLE</code> and <code>HOST_COHERENT</code>. For more information, see <a class="el" href="corruption_detection.html">Corruption detection</a>.</p>
+<p>Possible return values:</p>
+<ul>
+<li><code>VK_ERROR_FEATURE_NOT_PRESENT</code> - corruption detection is not enabled for specified pool.</li>
+<li><code>VK_SUCCESS</code> - corruption detection has been performed and succeeded.</li>
+<li><code>VK_ERROR_VALIDATION_FAILED_EXT</code> - corruption detection has been performed and found memory corruptions around one of the allocations. <code>VMA_ASSERT</code> is also fired in that case.</li>
+<li>Other value: Error returned by Vulkan, e.g. memory mapping failure. </li>
+</ul>
 
 </div>
 </div>

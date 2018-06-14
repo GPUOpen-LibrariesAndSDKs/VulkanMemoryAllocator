@@ -1322,6 +1322,7 @@ void TestHeapSizeLimit()
     vmaDestroyAllocator(hAllocator);
 }
 
+#if VMA_DEBUG_MARGIN
 static void TestDebugMargin()
 {
     if(VMA_DEBUG_MARGIN == 0)
@@ -1330,10 +1331,10 @@ static void TestDebugMargin()
     }
 
     VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
     // Create few buffers of different size.
     const size_t BUF_COUNT = 10;
@@ -1342,11 +1343,21 @@ static void TestDebugMargin()
     for(size_t i = 0; i < 10; ++i)
     {
         bufInfo.size = (VkDeviceSize)(i + 1) * 64;
+        // Last one will be mapped.
+        allocCreateInfo.flags = (i == BUF_COUNT - 1) ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
 
         VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[i].Buffer, &buffers[i].Allocation, &allocInfo[i]);
         assert(res == VK_SUCCESS);
         // Margin is preserved also at the beginning of a block.
         assert(allocInfo[i].offset >= VMA_DEBUG_MARGIN);
+
+        if(i == BUF_COUNT - 1)
+        {
+            // Fill with data.
+            assert(allocInfo[i].pMappedData != nullptr);
+            // Uncomment this "+ 1" to overwrite past end of allocation and check corruption detection.
+            memset(allocInfo[i].pMappedData, 0xFF, bufInfo.size /* + 1 */);
+        }
     }
 
     // Check if their offsets preserve margin between them.
@@ -1366,12 +1377,16 @@ static void TestDebugMargin()
         }
     }
 
+    VkResult res = vmaCheckCorruption(g_hAllocator, UINT32_MAX);
+    assert(res == VK_SUCCESS);
+
     // Destroy all buffers.
     for(size_t i = BUF_COUNT; i--; )
     {
         vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
     }
 }
+#endif
 
 static void TestPool_SameSize()
 {
@@ -3004,18 +3019,17 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
+    // TEMP tests
+
     // # Simple tests
 
     TestBasics();
-    if(VMA_DEBUG_MARGIN)
-    {
-        TestDebugMargin();
-    }
-    else
-    {
-        TestPool_SameSize();
-        TestHeapSizeLimit();
-    }
+#if VMA_DEBUG_MARGIN
+    TestDebugMargin();
+#else
+    TestPool_SameSize();
+    TestHeapSizeLimit();
+#endif
     TestMapping();
     TestMappingMultithreaded();
     TestDefragmentationSimple();
