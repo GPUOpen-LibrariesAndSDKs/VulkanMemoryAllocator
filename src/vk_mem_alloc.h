@@ -820,7 +820,7 @@ you can use debug features of this library to verify this.
 
 \section corruption_detection_margins Margins
 
-By default, allocations are laid your in memory blocks next to each other if possible
+By default, allocations are laid out in memory blocks next to each other if possible
 (considering required alignment, `bufferImageGranularity`, and `nonCoherentAtomSize`).
 
 ![Allocations without margin](../gfx/Margins_1.png)
