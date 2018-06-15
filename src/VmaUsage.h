@@ -24,6 +24,7 @@ include all public interface declarations. Example:
 
 //#define VMA_DEBUG_MARGIN 16
 //#define VMA_DEBUG_DETECT_CORRUPTION 1
+//#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
 
 #pragma warning(push, 4)
 #pragma warning(disable: 4127) // conditional expression is constant

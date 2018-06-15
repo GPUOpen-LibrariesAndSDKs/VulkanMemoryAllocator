@@ -558,12 +558,12 @@ VkResult MainTest(Result& outResult, const Config& config)
     return res;
 }
 
-static void SaveAllocatorStatsToFile(VmaAllocator alloc, const wchar_t* filePath)
+static void SaveAllocatorStatsToFile(const wchar_t* filePath)
 {
     char* stats;
-    vmaBuildStatsString(alloc, &stats, VK_TRUE);
+    vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
     SaveFile(filePath, stats, strlen(stats));
-    vmaFreeStatsString(alloc, stats);
+    vmaFreeStatsString(g_hAllocator, stats);
 }
 
 struct AllocInfo
@@ -982,7 +982,7 @@ void TestDefragmentationFull()
     for(size_t i = 0; i < allocations.size(); ++i)
         ValidateAllocationData(allocations[i]);
 
-    SaveAllocatorStatsToFile(g_hAllocator, L"Before.csv");
+    SaveAllocatorStatsToFile(L"Before.csv");
 
     {
         std::vector<VmaAllocation> vmaAllocations(allocations.size());
@@ -1033,7 +1033,7 @@ void TestDefragmentationFull()
 
             wchar_t fileName[MAX_PATH];
             swprintf(fileName, MAX_PATH, L"After_%02u.csv", defragIndex);
-            SaveAllocatorStatsToFile(g_hAllocator, fileName);
+            SaveAllocatorStatsToFile(fileName);
         }
     }
 
@@ -1669,6 +1669,98 @@ static void TestPool_SameSize()
     }
 
     vmaDestroyPool(g_hAllocator, pool);
+}
+
+static bool ValidatePattern(const void* pMemory, size_t size, uint8_t pattern)
+{
+    const uint8_t* pBytes = (const uint8_t*)pMemory;
+    for(size_t i = 0; i < size; ++i)
+    {
+        if(pBytes[i] != pattern)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void TestAllocationsInitialization()
+{
+    VkResult res;
+
+    const size_t BUF_SIZE = 1024;
+
+    // Create pool.
+
+    VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufInfo.size = BUF_SIZE;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo dummyBufAllocCreateInfo = {};
+    dummyBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.blockSize = BUF_SIZE * 10;
+    poolCreateInfo.minBlockCount = 1; // To keep memory alive while pool exists.
+    poolCreateInfo.maxBlockCount = 1;
+    res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufInfo, &dummyBufAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    VmaAllocationCreateInfo bufAllocCreateInfo = {};
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &bufAllocCreateInfo.pool);
+    assert(res == VK_SUCCESS);
+
+    // Create one persistently mapped buffer to keep memory of this block mapped,
+    // so that pointer to mapped data will remain (more or less...) valid even
+    // after destruction of other allocations.
+    
+    bufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    VkBuffer firstBuf;
+    VmaAllocation firstAlloc;
+    res = vmaCreateBuffer(g_hAllocator, &bufInfo, &bufAllocCreateInfo, &firstBuf, &firstAlloc, nullptr);
+    assert(res == VK_SUCCESS);
+
+    // Test buffers.
+
+    for(uint32_t i = 0; i < 2; ++i)
+    {
+        const bool persistentlyMapped = i == 0;
+        bufAllocCreateInfo.flags = persistentlyMapped ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
+        VkBuffer buf;
+        VmaAllocation alloc;
+        VmaAllocationInfo allocInfo;
+        res = vmaCreateBuffer(g_hAllocator, &bufInfo, &bufAllocCreateInfo, &buf, &alloc, &allocInfo);
+        assert(res == VK_SUCCESS);
+
+        void* pMappedData;
+        if(!persistentlyMapped)
+        {
+            res = vmaMapMemory(g_hAllocator, alloc, &pMappedData);
+            assert(res == VK_SUCCESS);
+        }
+        else
+        {
+            pMappedData = allocInfo.pMappedData;
+        }
+
+        // Validate initialized content
+        bool valid = ValidatePattern(pMappedData, BUF_SIZE, 0xDC);
+        assert(valid);
+
+        if(!persistentlyMapped)
+        {
+            vmaUnmapMemory(g_hAllocator, alloc);
+        }
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+
+        // Validate freed content
+        valid = ValidatePattern(pMappedData, BUF_SIZE, 0xEF);
+        assert(valid);
+    }
+
+    vmaDestroyBuffer(g_hAllocator, firstBuf, firstAlloc);
+    vmaDestroyPool(g_hAllocator, bufAllocCreateInfo.pool);
 }
 
 static void TestPool_Benchmark(
@@ -3029,6 +3121,9 @@ void Test()
 #else
     TestPool_SameSize();
     TestHeapSizeLimit();
+#endif
+#if VMA_DEBUG_INITIALIZE_ALLOCATIONS
+    TestAllocationsInitialization();
 #endif
     TestMapping();
     TestMappingMultithreaded();

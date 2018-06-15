@@ -63,9 +63,10 @@ Documentation of all members: vk_mem_alloc.h
   - \subpage allocation_annotation
     - [Allocation user data](@ref allocation_user_data)
     - [Allocation names](@ref allocation_names)
-  - \subpage corruption_detection
-    - [Margins](@ref corruption_detection_margins)
-    - [Corruption detection](@ref corruption_detection_corruption_detection)
+  - \subpage debugging_memory_usage
+    - [Memory initialization](@ref debugging_memory_usage_initialization)
+    - [Margins](@ref debugging_memory_usage_margins)
+    - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
 - \subpage usage_patterns
   - [Simple patterns](@ref usage_patterns_simple)
   - [Advanced patterns](@ref usage_patterns_advanced)
@@ -813,12 +814,36 @@ printf("Image name: %s\n", imageName);
 That string is also printed in JSON report created by vmaBuildStatsString().
 
 
-\page corruption_detection Corruption detection
+\page debugging_memory_usage Debugging incorrect memory usage
 
-If you suspect a bug caused by memory being overwritten out of bounds of an allocation,
+If you suspect a bug with memory usage, like usage of uninitialized memory or
+memory being overwritten out of bounds of an allocation,
 you can use debug features of this library to verify this.
 
-\section corruption_detection_margins Margins
+\section debugging_memory_usage_initialization Memory initialization
+
+If you experience a bug with incorrect data in your program and you suspect uninitialized memory to be used,
+you can enable automatic memory initialization to verify this.
+To do it, define macro `VMA_DEBUG_INITIALIZE_ALLOCATIONS` to 1.
+
+\code
+#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+#include "vk_mem_alloc.h"
+\endcode
+
+It makes memory of all new allocations initialized to bit pattern `0xDCDCDCDC`.
+Before an allocation is destroyed, its memory is filled with bit pattern `0xEFEFEFEF`.
+Memory is automatically mapped and unmapped if necessary.
+
+If you find these values while debugging your program, good chances are that you incorrectly
+read Vulkan memory that is allocated but not initialized, or already freed, respectively.
+
+Memory initialization works only with memory types that are `HOST_VISIBLE`.
+It works also with dedicated allocations.
+It doesn't work with allocations created with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag,
+as these they cannot be mapped.
+
+\section debugging_memory_usage_margins Margins
 
 By default, allocations are laid out in memory blocks next to each other if possible
 (considering required alignment, `bufferImageGranularity`, and `nonCoherentAtomSize`).
@@ -841,7 +866,9 @@ Change in application behavior may also be caused by different order and distrib
 of allocations across memory blocks after margins are applied.
 
 The margin is applied also before first and after last allocation in a block.
-It may happen only once between two adjacent allocations.
+It may occur only once between two adjacent allocations.
+
+Margins work with all types of memory.
 
 Margin is applied only to allocations made out of memory blocks and not to dedicated
 allocations, which have their own memory block of specific size.
@@ -853,7 +880,7 @@ Margins appear in [JSON dump](@ref statistics_json_dump) as part of free space.
 
 Note that enabling margins increases memory usage and fragmentation.
 
-\section corruption_detection_corruption_detection Corruption detection
+\section debugging_memory_usage_corruption_detection Corruption detection
 
 You can additionally define macro `VMA_DEBUG_DETECT_CORRUPTION` to 1 to enable validation
 of contents of the margins.
@@ -2480,32 +2507,32 @@ void *aligned_alloc(size_t alignment, size_t size)
 
 // Define this macro to 1 to enable functions: vmaBuildStatsString, vmaFreeStatsString.
 #if VMA_STATS_STRING_ENABLED
-   static inline void VmaUint32ToStr(char* outStr, size_t strLen, uint32_t num)
-   {
-       snprintf(outStr, strLen, "%u", static_cast<unsigned int>(num));
-   }
-   static inline void VmaUint64ToStr(char* outStr, size_t strLen, uint64_t num)
-   {
-       snprintf(outStr, strLen, "%llu", static_cast<unsigned long long>(num));
-   }
-   static inline void VmaPtrToStr(char* outStr, size_t strLen, const void* ptr)
-   {
-       snprintf(outStr, strLen, "%p", ptr);
-   }
+    static inline void VmaUint32ToStr(char* outStr, size_t strLen, uint32_t num)
+    {
+        snprintf(outStr, strLen, "%u", static_cast<unsigned int>(num));
+    }
+    static inline void VmaUint64ToStr(char* outStr, size_t strLen, uint64_t num)
+    {
+        snprintf(outStr, strLen, "%llu", static_cast<unsigned long long>(num));
+    }
+    static inline void VmaPtrToStr(char* outStr, size_t strLen, const void* ptr)
+    {
+        snprintf(outStr, strLen, "%p", ptr);
+    }
 #endif
 
 #ifndef VMA_MUTEX
-   class VmaMutex
-   {
-   public:
-       VmaMutex() { }
-       ~VmaMutex() { }
-       void Lock() { m_Mutex.lock(); }
-       void Unlock() { m_Mutex.unlock(); }
-   private:
-       std::mutex m_Mutex;
-   };
-   #define VMA_MUTEX VmaMutex
+    class VmaMutex
+    {
+    public:
+        VmaMutex() { }
+        ~VmaMutex() { }
+        void Lock() { m_Mutex.lock(); }
+        void Unlock() { m_Mutex.unlock(); }
+    private:
+        std::mutex m_Mutex;
+    };
+    #define VMA_MUTEX VmaMutex
 #endif
 
 /*
@@ -2521,43 +2548,51 @@ If providing your own implementation, you need to implement a subset of std::ato
 #endif
 
 #ifndef VMA_BEST_FIT
-   /**
-   Main parameter for function assessing how good is a free suballocation for a new
-   allocation request.
-
-   - Set to 1 to use Best-Fit algorithm - prefer smaller blocks, as close to the
-     size of requested allocations as possible.
-   - Set to 0 to use Worst-Fit algorithm - prefer larger blocks, as large as
-     possible.
-
-   Experiments in special testing environment showed that Best-Fit algorithm is
-   better.
-   */
-   #define VMA_BEST_FIT (1)
+    /**
+    Main parameter for function assessing how good is a free suballocation for a new
+    allocation request.
+    
+    - Set to 1 to use Best-Fit algorithm - prefer smaller blocks, as close to the
+      size of requested allocations as possible.
+    - Set to 0 to use Worst-Fit algorithm - prefer larger blocks, as large as
+      possible.
+    
+    Experiments in special testing environment showed that Best-Fit algorithm is
+    better.
+    */
+    #define VMA_BEST_FIT (1)
 #endif
 
 #ifndef VMA_DEBUG_ALWAYS_DEDICATED_MEMORY
-   /**
-   Every allocation will have its own memory block.
-   Define to 1 for debugging purposes only.
-   */
-   #define VMA_DEBUG_ALWAYS_DEDICATED_MEMORY (0)
+    /**
+    Every allocation will have its own memory block.
+    Define to 1 for debugging purposes only.
+    */
+    #define VMA_DEBUG_ALWAYS_DEDICATED_MEMORY (0)
 #endif
 
 #ifndef VMA_DEBUG_ALIGNMENT
-   /**
-   Minimum alignment of all allocations, in bytes.
-   Set to more than 1 for debugging purposes only. Must be power of two.
-   */
-   #define VMA_DEBUG_ALIGNMENT (1)
+    /**
+    Minimum alignment of all allocations, in bytes.
+    Set to more than 1 for debugging purposes only. Must be power of two.
+    */
+    #define VMA_DEBUG_ALIGNMENT (1)
 #endif
 
 #ifndef VMA_DEBUG_MARGIN
-   /**
-   Minimum margin before and after every allocation, in bytes.
-   Set nonzero for debugging purposes only.
-   */
-   #define VMA_DEBUG_MARGIN (0)
+    /**
+    Minimum margin before and after every allocation, in bytes.
+    Set nonzero for debugging purposes only.
+    */
+    #define VMA_DEBUG_MARGIN (0)
+#endif
+
+#ifndef VMA_DEBUG_INITIALIZE_ALLOCATIONS
+    /**
+    Define this macro to 1 to automatically fill new allocations and destroyed
+    allocations with some bit pattern.
+    */
+    #define VMA_DEBUG_INITIALIZE_ALLOCATIONS (0)
 #endif
 
 #ifndef VMA_DEBUG_DETECT_CORRUPTION
@@ -2570,19 +2605,19 @@ If providing your own implementation, you need to implement a subset of std::ato
 #endif
 
 #ifndef VMA_DEBUG_GLOBAL_MUTEX
-   /**
-   Set this to 1 for debugging purposes only, to enable single mutex protecting all
-   entry calls to the library. Can be useful for debugging multithreading issues.
-   */
-   #define VMA_DEBUG_GLOBAL_MUTEX (0)
+    /**
+    Set this to 1 for debugging purposes only, to enable single mutex protecting all
+    entry calls to the library. Can be useful for debugging multithreading issues.
+    */
+    #define VMA_DEBUG_GLOBAL_MUTEX (0)
 #endif
 
 #ifndef VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY
-   /**
-   Minimum value for VkPhysicalDeviceLimits::bufferImageGranularity.
-   Set to more than 1 for debugging purposes only. Must be power of two.
-   */
-   #define VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY (1)
+    /**
+    Minimum value for VkPhysicalDeviceLimits::bufferImageGranularity.
+    Set to more than 1 for debugging purposes only. Must be power of two.
+    */
+    #define VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY (1)
 #endif
 
 #ifndef VMA_SMALL_HEAP_MAX_SIZE
@@ -2606,6 +2641,9 @@ static const uint32_t VMA_FRAME_INDEX_LOST = UINT32_MAX;
 
 // Decimal 2139416166, float NaN, little-endian binary 66 E6 84 7F.
 static const uint32_t VMA_CORRUPTION_DETECTION_MAGIC_VALUE = 0x7F84E666;
+
+static const uint8_t VMA_ALLOCATION_FILL_PATTERN_CREATED   = 0xDC;
+static const uint8_t VMA_ALLOCATION_FILL_PATTERN_DESTROYED = 0xEF;
 
 /*******************************************************************************
 END OF CONFIGURATION
@@ -2832,20 +2870,20 @@ new element with value (key) should be inserted.
 template <typename IterT, typename KeyT, typename CmpT>
 static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, CmpT cmp)
 {
-   size_t down = 0, up = (end - beg);
-   while(down < up)
-   {
-      const size_t mid = (down + up) / 2;
-      if(cmp(*(beg+mid), key))
-      {
-         down = mid + 1;
-      }
-      else
-      {
-         up = mid;
-      }
-   }
-   return beg + down;
+    size_t down = 0, up = (end - beg);
+    while(down < up)
+    {
+        const size_t mid = (down + up) / 2;
+        if(cmp(*(beg+mid), key))
+        {
+            down = mid + 1;
+        }
+        else
+        {
+            up = mid;
+        }
+    }
+    return beg + down;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4769,6 +4807,8 @@ public:
         VmaAllocation hAllocation,
         VkDeviceSize offset, VkDeviceSize size,
         VMA_CACHE_OPERATION op);
+
+    void FillAllocation(const VmaAllocation hAllocation, uint8_t pattern);
 
 private:
     VkDeviceSize m_PreferredLargeHeapBlockSize;
@@ -6995,6 +7035,10 @@ VkResult VmaBlockVector::Allocate(
             VMA_HEAVY_ASSERT(pCurrBlock->Validate());
             VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
             (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
+            if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+            {
+                m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+            }
             if(IsCorruptionDetectionEnabled())
             {
                 VkResult res = pCurrBlock->WriteMagicValueAroundAllocation(m_hAllocator, currRequest.offset, size);
@@ -7098,6 +7142,10 @@ VkResult VmaBlockVector::Allocate(
                 VMA_HEAVY_ASSERT(pBlock->Validate());
                 VMA_DEBUG_LOG("    Created new allocation Size=%llu", allocInfo.allocationSize);
                 (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
+                if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+                {
+                    m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+                }
                 if(IsCorruptionDetectionEnabled())
                 {
                     res = pBlock->WriteMagicValueAroundAllocation(m_hAllocator, allocRequest.offset, size);
@@ -7194,6 +7242,10 @@ VkResult VmaBlockVector::Allocate(
                     VMA_HEAVY_ASSERT(pBestRequestBlock->Validate());
                     VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
                     (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
+                    if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+                    {
+                        m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+                    }
                     if(IsCorruptionDetectionEnabled())
                     {
                         VkResult res = pBestRequestBlock->WriteMagicValueAroundAllocation(m_hAllocator, bestRequest.offset, size);
@@ -8219,6 +8271,10 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     *pAllocation = vma_new(this, VmaAllocation_T)(m_CurrentFrameIndex.load(), isUserDataString);
     (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size);
     (*pAllocation)->SetUserData(this, pUserData);
+    if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+    {
+        FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+    }
 
     // Register it in m_pDedicatedAllocations.
     {
@@ -8434,6 +8490,11 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
     if(allocation->CanBecomeLost() == false ||
         allocation->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
     {
+        if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+        {
+            FillAllocation(allocation, VMA_ALLOCATION_FILL_PATTERN_DESTROYED);
+        }
+
         switch(allocation->GetType())
         {
         case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
@@ -9129,6 +9190,27 @@ void VmaAllocator_T::FreeDedicatedMemory(VmaAllocation allocation)
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
 
     VMA_DEBUG_LOG("    Freed DedicatedMemory MemoryTypeIndex=%u", memTypeIndex);
+}
+
+void VmaAllocator_T::FillAllocation(const VmaAllocation hAllocation, uint8_t pattern)
+{
+    if(VMA_DEBUG_INITIALIZE_ALLOCATIONS &&
+        !hAllocation->CanBecomeLost() &&
+        (m_MemProps.memoryTypes[hAllocation->GetMemoryTypeIndex()].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
+    {
+        void* pData = VMA_NULL;
+        VkResult res = Map(hAllocation, &pData);
+        if(res == VK_SUCCESS)
+        {
+            memset(pData, (int)pattern, (size_t)hAllocation->GetSize());
+            FlushOrInvalidateAllocation(hAllocation, 0, VK_WHOLE_SIZE, VMA_CACHE_FLUSH);
+            Unmap(hAllocation);
+        }
+        else
+        {
+            VMA_ASSERT(0 && "VMA_DEBUG_INITIALIZE_ALLOCATIONS is enabled, but couldn't map memory to fill allocation.");
+        }
+    }
 }
 
 #if VMA_STATS_STRING_ENABLED

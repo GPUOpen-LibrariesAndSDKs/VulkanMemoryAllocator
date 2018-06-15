@@ -50,7 +50,7 @@ Additional features:
 - Debug annotations: Associate string with name or opaque pointer to your own data with every allocation.
 - JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations and gaps between them.
 - Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
-- Margins: Enable validation of a magic number before and after every allocation to detect out-of-bounds memory corruption.
+- Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number before and after every allocation to detect out-of-bounds memory corruption.
 
 # Prequisites
 
