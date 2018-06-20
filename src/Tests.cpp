@@ -1388,6 +1388,127 @@ static void TestDebugMargin()
 }
 #endif
 
+static void TestLinearAllocator()
+{
+    wprintf(L"Test linear allocator\n");
+
+    RandomNumberGenerator rand{645332};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = 1024 * 1024;
+    poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    constexpr size_t maxBufCount = 100;
+    std::vector<BufferInfo> bufInfo;
+
+    constexpr VkDeviceSize bufSizeMin = 16;
+    constexpr VkDeviceSize bufSizeMax = 1024;
+    VmaAllocationInfo allocInfo;
+    VkDeviceSize prevOffset = 0;
+
+    // Test one-time free.
+    for(size_t i = 0; i < 2; ++i)
+    {
+        // Allocate number of buffers of varying size that surely fit into this block.
+        VkDeviceSize bufSumSize = 0;
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+            bufSumSize += bufCreateInfo.size;
+        }
+
+        // Validate pool stats.
+        VmaPoolStats stats;
+        vmaGetPoolStats(g_hAllocator, pool, &stats);
+        assert(stats.size == poolCreateInfo.blockSize);
+        assert(stats.unusedSize = poolCreateInfo.blockSize - bufSumSize);
+        assert(stats.allocationCount == bufInfo.size());
+
+        // Destroy the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+    }
+
+    // Test stack.
+    {
+        // Allocate number of buffers of varying size that surely fit into this block.
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+        }
+
+        // Destroy few buffers from top of the stack.
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Create some more
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+        }
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
 static void TestPool_SameSize()
 {
     const VkDeviceSize BUF_SIZE = 1024 * 1024;
@@ -3112,6 +3233,8 @@ void Test()
     wprintf(L"TESTING:\n");
 
     // TEMP tests
+TestLinearAllocator();
+return;
 
     // # Simple tests
 
@@ -3127,6 +3250,7 @@ void Test()
 #endif
     TestMapping();
     TestMappingMultithreaded();
+    TestLinearAllocator();
     TestDefragmentationSimple();
     TestDefragmentationFull();
 
