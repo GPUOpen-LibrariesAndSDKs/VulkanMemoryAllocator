@@ -5103,7 +5103,7 @@ void VmaJsonWriter::ContinueString(const char* pStr)
     for(size_t i = 0; i < strLen; ++i)
     {
         char ch = pStr[i];
-        if(ch == '\'')
+        if(ch == '\\')
         {
             m_SB.Add("\\\\");
         }
