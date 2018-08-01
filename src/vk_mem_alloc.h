@@ -298,7 +298,7 @@ The library provides following functions for mapping of a specific #VmaAllocatio
 They are safer and more convenient to use than standard Vulkan functions.
 You can map an allocation multiple times simultaneously - mapping is reference-counted internally.
 You can also map different allocations simultaneously regardless of whether they use the same `VkDeviceMemory` block.
-They way it's implemented is that the library always maps entire memory block, not just region of the allocation.
+The way it's implemented is that the library always maps entire memory block, not just region of the allocation.
 For further details, see description of vmaMapMemory() function.
 Example:
 
@@ -312,7 +312,7 @@ struct ConstantBuffer
 ConstantBuffer constantBufferData;
 
 VmaAllocator allocator;
-VmaBuffer constantBuffer;
+VkBuffer constantBuffer;
 VmaAllocation constantBufferAllocation;
 
 // You can map and fill your buffer using following code:
