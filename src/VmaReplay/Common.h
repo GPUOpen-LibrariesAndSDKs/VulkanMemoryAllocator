@@ -24,11 +24,6 @@ typedef std::chrono::high_resolution_clock::duration duration;
 
 #define ERR_GUARD_VULKAN(Expr) do { VkResult res__ = (Expr); if (res__ < 0) assert(0); } while(0)
 
-extern VkPhysicalDevice g_hPhysicalDevice;
-extern VkDevice g_hDevice;
-extern VmaAllocator g_hAllocator;
-extern bool g_MemoryAliasingWarningEnabled;
-
 inline float ToFloatSeconds(duration d)
 {
     return std::chrono::duration_cast<std::chrono::duration<float>>(d).count();
@@ -45,8 +40,6 @@ static inline T align_up(T val, T align)
 {
     return (val + align - 1) / align * align;
 }
-
-static const float PI = 3.14159265358979323846264338327950288419716939937510582f;
 
 class RandomNumberGenerator
 {
