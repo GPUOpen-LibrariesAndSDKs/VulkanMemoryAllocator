@@ -2649,6 +2649,29 @@ static const uint8_t VMA_ALLOCATION_FILL_PATTERN_DESTROYED = 0xEF;
 END OF CONFIGURATION
 */
 
+// TEMP ADDED
+
+void Crash()
+{
+    int* i = 0; *i = 0;
+}
+
+FILE* g_File;
+LARGE_INTEGER g_Freq, g_StartCounter;
+VMA_MUTEX g_FileMutex;
+
+void EnsureFile()
+{
+    if(!g_File)
+    {
+        fopen_s(&g_File, "VMA_Usage_Dump", "wb");
+        fprintf(g_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
+        fprintf(g_File, "%s\n", "1,0");
+        QueryPerformanceFrequency(&g_Freq);
+        QueryPerformanceCounter(&g_StartCounter);
+    }
+}
+
 static VkAllocationCallbacks VmaEmptyAllocationCallbacks = {
     VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL };
 
@@ -4785,6 +4808,7 @@ public:
     void GetPoolStats(VmaPool pool, VmaPoolStats* pPoolStats);
 
     void SetCurrentFrameIndex(uint32_t frameIndex);
+    uint32_t GetCurrentFrameIndex() const { return m_CurrentFrameIndex.load(); }
 
     void MakePoolAllocationsLost(
         VmaPool hPool,
@@ -9338,6 +9362,18 @@ VkResult vmaCreateAllocator(
     VMA_ASSERT(pCreateInfo && pAllocator);
     VMA_DEBUG_LOG("vmaCreateAllocator");
     *pAllocator = vma_new(pCreateInfo->pAllocationCallbacks, VmaAllocator_T)(pCreateInfo);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = (*pAllocator)->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaCreateAllocator\n", threadId, time, frameIndex);
+        fflush(g_File);
+    }
+
     return VK_SUCCESS;
 }
 
@@ -9346,6 +9382,17 @@ void vmaDestroyAllocator(
 {
     if(allocator != VK_NULL_HANDLE)
     {
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaDestroyAllocator\n", threadId, time, frameIndex);
+        fflush(g_File);
+    }
+
         VMA_DEBUG_LOG("vmaDestroyAllocator");
         VkAllocationCallbacks allocationCallbacks = allocator->m_AllocationCallbacks;
         vma_delete(&allocationCallbacks, allocator);
@@ -9688,7 +9735,27 @@ VkResult vmaCreatePool(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return allocator->CreatePool(pCreateInfo, pPool);
+    VkResult res = allocator->CreatePool(pCreateInfo, pPool);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaCreatePool,%u,%u,%llu,%llu,%llu,%u,%p\n", threadId, time, frameIndex,
+            pCreateInfo->memoryTypeIndex,
+            pCreateInfo->flags,
+            pCreateInfo->blockSize,
+            pCreateInfo->minBlockCount,
+            pCreateInfo->maxBlockCount,
+            pCreateInfo->frameInUseCount,
+            (*pPool));
+        fflush(g_File);
+    }
+
+    return res;
 }
 
 void vmaDestroyPool(
@@ -9700,6 +9767,18 @@ void vmaDestroyPool(
     if(pool == VK_NULL_HANDLE)
     {
         return;
+    }
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaDestroyPool,%p\n", threadId, time, frameIndex,
+            pool);
+        fflush(g_File);
     }
 
     VMA_DEBUG_LOG("vmaDestroyPool");
@@ -9751,6 +9830,7 @@ VkResult vmaAllocateMemory(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo)
 {
+    Crash();
     VMA_ASSERT(allocator && pVkMemoryRequirements && pCreateInfo && pAllocation);
 
     VMA_DEBUG_LOG("vmaAllocateMemory");
@@ -9782,6 +9862,7 @@ VkResult vmaAllocateMemoryForBuffer(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo)
 {
+    Crash();
     VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && pAllocation);
 
     VMA_DEBUG_LOG("vmaAllocateMemoryForBuffer");
@@ -9820,6 +9901,7 @@ VkResult vmaAllocateMemoryForImage(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo)
 {
+    Crash();
     VMA_ASSERT(allocator && image != VK_NULL_HANDLE && pCreateInfo && pAllocation);
 
     VMA_DEBUG_LOG("vmaAllocateMemoryForImage");
@@ -9845,6 +9927,7 @@ void vmaFreeMemory(
     VmaAllocator allocator,
     VmaAllocation allocation)
 {
+    Crash();
     VMA_ASSERT(allocator);
     VMA_DEBUG_LOG("vmaFreeMemory");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
@@ -9886,6 +9969,19 @@ void vmaSetAllocationUserData(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaSetAllocationUserData,%p,%s\n", threadId, time, frameIndex,
+            allocation,
+            (const char*)pUserData);
+        fflush(g_File);
+    }
+
     allocation->SetUserData(allocator, pUserData);
 }
 
@@ -9893,6 +9989,7 @@ void vmaCreateLostAllocation(
     VmaAllocator allocator,
     VmaAllocation* pAllocation)
 {
+    Crash();
     VMA_ASSERT(allocator && pAllocation);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
@@ -9978,6 +10075,7 @@ VkResult vmaBindBufferMemory(
     VmaAllocation allocation,
     VkBuffer buffer)
 {
+    Crash();
     VMA_ASSERT(allocator && allocation && buffer);
 
     VMA_DEBUG_LOG("vmaBindBufferMemory");
@@ -9992,6 +10090,7 @@ VkResult vmaBindImageMemory(
     VmaAllocation allocation,
     VkImage image)
 {
+    Crash();
     VMA_ASSERT(allocator && allocation && image);
 
     VMA_DEBUG_LOG("vmaBindImageMemory");
@@ -10075,6 +10174,30 @@ VkResult vmaCreateBuffer(
                 {
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
                 }
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaCreateBuffer,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", threadId, time, frameIndex,
+            pBufferCreateInfo->flags,
+            pBufferCreateInfo->size,
+            pBufferCreateInfo->usage,
+            pBufferCreateInfo->sharingMode,
+            pAllocationCreateInfo->flags,
+            pAllocationCreateInfo->usage,
+            pAllocationCreateInfo->requiredFlags,
+            pAllocationCreateInfo->preferredFlags,
+            pAllocationCreateInfo->memoryTypeBits,
+            pAllocationCreateInfo->pool,
+            (*pAllocation),
+            pAllocationCreateInfo->pUserData ? (const char*)pAllocationCreateInfo->pUserData : "");
+        fflush(g_File);
+    }
+
                 return VK_SUCCESS;
             }
             allocator->FreeMemory(*pAllocation);
@@ -10096,6 +10219,19 @@ void vmaDestroyBuffer(
     VmaAllocation allocation)
 {
     VMA_ASSERT(allocator);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaDestroyBuffer,%p\n", threadId, time, frameIndex,
+            allocation);
+        fflush(g_File);
+    }
+
     VMA_DEBUG_LOG("vmaDestroyBuffer");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
     if(buffer != VK_NULL_HANDLE)
@@ -10153,6 +10289,39 @@ VkResult vmaCreateImage(
                 {
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
                 }
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaCreateImage,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", threadId, time, frameIndex,
+            pImageCreateInfo->flags,
+            pImageCreateInfo->imageType,
+            pImageCreateInfo->format,
+            pImageCreateInfo->extent.width,
+            pImageCreateInfo->extent.height,
+            pImageCreateInfo->extent.depth,
+            pImageCreateInfo->mipLevels,
+            pImageCreateInfo->arrayLayers,
+            pImageCreateInfo->samples,
+            pImageCreateInfo->tiling,
+            pImageCreateInfo->usage,
+            pImageCreateInfo->sharingMode,
+            pImageCreateInfo->initialLayout,
+            pAllocationCreateInfo->flags,
+            pAllocationCreateInfo->usage,
+            pAllocationCreateInfo->requiredFlags,
+            pAllocationCreateInfo->preferredFlags,
+            pAllocationCreateInfo->memoryTypeBits,
+            pAllocationCreateInfo->pool,
+            (*pAllocation),
+            pAllocationCreateInfo->pUserData ? (const char*)pAllocationCreateInfo->pUserData : "");
+        fflush(g_File);
+    }
+
                 return VK_SUCCESS;
             }
             allocator->FreeMemory(*pAllocation);
@@ -10174,6 +10343,19 @@ void vmaDestroyImage(
     VmaAllocation allocation)
 {
     VMA_ASSERT(allocator);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaDestroyImage,%p\n", threadId, time, frameIndex,
+            allocation);
+        fflush(g_File);
+    }
+
     VMA_DEBUG_LOG("vmaDestroyImage");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
     if(image != VK_NULL_HANDLE)

@@ -21,6 +21,7 @@ architecture "x64"
 includedirs { "$(VULKAN_SDK)/include" }
 libdirs { "$(VULKAN_SDK)/lib" }
 
+
 project "VulkanSample"
 kind "ConsoleApp"
 language "C++"
@@ -32,6 +33,44 @@ floatingpoint "Fast"
 files { "../src/*.h", "../src/*.cpp" }
 flags { "NoPCH", "FatalWarnings" }
 characterset "Unicode"
+
+filter "configurations:Debug"
+defines { "_DEBUG", "DEBUG" }
+flags { }
+targetsuffix ("_Debug_" .. _SUFFIX)
+
+filter "configurations:Release"
+defines { "NDEBUG" }
+optimize "On"
+flags { "LinkTimeOptimization" }
+targetsuffix ("_Release_" .. _SUFFIX)
+
+filter { "platforms:x64" }
+defines { "WIN32", "_CONSOLE", "PROFILE", "_WINDOWS", "_WIN32_WINNT=0x0601" }
+links { "vulkan-1" }
+
+filter { "platforms:Linux-x64" }
+buildoptions { "-std=c++0x" }
+links { "vulkan" }
+
+filter { "configurations:Debug", "platforms:x64" }
+buildoptions { "/MDd" }
+
+filter { "configurations:Release", "platforms:Windows-x64" }
+buildoptions { "/MD" }
+
+
+project "VmaReplay"
+kind "ConsoleApp"
+language "C++"
+location "../build"
+filename ("VmaReplay_" .. _SUFFIX)
+targetdir "../bin"
+objdir "../build/Desktop_%{_SUFFIX}/%{cfg.platform}/%{cfg.buildcfg}"
+floatingpoint "Fast"
+files { "../src/VmaReplay/*.h", "../src/VmaReplay/*.cpp" }
+flags { "NoPCH", "FatalWarnings" }
+characterset "Default"
 
 filter "configurations:Debug"
 defines { "_DEBUG", "DEBUG" }
