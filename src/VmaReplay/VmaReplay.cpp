@@ -28,6 +28,7 @@ static const int RESULT_EXCEPTION          = -1000;
 static const int RESULT_ERROR_COMMAND_LINE = -1;
 static const int RESULT_ERROR_SOURCE_FILE  = -2;
 static const int RESULT_ERROR_FORMAT       = -3;
+static const int RESULT_ERROR_VULKAN       = -4;
 
 struct StrRange
 {
@@ -46,24 +47,21 @@ static inline bool StrRangeEq(const StrRange& lhs, const char* rhsSz)
 
 static inline bool StrRangeToUint(const StrRange& s, uint32_t& out)
 {
-    // TODO handle failure.
     char* end = (char*)s.end;
     out = (uint32_t)strtoul(s.beg, &end, 10);
-    return true;
+    return end == s.end;
 }
 static inline bool StrRangeToUint(const StrRange& s, uint64_t& out)
 {
-    // TODO handle failure.
     char* end = (char*)s.end;
     out = (uint64_t)strtoull(s.beg, &end, 10);
-    return true;
+    return end == s.end;
 }
 static inline bool StrRangeToPtr(const StrRange& s, uint64_t& out)
 {
-    // TODO handle failure.
     char* end = (char*)s.end;
     out = (uint64_t)strtoull(s.beg, &end, 16);
-    return true;
+    return end == s.end;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -212,7 +210,7 @@ class Player
 {
 public:
     Player();
-    void Init();
+    int Init();
     ~Player();
 
     void ExecuteLine(size_t lineNumber, const StrRange& line);
@@ -258,7 +256,7 @@ private:
     // Increments warning counter. Returns true if warning message should be printed.
     bool IssueWarning() { return m_WarningCount++ < MAX_WARNINGS_TO_SHOW; }
 
-    void InitVulkan();
+    int InitVulkan();
     void FinalizeVulkan();
     void RegisterDebugCallbacks();
 
@@ -277,9 +275,9 @@ Player::Player()
 {
 }
 
-void Player::Init()
+int Player::Init()
 {
-    InitVulkan();
+    return InitVulkan();
 }
 
 Player::~Player()
@@ -355,16 +353,19 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
     }
 }
 
-void Player::InitVulkan()
+int Player::InitVulkan()
 {
     printf("Initializing Vulkan...\n");
 
     uint32_t instanceLayerPropCount = 0;
-    ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr) );
+    VkResult res = vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr);
+    assert(res == VK_SUCCESS);
+
     std::vector<VkLayerProperties> instanceLayerProps(instanceLayerPropCount);
     if(instanceLayerPropCount > 0)
     {
-        ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, instanceLayerProps.data()) );
+        res = vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, instanceLayerProps.data());
+        assert(res == VK_SUCCESS);
     }
 
     if(g_EnableValidationLayer == true)
@@ -381,7 +382,7 @@ void Player::InitVulkan()
     //instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
     std::vector<const char*> instanceLayers;
-    if(g_EnableValidationLayer == true)
+    if(g_EnableValidationLayer)
     {
         instanceLayers.push_back(VALIDATION_LAYER_NAME);
         instanceExtensions.push_back("VK_EXT_debug_report");
@@ -401,18 +402,32 @@ void Player::InitVulkan()
     instInfo.enabledLayerCount = (uint32_t)instanceLayers.size();
     instInfo.ppEnabledLayerNames = instanceLayers.data();
 
-    ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, NULL, &m_VulkanInstance) );
+    res = vkCreateInstance(&instInfo, NULL, &m_VulkanInstance);
+    if(res != VK_SUCCESS)
+    {
+        printf("ERROR: vkCreateInstance failed (%u)\n", res);
+        return RESULT_ERROR_VULKAN;
+    }
 
-    RegisterDebugCallbacks();
+    if(g_EnableValidationLayer)
+        RegisterDebugCallbacks();
 
     // Find physical device
 
     uint32_t deviceCount = 0;
-    ERR_GUARD_VULKAN( vkEnumeratePhysicalDevices(m_VulkanInstance, &deviceCount, nullptr) );
-    assert(deviceCount > 0);
+    res = vkEnumeratePhysicalDevices(m_VulkanInstance, &deviceCount, nullptr);
+    assert(res == VK_SUCCESS);
+    if(deviceCount == 0)
+    {
+        printf("ERROR: No Vulkan physical devices found.\n");
+        return RESULT_ERROR_VULKAN;
+    }
+    else if(deviceCount > 1)
+        printf("WARNING: %u Vulkan physical devices found. Choosing first one.\n", deviceCount);
 
     std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
-    ERR_GUARD_VULKAN( vkEnumeratePhysicalDevices(m_VulkanInstance, &deviceCount, physicalDevices.data()) );
+    res = vkEnumeratePhysicalDevices(m_VulkanInstance, &deviceCount, physicalDevices.data());
+    assert(res == VK_SUCCESS);
 
     m_PhysicalDevice = physicalDevices[0];
 
@@ -420,21 +435,25 @@ void Player::InitVulkan()
 
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, nullptr);
-    assert(queueFamilyCount > 0);
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, queueFamilies.data());
-    for(uint32_t i = 0; i < queueFamilyCount; ++i)
+    if(queueFamilyCount)
     {
-        if(queueFamilies[i].queueCount > 0)
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, queueFamilies.data());
+        for(uint32_t i = 0; i < queueFamilyCount; ++i)
         {
-            if((queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+            if(queueFamilies[i].queueCount > 0 &&
+                (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
             {
                 m_GraphicsQueueFamilyIndex = i;
                 break;
             }
         }
     }
-    assert(m_GraphicsQueueFamilyIndex != UINT_MAX);
+    if(m_GraphicsQueueFamilyIndex == UINT_MAX)
+    {
+        printf("ERROR: Couldn't find graphics queue.\n");
+        return RESULT_ERROR_VULKAN;
+    }
 
     // Create logical device
 
@@ -459,12 +478,14 @@ void Player::InitVulkan()
     //enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     {
         uint32_t propertyCount = 0;
-        ERR_GUARD_VULKAN( vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &propertyCount, nullptr) );
+        res = vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &propertyCount, nullptr);
+        assert(res == VK_SUCCESS);
 
         if(propertyCount)
         {
             std::vector<VkExtensionProperties> properties{propertyCount};
-            ERR_GUARD_VULKAN( vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &propertyCount, properties.data()) );
+            res = vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &propertyCount, properties.data());
+            assert(res == VK_SUCCESS);
 
             for(uint32_t i = 0; i < propertyCount; ++i)
             {
@@ -489,7 +510,12 @@ void Player::InitVulkan()
     deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
-    ERR_GUARD_VULKAN( vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device) );
+    res = vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
+    if(res != VK_SUCCESS)
+    {
+        printf("ERROR: vkCreateDevice failed (%u)\n", res);
+        return RESULT_ERROR_VULKAN;
+    }
 
     // Create memory allocator
 
@@ -502,7 +528,14 @@ void Player::InitVulkan()
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
 
-    ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &m_Allocator) );
+    res = vmaCreateAllocator(&allocatorInfo, &m_Allocator);
+    if(res != VK_SUCCESS)
+    {
+        printf("ERROR: vmaCreateAllocator failed (%u)\n", res);
+        return RESULT_ERROR_VULKAN;
+    }
+
+    return 0;
 }
 
 void Player::FinalizeVulkan()
@@ -587,7 +620,8 @@ void Player::RegisterDebugCallbacks()
         VK_DEBUG_REPORT_DEBUG_BIT_EXT*/;
     callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
 
-    ERR_GUARD_VULKAN( m_pvkCreateDebugReportCallbackEXT(m_VulkanInstance, &callbackCreateInfo, nullptr, &m_hCallback) );
+    VkResult res = m_pvkCreateDebugReportCallbackEXT(m_VulkanInstance, &callbackCreateInfo, nullptr, &m_hCallback);
+    assert(res == VK_SUCCESS);
 }
 
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
@@ -892,24 +926,26 @@ static int ProcessFile(const char* data, size_t numBytes)
     }
 
     Player player;
-    player.Init();
-
-    printf("Playing...\n");
-    while(lineSplit.GetNextLine(line))
+    int result = player.Init();
+    if(result == 0)
     {
-        player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
+        printf("Playing...\n");
+        while(lineSplit.GetNextLine(line))
+        {
+            player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
+        }
+
+        // End stats.
+        printf("Done.\n");
+        printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
     }
 
-    // End stats.
-    printf("Done.\n");
-    printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
-
-    return 0;
+    return result;
 }
 
 static int ProcessFile(const char* filePath)
 {
-    printf("Replaying file \"%s\"...\n", filePath);
+    printf("Loading file \"%s\"...\n", filePath);
     int result = 0;
 
     FILE* file = nullptr;
