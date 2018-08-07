@@ -720,20 +720,19 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
         {
             Pool poolDesc = {};
             VkResult res = vmaCreatePool(m_Allocator, &poolCreateInfo, &poolDesc.pool);
-            if(res == VK_SUCCESS)
-            {
-                const auto existingIt = m_Pools.find(origPtr);
-                if(existingIt != m_Pools.end())
-                {
-                    if(IssueWarning())
-                        printf("Line %zu: Pool %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-            else
+            if(res != VK_SUCCESS)
             {
                 if(IssueWarning())
                     printf("Line %zu: vmaCreatePool failed (%u).\n", lineNumber, res);
             }
+
+            const auto existingIt = m_Pools.find(origPtr);
+            if(existingIt != m_Pools.end())
+            {
+                if(IssueWarning())
+                    printf("Line %zu: Pool %llX already exists.\n", lineNumber, origPtr);
+            }
+
             m_Pools[origPtr] = poolDesc;
         }
         else
@@ -1034,7 +1033,7 @@ int main(int argc, char** argv)
 {
     try
     {
-        main2(argc, argv);
+        return main2(argc, argv);
     }
     catch(const std::exception& e)
     {
@@ -1046,6 +1045,4 @@ int main(int argc, char** argv)
         printf("UNKNOWN ERROR\n");
         return RESULT_EXCEPTION;
     }
-
-    return 0;
 }
