@@ -150,6 +150,39 @@ void CsvSplit::Set(const StrRange& line, size_t maxCount)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// class Statistics
+
+class Statistics
+{
+public:
+    Statistics() { }
+
+    size_t GetImageCreationCount() const { return m_ImageCreationCount; }
+    size_t GetBufferCreationCount() const { return m_BufferCreationCount; }
+    size_t GetAllocationCreationCount() const { return m_AllocationCreationCount; }
+
+    void RegisterCreateImage();
+    void RegisterCreateBuffer();
+
+private:
+    size_t m_ImageCreationCount = 0;
+    size_t m_BufferCreationCount = 0;
+    size_t m_AllocationCreationCount = 0; // Also includes buffers and images.
+};
+
+void Statistics::RegisterCreateImage()
+{
+    ++m_ImageCreationCount;
+    ++m_AllocationCreationCount;
+}
+
+void Statistics::RegisterCreateBuffer()
+{
+    ++m_BufferCreationCount;
+    ++m_AllocationCreationCount;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // class Player
 
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_validation";
@@ -248,6 +281,8 @@ private:
     std::unordered_map<uint64_t, Pool> m_Pools;
     std::unordered_map<uint64_t, Allocation> m_Allocations;
 
+    Statistics m_Stats;
+
     void Destroy(const Allocation& alloc);
 
     // Increments warning counter. Returns true if warning message should be printed.
@@ -256,6 +291,7 @@ private:
     int InitVulkan();
     void FinalizeVulkan();
     void RegisterDebugCallbacks();
+    void PrintStats();
 
     // If parmeter count doesn't match, issues warning and returns false.
     bool ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound);
@@ -282,6 +318,8 @@ int Player::Init()
 
 Player::~Player()
 {
+    PrintStats();
+
     FinalizeVulkan();
 
     if(m_WarningCount > MAX_WARNINGS_TO_SHOW)
@@ -315,6 +353,13 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         StrRange functionName = csvSplit.GetRange(3);
 
         if(StrRangeEq(functionName, "vmaCreateAllocator"))
+        {
+            if(ValidateFunctionParameterCount(lineNumber, csvSplit, 0, false))
+            {
+                // Nothing to do.
+            }
+        }
+        else if(StrRangeEq(functionName, "vmaDestroyAllocator"))
         {
             if(ValidateFunctionParameterCount(lineNumber, csvSplit, 0, false))
             {
@@ -633,6 +678,14 @@ void Player::RegisterDebugCallbacks()
     assert(res == VK_SUCCESS);
 }
 
+void Player::PrintStats()
+{
+    printf("Statistics:\n");
+    printf("    Total allocations created: %zu\n", m_Stats.GetAllocationCreationCount());
+    printf("    Total buffers created: %zu\n", m_Stats.GetBufferCreationCount());
+    printf("    Total images created: %zu\n", m_Stats.GetImageCreationCount());
+}
+
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
 {
     bool ok;
@@ -756,18 +809,21 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
             VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                const auto existingIt = m_Allocations.find(origPtr);
-                if(existingIt != m_Allocations.end())
-                {
-                    if(IssueWarning())
-                        printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
+                m_Stats.RegisterCreateBuffer();
             }
             else
             {
                 if(IssueWarning())
                     printf("Line %zu: vmaCreateBuffer failed (%u).\n", lineNumber, res);
             }
+
+            const auto existingIt = m_Allocations.find(origPtr);
+            if(existingIt != m_Allocations.end())
+            {
+                if(IssueWarning())
+                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+            }
+            
             m_Allocations[origPtr] = allocDesc;
         }
         else
@@ -852,18 +908,21 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                const auto existingIt = m_Allocations.find(origPtr);
-                if(existingIt != m_Allocations.end())
-                {
-                    if(IssueWarning())
-                        printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
+                m_Stats.RegisterCreateImage();
             }
             else
             {
                 if(IssueWarning())
                     printf("Line %zu: vmaCreateImage failed (%u).\n", lineNumber, res);
             }
+
+            const auto existingIt = m_Allocations.find(origPtr);
+            if(existingIt != m_Allocations.end())
+            {
+                if(IssueWarning())
+                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+            }
+
             m_Allocations[origPtr] = allocDesc;
         }
         else
@@ -900,7 +959,7 @@ static int ProcessFile(const char* data, size_t numBytes)
     }
 
     if(!lineSplit.GetNextLine(line) ||
-        !StrRangeEq(line, "1,0"))
+        !(StrRangeEq(line, "1,0") || StrRangeEq(line, "1,1")))
     {
         printf("ERROR: Incorrect file format version.\n");
         return RESULT_ERROR_FORMAT;

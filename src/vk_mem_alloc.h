@@ -2666,7 +2666,7 @@ void EnsureFile()
     {
         fopen_s(&g_File, "VMA_Usage_Dump", "wb");
         fprintf(g_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-        fprintf(g_File, "%s\n", "1,0");
+        fprintf(g_File, "%s\n", "1,1");
         QueryPerformanceFrequency(&g_Freq);
         QueryPerformanceCounter(&g_StartCounter);
     }
