@@ -1762,6 +1762,14 @@ static const int RESULT_ERROR_COMMAND_LINE = -1;
 static const int RESULT_ERROR_SOURCE_FILE  = -2;
 static const int RESULT_ERROR_FORMAT       = -3;
 
+struct StrRange
+{
+    const char* beg;
+    const char* end;
+
+    size_t length() const { return end - beg; }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // LineSplit class
 
@@ -1776,7 +1784,7 @@ public:
     {
     }
 
-    bool GetNextLine(const char *&outBeg, const char*&outEnd);
+    bool GetNextLine(StrRange& out);
     size_t GetNextLineIndex() const { return m_NextLineIndex; }
 
 private:
@@ -1786,15 +1794,15 @@ private:
     size_t m_NextLineIndex;
 };
 
-bool LineSplit::GetNextLine(const char *&outBeg, const char*&outEnd)
+bool LineSplit::GetNextLine(StrRange& out)
 {
     if(m_NextLineBeg < m_NumBytes)
     {
-        outBeg = m_Data + m_NextLineBeg;
+        out.beg = m_Data + m_NextLineBeg;
         size_t currLineEnd = m_NextLineBeg;
         while(currLineEnd < m_NumBytes && m_Data[currLineEnd] != '\n')
             ++currLineEnd;
-        outEnd = m_Data + currLineEnd;
+        out.end = m_Data + currLineEnd;
         m_NextLineBeg = currLineEnd + 1; // Past '\n'
         ++m_NextLineIndex;
         return true;
@@ -1812,7 +1820,7 @@ class CsvSplit
 public:
     static const size_t RANGE_COUNT_MAX = 32;
 
-    void Set(const char* beg, const char* end, size_t maxCount = RANGE_COUNT_MAX);
+    void Set(const StrRange& line, size_t maxCount = RANGE_COUNT_MAX);
 
     size_t GetCount() const { return m_Count; }
     void GetRange(size_t index, const char*& outBeg, const char*& outEnd) const 
@@ -1827,11 +1835,11 @@ private:
     size_t m_Ranges[RANGE_COUNT_MAX * 2]; // Pairs of begin-end.
 };
 
-void CsvSplit::Set(const char* beg, const char* end, size_t maxCount)
+void CsvSplit::Set(const StrRange& line, size_t maxCount)
 {
     assert(maxCount <= RANGE_COUNT_MAX);
-    m_Str = beg;
-    const size_t strLen = end - beg;
+    m_Str = line.beg;
+    const size_t strLen = line.length();
     size_t rangeIndex = 0;
     size_t charIndex = 0;
     while(charIndex < strLen && rangeIndex < maxCount)
@@ -1856,7 +1864,7 @@ public:
     void Init();
     ~Player();
 
-    void ExecuteLine(size_t lineNumber, const char* lineBeg, const char* lineEnd);
+    void ExecuteLine(size_t lineNumber, const StrRange& line);
 
 private:
     static const size_t MAX_WARNINGS_TO_SHOW = 16;
@@ -1881,10 +1889,10 @@ Player::~Player()
         printf("WARNING: %zu more warnings not shown.\n", m_WarningCount - MAX_WARNINGS_TO_SHOW);
 }
 
-void Player::ExecuteLine(size_t lineNumber, const char* lineBeg, const char* lineEnd)
+void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
 {
     CsvSplit csvSplit;
-    csvSplit.Set(lineBeg, lineEnd);
+    csvSplit.Set(line);
 
     if(csvSplit.GetCount() >= 4)
     {
@@ -1906,11 +1914,11 @@ static void PrintCommandLineSyntax()
         "    VmaReplay <SrcFile.csv>\n");
 }
 
-static inline bool StrRangeEq(const char* lhsBeg, const char* lhsEnd, const char* rhsSz)
+static inline bool StrRangeEq(const StrRange& lhs, const char* rhsSz)
 {
     const size_t rhsLen = strlen(rhsSz);
-    return rhsLen == lhsEnd - lhsBeg &&
-        memcmp(lhsBeg, rhsSz, rhsLen) == 0;
+    return rhsLen == lhs.length() &&
+        memcmp(lhs.beg, rhsSz, rhsLen) == 0;
 }
 
 static int ProcessFile(const char* data, size_t numBytes)
@@ -1919,18 +1927,17 @@ static int ProcessFile(const char* data, size_t numBytes)
     printf("File size: %zu B\n", numBytes);
 
     LineSplit lineSplit(data, numBytes);
-    const char* lineBeg;
-    const char* lineEnd;
+    StrRange line;
 
-    if(!lineSplit.GetNextLine(lineBeg, lineEnd) ||
-        !StrRangeEq(lineBeg, lineEnd, "Vulkan Memory Allocator,Calls recording"))
+    if(!lineSplit.GetNextLine(line) ||
+        !StrRangeEq(line, "Vulkan Memory Allocator,Calls recording"))
     {
         printf("ERROR: Incorrect file format.\n");
         return RESULT_ERROR_FORMAT;
     }
 
-    if(!lineSplit.GetNextLine(lineBeg, lineEnd) ||
-        !StrRangeEq(lineBeg, lineEnd, "1,0"))
+    if(!lineSplit.GetNextLine(line) ||
+        !StrRangeEq(line, "1,0"))
     {
         printf("ERROR: Incorrect file format version.\n");
         return RESULT_ERROR_FORMAT;
@@ -1939,9 +1946,9 @@ static int ProcessFile(const char* data, size_t numBytes)
     Player player;
     player.Init();
 
-    while(lineSplit.GetNextLine(lineBeg, lineEnd))
+    while(lineSplit.GetNextLine(line))
     {
-        player.ExecuteLine(lineSplit.GetNextLineIndex(), lineBeg, lineEnd);
+        player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
     }
 
     // End stats.
