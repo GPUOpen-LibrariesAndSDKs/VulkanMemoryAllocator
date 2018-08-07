@@ -233,25 +233,22 @@ private:
 
     uint32_t m_VmaFrameIndex = 0;
 
-    // Any of these handles null means it was created in original but couldn't be created now.
+    // Any of these handles null can mean it was created in original but couldn't be created now.
     struct Pool
     {
         VmaPool pool;
     };
-    struct Buffer
+    struct Allocation
     {
+        VmaAllocation allocation;
         VkBuffer buffer;
-        VmaAllocation allocation;
-    };
-    struct Image
-    {
         VkImage image;
-        VmaAllocation allocation;
     };
 
     std::unordered_map<uint64_t, Pool> m_Pools;
-    std::unordered_map<uint64_t, Buffer> m_Buffers;
-    std::unordered_map<uint64_t, Image> m_Images;
+    std::unordered_map<uint64_t, Allocation> m_Allocations;
+
+    void Destroy(const Allocation& alloc);
 
     // Increments warning counter. Returns true if warning message should be printed.
     bool IssueWarning() { return m_WarningCount++ < MAX_WARNINGS_TO_SHOW; }
@@ -263,12 +260,15 @@ private:
     // If parmeter count doesn't match, issues warning and returns false.
     bool ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound);
 
-    void CreatePool(size_t lineNumber, const CsvSplit& csvSplit);
-    void DestroyPool(size_t lineNumber, const CsvSplit& csvSplit);
-    void CreateBuffer(size_t lineNumber, const CsvSplit& csvSplit);
-    void DestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit);
-    void CreateImage(size_t lineNumber, const CsvSplit& csvSplit);
-    void DestroyImage(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteDestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
+
+    void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
 
 Player::Player()
@@ -322,9 +322,9 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             }
         }
         else if(StrRangeEq(functionName, "vmaCreatePool"))
-            CreatePool(lineNumber, csvSplit);
+            ExecuteCreatePool(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaDestroyPool"))
-            DestroyPool(lineNumber, csvSplit);
+            ExecuteDestroyPool(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaSetAllocationUserData"))
         {
             if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, true))
@@ -333,13 +333,15 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             }
         }
         else if(StrRangeEq(functionName, "vmaCreateBuffer"))
-            CreateBuffer(lineNumber, csvSplit);
+            ExecuteCreateBuffer(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaDestroyBuffer"))
-            DestroyBuffer(lineNumber, csvSplit);
+            ExecuteDestroyBuffer(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaCreateImage"))
-            CreateImage(lineNumber, csvSplit);
+            ExecuteCreateImage(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaDestroyImage"))
-            DestroyImage(lineNumber, csvSplit);
+            ExecuteDestroyImage(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaFreeMemory"))
+            ExecuteFreeMemory(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -351,6 +353,21 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         if(IssueWarning())
             printf("Line %zu: Too few columns.\n", lineNumber);
     }
+}
+
+void Player::Destroy(const Allocation& alloc)
+{
+    if(alloc.buffer)
+    {
+        assert(alloc.image == VK_NULL_HANDLE);
+        vmaDestroyBuffer(m_Allocator, alloc.buffer, alloc.allocation);
+    }
+    else if(alloc.image)
+    {
+        vmaDestroyImage(m_Allocator, alloc.image, alloc.allocation);
+    }
+    else
+        vmaFreeMemory(m_Allocator, alloc.allocation);
 }
 
 int Player::InitVulkan()
@@ -540,24 +557,16 @@ int Player::InitVulkan()
 
 void Player::FinalizeVulkan()
 {
-    if(!m_Images.empty())
+    if(!m_Allocations.empty())
     {
-        printf("WARNING: Images not destroyed: %zu.\n", m_Images.size());
+        printf("WARNING: Allocations not destroyed: %zu.\n", m_Allocations.size());
 
-        for(const auto it : m_Images)
+        for(const auto it : m_Allocations)
         {
-            vmaDestroyImage(m_Allocator, it.second.image, it.second.allocation);
+            Destroy(it.second);
         }
-    }
 
-    if(!m_Buffers.empty())
-    {
-        printf("WARNING: Buffers not destroyed: %zu.\n", m_Buffers.size());
-
-        for(const auto it : m_Buffers)
-        {
-            vmaDestroyBuffer(m_Allocator, it.second.buffer, it.second.allocation);
-        }
+        m_Allocations.clear();
     }
 
     if(!m_Pools.empty())
@@ -565,9 +574,9 @@ void Player::FinalizeVulkan()
         printf("WARNING: Pools not destroyed: %zu.\n", m_Pools.size());
 
         for(const auto it : m_Pools)
-        {
             vmaDestroyPool(m_Allocator, it.second.pool);
-        }
+
+        m_Pools.clear();
     }
 
     vkDeviceWaitIdle(m_Device);
@@ -641,7 +650,7 @@ bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& c
     return ok;
 }
 
-void Player::CreatePool(size_t lineNumber, const CsvSplit& csvSplit)
+void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 7, false))
     {
@@ -682,7 +691,7 @@ void Player::CreatePool(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
-void Player::DestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
+void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
@@ -710,7 +719,7 @@ void Player::DestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
-void Player::CreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
+void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 12, true))
     {
@@ -743,15 +752,15 @@ void Player::CreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
                 }
             }
 
-            Buffer bufDesc = {};
-            VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &bufDesc.buffer, &bufDesc.allocation, nullptr);
+            Allocation allocDesc = {};
+            VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                const auto existingIt = m_Buffers.find(origPtr);
-                if(existingIt != m_Buffers.end())
+                const auto existingIt = m_Allocations.find(origPtr);
+                if(existingIt != m_Allocations.end())
                 {
                     if(IssueWarning())
-                        printf("Line %zu: Allocation %llX for buffer already exists.\n", lineNumber, origPtr);
+                        printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
                 }
             }
             else
@@ -759,7 +768,7 @@ void Player::CreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
                 if(IssueWarning())
                     printf("Line %zu: vmaCreateBuffer failed (%u).\n", lineNumber, res);
             }
-            m_Buffers[origPtr] = bufDesc;
+            m_Allocations[origPtr] = allocDesc;
         }
         else
         {
@@ -769,7 +778,7 @@ void Player::CreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
-void Player::DestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit)
+void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
@@ -777,16 +786,16 @@ void Player::DestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit)
 
         if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origAllocPtr))
         {
-            const auto it = m_Buffers.find(origAllocPtr);
-            if(it != m_Buffers.end())
+            const auto it = m_Allocations.find(origAllocPtr);
+            if(it != m_Allocations.end())
             {
-                vmaDestroyBuffer(m_Allocator, it->second.buffer, it->second.allocation);
-                m_Buffers.erase(it);
+                Destroy(it->second);
+                m_Allocations.erase(it);
             }
             else
             {
                 if(IssueWarning())
-                    printf("Line %zu: Allocation %llX for buffer not found.\n", lineNumber, origAllocPtr);
+                    printf("Line %zu: Allocation %llX not found.\n", lineNumber, origAllocPtr);
             }
         }
         else
@@ -797,7 +806,7 @@ void Player::DestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
-void Player::CreateImage(size_t lineNumber, const CsvSplit& csvSplit)
+void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 21, true))
     {
@@ -839,15 +848,15 @@ void Player::CreateImage(size_t lineNumber, const CsvSplit& csvSplit)
                 }
             }
 
-            Image imageDesc = {};
-            VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &imageDesc.image, &imageDesc.allocation, nullptr);
+            Allocation allocDesc = {};
+            VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                const auto existingIt = m_Images.find(origPtr);
-                if(existingIt != m_Images.end())
+                const auto existingIt = m_Allocations.find(origPtr);
+                if(existingIt != m_Allocations.end())
                 {
                     if(IssueWarning())
-                        printf("Line %zu: Allocation %llX for image already exists.\n", lineNumber, origPtr);
+                        printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
                 }
             }
             else
@@ -855,40 +864,12 @@ void Player::CreateImage(size_t lineNumber, const CsvSplit& csvSplit)
                 if(IssueWarning())
                     printf("Line %zu: vmaCreateImage failed (%u).\n", lineNumber, res);
             }
-            m_Images[origPtr] = imageDesc;
+            m_Allocations[origPtr] = allocDesc;
         }
         else
         {
             if(IssueWarning())
                 printf("Line %zu: Invalid parameters for vmaCreateImage.\n", lineNumber);
-        }
-    }
-}
-
-void Player::DestroyImage(size_t lineNumber, const CsvSplit& csvSplit)
-{
-    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
-    {
-        uint64_t origAllocPtr = 0;
-
-        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origAllocPtr))
-        {
-            const auto it = m_Images.find(origAllocPtr);
-            if(it != m_Images.end())
-            {
-                vmaDestroyImage(m_Allocator, it->second.image, it->second.allocation);
-                m_Images.erase(it);
-            }
-            else
-            {
-                if(IssueWarning())
-                    printf("Line %zu: Allocation %llX for image not found.\n", lineNumber, origAllocPtr);
-            }
-        }
-        else
-        {
-            if(IssueWarning())
-                printf("Line %zu: Invalid parameters for vmaDestroyBuffer.\n", lineNumber);
         }
     }
 }

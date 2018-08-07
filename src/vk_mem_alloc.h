@@ -9927,8 +9927,20 @@ void vmaFreeMemory(
     VmaAllocator allocator,
     VmaAllocation allocation)
 {
-    Crash();
     VMA_ASSERT(allocator);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaFreeMemory,%p\n", threadId, time, frameIndex,
+            allocation);
+        fflush(g_File);
+    }
+
     VMA_DEBUG_LOG("vmaFreeMemory");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
     if(allocation != VK_NULL_HANDLE)
