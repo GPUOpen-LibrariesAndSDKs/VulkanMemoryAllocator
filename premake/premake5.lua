@@ -12,7 +12,7 @@ startproject "VulkanSample"
 filter "platforms:x64"
 system "Windows"
 architecture "x64"
-includedirs { "../third_party/mathfu-1.1.0/include", "$(VULKAN_SDK)/Include" }
+includedirs { "$(VULKAN_SDK)/Include" }
 libdirs { "$(VULKAN_SDK)/Lib" }
 
 filter "platforms:Linux-x64"
