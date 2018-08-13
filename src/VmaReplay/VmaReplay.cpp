@@ -1067,15 +1067,24 @@ static int ProcessFile(const char* data, size_t numBytes)
         {
             printf("Playing...\n");
         }
+
+        const time_point timeBeg = std::chrono::high_resolution_clock::now();
+
         while(lineSplit.GetNextLine(line))
         {
             player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
         }
 
+        const duration playDuration = std::chrono::high_resolution_clock::now() - timeBeg;
+
         // End stats.
         if(g_Verbosity > VERBOSITY::MINIMUM)
         {
+            std::string playDurationStr;
+            SecondsToFriendlyStr(ToFloatSeconds(playDuration), playDurationStr);
+
             printf("Done.\n");
+            printf("Playback took: %s\n", playDurationStr.c_str());
             printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
         }
     }

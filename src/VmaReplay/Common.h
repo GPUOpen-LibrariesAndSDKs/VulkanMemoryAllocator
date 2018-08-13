@@ -27,6 +27,8 @@ inline float ToFloatSeconds(duration d)
     return std::chrono::duration_cast<std::chrono::duration<float>>(d).count();
 }
 
+void SecondsToFriendlyStr(float seconds, std::string& out);
+
 template <typename T>
 inline T ceil_div(T x, T y)
 {

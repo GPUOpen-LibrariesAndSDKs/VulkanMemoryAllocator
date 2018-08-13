@@ -558,3 +558,70 @@ void PrintErrorF(const wchar_t* format, ...)
 	va_end(argList);
 }
 */
+
+void SecondsToFriendlyStr(float seconds, std::string& out)
+{
+    if(seconds == 0.f)
+    {
+        out = "0";
+        return;
+    }
+
+    if (seconds < 0.f)
+	{
+		out = "-";
+        seconds = -seconds;
+	}
+	else
+	{
+		out.clear();
+	}
+
+	char s[32];
+
+    // #.# ns
+    if(seconds < 1e-6)
+    {
+        sprintf_s(s, "%.4f ns", seconds * 1e-9);
+        out += s;
+    }
+    // #.# us
+    else if(seconds < 1e-3)
+    {
+        sprintf_s(s, "%.4f us", seconds * 1e-6);
+        out += s;
+    }
+    // #.# ms
+    else if(seconds < 1.f)
+    {
+        sprintf_s(s, "%.4f ms", seconds * 1e-3);
+        out += s;
+    }
+    else if(seconds < 60.f)
+    {
+        sprintf_s(s, "%.4f s", seconds);
+        out += s;
+    }
+    else
+    {
+	    uint64_t seconds_u = (uint64_t)seconds;
+	    // "#:## min"
+	    if (seconds_u < 3600)
+	    {
+		    uint64_t minutes = seconds_u / 60;
+		    seconds_u -= minutes * 60;
+            sprintf_s(s, "%llu:%02llu min", minutes, seconds_u);
+            out += s;
+	    }
+	    // "#:##:## h"
+	    else
+	    {
+		    uint64_t minutes = seconds_u / 60;
+            seconds_u -= minutes * 60;
+		    uint64_t hours = minutes / 60;
+		    minutes -= hours * 60;
+            sprintf_s(s, "%llu:%02llu:%02llu h", hours, minutes, seconds_u);
+            out += s;
+	    }
+    }
+}
