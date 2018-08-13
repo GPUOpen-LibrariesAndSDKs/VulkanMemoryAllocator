@@ -30,10 +30,30 @@ static const int RESULT_ERROR_SOURCE_FILE  = -2;
 static const int RESULT_ERROR_FORMAT       = -3;
 static const int RESULT_ERROR_VULKAN       = -4;
 
+enum CMD_LINE_OPT
+{
+    CMD_LINE_OPT_VERBOSITY,
+};
+
+static enum class VERBOSITY
+{
+    MINIMUM = 0,
+    DEFAULT,
+    MAXIMUM,
+    COUNT,
+} g_Verbosity = VERBOSITY::DEFAULT;
+
+static std::string g_FilePath;
+
 struct StrRange
 {
     const char* beg;
     const char* end;
+
+    StrRange() { }
+    StrRange(const char* beg, const char* end) : beg(beg), end(end) { }
+    explicit StrRange(const char* sz) : beg(sz), end(sz + strlen(sz)) { }
+    explicit StrRange(const std::string& s) : beg(s.data()), end(s.data() + s.length()) { }
 
     size_t length() const { return end - beg; }
 };
@@ -286,7 +306,7 @@ private:
     void Destroy(const Allocation& alloc);
 
     // Increments warning counter. Returns true if warning message should be printed.
-    bool IssueWarning() { return m_WarningCount++ < MAX_WARNINGS_TO_SHOW; }
+    bool IssueWarning();
 
     int InitVulkan();
     void FinalizeVulkan();
@@ -318,11 +338,14 @@ int Player::Init()
 
 Player::~Player()
 {
-    PrintStats();
+    if(g_Verbosity > VERBOSITY::MINIMUM)
+    {
+        PrintStats();
+    }
 
     FinalizeVulkan();
 
-    if(m_WarningCount > MAX_WARNINGS_TO_SHOW)
+    if(g_Verbosity < VERBOSITY::MAXIMUM && m_WarningCount > MAX_WARNINGS_TO_SHOW)
         printf("WARNING: %zu more warnings not shown.\n", m_WarningCount - MAX_WARNINGS_TO_SHOW);
 }
 
@@ -421,9 +444,25 @@ void Player::Destroy(const Allocation& alloc)
         vmaFreeMemory(m_Allocator, alloc.allocation);
 }
 
+bool Player::IssueWarning()
+{
+    if(g_Verbosity < VERBOSITY::MAXIMUM)
+    {
+        return m_WarningCount++ < MAX_WARNINGS_TO_SHOW;
+    }
+    else
+    {
+        ++m_WarningCount;
+        return true;
+    }
+}
+
 int Player::InitVulkan()
 {
-    printf("Initializing Vulkan...\n");
+    if(g_Verbosity > VERBOSITY::MINIMUM)
+    {
+        printf("Initializing Vulkan...\n");
+    }
 
     uint32_t instanceLayerPropCount = 0;
     VkResult res = vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr);
@@ -984,14 +1023,24 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
 
 static void PrintCommandLineSyntax()
 {
-    printf("Command line syntax:\n"
-        "    VmaReplay <SrcFile.csv>\n");
+    printf(
+        "Command line syntax:\n"
+        "    VmaReplay [Options] <SrcFile.csv>\n"
+        "Available options:\n"
+        "    -v <Level> - Verbosity level:\n"
+        "        0 - Minimum verbosity. Prints only warnings and errors.\n"
+        "        1 - Default verbosity. Prints important messages and statistics.\n"
+        "        2 - Maximum verbosity. Prints a lot of information.\n"
+    );
 }
 
 static int ProcessFile(const char* data, size_t numBytes)
 {
     // Begin stats.
-    printf("File size: %zu B\n", numBytes);
+    if(g_Verbosity > VERBOSITY::MINIMUM)
+    {
+        printf("File size: %zu B\n", numBytes);
+    }
 
     LineSplit lineSplit(data, numBytes);
     StrRange line;
@@ -1014,27 +1063,36 @@ static int ProcessFile(const char* data, size_t numBytes)
     int result = player.Init();
     if(result == 0)
     {
-        printf("Playing...\n");
+        if(g_Verbosity > VERBOSITY::MINIMUM)
+        {
+            printf("Playing...\n");
+        }
         while(lineSplit.GetNextLine(line))
         {
             player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
         }
 
         // End stats.
-        printf("Done.\n");
-        printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
+        if(g_Verbosity > VERBOSITY::MINIMUM)
+        {
+            printf("Done.\n");
+            printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
+        }
     }
 
     return result;
 }
 
-static int ProcessFile(const char* filePath)
+static int ProcessFile()
 {
-    printf("Loading file \"%s\"...\n", filePath);
+    if(g_Verbosity > VERBOSITY::MINIMUM)
+    {
+        printf("Loading file \"%s\"...\n", g_FilePath.c_str());
+    }
     int result = 0;
 
     FILE* file = nullptr;
-    const errno_t err = fopen_s(&file, filePath, "rb");
+    const errno_t err = fopen_s(&file, g_FilePath.c_str(), "rb");
     if(err == 0)
     {
         _fseeki64(file, 0, SEEK_END);
@@ -1066,13 +1124,64 @@ static int ProcessFile(const char* filePath)
 
 static int main2(int argc, char** argv)
 {
-    if(argc != 2)
+    CmdLineParser cmdLineParser(argc, argv);
+
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_VERBOSITY, 'v', true);
+
+    CmdLineParser::RESULT res;
+    while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
+    {
+        switch(res)
+        {
+        case CmdLineParser::RESULT_OPT:
+            switch(cmdLineParser.GetOptId())
+            {
+            case CMD_LINE_OPT_VERBOSITY:
+                {
+                    uint32_t verbosityVal = UINT32_MAX;
+                    if(StrRangeToUint(StrRange(cmdLineParser.GetParameter()), verbosityVal) &&
+                        verbosityVal < (uint32_t)VERBOSITY::COUNT)
+                    {
+                        g_Verbosity = (VERBOSITY)verbosityVal;
+                    }
+                    else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
+            default:
+                assert(0);
+            }
+            break;
+        case CmdLineParser::RESULT_PARAMETER:
+            if(g_FilePath.empty())
+            {
+                g_FilePath = cmdLineParser.GetParameter();
+            }
+            else
+            {
+                PrintCommandLineSyntax();
+                return RESULT_ERROR_COMMAND_LINE;
+            }
+            break;
+        case CmdLineParser::RESULT_ERROR:
+            PrintCommandLineSyntax();
+            return RESULT_ERROR_COMMAND_LINE;
+            break;
+        default:
+            assert(0);
+        }
+    }
+
+    if(g_FilePath.empty())
     {
         PrintCommandLineSyntax();
         return RESULT_ERROR_COMMAND_LINE;
     }
 
-    return ProcessFile(argv[1]);
+    return ProcessFile();
 }
 
 int main(int argc, char** argv)

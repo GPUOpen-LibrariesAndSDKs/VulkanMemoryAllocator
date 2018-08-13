@@ -39,6 +39,67 @@ static inline T align_up(T val, T align)
     return (val + align - 1) / align * align;
 }
 
+class CmdLineParser
+{
+public:
+	enum RESULT
+	{
+		RESULT_OPT,
+		RESULT_PARAMETER,
+		RESULT_END,
+		RESULT_ERROR,
+	};
+
+	CmdLineParser(int argc, char **argv);
+	CmdLineParser(const char *CmdLine);
+	
+    void RegisterOpt(uint32_t Id, char Opt, bool Parameter);
+	void RegisterOpt(uint32_t Id, const std::string &Opt, bool Parameter);
+	
+    RESULT ReadNext();
+	uint32_t GetOptId();
+	const std::string & GetParameter();
+
+private:
+	struct SHORT_OPT
+	{
+		uint32_t Id;
+		char Opt;
+		bool Parameter;
+
+		SHORT_OPT(uint32_t Id, char Opt, bool Parameter) : Id(Id), Opt(Opt), Parameter(Parameter) { }
+	};
+
+	struct LONG_OPT
+	{
+		uint32_t Id;
+		std::string Opt;
+		bool Parameter;
+
+		LONG_OPT(uint32_t Id, std::string Opt, bool Parameter) : Id(Id), Opt(Opt), Parameter(Parameter) { }
+	};
+
+	char **m_argv;
+	const char *m_CmdLine;
+	int m_argc;
+	size_t m_CmdLineLength;
+	size_t m_ArgIndex;
+
+	bool ReadNextArg(std::string *OutArg);
+
+	std::vector<SHORT_OPT> m_ShortOpts;
+	std::vector<LONG_OPT> m_LongOpts;
+
+	SHORT_OPT * FindShortOpt(char Opt);
+	LONG_OPT * FindLongOpt(const std::string &Opt);
+
+	bool m_InsideMultioption;
+	std::string m_LastArg;
+	size_t m_LastArgIndex;
+	uint32_t m_LastOptId;
+	std::string m_LastParameter;
+};
+
 /*
 class RandomNumberGenerator
 {
