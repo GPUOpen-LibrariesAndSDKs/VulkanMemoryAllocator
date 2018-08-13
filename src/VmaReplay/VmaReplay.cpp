@@ -182,10 +182,14 @@ void CsvSplit::Set(const StrRange& line, size_t maxCount)
 class Statistics
 {
 public:
+    static uint32_t BufferUsageToClass(uint32_t usage);
+    static uint32_t ImageUsageToClass(uint32_t usage);
+
     Statistics() { }
 
-    size_t GetImageCreationCount() const { return m_ImageCreationCount; }
-    size_t GetBufferCreationCount() const { return m_BufferCreationCount; }
+    size_t GetImageCreationCount(uint32_t imgClass) const { return m_ImageCreationCount[imgClass]; }
+    size_t GetLinearImageCreationCount() const { return m_LinearImageCreationCount; }
+    size_t GetBufferCreationCount(uint32_t bufClass) const { return m_BufferCreationCount[bufClass]; }
     size_t GetAllocationCreationCount() const { return m_AllocationCreationCount; }
     size_t GetAllocatorCreationCount() const { return m_AllocatorCreationCount; }
     size_t GetAllocatorPeakCount() const { return m_AllocatorPeakCount; }
@@ -193,19 +197,83 @@ public:
 
     void RegisterCreateAllocator();
     void RegisterDestroyAllocator();
-    void RegisterCreateImage();
-    void RegisterCreateBuffer();
+    void RegisterCreateImage(uint32_t usage, uint32_t tiling);
+    void RegisterCreateBuffer(uint32_t usage);
     void RegisterCreatePool();
 
 private:
-    size_t m_ImageCreationCount = 0;
-    size_t m_BufferCreationCount = 0;
+    size_t m_ImageCreationCount[4] = { };
+    size_t m_LinearImageCreationCount = 0;
+    size_t m_BufferCreationCount[4] = { };
     size_t m_AllocationCreationCount = 0; // Also includes buffers and images.
     size_t m_AllocatorCreationCount = 0;
     size_t m_AllocatorCurrCount = 0;
     size_t m_AllocatorPeakCount = 0;
     size_t m_PoolCreationCount = 0;
 };
+
+uint32_t Statistics::BufferUsageToClass(uint32_t usage)
+{
+    // Buffer is used as source of data for fixed-function stage of graphics pipeline.
+    // It's indirect, vertex, or index buffer.
+    if ((usage & (VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT)) != 0)
+    {
+        return 0;
+    }
+    // Buffer is accessed by shaders for load/store/atomic.
+    // Aka "UAV"
+    else if ((usage & (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT)) != 0)
+    {
+        return 1;
+    }
+    // Buffer is accessed by shaders for reading uniform data.
+    // Aka "constant buffer"
+    else if ((usage & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+    VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT)) != 0)
+    {
+        return 2;
+    }
+    // Any other type of buffer.
+    // Notice that VK_BUFFER_USAGE_TRANSFER_SRC_BIT and VK_BUFFER_USAGE_TRANSFER_DST_BIT
+    // flags are intentionally ignored.
+    else
+    {
+        return 3;
+    }
+}
+
+uint32_t Statistics::ImageUsageToClass(uint32_t usage)
+{
+    // Image is used as depth/stencil "texture/surface".
+    if ((usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0)
+    {
+        return 0;
+    }
+    // Image is used as other type of attachment.
+    // Aka "render target"
+    else if ((usage & (VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+        VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) != 0)
+    {
+        return 1;
+    }
+    // Image is accessed by shaders for sampling.
+    // Aka "texture"
+    else if ((usage & VK_IMAGE_USAGE_SAMPLED_BIT) != 0)
+    {
+        return 2;
+    }
+    // Any other type of image.
+    // Notice that VK_IMAGE_USAGE_TRANSFER_SRC_BIT and VK_IMAGE_USAGE_TRANSFER_DST_BIT
+    // flags are intentionally ignored.
+    else
+    {
+        return 3;
+    }
+}
 
 void Statistics::RegisterCreateAllocator()
 {
@@ -220,15 +288,24 @@ void Statistics::RegisterDestroyAllocator()
         --m_AllocatorCurrCount;
 }
 
-void Statistics::RegisterCreateImage()
+void Statistics::RegisterCreateImage(uint32_t usage, uint32_t tiling)
 {
-    ++m_ImageCreationCount;
+    if(tiling == VK_IMAGE_TILING_LINEAR)
+        ++m_LinearImageCreationCount;
+    else
+    {
+        const uint32_t imgClass = ImageUsageToClass(usage);
+        ++m_ImageCreationCount[imgClass];
+    }
+
     ++m_AllocationCreationCount;
 }
 
-void Statistics::RegisterCreateBuffer()
+void Statistics::RegisterCreateBuffer(uint32_t usage)
 {
-    ++m_BufferCreationCount;
+    const uint32_t bufClass = BufferUsageToClass(usage);
+    ++m_BufferCreationCount[bufClass];
+
     ++m_AllocationCreationCount;
 }
 
@@ -807,14 +884,48 @@ void Player::PrintStats()
     {
         printf("    Total allocations created: %zu\n", m_Stats.GetAllocationCreationCount());
     }
-    if(m_Stats.GetBufferCreationCount() > 0)
+
+    // Buffers
+    const size_t bufferCreationCount =
+        m_Stats.GetBufferCreationCount(0) +
+        m_Stats.GetBufferCreationCount(1) +
+        m_Stats.GetBufferCreationCount(2) +
+        m_Stats.GetBufferCreationCount(3);
+    if(bufferCreationCount > 0)
     {
-        printf("    Total buffers created: %zu\n", m_Stats.GetBufferCreationCount());
+        printf("    Total buffers created: %zu\n", bufferCreationCount);
+        if(g_Verbosity == VERBOSITY::MAXIMUM)
+        {
+            printf("        Class 0 (indirect/vertex/index): %zu\n", m_Stats.GetBufferCreationCount(0));
+            printf("        Class 1 (storage): %zu\n", m_Stats.GetBufferCreationCount(1));
+            printf("        Class 2 (uniform): %zu\n", m_Stats.GetBufferCreationCount(2));
+            printf("        Class 3 (other): %zu\n", m_Stats.GetBufferCreationCount(3));
+        }
     }
-    if(m_Stats.GetImageCreationCount() > 0)
+    
+    // Images
+    const size_t imageCreationCount =
+        m_Stats.GetImageCreationCount(0) +
+        m_Stats.GetImageCreationCount(1) +
+        m_Stats.GetImageCreationCount(2) +
+        m_Stats.GetImageCreationCount(3) +
+        m_Stats.GetLinearImageCreationCount();
+    if(imageCreationCount > 0)
     {
-        printf("    Total images created: %zu\n", m_Stats.GetImageCreationCount());
+        printf("    Total images created: %zu\n", imageCreationCount);
+        if(g_Verbosity == VERBOSITY::MAXIMUM)
+        {
+            printf("        Class 0 (depth/stencil): %zu\n", m_Stats.GetImageCreationCount(0));
+            printf("        Class 1 (attachment): %zu\n", m_Stats.GetImageCreationCount(1));
+            printf("        Class 2 (sampled): %zu\n", m_Stats.GetImageCreationCount(2));
+            printf("        Class 3 (other): %zu\n", m_Stats.GetImageCreationCount(3));
+            if(m_Stats.GetLinearImageCreationCount() > 0)
+            {
+                printf("        LINEAR tiling: %zu\n", m_Stats.GetLinearImageCreationCount());
+            }
+        }
     }
+    
     if(m_Stats.GetPoolCreationCount() > 0)
     {
         printf("    Total custom pools created: %zu\n", m_Stats.GetPoolCreationCount());
@@ -883,11 +994,13 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), poolCreateInfo.frameInUseCount) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), origPtr))
         {
-            m_Stats.RegisterCreatePool();
-
             Pool poolDesc = {};
             VkResult res = vmaCreatePool(m_Allocator, &poolCreateInfo, &poolDesc.pool);
-            if(res != VK_SUCCESS)
+            if(res == VK_SUCCESS)
+            {
+                m_Stats.RegisterCreatePool();
+            }
+            else
             {
                 if(IssueWarning())
                 {
@@ -990,7 +1103,7 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
             VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                m_Stats.RegisterCreateBuffer();
+                m_Stats.RegisterCreateBuffer(bufCreateInfo.usage);
             }
             else
             {
@@ -1106,7 +1219,7 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                m_Stats.RegisterCreateImage();
+                m_Stats.RegisterCreateImage(imageCreateInfo.usage, imageCreateInfo.tiling);
             }
             else
             {
