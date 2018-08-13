@@ -304,9 +304,14 @@ private:
         VkBuffer buffer;
         VkImage image;
     };
-
     std::unordered_map<uint64_t, Pool> m_Pools;
     std::unordered_map<uint64_t, Allocation> m_Allocations;
+
+    struct Thread
+    {
+        uint32_t callCount;
+    };
+    std::unordered_map<uint32_t, Thread> m_Threads;
 
     // Copy of column [1] from previously parsed line.
     std::string m_LastLineTimeStr;
@@ -365,6 +370,31 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
 
     if(csvSplit.GetCount() >= FIRST_PARAM_INDEX)
     {
+        // Check thread ID.
+        uint32_t threadId;
+        if(StrRangeToUint(csvSplit.GetRange(0), threadId))
+        {
+            const auto it = m_Threads.find(threadId);
+            if(it != m_Threads.end())
+            {
+                ++it->second.callCount;
+            }
+            else
+            {
+                Thread threadInfo{};
+                threadInfo.callCount = 1;
+                m_Threads[threadId] = threadInfo;
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Incorrect thread ID.\n", lineNumber);
+            }
+        }
+
+        // Save time.
         csvSplit.GetRange(1).to_str(m_LastLineTimeStr);
 
         // Update VMA current frame index.
@@ -748,6 +778,18 @@ void Player::PrintStats()
         SecondsToFriendlyStr(lastTime, origTimeStr);
         printf("    Original recording time: %s\n", origTimeStr.c_str());
     }
+
+    // Thread statistics.
+    uint32_t threadCallCountMax = 0;
+    uint32_t threadCallCountSum = 0;
+    for(const auto& it : m_Threads)
+    {
+        threadCallCountMax = std::max(threadCallCountMax, it.second.callCount);
+        threadCallCountSum += it.second.callCount;
+    }
+    printf("    Threads making calls to VMA: %zu\n", m_Threads.size());
+    printf("        %.2f%% calls from most active thread.\n",
+        (float)threadCallCountMax * 100.f / (float)threadCallCountSum);
 }
 
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
