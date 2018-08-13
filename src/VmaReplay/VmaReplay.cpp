@@ -765,17 +765,20 @@ void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
 
         if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
         {
-            const auto it = m_Pools.find(origPtr);
-            if(it != m_Pools.end())
+            if(origPtr != 0)
             {
-                vmaDestroyPool(m_Allocator, it->second.pool);
-                m_Pools.erase(it);
-            }
-            else
-            {
-                if(IssueWarning())
+                const auto it = m_Pools.find(origPtr);
+                if(it != m_Pools.end())
                 {
-                    printf("Line %zu: Pool %llX not found.\n", lineNumber, origPtr);
+                    vmaDestroyPool(m_Allocator, it->second.pool);
+                    m_Pools.erase(it);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPtr);
+                    }
                 }
             }
         }
@@ -867,17 +870,20 @@ void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 
         if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origAllocPtr))
         {
-            const auto it = m_Allocations.find(origAllocPtr);
-            if(it != m_Allocations.end())
+            if(origAllocPtr != 0)
             {
-                Destroy(it->second);
-                m_Allocations.erase(it);
-            }
-            else
-            {
-                if(IssueWarning())
+                const auto it = m_Allocations.find(origAllocPtr);
+                if(it != m_Allocations.end())
                 {
-                    printf("Line %zu: Allocation %llX not found.\n", lineNumber, origAllocPtr);
+                    Destroy(it->second);
+                    m_Allocations.erase(it);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Allocation %llX not found.\n", lineNumber, origAllocPtr);
+                    }
                 }
             }
         }

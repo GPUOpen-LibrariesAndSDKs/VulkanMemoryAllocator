@@ -9929,6 +9929,11 @@ void vmaFreeMemory(
 {
     VMA_ASSERT(allocator);
 
+    if(allocation == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
     {
         VmaMutexLock lock(g_FileMutex, true);
         EnsureFile();
@@ -9943,10 +9948,7 @@ void vmaFreeMemory(
 
     VMA_DEBUG_LOG("vmaFreeMemory");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-    if(allocation != VK_NULL_HANDLE)
-    {
-        allocator->FreeMemory(allocation);
-    }
+    allocator->FreeMemory(allocation);
 }
 
 void vmaGetAllocationInfo(
@@ -10232,6 +10234,11 @@ void vmaDestroyBuffer(
 {
     VMA_ASSERT(allocator);
 
+    if(buffer == VK_NULL_HANDLE && allocation == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
     {
         VmaMutexLock lock(g_FileMutex, true);
         EnsureFile();
@@ -10355,6 +10362,12 @@ void vmaDestroyImage(
     VmaAllocation allocation)
 {
     VMA_ASSERT(allocator);
+
+    if(image == VK_NULL_HANDLE && allocation == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
 
     {
         VmaMutexLock lock(g_FileMutex, true);
