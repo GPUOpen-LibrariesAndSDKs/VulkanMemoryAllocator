@@ -579,27 +579,28 @@ void SecondsToFriendlyStr(float seconds, std::string& out)
 
 	char s[32];
 
-    // #.# ns
+    // #.### ns
     if(seconds < 1e-6)
     {
-        sprintf_s(s, "%.4f ns", seconds * 1e-9);
+        sprintf_s(s, "%.3f ns", seconds * 1e-9);
         out += s;
     }
-    // #.# us
+    // #.### us
     else if(seconds < 1e-3)
     {
-        sprintf_s(s, "%.4f us", seconds * 1e-6);
+        sprintf_s(s, "%.3f us", seconds * 1e-6);
         out += s;
     }
-    // #.# ms
+    // #.### ms
     else if(seconds < 1.f)
     {
-        sprintf_s(s, "%.4f ms", seconds * 1e-3);
+        sprintf_s(s, "%.3f ms", seconds * 1e-3);
         out += s;
     }
+    // #.### s
     else if(seconds < 60.f)
     {
-        sprintf_s(s, "%.4f s", seconds);
+        sprintf_s(s, "%.3f s", seconds);
         out += s;
     }
     else

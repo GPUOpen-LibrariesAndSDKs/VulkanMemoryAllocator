@@ -56,6 +56,7 @@ struct StrRange
     explicit StrRange(const std::string& s) : beg(s.data()), end(s.data() + s.length()) { }
 
     size_t length() const { return end - beg; }
+    void to_str(std::string& out) { out.assign(beg, end); }
 };
 
 static inline bool StrRangeEq(const StrRange& lhs, const char* rhsSz)
@@ -81,6 +82,12 @@ static inline bool StrRangeToPtr(const StrRange& s, uint64_t& out)
 {
     char* end = (char*)s.end;
     out = (uint64_t)strtoull(s.beg, &end, 16);
+    return end == s.end;
+}
+static inline bool StrRangeToFloat(const StrRange& s, float& out)
+{
+    char* end = (char*)s.end;
+    out = strtof(s.beg, &end);
     return end == s.end;
 }
 
@@ -301,6 +308,8 @@ private:
     std::unordered_map<uint64_t, Pool> m_Pools;
     std::unordered_map<uint64_t, Allocation> m_Allocations;
 
+    // Copy of column [1] from previously parsed line.
+    std::string m_LastLineTimeStr;
     Statistics m_Stats;
 
     void Destroy(const Allocation& alloc);
@@ -356,6 +365,8 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
 
     if(csvSplit.GetCount() >= FIRST_PARAM_INDEX)
     {
+        csvSplit.GetRange(1).to_str(m_LastLineTimeStr);
+
         // Update VMA current frame index.
         StrRange frameIndexStr = csvSplit.GetRange(2);
         uint32_t frameIndex;
@@ -729,6 +740,14 @@ void Player::PrintStats()
     printf("    Total allocations created: %zu\n", m_Stats.GetAllocationCreationCount());
     printf("    Total buffers created: %zu\n", m_Stats.GetBufferCreationCount());
     printf("    Total images created: %zu\n", m_Stats.GetImageCreationCount());
+
+    float lastTime;
+    if(!m_LastLineTimeStr.empty() && StrRangeToFloat(StrRange(m_LastLineTimeStr), lastTime))
+    {
+        std::string origTimeStr;
+        SecondsToFriendlyStr(lastTime, origTimeStr);
+        printf("    Original recording time: %s\n", origTimeStr.c_str());
+    }
 }
 
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
