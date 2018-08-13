@@ -347,7 +347,9 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Incorrect frame index.\n", lineNumber);
+            }
         }
 
         StrRange functionName = csvSplit.GetRange(3);
@@ -390,13 +392,17 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Unknown function.\n", lineNumber);
+            }
         }
     }
     else
     {
         if(IssueWarning())
+        {
             printf("Line %zu: Too few columns.\n", lineNumber);
+        }
     }
 }
 
@@ -697,7 +703,9 @@ bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& c
     if(!ok)
     {
         if(IssueWarning())
+        {
             printf("Line %zu: Incorrect number of function parameters.\n", lineNumber);
+        }
     }
 
     return ok;
@@ -723,14 +731,18 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
             if(res != VK_SUCCESS)
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: vmaCreatePool failed (%u).\n", lineNumber, res);
+                }
             }
 
             const auto existingIt = m_Pools.find(origPtr);
             if(existingIt != m_Pools.end())
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: Pool %llX already exists.\n", lineNumber, origPtr);
+                }
             }
 
             m_Pools[origPtr] = poolDesc;
@@ -738,7 +750,9 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Invalid parameters for vmaCreatePool.\n", lineNumber);
+            }
         }
     }
 }
@@ -760,13 +774,17 @@ void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
             else
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: Pool %llX not found.\n", lineNumber, origPtr);
+                }
             }
         }
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Invalid parameters for vmaDestroyPool.\n", lineNumber);
+            }
         }
     }
 }
@@ -800,7 +818,9 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
                 else
                 {
                     if(IssueWarning())
+                    {
                         printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
+                    }
                 }
             }
 
@@ -813,14 +833,18 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
             else
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: vmaCreateBuffer failed (%u).\n", lineNumber, res);
+                }
             }
 
             const auto existingIt = m_Allocations.find(origPtr);
             if(existingIt != m_Allocations.end())
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+                }
             }
             
             m_Allocations[origPtr] = allocDesc;
@@ -828,7 +852,9 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Invalid parameters for vmaCreateBuffer.\n", lineNumber);
+            }
         }
     }
 }
@@ -850,13 +876,17 @@ void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
             else
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: Allocation %llX not found.\n", lineNumber, origAllocPtr);
+                }
             }
         }
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Invalid parameters for vmaDestroyBuffer.\n", lineNumber);
+            }
         }
     }
 }
@@ -895,11 +925,15 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             {
                 const auto poolIt = m_Pools.find(origPool);
                 if(poolIt != m_Pools.end())
+                {
                     allocCreateInfo.pool = poolIt->second.pool;
+                }
                 else
                 {
                     if(IssueWarning())
+                    {
                         printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
+                    }
                 }
             }
 
@@ -912,14 +946,18 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             else
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: vmaCreateImage failed (%u).\n", lineNumber, res);
+                }
             }
 
             const auto existingIt = m_Allocations.find(origPtr);
             if(existingIt != m_Allocations.end())
             {
                 if(IssueWarning())
+                {
                     printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+                }
             }
 
             m_Allocations[origPtr] = allocDesc;
@@ -927,7 +965,9 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
         else
         {
             if(IssueWarning())
+            {
                 printf("Line %zu: Invalid parameters for vmaCreateImage.\n", lineNumber);
+            }
         }
     }
 }
