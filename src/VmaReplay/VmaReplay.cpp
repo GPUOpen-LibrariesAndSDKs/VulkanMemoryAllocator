@@ -187,15 +187,38 @@ public:
     size_t GetImageCreationCount() const { return m_ImageCreationCount; }
     size_t GetBufferCreationCount() const { return m_BufferCreationCount; }
     size_t GetAllocationCreationCount() const { return m_AllocationCreationCount; }
+    size_t GetAllocatorCreationCount() const { return m_AllocatorCreationCount; }
+    size_t GetAllocatorPeakCount() const { return m_AllocatorPeakCount; }
+    size_t GetPoolCreationCount() const { return m_PoolCreationCount; }
 
+    void RegisterCreateAllocator();
+    void RegisterDestroyAllocator();
     void RegisterCreateImage();
     void RegisterCreateBuffer();
+    void RegisterCreatePool();
 
 private:
     size_t m_ImageCreationCount = 0;
     size_t m_BufferCreationCount = 0;
     size_t m_AllocationCreationCount = 0; // Also includes buffers and images.
+    size_t m_AllocatorCreationCount = 0;
+    size_t m_AllocatorCurrCount = 0;
+    size_t m_AllocatorPeakCount = 0;
+    size_t m_PoolCreationCount = 0;
 };
+
+void Statistics::RegisterCreateAllocator()
+{
+    ++m_AllocatorCreationCount;
+    ++m_AllocatorCurrCount;
+    m_AllocatorPeakCount = std::max(m_AllocatorPeakCount, m_AllocatorCurrCount);
+}
+
+void Statistics::RegisterDestroyAllocator()
+{
+    if(m_AllocatorCurrCount > 0)
+        --m_AllocatorCurrCount;
+}
 
 void Statistics::RegisterCreateImage()
 {
@@ -207,6 +230,11 @@ void Statistics::RegisterCreateBuffer()
 {
     ++m_BufferCreationCount;
     ++m_AllocationCreationCount;
+}
+
+void Statistics::RegisterCreatePool()
+{
+    ++m_PoolCreationCount;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -352,6 +380,14 @@ int Player::Init()
 
 Player::~Player()
 {
+    if(m_Stats.GetAllocatorCreationCount() > 1)
+    {
+        printf("WARNING: %zu VmaAllocator objects were created. It is recommended to use just one.\n",
+            m_Stats.GetAllocatorCreationCount());
+        printf("    At most %zu allocators existed simultaneously.\n",
+            m_Stats.GetAllocatorPeakCount());
+    }
+
     if(g_Verbosity > VERBOSITY::MINIMUM)
     {
         PrintStats();
@@ -422,14 +458,14 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         {
             if(ValidateFunctionParameterCount(lineNumber, csvSplit, 0, false))
             {
-                // Nothing to do.
+                m_Stats.RegisterCreateAllocator();
             }
         }
         else if(StrRangeEq(functionName, "vmaDestroyAllocator"))
         {
             if(ValidateFunctionParameterCount(lineNumber, csvSplit, 0, false))
             {
-                // Nothing to do.
+                m_Stats.RegisterDestroyAllocator();
             }
         }
         else if(StrRangeEq(functionName, "vmaCreatePool"))
@@ -702,7 +738,7 @@ void Player::FinalizeVulkan()
 
     if(!m_Pools.empty())
     {
-        printf("WARNING: Pools not destroyed: %zu.\n", m_Pools.size());
+        printf("WARNING: Custom pools not destroyed: %zu.\n", m_Pools.size());
 
         for(const auto it : m_Pools)
             vmaDestroyPool(m_Allocator, it.second.pool);
@@ -767,9 +803,22 @@ void Player::RegisterDebugCallbacks()
 void Player::PrintStats()
 {
     printf("Statistics:\n");
-    printf("    Total allocations created: %zu\n", m_Stats.GetAllocationCreationCount());
-    printf("    Total buffers created: %zu\n", m_Stats.GetBufferCreationCount());
-    printf("    Total images created: %zu\n", m_Stats.GetImageCreationCount());
+    if(m_Stats.GetAllocationCreationCount() > 0)
+    {
+        printf("    Total allocations created: %zu\n", m_Stats.GetAllocationCreationCount());
+    }
+    if(m_Stats.GetBufferCreationCount() > 0)
+    {
+        printf("    Total buffers created: %zu\n", m_Stats.GetBufferCreationCount());
+    }
+    if(m_Stats.GetImageCreationCount() > 0)
+    {
+        printf("    Total images created: %zu\n", m_Stats.GetImageCreationCount());
+    }
+    if(m_Stats.GetPoolCreationCount() > 0)
+    {
+        printf("    Total custom pools created: %zu\n", m_Stats.GetPoolCreationCount());
+    }
 
     float lastTime;
     if(!m_LastLineTimeStr.empty() && StrRangeToFloat(StrRange(m_LastLineTimeStr), lastTime))
@@ -780,16 +829,24 @@ void Player::PrintStats()
     }
 
     // Thread statistics.
-    uint32_t threadCallCountMax = 0;
-    uint32_t threadCallCountSum = 0;
-    for(const auto& it : m_Threads)
+    const size_t threadCount = m_Threads.size();
+    if(threadCount > 1)
     {
-        threadCallCountMax = std::max(threadCallCountMax, it.second.callCount);
-        threadCallCountSum += it.second.callCount;
+        uint32_t threadCallCountMax = 0;
+        uint32_t threadCallCountSum = 0;
+        for(const auto& it : m_Threads)
+        {
+            threadCallCountMax = std::max(threadCallCountMax, it.second.callCount);
+            threadCallCountSum += it.second.callCount;
+        }
+        printf("    Threads making calls to VMA: %zu\n", threadCount);
+        printf("        %.2f%% calls from most active thread.\n",
+            (float)threadCallCountMax * 100.f / (float)threadCallCountSum);
     }
-    printf("    Threads making calls to VMA: %zu\n", m_Threads.size());
-    printf("        %.2f%% calls from most active thread.\n",
-        (float)threadCallCountMax * 100.f / (float)threadCallCountSum);
+    else
+    {
+        printf("    VMA used from only one thread.\n");
+    }
 }
 
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
@@ -826,6 +883,8 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), poolCreateInfo.frameInUseCount) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), origPtr))
         {
+            m_Stats.RegisterCreatePool();
+
             Pool poolDesc = {};
             VkResult res = vmaCreatePool(m_Allocator, &poolCreateInfo, &poolDesc.pool);
             if(res != VK_SUCCESS)
@@ -1098,7 +1157,7 @@ static void PrintCommandLineSyntax()
 static int ProcessFile(const char* data, size_t numBytes)
 {
     // Begin stats.
-    if(g_Verbosity > VERBOSITY::MINIMUM)
+    if(g_Verbosity == VERBOSITY::MAXIMUM)
     {
         printf("File size: %zu B\n", numBytes);
     }
@@ -1146,6 +1205,9 @@ static int ProcessFile(const char* data, size_t numBytes)
 
             printf("Done.\n");
             printf("Playback took: %s\n", playDurationStr.c_str());
+        }
+        if(g_Verbosity == VERBOSITY::MAXIMUM)
+        {
             printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
         }
     }
