@@ -8525,6 +8525,7 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
         }
         m_pRecorder->RecordCreateAllocator(GetCurrentFrameIndex());
 #else
+        VMA_ASSERT(0 && "VmaAllocatorCreateInfo::pRecordSettings used, but not supported due to VMA_RECORDING_ENABLED not defined to 1.");
         return VK_ERROR_FEATURE_NOT_PRESENT;
 #endif
     }
@@ -10212,7 +10213,7 @@ VkResult vmaCreatePool(
     VkResult res = allocator->CreatePool(pCreateInfo, pPool);
     
 #if VMA_RECORDING_ENABLED
-    if(res == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
+    if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordCreatePool(allocator->GetCurrentFrameIndex(), *pCreateInfo, *pPool);
     }
@@ -10305,7 +10306,7 @@ VkResult vmaAllocateMemory(
         pAllocation);
 
 #if VMA_RECORDING_ENABLED
-    if(result == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
+    if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordAllocateMemory(
             allocator->GetCurrentFrameIndex(),
@@ -10354,7 +10355,7 @@ VkResult vmaAllocateMemoryForBuffer(
         pAllocation);
 
 #if VMA_RECORDING_ENABLED
-    if(result == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
+    if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordAllocateMemoryForBuffer(
             allocator->GetCurrentFrameIndex(),
@@ -10404,7 +10405,7 @@ VkResult vmaAllocateMemoryForImage(
         pAllocation);
 
 #if VMA_RECORDING_ENABLED
-    if(result == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
+    if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordAllocateMemoryForImage(
             allocator->GetCurrentFrameIndex(),
@@ -10528,7 +10529,7 @@ VkResult vmaMapMemory(
     VkResult res = allocator->Map(allocation, ppData);
 
 #if VMA_RECORDING_ENABLED
-    if(res == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
+    if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordMapMemory(
             allocator->GetCurrentFrameIndex(),
@@ -10687,8 +10688,8 @@ VkResult vmaCreateBuffer(
         allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq,
             requiresDedicatedAllocation, prefersDedicatedAllocation);
 
-         // Make sure alignment requirements for specific buffer usages reported
-         // in Physical Device Properties are included in alignment reported by memory requirements.
+        // Make sure alignment requirements for specific buffer usages reported
+        // in Physical Device Properties are included in alignment reported by memory requirements.
         if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT) != 0)
         {
            VMA_ASSERT(vkMemReq.alignment %
@@ -10715,6 +10716,18 @@ VkResult vmaCreateBuffer(
             *pAllocationCreateInfo,
             VMA_SUBALLOCATION_TYPE_BUFFER,
             pAllocation);
+
+#if VMA_RECORDING_ENABLED
+        if(allocator->GetRecorder() != VMA_NULL)
+        {
+            allocator->GetRecorder()->RecordCreateBuffer(
+                allocator->GetCurrentFrameIndex(),
+                *pBufferCreateInfo,
+                *pAllocationCreateInfo,
+                *pAllocation);
+        }
+#endif
+
         if(res >= 0)
         {
             // 3. Bind buffer with memory.
@@ -10729,17 +10742,6 @@ VkResult vmaCreateBuffer(
                 {
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
                 }
-
-#if VMA_RECORDING_ENABLED
-                if(allocator->GetRecorder() != VMA_NULL)
-                {
-                    allocator->GetRecorder()->RecordCreateBuffer(
-                        allocator->GetCurrentFrameIndex(),
-                        *pBufferCreateInfo,
-                        *pAllocationCreateInfo,
-                        *pAllocation);
-                }
-#endif
 
                 return VK_SUCCESS;
             }
@@ -10837,6 +10839,18 @@ VkResult vmaCreateImage(
             *pAllocationCreateInfo,
             suballocType,
             pAllocation);
+
+#if VMA_RECORDING_ENABLED
+        if(allocator->GetRecorder() != VMA_NULL)
+        {
+            allocator->GetRecorder()->RecordCreateImage(
+                allocator->GetCurrentFrameIndex(),
+                *pImageCreateInfo,
+                *pAllocationCreateInfo,
+                *pAllocation);
+        }
+#endif
+
         if(res >= 0)
         {
             // 3. Bind image with memory.
@@ -10851,17 +10865,6 @@ VkResult vmaCreateImage(
                 {
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
                 }
-
-#if VMA_RECORDING_ENABLED
-                if(allocator->GetRecorder() != VMA_NULL)
-                {
-                    allocator->GetRecorder()->RecordCreateImage(
-                        allocator->GetCurrentFrameIndex(),
-                        *pImageCreateInfo,
-                        *pAllocationCreateInfo,
-                        *pAllocation);
-                }
-#endif
 
                 return VK_SUCCESS;
             }

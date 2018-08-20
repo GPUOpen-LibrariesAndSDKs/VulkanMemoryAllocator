@@ -501,7 +501,7 @@ private:
     // If failed, prints warning, returns false and outPool = null.
     bool FindPool(size_t lineNumber, uint64_t origPool, VmaPool& outPool);
     // If allocation with that origPtr already exists, prints warning and replaces it.
-    void AddAllocation(size_t lineNumber, uint64_t origPtr, Allocation&& allocDesc);
+    void AddAllocation(size_t lineNumber, uint64_t origPtr, VkResult res, const char* functionName, Allocation&& allocDesc);
 
     // Increments warning counter. Returns true if warning message should be printed.
     bool IssueWarning();
@@ -724,18 +724,58 @@ bool Player::FindPool(size_t lineNumber, uint64_t origPool, VmaPool& outPool)
     return true;
 }
 
-void Player::AddAllocation(size_t lineNumber, uint64_t origPtr, Allocation&& allocDesc)
+void Player::AddAllocation(size_t lineNumber, uint64_t origPtr, VkResult res, const char* functionName, Allocation&& allocDesc)
 {
-    const auto existingIt = m_Allocations.find(origPtr);
-    if(existingIt != m_Allocations.end())
+    if(origPtr)
     {
-        if(IssueWarning())
+        if(res == VK_SUCCESS)
         {
-            printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+            // Originally succeeded, currently succeeded.
+            // Just save pointer (done below).
+        }
+        else
+        {
+            // Originally succeeded, currently failed.
+            // Print warning. Save null pointer.
+            if(IssueWarning())
+            {
+                printf("Line %zu: %s failed (%d), while originally succeeded.\n", lineNumber, functionName, res);
+            }
+        }
+
+        const auto existingIt = m_Allocations.find(origPtr);
+        if(existingIt != m_Allocations.end())
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+            }
+        }
+        m_Allocations[origPtr] = std::move(allocDesc);
+    }
+    else
+    {
+        if(res == VK_SUCCESS)
+        {
+            // Originally failed, currently succeeded.
+            // Print warning, destroy the object.
+            if(IssueWarning())
+            {
+                printf("Line %zu: %s succeeded, originally failed.\n", lineNumber, functionName);
+            }
+
+            Destroy(allocDesc);
+        }
+        else
+        {
+            // Originally failed, currently failed.
+            // Print warning.
+            if(IssueWarning())
+            {
+                printf("Line %zu: %s failed (%d), originally also failed.\n", lineNumber, functionName, res);
+            }
         }
     }
-            
-    m_Allocations[origPtr] = std::move(allocDesc);
 }
 
 bool Player::IssueWarning()
@@ -1134,30 +1174,61 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), poolCreateInfo.frameInUseCount) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), origPtr))
         {
+            m_Stats.RegisterCreatePool();
+
             Pool poolDesc = {};
             VkResult res = vmaCreatePool(m_Allocator, &poolCreateInfo, &poolDesc.pool);
-            if(res == VK_SUCCESS)
+
+            if(origPtr)
             {
-                m_Stats.RegisterCreatePool();
+                if(res == VK_SUCCESS)
+                {
+                    // Originally succeeded, currently succeeded.
+                    // Just save pointer (done below).
+                }
+                else
+                {
+                    // Originally succeeded, currently failed.
+                    // Print warning. Save null pointer.
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: vmaCreatePool failed (%d), while originally succeeded.\n", lineNumber, res);
+                    }
+               }
+
+                const auto existingIt = m_Pools.find(origPtr);
+                if(existingIt != m_Pools.end())
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Pool %llX already exists.\n", lineNumber, origPtr);
+                    }
+                }
+                m_Pools[origPtr] = poolDesc;
             }
             else
             {
-                if(IssueWarning())
+                if(res == VK_SUCCESS)
                 {
-                    printf("Line %zu: vmaCreatePool failed (%d).\n", lineNumber, res);
+                    // Originally failed, currently succeeded.
+                    // Print warning, destroy the pool.
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: vmaCreatePool succeeded, originally failed.\n", lineNumber);
+                    }
+
+                    vmaDestroyPool(m_Allocator, poolDesc.pool);
+                }
+                else
+                {
+                    // Originally failed, currently failed.
+                    // Print warning.
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: vmaCreatePool failed (%d), originally also failed.\n", lineNumber, res);
+                    }
                 }
             }
-
-            const auto existingIt = m_Pools.find(origPtr);
-            if(existingIt != m_Pools.end())
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: Pool %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-
-            m_Pools[origPtr] = poolDesc;
         }
         else
         {
@@ -1227,21 +1298,11 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            m_Stats.RegisterCreateBuffer(bufCreateInfo.usage);
+
             Allocation allocDesc = {};
             VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
-            if(res == VK_SUCCESS)
-            {
-                m_Stats.RegisterCreateBuffer(bufCreateInfo.usage);
-            }
-            else
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: vmaCreateBuffer failed (%d).\n", lineNumber, res);
-                }
-            }
-
-            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
+            AddAllocation(lineNumber, origPtr, res, "vmaCreateBuffer", std::move(allocDesc));
         }
         else
         {
@@ -1320,21 +1381,11 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            m_Stats.RegisterCreateImage(imageCreateInfo.usage, imageCreateInfo.tiling);
+
             Allocation allocDesc = {};
             VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
-            if(res == VK_SUCCESS)
-            {
-                m_Stats.RegisterCreateImage(imageCreateInfo.usage, imageCreateInfo.tiling);
-            }
-            else
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: vmaCreateImage failed (%d).\n", lineNumber, res);
-                }
-            }
-
-            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
+            AddAllocation(lineNumber, origPtr, res, "vmaCreateImage", std::move(allocDesc));
         }
         else
         {
@@ -1358,7 +1409,7 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
             vmaCreateLostAllocation(m_Allocator, &allocDesc.allocation);
             m_Stats.RegisterCreateAllocation();
 
-            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
+            AddAllocation(lineNumber, origPtr, VK_SUCCESS, "vmaCreateLostAllocation", std::move(allocDesc));
         }
         else
         {
@@ -1392,21 +1443,11 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            m_Stats.RegisterCreateAllocation();
+
             Allocation allocDesc = {};
             VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
-            if(res == VK_SUCCESS)
-            {
-                m_Stats.RegisterCreateAllocation();
-            }
-            else
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: vmaAllocateMemory failed (%d).\n", lineNumber, res);
-                }
-            }
-
-            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
+            AddAllocation(lineNumber, origPtr, res, "vmaAllocateMemory", std::move(allocDesc));
         }
         else
         {
@@ -1458,18 +1499,11 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
                 m_AllocateForBufferImageWarningIssued = true;
             }
 
+            m_Stats.RegisterCreateAllocation();
+
             Allocation allocDesc = {};
             VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
-            if(res == VK_SUCCESS)
-            {
-                m_Stats.RegisterCreateAllocation();
-            }
-            else
-            {
-                printf("Line %zu: vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage) failed (%d).\n", lineNumber, res);
-            }
-
-            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
+            AddAllocation(lineNumber, origPtr, res, "vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage)", std::move(allocDesc));
         }
         else
         {
