@@ -323,6 +323,16 @@ memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
 vmaUnmapMemory(allocator, constantBufferAllocation);
 \endcode
 
+When mapping, you may see a warning from Vulkan validation layer similar to this one:
+
+<i>Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.</i>
+
+It happens because the library maps entire `VkDeviceMemory` block, where different
+types of images and buffers may end up together, especially on GPUs with unified memory like Intel.
+You can safely ignore it if you are sure you access only memory of the intended
+object that you wanted to map.
+
+
 \section memory_mapping_persistently_mapped_memory Persistently mapped memory
 
 Kepping your memory persistently mapped is generally OK in Vulkan.
@@ -1149,6 +1159,23 @@ To learn more about this extension, see:
   you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
   threads at the same time if you pass the same #VmaAllocation object to these
   functions.
+
+\section general_considerations_validation_layer_warnings Validation layer warnings
+
+When using this library, you can meet following types of warnings issued by
+Vulkan validation layer. They don't necessarily indicate a bug, so you may need
+to just ignore them.
+
+- *vkBindBufferMemory(): Binding memory to buffer 0xeb8e4 but vkGetBufferMemoryRequirements() has not been called on that buffer.*
+  - It happens when VK_KHR_dedicated_allocation extension is enabled.
+    `vkGetBufferMemoryRequirements2KHR` function is used instead, while validation layer seems to be unaware of it.
+- *Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.*
+  - It happens when you map a buffer or image, because the library maps entire
+    `VkDeviceMemory` block, where different types of images and buffers may end
+    up together, especially on GPUs with unified memory like Intel.
+- *Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.*
+  - It happens when you use lost allocations, and a new image or buffer is
+    created in place of an existing object that bacame lost.
 
 \section general_considerations_allocation_algorithm Allocation algorithm
 
