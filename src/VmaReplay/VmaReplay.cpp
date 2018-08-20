@@ -524,6 +524,10 @@ private:
     void ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType);
+    void ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteFlushAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
@@ -656,6 +660,14 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::BUFFER);
         else if(StrRangeEq(functionName, "vmaAllocateMemoryForImage"))
             ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::IMAGE);
+        else if(StrRangeEq(functionName, "vmaMapMemory"))
+            ExecuteMapMemory(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaUnmapMemory"))
+            ExecuteUnmapMemory(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaFlushAllocation"))
+            ExecuteFlushAllocation(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaInvalidateAllocation"))
+            ExecuteInvalidateAllocation(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -1469,6 +1481,154 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
     }
 }
 
+void Player::ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Allocations.find(origPtr);
+                if(it != m_Allocations.end())
+                {
+                    void* pData;
+                    VkResult res = vmaMapMemory(m_Allocator, it->second.allocation, &pData);
+                    if(res != VK_SUCCESS)
+                    {
+                        printf("Line %zu: vmaMapMemory failed (%u)\n", lineNumber, res);
+                    }
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaMapMemory.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Allocations.find(origPtr);
+                if(it != m_Allocations.end())
+                {
+                    vmaUnmapMemory(m_Allocator, it->second.allocation);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaMapMemory.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteFlushAllocation(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 3, false))
+    {
+        uint64_t origPtr = 0;
+        uint64_t offset = 0;
+        uint64_t size = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), offset) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 2), size))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Allocations.find(origPtr);
+                if(it != m_Allocations.end())
+                {
+                    vmaFlushAllocation(m_Allocator, it->second.allocation, offset, size);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaFlushAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 3, false))
+    {
+        uint64_t origPtr = 0;
+        uint64_t offset = 0;
+        uint64_t size = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), offset) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 2), size))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Allocations.find(origPtr);
+                if(it != m_Allocations.end())
+                {
+                    vmaInvalidateAllocation(m_Allocator, it->second.allocation, offset, size);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaInvalidateAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main functions

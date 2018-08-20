@@ -10107,6 +10107,18 @@ VkResult vmaMapMemory(
 {
     VMA_ASSERT(allocator && allocation && ppData);
 
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaMapMemory,%p\n", threadId, time, frameIndex,
+            allocation);
+        fflush(g_File);
+    }
+
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     return allocator->Map(allocation, ppData);
@@ -10117,6 +10129,18 @@ void vmaUnmapMemory(
     VmaAllocation allocation)
 {
     VMA_ASSERT(allocator && allocation);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaUnmapMemory,%p\n", threadId, time, frameIndex,
+            allocation);
+        fflush(g_File);
+    }
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -10129,6 +10153,20 @@ void vmaFlushAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDevi
 
     VMA_DEBUG_LOG("vmaFlushAllocation");
 
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaFlushAllocation,%p,%llu,%llu\n", threadId, time, frameIndex,
+            allocation,
+            offset,
+            size);
+        fflush(g_File);
+    }
+
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
@@ -10139,6 +10177,20 @@ void vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, V
     VMA_ASSERT(allocator && allocation);
 
     VMA_DEBUG_LOG("vmaInvalidateAllocation");
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaInvalidateAllocation,%p,%llu,%llu\n", threadId, time, frameIndex,
+            allocation,
+            offset,
+            size);
+        fflush(g_File);
+    }
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
