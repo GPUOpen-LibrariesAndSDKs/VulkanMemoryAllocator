@@ -2666,7 +2666,7 @@ void EnsureFile()
     {
         fopen_s(&g_File, "VMA_Usage_Dump", "wb");
         fprintf(g_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-        fprintf(g_File, "%s\n", "1,1");
+        fprintf(g_File, "%s\n", "1,2");
         QueryPerformanceFrequency(&g_Freq);
         QueryPerformanceCounter(&g_StartCounter);
     }
@@ -10003,12 +10003,23 @@ void vmaCreateLostAllocation(
     VmaAllocator allocator,
     VmaAllocation* pAllocation)
 {
-    Crash();
     VMA_ASSERT(allocator && pAllocation);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
     allocator->CreateLostAllocation(pAllocation);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaCreateLostAllocation,%p\n", threadId, time, frameIndex,
+            (*pAllocation));
+        fflush(g_File);
+    }
 }
 
 VkResult vmaMapMemory(
@@ -10089,7 +10100,6 @@ VkResult vmaBindBufferMemory(
     VmaAllocation allocation,
     VkBuffer buffer)
 {
-    Crash();
     VMA_ASSERT(allocator && allocation && buffer);
 
     VMA_DEBUG_LOG("vmaBindBufferMemory");
@@ -10104,7 +10114,6 @@ VkResult vmaBindImageMemory(
     VmaAllocation allocation,
     VkImage image)
 {
-    Crash();
     VMA_ASSERT(allocator && allocation && image);
 
     VMA_DEBUG_LOG("vmaBindImageMemory");

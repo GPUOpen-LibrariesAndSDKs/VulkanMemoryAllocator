@@ -44,6 +44,15 @@ static enum class VERBOSITY
 } g_Verbosity = VERBOSITY::DEFAULT;
 
 static std::string g_FilePath;
+// Most significant 16 bits are major version, least significant 16 bits are minor version.
+static uint32_t g_FileVersion;
+
+static bool ValidateFileVersion()
+{
+    const uint32_t major = g_FileVersion >> 16;
+    const uint32_t minor = g_FileVersion & 0xFFFF;
+    return major == 1 && minor <= 2;
+}
 
 struct StrRange
 {
@@ -174,6 +183,24 @@ void CsvSplit::Set(const StrRange& line, size_t maxCount)
         ++charIndex; // Past ','
     }
     m_Count = rangeIndex;
+}
+
+static bool ParseFileVersion(const StrRange& s)
+{
+    CsvSplit csvSplit;
+    csvSplit.Set(s, 2);
+    uint32_t major, minor;
+    if(csvSplit.GetCount() == 2 &&
+        StrRangeToUint(csvSplit.GetRange(0), major) &&
+        StrRangeToUint(csvSplit.GetRange(1), minor))
+    {
+        g_FileVersion = (major << 16) | minor;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -442,6 +469,7 @@ private:
     void ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
     void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
@@ -566,6 +594,8 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteDestroyImage(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaFreeMemory"))
             ExecuteFreeMemory(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaCreateLostAllocation"))
+            ExecuteCreateLostAllocation(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -1250,6 +1280,64 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
+void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            // TODO
+            if(origPool != 0)
+            {
+                const auto poolIt = m_Pools.find(origPool);
+                if(poolIt != m_Pools.end())
+                    allocCreateInfo.pool = poolIt->second.pool;
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
+                    }
+                }
+            }
+
+            Allocation allocDesc = {};
+            VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
+            if(res == VK_SUCCESS)
+            {
+                m_Stats.RegisterCreateBuffer(bufCreateInfo.usage);
+            }
+            else
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: vmaCreateBuffer failed (%u).\n", lineNumber, res);
+                }
+            }
+
+            const auto existingIt = m_Allocations.find(origPtr);
+            if(existingIt != m_Allocations.end())
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+                }
+            }
+            
+            m_Allocations[origPtr] = allocDesc;
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaCreateLostAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main functions
@@ -1285,8 +1373,7 @@ static int ProcessFile(const char* data, size_t numBytes)
         return RESULT_ERROR_FORMAT;
     }
 
-    if(!lineSplit.GetNextLine(line) ||
-        !(StrRangeEq(line, "1,0") || StrRangeEq(line, "1,1")))
+    if(!lineSplit.GetNextLine(line) || !ParseFileVersion(line) || !ValidateFileVersion())
     {
         printf("ERROR: Incorrect file format version.\n");
         return RESULT_ERROR_FORMAT;
