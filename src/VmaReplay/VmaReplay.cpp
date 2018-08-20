@@ -496,6 +496,13 @@ private:
 
     void Destroy(const Allocation& alloc);
 
+    // Finds VmaPool bu original pointer.
+    // If origPool = null, returns true and outPool = null.
+    // If failed, prints warning, returns false and outPool = null.
+    bool FindPool(size_t lineNumber, uint64_t origPool, VmaPool& outPool);
+    // If allocation with that origPtr already exists, prints warning and replaces it.
+    void AddAllocation(size_t lineNumber, uint64_t origPtr, Allocation&& allocDesc);
+
     // Increments warning counter. Returns true if warning message should be printed.
     bool IssueWarning();
 
@@ -679,6 +686,44 @@ void Player::Destroy(const Allocation& alloc)
     }
     else
         vmaFreeMemory(m_Allocator, alloc.allocation);
+}
+
+bool Player::FindPool(size_t lineNumber, uint64_t origPool, VmaPool& outPool)
+{
+    outPool = VK_NULL_HANDLE;
+
+    if(origPool != 0)
+    {
+        const auto poolIt = m_Pools.find(origPool);
+        if(poolIt != m_Pools.end())
+        {
+            outPool = poolIt->second.pool;
+            return true;
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
+            }
+        }
+    }
+
+    return true;
+}
+
+void Player::AddAllocation(size_t lineNumber, uint64_t origPtr, Allocation&& allocDesc)
+{
+    const auto existingIt = m_Allocations.find(origPtr);
+    if(existingIt != m_Allocations.end())
+    {
+        if(IssueWarning())
+        {
+            printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+        }
+    }
+            
+    m_Allocations[origPtr] = std::move(allocDesc);
 }
 
 bool Player::IssueWarning()
@@ -1168,19 +1213,7 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 9), origPool) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 10), origPtr))
         {
-            if(origPool != 0)
-            {
-                const auto poolIt = m_Pools.find(origPool);
-                if(poolIt != m_Pools.end())
-                    allocCreateInfo.pool = poolIt->second.pool;
-                else
-                {
-                    if(IssueWarning())
-                    {
-                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
-                    }
-                }
-            }
+            FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
             Allocation allocDesc = {};
             VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
@@ -1196,16 +1229,7 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
                 }
             }
 
-            const auto existingIt = m_Allocations.find(origPtr);
-            if(existingIt != m_Allocations.end())
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-            
-            m_Allocations[origPtr] = allocDesc;
+            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
         }
         else
         {
@@ -1282,21 +1306,7 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 18), origPool) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 19), origPtr))
         {
-            if(origPool != 0)
-            {
-                const auto poolIt = m_Pools.find(origPool);
-                if(poolIt != m_Pools.end())
-                {
-                    allocCreateInfo.pool = poolIt->second.pool;
-                }
-                else
-                {
-                    if(IssueWarning())
-                    {
-                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
-                    }
-                }
-            }
+            FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
             Allocation allocDesc = {};
             VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
@@ -1312,16 +1322,7 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
                 }
             }
 
-            const auto existingIt = m_Allocations.find(origPtr);
-            if(existingIt != m_Allocations.end())
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-
-            m_Allocations[origPtr] = allocDesc;
+            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
         }
         else
         {
@@ -1345,16 +1346,7 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
             vmaCreateLostAllocation(m_Allocator, &allocDesc.allocation);
             m_Stats.RegisterCreateAllocation();
 
-            const auto existingIt = m_Allocations.find(origPtr);
-            if(existingIt != m_Allocations.end())
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-            
-            m_Allocations[origPtr] = allocDesc;
+            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
         }
         else
         {
@@ -1386,19 +1378,7 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 8), origPool) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 9), origPtr))
         {
-            if(origPool != 0)
-            {
-                const auto poolIt = m_Pools.find(origPool);
-                if(poolIt != m_Pools.end())
-                    allocCreateInfo.pool = poolIt->second.pool;
-                else
-                {
-                    if(IssueWarning())
-                    {
-                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
-                    }
-                }
-            }
+            FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
             Allocation allocDesc = {};
             VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
@@ -1414,16 +1394,7 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
                 }
             }
 
-            const auto existingIt = m_Allocations.find(origPtr);
-            if(existingIt != m_Allocations.end())
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-            
-            m_Allocations[origPtr] = allocDesc;
+            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
         }
         else
         {
@@ -1459,19 +1430,7 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 10), origPool) &&
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 11), origPtr))
         {
-            if(origPool != 0)
-            {
-                const auto poolIt = m_Pools.find(origPool);
-                if(poolIt != m_Pools.end())
-                    allocCreateInfo.pool = poolIt->second.pool;
-                else
-                {
-                    if(IssueWarning())
-                    {
-                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
-                    }
-                }
-            }
+            FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
             if(requiresDedicatedAllocation || prefersDedicatedAllocation)
             {
@@ -1498,16 +1457,7 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
                 printf("Line %zu: vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage) failed (%u).\n", lineNumber, res);
             }
 
-            const auto existingIt = m_Allocations.find(origPtr);
-            if(existingIt != m_Allocations.end())
-            {
-                if(IssueWarning())
-                {
-                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
-                }
-            }
-            
-            m_Allocations[origPtr] = allocDesc;
+            AddAllocation(lineNumber, origPtr, std::move(allocDesc));
         }
         else
         {
