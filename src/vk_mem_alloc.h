@@ -1317,8 +1317,15 @@ typedef struct VmaVulkanFunctions {
 #endif
 } VmaVulkanFunctions;
 
+/// Flags to be used in VmaRecordSettings::flags.
 typedef enum VmaRecordFlagBits {
+    /** \brief Enables flush after recording every function call.
+
+    Enable it if you expect your application to crash, which may leave recording file truncated.
+    It may degrade performance though.
+    */
     VMA_RECORD_FLUSH_AFTER_CALL_BIT = 0x00000001,
+    
     VMA_RECORD_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaRecordFlagBits;
 typedef VkFlags VmaRecordFlags;
@@ -1335,10 +1342,18 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
-/// TODO
+/// Parameters for recording calls to VMA functions. To be used in VmaAllocatorCreateInfo::pRecordSettings.
 typedef struct VmaRecordSettings
 {
+    /// Flags for recording. Use #VmaRecordFlagBits enum.
     VmaRecordFlags flags;
+    /** \brief Path to the file that should be written by the recording.
+
+    Suggested extension: "csv".
+    If the file already exists, it will be overwritten.
+    It will be opened for the whole time #VmaAllocator object is alive.
+    If opening this file fails, creation of the whole allocator object fails.
+    */
     const char* pFilePath;
 } VmaRecordSettings;
 
@@ -1412,7 +1427,11 @@ typedef struct VmaAllocatorCreateInfo
     e.g. fetched using `vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`.
     */
     const VmaVulkanFunctions* pVulkanFunctions;
-    /** TODO
+    /** \brief Parameters for recording of VMA calls. Can be null.
+
+    If not null, it enables recording of calls to VMA functions to a file.
+    If support for recording is not enabled using `VMA_RECORDING_ENABLED` macro,
+    creation of the allocator object fails with `VK_ERROR_FEATURE_NOT_PRESENT`.
     */
     const VmaRecordSettings* pRecordSettings;
 } VmaAllocatorCreateInfo;
