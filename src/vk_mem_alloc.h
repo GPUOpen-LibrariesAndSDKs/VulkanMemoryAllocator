@@ -1323,6 +1323,18 @@ typedef enum VmaRecordFlagBits {
 } VmaRecordFlagBits;
 typedef VkFlags VmaRecordFlags;
 
+/*
+Define this macro to 0/1 to disable/enable support for recording functionality,
+available through VmaAllocatorCreateInfo::pRecordSettings.
+*/
+#ifndef VMA_RECORDING_ENABLED
+    #ifdef _WIN32
+        #define VMA_RECORDING_ENABLED 1
+    #else
+        #define VMA_RECORDING_ENABLED 0
+    #endif
+#endif
+
 /// TODO
 typedef struct VmaRecordSettings
 {
@@ -4714,6 +4726,8 @@ public:
         uint32_t maxAllocationsToMove);
 };
 
+#if VMA_RECORDING_ENABLED
+
 class VmaRecorder
 {
 public:
@@ -4789,6 +4803,8 @@ private:
     void Flush();
 };
 
+#endif // #if VMA_RECORDING_ENABLED
+
 // Main allocator object.
 struct VmaAllocator_T
 {
@@ -4863,7 +4879,9 @@ public:
         return m_PhysicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
     }
 
+#if VMA_RECORDING_ENABLED
     VmaRecorder* GetRecorder() const { return m_pRecorder; }
+#endif
 
     void GetBufferMemoryRequirements(
         VkBuffer hBuffer,
@@ -4950,7 +4968,9 @@ private:
 
     VmaVulkanFunctions m_VulkanFunctions;
 
+#if VMA_RECORDING_ENABLED
     VmaRecorder* m_pRecorder;
+#endif
 
     void ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions);
 
@@ -8032,6 +8052,8 @@ bool VmaDefragmentator::MoveMakesSense(
 ////////////////////////////////////////////////////////////////////////////////
 // VmaRecorder
 
+#if VMA_RECORDING_ENABLED
+
 VmaRecorder::VmaRecorder() :
     m_UseMutex(true),
     m_Flags(0),
@@ -8389,6 +8411,8 @@ void VmaRecorder::Flush()
     }
 }
 
+#endif // #if VMA_RECORDING_ENABLED
+
 ////////////////////////////////////////////////////////////////////////////////
 // VmaAllocator_T
 
@@ -8403,8 +8427,10 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
     m_Pools(VmaStlAllocator<VmaPool>(GetAllocationCallbacks())),
-    m_NextPoolId(0),
-    m_pRecorder(VMA_NULL)
+    m_NextPoolId(0)
+#if VMA_RECORDING_ENABLED
+    ,m_pRecorder(VMA_NULL)
+#endif
 {
     if(VMA_DEBUG_DETECT_CORRUPTION)
     {
@@ -8490,17 +8516,17 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
     if(pCreateInfo->pRecordSettings != VMA_NULL &&
         !VmaStrIsEmpty(pCreateInfo->pRecordSettings->pFilePath))
     {
+#if VMA_RECORDING_ENABLED
         m_pRecorder = vma_new(this, VmaRecorder)();
         res = m_pRecorder->Init(*pCreateInfo->pRecordSettings, m_UseMutex);
         if(res != VK_SUCCESS)
         {
             return res;
         }
-    }
-
-    if(m_pRecorder != VMA_NULL)
-    {
         m_pRecorder->RecordCreateAllocator(GetCurrentFrameIndex());
+#else
+        return VK_ERROR_FEATURE_NOT_PRESENT;
+#endif
     }
 
     return res;
@@ -8508,11 +8534,13 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
 
 VmaAllocator_T::~VmaAllocator_T()
 {
+#if VMA_RECORDING_ENABLED
     if(m_pRecorder != VMA_NULL)
     {
         m_pRecorder->RecordDestroyAllocator(GetCurrentFrameIndex());
         vma_delete(this, m_pRecorder);
     }
+#endif
     
     VMA_ASSERT(m_Pools.empty());
 
@@ -10183,10 +10211,12 @@ VkResult vmaCreatePool(
     
     VkResult res = allocator->CreatePool(pCreateInfo, pPool);
     
+#if VMA_RECORDING_ENABLED
     if(res == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordCreatePool(allocator->GetCurrentFrameIndex(), *pCreateInfo, *pPool);
     }
+#endif
     
     return res;
 }
@@ -10206,10 +10236,12 @@ void vmaDestroyPool(
     
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
     
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordDestroyPool(allocator->GetCurrentFrameIndex(), pool);
     }
+#endif
 
     allocator->DestroyPool(pool);
 }
@@ -10272,6 +10304,7 @@ VkResult vmaAllocateMemory(
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         pAllocation);
 
+#if VMA_RECORDING_ENABLED
     if(result == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordAllocateMemory(
@@ -10280,6 +10313,7 @@ VkResult vmaAllocateMemory(
             *pCreateInfo,
             *pAllocation);
     }
+#endif
         
     if(pAllocationInfo != VMA_NULL && result == VK_SUCCESS)
     {
@@ -10319,6 +10353,7 @@ VkResult vmaAllocateMemoryForBuffer(
         VMA_SUBALLOCATION_TYPE_BUFFER,
         pAllocation);
 
+#if VMA_RECORDING_ENABLED
     if(result == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordAllocateMemoryForBuffer(
@@ -10329,6 +10364,7 @@ VkResult vmaAllocateMemoryForBuffer(
             *pCreateInfo,
             *pAllocation);
     }
+#endif
 
     if(pAllocationInfo && result == VK_SUCCESS)
     {
@@ -10367,6 +10403,7 @@ VkResult vmaAllocateMemoryForImage(
         VMA_SUBALLOCATION_TYPE_IMAGE_UNKNOWN,
         pAllocation);
 
+#if VMA_RECORDING_ENABLED
     if(result == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordAllocateMemoryForImage(
@@ -10377,6 +10414,7 @@ VkResult vmaAllocateMemoryForImage(
             *pCreateInfo,
             *pAllocation);
     }
+#endif
 
     if(pAllocationInfo && result == VK_SUCCESS)
     {
@@ -10401,12 +10439,14 @@ void vmaFreeMemory(
     
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordFreeMemory(
             allocator->GetCurrentFrameIndex(),
             allocation);
     }
+#endif
     
     allocator->FreeMemory(allocation);
 }
@@ -10445,6 +10485,7 @@ void vmaSetAllocationUserData(
 
     allocation->SetUserData(allocator, pUserData);
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordSetAllocationUserData(
@@ -10452,6 +10493,7 @@ void vmaSetAllocationUserData(
             allocation,
             pUserData);
     }
+#endif
 }
 
 void vmaCreateLostAllocation(
@@ -10464,12 +10506,14 @@ void vmaCreateLostAllocation(
 
     allocator->CreateLostAllocation(pAllocation);
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordCreateLostAllocation(
             allocator->GetCurrentFrameIndex(),
             *pAllocation);
     }
+#endif
 }
 
 VkResult vmaMapMemory(
@@ -10483,12 +10527,14 @@ VkResult vmaMapMemory(
 
     VkResult res = allocator->Map(allocation, ppData);
 
+#if VMA_RECORDING_ENABLED
     if(res == VK_SUCCESS && allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordMapMemory(
             allocator->GetCurrentFrameIndex(),
             allocation);
     }
+#endif
 
     return res;
 }
@@ -10501,12 +10547,14 @@ void vmaUnmapMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordUnmapMemory(
             allocator->GetCurrentFrameIndex(),
             allocation);
     }
+#endif
 
     allocator->Unmap(allocation);
 }
@@ -10521,12 +10569,14 @@ void vmaFlushAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDevi
 
     allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordFlushAllocation(
             allocator->GetCurrentFrameIndex(),
             allocation, offset, size);
     }
+#endif
 }
 
 void vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
@@ -10539,12 +10589,14 @@ void vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, V
 
     allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_INVALIDATE);
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordInvalidateAllocation(
             allocator->GetCurrentFrameIndex(),
             allocation, offset, size);
     }
+#endif
 }
 
 VkResult vmaCheckCorruption(VmaAllocator allocator, uint32_t memoryTypeBits)
@@ -10678,6 +10730,7 @@ VkResult vmaCreateBuffer(
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
                 }
 
+#if VMA_RECORDING_ENABLED
                 if(allocator->GetRecorder() != VMA_NULL)
                 {
                     allocator->GetRecorder()->RecordCreateBuffer(
@@ -10686,6 +10739,7 @@ VkResult vmaCreateBuffer(
                         *pAllocationCreateInfo,
                         *pAllocation);
                 }
+#endif
 
                 return VK_SUCCESS;
             }
@@ -10718,12 +10772,14 @@ void vmaDestroyBuffer(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordDestroyBuffer(
             allocator->GetCurrentFrameIndex(),
             allocation);
     }
+#endif
 
     if(buffer != VK_NULL_HANDLE)
     {
@@ -10796,6 +10852,7 @@ VkResult vmaCreateImage(
                     allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
                 }
 
+#if VMA_RECORDING_ENABLED
                 if(allocator->GetRecorder() != VMA_NULL)
                 {
                     allocator->GetRecorder()->RecordCreateImage(
@@ -10804,6 +10861,7 @@ VkResult vmaCreateImage(
                         *pAllocationCreateInfo,
                         *pAllocation);
                 }
+#endif
 
                 return VK_SUCCESS;
             }
@@ -10836,12 +10894,14 @@ void vmaDestroyImage(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+#if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordDestroyImage(
             allocator->GetCurrentFrameIndex(),
             allocation);
     }
+#endif
 
     if(image != VK_NULL_HANDLE)
     {
