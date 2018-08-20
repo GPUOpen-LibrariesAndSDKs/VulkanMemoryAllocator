@@ -806,7 +806,7 @@ int Player::InitVulkan()
     res = vkCreateInstance(&instInfo, NULL, &m_VulkanInstance);
     if(res != VK_SUCCESS)
     {
-        printf("ERROR: vkCreateInstance failed (%u)\n", res);
+        printf("ERROR: vkCreateInstance failed (%d)\n", res);
         return RESULT_ERROR_VULKAN;
     }
 
@@ -914,7 +914,7 @@ int Player::InitVulkan()
     res = vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
     if(res != VK_SUCCESS)
     {
-        printf("ERROR: vkCreateDevice failed (%u)\n", res);
+        printf("ERROR: vkCreateDevice failed (%d)\n", res);
         return RESULT_ERROR_VULKAN;
     }
 
@@ -932,7 +932,7 @@ int Player::InitVulkan()
     res = vmaCreateAllocator(&allocatorInfo, &m_Allocator);
     if(res != VK_SUCCESS)
     {
-        printf("ERROR: vmaCreateAllocator failed (%u)\n", res);
+        printf("ERROR: vmaCreateAllocator failed (%d)\n", res);
         return RESULT_ERROR_VULKAN;
     }
 
@@ -1144,7 +1144,7 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
             {
                 if(IssueWarning())
                 {
-                    printf("Line %zu: vmaCreatePool failed (%u).\n", lineNumber, res);
+                    printf("Line %zu: vmaCreatePool failed (%d).\n", lineNumber, res);
                 }
             }
 
@@ -1237,7 +1237,7 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
             {
                 if(IssueWarning())
                 {
-                    printf("Line %zu: vmaCreateBuffer failed (%u).\n", lineNumber, res);
+                    printf("Line %zu: vmaCreateBuffer failed (%d).\n", lineNumber, res);
                 }
             }
 
@@ -1330,7 +1330,7 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             {
                 if(IssueWarning())
                 {
-                    printf("Line %zu: vmaCreateImage failed (%u).\n", lineNumber, res);
+                    printf("Line %zu: vmaCreateImage failed (%d).\n", lineNumber, res);
                 }
             }
 
@@ -1402,7 +1402,7 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
             {
                 if(IssueWarning())
                 {
-                    printf("Line %zu: vmaAllocateMemory failed (%u).\n", lineNumber, res);
+                    printf("Line %zu: vmaAllocateMemory failed (%d).\n", lineNumber, res);
                 }
             }
 
@@ -1466,7 +1466,7 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
             }
             else
             {
-                printf("Line %zu: vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage) failed (%u).\n", lineNumber, res);
+                printf("Line %zu: vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage) failed (%d).\n", lineNumber, res);
             }
 
             AddAllocation(lineNumber, origPtr, std::move(allocDesc));
@@ -1498,7 +1498,7 @@ void Player::ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit)
                     VkResult res = vmaMapMemory(m_Allocator, it->second.allocation, &pData);
                     if(res != VK_SUCCESS)
                     {
-                        printf("Line %zu: vmaMapMemory failed (%u)\n", lineNumber, res);
+                        printf("Line %zu: vmaMapMemory failed (%d)\n", lineNumber, res);
                     }
                 }
                 else
@@ -1668,6 +1668,11 @@ static int ProcessFile(const char* data, size_t numBytes)
     {
         printf("ERROR: Incorrect file format version.\n");
         return RESULT_ERROR_FORMAT;
+    }
+
+    if(g_Verbosity == VERBOSITY::MAXIMUM)
+    {
+        printf("Format version: %u,%u\n", g_FileVersion >> 16, g_FileVersion & 0xFFFF);
     }
 
     Player player;
