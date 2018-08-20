@@ -43,6 +43,8 @@ static enum class VERBOSITY
     COUNT,
 } g_Verbosity = VERBOSITY::DEFAULT;
 
+enum class OBJECT_TYPE { BUFFER, IMAGE };
+
 static std::string g_FilePath;
 // Most significant 16 bits are major version, least significant 16 bits are minor version.
 static uint32_t g_FileVersion;
@@ -98,6 +100,30 @@ static inline bool StrRangeToFloat(const StrRange& s, float& out)
     char* end = (char*)s.end;
     out = strtof(s.beg, &end);
     return end == s.end;
+}
+static inline bool StrRangeToBool(const StrRange& s, bool& out)
+{
+    if(s.end - s.beg == 1)
+    {
+        if(*s.beg == '1')
+        {
+            out = true;
+        }
+        else if(*s.beg == '0')
+        {
+            out = false;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -227,12 +253,13 @@ public:
     void RegisterCreateImage(uint32_t usage, uint32_t tiling);
     void RegisterCreateBuffer(uint32_t usage);
     void RegisterCreatePool();
+    void RegisterCreateAllocation();
 
 private:
     size_t m_ImageCreationCount[4] = { };
     size_t m_LinearImageCreationCount = 0;
     size_t m_BufferCreationCount[4] = { };
-    size_t m_AllocationCreationCount = 0; // Also includes buffers and images.
+    size_t m_AllocationCreationCount = 0; // Also includes buffers and images, and lost allocations.
     size_t m_AllocatorCreationCount = 0;
     size_t m_AllocatorCurrCount = 0;
     size_t m_AllocatorPeakCount = 0;
@@ -341,6 +368,11 @@ void Statistics::RegisterCreatePool()
     ++m_PoolCreationCount;
 }
 
+void Statistics::RegisterCreateAllocation()
+{
+    ++m_AllocationCreationCount;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // class Player
 
@@ -380,6 +412,18 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
         return VK_FALSE;
     }
     
+    /*
+    "Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used."
+    Ignoring because we map entire VkDeviceMemory blocks, where different types of
+    images and buffers may end up together, especially on GPUs with unified memory
+    like Intel.
+    */
+    if(strstr(pMessage, "Mapping an image with layout") != nullptr &&
+        strstr(pMessage, "can result in undefined behavior if this memory is used by the device") != nullptr)
+    {
+        return VK_FALSE;
+    }
+
     printf("%s \xBA %s\n", pLayerPrefix, pMessage);
 
     return VK_FALSE;
@@ -411,6 +455,7 @@ private:
     static const size_t MAX_WARNINGS_TO_SHOW = 64;
 
     size_t m_WarningCount = 0;
+    bool m_AllocateForBufferImageWarningIssued = false;
 
     VkInstance m_VulkanInstance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
@@ -470,6 +515,8 @@ private:
     void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
     void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
     void ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
@@ -596,6 +643,12 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteFreeMemory(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaCreateLostAllocation"))
             ExecuteCreateLostAllocation(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaAllocateMemory"))
+            ExecuteAllocateMemory(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaAllocateMemoryForBuffer"))
+            ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::BUFFER);
+        else if(StrRangeEq(functionName, "vmaAllocateMemoryForImage"))
+            ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::IMAGE);
         else
         {
             if(IssueWarning())
@@ -1288,7 +1341,51 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
 
         if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
         {
-            // TODO
+            Allocation allocDesc = {};
+            vmaCreateLostAllocation(m_Allocator, &allocDesc.allocation);
+            m_Stats.RegisterCreateAllocation();
+
+            const auto existingIt = m_Allocations.find(origPtr);
+            if(existingIt != m_Allocations.end())
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+                }
+            }
+            
+            m_Allocations[origPtr] = allocDesc;
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaCreateLostAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 11, true))
+    {
+        VkMemoryRequirements memReq = {};
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        uint64_t origPool = 0;
+        uint64_t origPtr = 0;
+
+        if(StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX), memReq.size) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), memReq.alignment) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 2), memReq.memoryTypeBits) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 3), allocCreateInfo.flags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 4), (uint32_t&)allocCreateInfo.usage) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), allocCreateInfo.requiredFlags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), allocCreateInfo.preferredFlags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 7), allocCreateInfo.memoryTypeBits) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 8), origPool) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 9), origPtr))
+        {
             if(origPool != 0)
             {
                 const auto poolIt = m_Pools.find(origPool);
@@ -1304,16 +1401,16 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
             }
 
             Allocation allocDesc = {};
-            VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
+            VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
             if(res == VK_SUCCESS)
             {
-                m_Stats.RegisterCreateBuffer(bufCreateInfo.usage);
+                m_Stats.RegisterCreateAllocation();
             }
             else
             {
                 if(IssueWarning())
                 {
-                    printf("Line %zu: vmaCreateBuffer failed (%u).\n", lineNumber, res);
+                    printf("Line %zu: vmaAllocateMemory failed (%u).\n", lineNumber, res);
                 }
             }
 
@@ -1332,7 +1429,91 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
         {
             if(IssueWarning())
             {
-                printf("Line %zu: Invalid parameters for vmaCreateLostAllocation.\n", lineNumber);
+                printf("Line %zu: Invalid parameters for vmaAllocateMemory.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 13, true))
+    {
+        VkMemoryRequirements memReq = {};
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        bool requiresDedicatedAllocation = false;
+        bool prefersDedicatedAllocation = false;
+        uint64_t origPool = 0;
+        uint64_t origPtr = 0;
+
+        if(StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX), memReq.size) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), memReq.alignment) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 2), memReq.memoryTypeBits) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 3), allocCreateInfo.flags) &&
+            StrRangeToBool(csvSplit.GetRange(FIRST_PARAM_INDEX + 4), requiresDedicatedAllocation) &&
+            StrRangeToBool(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), prefersDedicatedAllocation) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), (uint32_t&)allocCreateInfo.usage) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 7), allocCreateInfo.requiredFlags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 8), allocCreateInfo.preferredFlags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 9), allocCreateInfo.memoryTypeBits) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 10), origPool) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 11), origPtr))
+        {
+            if(origPool != 0)
+            {
+                const auto poolIt = m_Pools.find(origPool);
+                if(poolIt != m_Pools.end())
+                    allocCreateInfo.pool = poolIt->second.pool;
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPool);
+                    }
+                }
+            }
+
+            if(requiresDedicatedAllocation || prefersDedicatedAllocation)
+            {
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+            }
+
+            if(!m_AllocateForBufferImageWarningIssued)
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage cannot be replayed accurately. Using vmaCreateAllocation instead.\n", lineNumber);
+                }
+                m_AllocateForBufferImageWarningIssued = true;
+            }
+
+            Allocation allocDesc = {};
+            VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
+            if(res == VK_SUCCESS)
+            {
+                m_Stats.RegisterCreateAllocation();
+            }
+            else
+            {
+                printf("Line %zu: vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage) failed (%u).\n", lineNumber, res);
+            }
+
+            const auto existingIt = m_Allocations.find(origPtr);
+            if(existingIt != m_Allocations.end())
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Allocation %llX already exists.\n", lineNumber, origPtr);
+                }
+            }
+            
+            m_Allocations[origPtr] = allocDesc;
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage.\n", lineNumber);
             }
         }
     }

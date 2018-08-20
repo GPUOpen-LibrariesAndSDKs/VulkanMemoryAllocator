@@ -9353,32 +9353,6 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
-static VkResult AllocateMemoryForImage(
-    VmaAllocator allocator,
-    VkImage image,
-    const VmaAllocationCreateInfo* pAllocationCreateInfo,
-    VmaSuballocationType suballocType,
-    VmaAllocation* pAllocation)
-{
-    VMA_ASSERT(allocator && (image != VK_NULL_HANDLE) && pAllocationCreateInfo && pAllocation);
-    
-    VkMemoryRequirements vkMemReq = {};
-    bool requiresDedicatedAllocation = false;
-    bool prefersDedicatedAllocation  = false;
-    allocator->GetImageMemoryRequirements(image, vkMemReq,
-        requiresDedicatedAllocation, prefersDedicatedAllocation);
-
-    return allocator->AllocateMemory(
-        vkMemReq,
-        requiresDedicatedAllocation,
-        prefersDedicatedAllocation,
-        VK_NULL_HANDLE, // dedicatedBuffer
-        image, // dedicatedImage
-        *pAllocationCreateInfo,
-        suballocType,
-        pAllocation);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Public interface
 
@@ -9857,7 +9831,6 @@ VkResult vmaAllocateMemory(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo)
 {
-    Crash();
     VMA_ASSERT(allocator && pVkMemoryRequirements && pCreateInfo && pAllocation);
 
     VMA_DEBUG_LOG("vmaAllocateMemory");
@@ -9874,6 +9847,28 @@ VkResult vmaAllocateMemory(
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         pAllocation);
 
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaAllocateMemory,%llu,%llu,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", threadId, time, frameIndex,
+            pVkMemoryRequirements->size,
+            pVkMemoryRequirements->alignment,
+            pVkMemoryRequirements->memoryTypeBits,
+            pCreateInfo->flags,
+            pCreateInfo->usage,
+            pCreateInfo->requiredFlags,
+            pCreateInfo->preferredFlags,
+            pCreateInfo->memoryTypeBits,
+            pCreateInfo->pool,
+            *pAllocation,
+            pCreateInfo->pUserData ? (const char*)pCreateInfo->pUserData : "");
+        fflush(g_File);
+    }
+
     if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
@@ -9889,7 +9884,6 @@ VkResult vmaAllocateMemoryForBuffer(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo)
 {
-    Crash();
     VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && pAllocation);
 
     VMA_DEBUG_LOG("vmaAllocateMemoryForBuffer");
@@ -9913,6 +9907,30 @@ VkResult vmaAllocateMemoryForBuffer(
         VMA_SUBALLOCATION_TYPE_BUFFER,
         pAllocation);
 
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaAllocateMemoryForBuffer,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", threadId, time, frameIndex,
+            vkMemReq.size,
+            vkMemReq.alignment,
+            vkMemReq.memoryTypeBits,
+            requiresDedicatedAllocation ? 1 : 0,
+            prefersDedicatedAllocation ? 1 : 0,
+            pCreateInfo->flags,
+            pCreateInfo->usage,
+            pCreateInfo->requiredFlags,
+            pCreateInfo->preferredFlags,
+            pCreateInfo->memoryTypeBits,
+            pCreateInfo->pool,
+            *pAllocation,
+            pCreateInfo->pUserData ? (const char*)pCreateInfo->pUserData : "");
+        fflush(g_File);
+    }
+
     if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
@@ -9935,12 +9953,45 @@ VkResult vmaAllocateMemoryForImage(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VkResult result = AllocateMemoryForImage(
-        allocator,
-        image,
-        pCreateInfo,
+    VkMemoryRequirements vkMemReq = {};
+    bool requiresDedicatedAllocation = false;
+    bool prefersDedicatedAllocation  = false;
+    allocator->GetImageMemoryRequirements(image, vkMemReq,
+        requiresDedicatedAllocation, prefersDedicatedAllocation);
+
+    VkResult result = allocator->AllocateMemory(
+        vkMemReq,
+        requiresDedicatedAllocation,
+        prefersDedicatedAllocation,
+        VK_NULL_HANDLE, // dedicatedBuffer
+        image, // dedicatedImage
+        *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_IMAGE_UNKNOWN,
         pAllocation);
+
+    {
+        VmaMutexLock lock(g_FileMutex, true);
+        EnsureFile();
+        LARGE_INTEGER counter; QueryPerformanceCounter(&counter);
+        const DWORD threadId = GetCurrentThreadId();
+        const double time = (double)(counter.QuadPart - g_StartCounter.QuadPart) / (double)g_Freq.QuadPart;
+        const uint32_t frameIndex = allocator->GetCurrentFrameIndex();
+        fprintf(g_File, "%u,%.3f,%u,vmaAllocateMemoryForImage,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", threadId, time, frameIndex,
+            vkMemReq.size,
+            vkMemReq.alignment,
+            vkMemReq.memoryTypeBits,
+            requiresDedicatedAllocation ? 1 : 0,
+            prefersDedicatedAllocation ? 1 : 0,
+            pCreateInfo->flags,
+            pCreateInfo->usage,
+            pCreateInfo->requiredFlags,
+            pCreateInfo->preferredFlags,
+            pCreateInfo->memoryTypeBits,
+            pCreateInfo->pool,
+            *pAllocation,
+            pCreateInfo->pUserData ? (const char*)pCreateInfo->pUserData : "");
+        fflush(g_File);
+    }
 
     if(pAllocationInfo && result == VK_SUCCESS)
     {
@@ -10329,7 +10380,21 @@ VkResult vmaCreateImage(
             VMA_SUBALLOCATION_TYPE_IMAGE_LINEAR;
         
         // 2. Allocate memory using allocator.
-        res = AllocateMemoryForImage(allocator, *pImage, pAllocationCreateInfo, suballocType, pAllocation);
+        VkMemoryRequirements vkMemReq = {};
+        bool requiresDedicatedAllocation = false;
+        bool prefersDedicatedAllocation  = false;
+        allocator->GetImageMemoryRequirements(*pImage, vkMemReq,
+            requiresDedicatedAllocation, prefersDedicatedAllocation);
+
+        res = allocator->AllocateMemory(
+            vkMemReq,
+            requiresDedicatedAllocation,
+            prefersDedicatedAllocation,
+            VK_NULL_HANDLE, // dedicatedBuffer
+            *pImage, // dedicatedImage
+            *pAllocationCreateInfo,
+            suballocType,
+            pAllocation);
         if(res >= 0)
         {
             // 3. Bind image with memory.
