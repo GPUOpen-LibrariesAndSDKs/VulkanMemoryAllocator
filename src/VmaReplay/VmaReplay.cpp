@@ -178,16 +178,18 @@ public:
 
     void Set(const StrRange& line, size_t maxCount = RANGE_COUNT_MAX);
 
+    const StrRange& GetLine() const { return m_Line; }
+
     size_t GetCount() const { return m_Count; }
     StrRange GetRange(size_t index) const 
     {
         return StrRange {
-            m_Str + m_Ranges[index * 2],
-            m_Str + m_Ranges[index * 2 + 1] };
+            m_Line.beg + m_Ranges[index * 2],
+            m_Line.beg + m_Ranges[index * 2 + 1] };
     }
 
 private:
-    const char* m_Str = nullptr;
+    StrRange m_Line = { nullptr, nullptr };
     size_t m_Count = 0;
     size_t m_Ranges[RANGE_COUNT_MAX * 2]; // Pairs of begin-end.
 };
@@ -195,14 +197,14 @@ private:
 void CsvSplit::Set(const StrRange& line, size_t maxCount)
 {
     assert(maxCount <= RANGE_COUNT_MAX);
-    m_Str = line.beg;
+    m_Line = line;
     const size_t strLen = line.length();
     size_t rangeIndex = 0;
     size_t charIndex = 0;
     while(charIndex < strLen && rangeIndex < maxCount)
     {
         m_Ranges[rangeIndex * 2] = charIndex;
-        while(charIndex < strLen && (rangeIndex + 1 == maxCount || m_Str[charIndex] != ','))
+        while(charIndex < strLen && (rangeIndex + 1 == maxCount || m_Line.beg[charIndex] != ','))
             ++charIndex;
         m_Ranges[rangeIndex * 2 + 1] = charIndex;
         ++rangeIndex;
@@ -457,6 +459,7 @@ private:
     };
     struct Allocation
     {
+        uint32_t allocationFlags;
         VmaAllocation allocation;
         VkBuffer buffer;
         VkImage image;
@@ -473,6 +476,8 @@ private:
     // Copy of column [1] from previously parsed line.
     std::string m_LastLineTimeStr;
     Statistics m_Stats;
+
+    std::vector<char> m_UserDataTmpStr;
 
     void Destroy(const Allocation& alloc);
 
@@ -494,8 +499,12 @@ private:
     // If parmeter count doesn't match, issues warning and returns false.
     bool ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound);
 
+    // If failed, prints warning, returns false, and sets allocCreateInfo.pUserData to null.
+    bool PrepareUserData(size_t lineNumber, uint32_t allocCreateFlags, const StrRange& userDataColumn, const StrRange& wholeLine, void*& outUserData);
+
     void ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
     void ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit);
@@ -608,12 +617,7 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         else if(StrRangeEq(functionName, "vmaDestroyPool"))
             ExecuteDestroyPool(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaSetAllocationUserData"))
-        {
-            if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, true))
-            {
-                // Ignore for now.
-            }
-        }
+            ExecuteSetAllocationUserData(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaCreateBuffer"))
             ExecuteCreateBuffer(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaDestroyBuffer"))
@@ -1131,6 +1135,37 @@ bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& c
     return ok;
 }
 
+bool Player::PrepareUserData(size_t lineNumber, uint32_t allocCreateFlags, const StrRange& userDataColumn, const StrRange& wholeLine, void*& outUserData)
+{
+    // String
+    if((allocCreateFlags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0)
+    {
+        const size_t len = wholeLine.end - userDataColumn.beg;
+        m_UserDataTmpStr.resize(len + 1);
+        memcpy(m_UserDataTmpStr.data(), userDataColumn.beg, len);
+        m_UserDataTmpStr[len] = '\0';
+        outUserData = m_UserDataTmpStr.data();
+        return true;
+    }
+    // Pointer
+    else
+    {
+        uint64_t pUserData = 0;
+        if(StrRangeToPtr(userDataColumn, pUserData))
+        {
+            outUserData = (void*)(uintptr_t)pUserData;
+            return true;
+        }
+    }
+
+    if(IssueWarning())
+    {
+        printf("Line %zu: Invalid pUserData.\n", lineNumber);
+    }
+    outUserData = 0;
+    return false;
+}
+
 void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 7, false))
@@ -1247,6 +1282,47 @@ void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
+void Player::ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, true))
+    {
+        uint64_t origPtr = 0;
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            const auto it = m_Allocations.find(origPtr);
+            if(it != m_Allocations.end())
+            {
+                void* pUserData = nullptr;
+                if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 1)
+                {
+                    PrepareUserData(
+                        lineNumber,
+                        it->second.allocationFlags,
+                        csvSplit.GetRange(FIRST_PARAM_INDEX + 1),
+                        csvSplit.GetLine(),
+                        pUserData);
+                }
+
+                vmaSetAllocationUserData(m_Allocator, it->second.allocation, pUserData);
+            }
+            else
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaSetAllocationUserData.\n", lineNumber);
+            }
+        }
+    }
+}
+
 void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 12, true))
@@ -1270,9 +1346,20 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 11)
+            {
+                PrepareUserData(
+                    lineNumber,
+                    allocCreateInfo.flags,
+                    csvSplit.GetRange(FIRST_PARAM_INDEX + 11),
+                    csvSplit.GetLine(),
+                    allocCreateInfo.pUserData);
+            }
+
             m_Stats.RegisterCreateBuffer(bufCreateInfo.usage);
 
-            Allocation allocDesc = {};
+            Allocation allocDesc = { };
+            allocDesc.allocationFlags = allocCreateInfo.flags;
             VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
             AddAllocation(lineNumber, origPtr, res, "vmaCreateBuffer", std::move(allocDesc));
         }
@@ -1353,9 +1440,20 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 20)
+            {
+                PrepareUserData(
+                    lineNumber,
+                    allocCreateInfo.flags,
+                    csvSplit.GetRange(FIRST_PARAM_INDEX + 20),
+                    csvSplit.GetLine(),
+                    allocCreateInfo.pUserData);
+            }
+
             m_Stats.RegisterCreateImage(imageCreateInfo.usage, imageCreateInfo.tiling);
 
             Allocation allocDesc = {};
+            allocDesc.allocationFlags = allocCreateInfo.flags;
             VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
             AddAllocation(lineNumber, origPtr, res, "vmaCreateImage", std::move(allocDesc));
         }
@@ -1415,9 +1513,20 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 10)
+            {
+                PrepareUserData(
+                    lineNumber,
+                    allocCreateInfo.flags,
+                    csvSplit.GetRange(FIRST_PARAM_INDEX + 10),
+                    csvSplit.GetLine(),
+                    allocCreateInfo.pUserData);
+            }
+
             m_Stats.RegisterCreateAllocation();
 
             Allocation allocDesc = {};
+            allocDesc.allocationFlags = allocCreateInfo.flags;
             VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
             AddAllocation(lineNumber, origPtr, res, "vmaAllocateMemory", std::move(allocDesc));
         }
@@ -1457,6 +1566,16 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 12)
+            {
+                PrepareUserData(
+                    lineNumber,
+                    allocCreateInfo.flags,
+                    csvSplit.GetRange(FIRST_PARAM_INDEX + 12),
+                    csvSplit.GetLine(),
+                    allocCreateInfo.pUserData);
+            }
+
             if(requiresDedicatedAllocation || prefersDedicatedAllocation)
             {
                 allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -1474,6 +1593,7 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
             m_Stats.RegisterCreateAllocation();
 
             Allocation allocDesc = {};
+            allocDesc.allocationFlags = allocCreateInfo.flags;
             VkResult res = vmaAllocateMemory(m_Allocator, &memReq, &allocCreateInfo, &allocDesc.allocation, nullptr);
             AddAllocation(lineNumber, origPtr, res, "vmaAllocateMemory (called as vmaAllocateMemoryForBuffer or vmaAllocateMemoryForImage)", std::move(allocDesc));
         }

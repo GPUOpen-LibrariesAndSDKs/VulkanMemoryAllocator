@@ -4792,6 +4792,17 @@ private:
         double time;
     };
 
+    class UserDataString
+    {
+    public:
+        UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData);
+        const char* GetString() const { return m_Str; }
+
+    private:
+        char m_PtrStr[17];
+        const char* m_Str;
+    };
+
     bool m_UseMutex;
     VmaRecordFlags m_Flags;
     FILE* m_File;
@@ -8150,6 +8161,7 @@ void VmaRecorder::RecordAllocateMemory(uint32_t frameIndex,
     GetBasicParams(callParams);
 
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
     fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemory,%llu,%llu,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
         vkMemReq.size,
         vkMemReq.alignment,
@@ -8161,7 +8173,7 @@ void VmaRecorder::RecordAllocateMemory(uint32_t frameIndex,
         createInfo.memoryTypeBits,
         createInfo.pool,
         allocation,
-        createInfo.pUserData ? (const char*)createInfo.pUserData : "");
+        userDataStr.GetString());
     Flush();
 }
 
@@ -8176,6 +8188,7 @@ void VmaRecorder::RecordAllocateMemoryForBuffer(uint32_t frameIndex,
     GetBasicParams(callParams);
 
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
     fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemoryForBuffer,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
         vkMemReq.size,
         vkMemReq.alignment,
@@ -8189,7 +8202,7 @@ void VmaRecorder::RecordAllocateMemoryForBuffer(uint32_t frameIndex,
         createInfo.memoryTypeBits,
         createInfo.pool,
         allocation,
-        createInfo.pUserData ? (const char*)createInfo.pUserData : "");
+        userDataStr.GetString());
     Flush();
 }
 
@@ -8204,6 +8217,7 @@ void VmaRecorder::RecordAllocateMemoryForImage(uint32_t frameIndex,
     GetBasicParams(callParams);
 
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
     fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemoryForImage,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
         vkMemReq.size,
         vkMemReq.alignment,
@@ -8217,7 +8231,7 @@ void VmaRecorder::RecordAllocateMemoryForImage(uint32_t frameIndex,
         createInfo.memoryTypeBits,
         createInfo.pool,
         allocation,
-        createInfo.pUserData ? (const char*)createInfo.pUserData : "");
+        userDataStr.GetString());
     Flush();
 }
 
@@ -8241,9 +8255,12 @@ void VmaRecorder::RecordSetAllocationUserData(uint32_t frameIndex,
     GetBasicParams(callParams);
 
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(
+        allocation->IsUserDataString() ? VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT : 0,
+        pUserData);
     fprintf(m_File, "%u,%.3f,%u,vmaSetAllocationUserData,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
         allocation,
-        pUserData ? (const char*)pUserData : "");
+        userDataStr.GetString());
     Flush();
 }
 
@@ -8320,6 +8337,7 @@ void VmaRecorder::RecordCreateBuffer(uint32_t frameIndex,
     GetBasicParams(callParams);
 
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(allocCreateInfo.flags, allocCreateInfo.pUserData);
     fprintf(m_File, "%u,%.3f,%u,vmaCreateBuffer,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
         bufCreateInfo.flags,
         bufCreateInfo.size,
@@ -8332,7 +8350,7 @@ void VmaRecorder::RecordCreateBuffer(uint32_t frameIndex,
         allocCreateInfo.memoryTypeBits,
         allocCreateInfo.pool,
         allocation,
-        allocCreateInfo.pUserData ? (const char*)allocCreateInfo.pUserData : "");
+        userDataStr.GetString());
     Flush();
 }
 
@@ -8345,6 +8363,7 @@ void VmaRecorder::RecordCreateImage(uint32_t frameIndex,
     GetBasicParams(callParams);
 
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(allocCreateInfo.flags, allocCreateInfo.pUserData);
     fprintf(m_File, "%u,%.3f,%u,vmaCreateImage,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
         imageCreateInfo.flags,
         imageCreateInfo.imageType,
@@ -8366,7 +8385,7 @@ void VmaRecorder::RecordCreateImage(uint32_t frameIndex,
         allocCreateInfo.memoryTypeBits,
         allocCreateInfo.pool,
         allocation,
-        allocCreateInfo.pUserData ? (const char*)allocCreateInfo.pUserData : "");
+        userDataStr.GetString());
     Flush();
 }
 
@@ -8392,6 +8411,26 @@ void VmaRecorder::RecordDestroyImage(uint32_t frameIndex,
     fprintf(m_File, "%u,%.3f,%u,vmaDestroyImage,%p\n", callParams.threadId, callParams.time, frameIndex,
         allocation);
     Flush();
+}
+
+VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData)
+{
+    if(pUserData != VMA_NULL)
+    {
+        if((allocFlags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0)
+        {
+            m_Str = (const char*)pUserData;
+        }
+        else
+        {
+            sprintf_s(m_PtrStr, "%p", pUserData);
+            m_Str = m_PtrStr;
+        }
+    }
+    else
+    {
+        m_Str = "";
+    }
 }
 
 void VmaRecorder::GetBasicParams(CallParams& outParams)
