@@ -244,12 +244,8 @@ public:
     size_t GetLinearImageCreationCount() const { return m_LinearImageCreationCount; }
     size_t GetBufferCreationCount(uint32_t bufClass) const { return m_BufferCreationCount[bufClass]; }
     size_t GetAllocationCreationCount() const { return m_AllocationCreationCount; }
-    size_t GetAllocatorCreationCount() const { return m_AllocatorCreationCount; }
-    size_t GetAllocatorPeakCount() const { return m_AllocatorPeakCount; }
     size_t GetPoolCreationCount() const { return m_PoolCreationCount; }
 
-    void RegisterCreateAllocator();
-    void RegisterDestroyAllocator();
     void RegisterCreateImage(uint32_t usage, uint32_t tiling);
     void RegisterCreateBuffer(uint32_t usage);
     void RegisterCreatePool();
@@ -260,9 +256,6 @@ private:
     size_t m_LinearImageCreationCount = 0;
     size_t m_BufferCreationCount[4] = { };
     size_t m_AllocationCreationCount = 0; // Also includes buffers and images, and lost allocations.
-    size_t m_AllocatorCreationCount = 0;
-    size_t m_AllocatorCurrCount = 0;
-    size_t m_AllocatorPeakCount = 0;
     size_t m_PoolCreationCount = 0;
 };
 
@@ -327,19 +320,6 @@ uint32_t Statistics::ImageUsageToClass(uint32_t usage)
     {
         return 3;
     }
-}
-
-void Statistics::RegisterCreateAllocator()
-{
-    ++m_AllocatorCreationCount;
-    ++m_AllocatorCurrCount;
-    m_AllocatorPeakCount = std::max(m_AllocatorPeakCount, m_AllocatorCurrCount);
-}
-
-void Statistics::RegisterDestroyAllocator()
-{
-    if(m_AllocatorCurrCount > 0)
-        --m_AllocatorCurrCount;
 }
 
 void Statistics::RegisterCreateImage(uint32_t usage, uint32_t tiling)
@@ -543,14 +523,6 @@ int Player::Init()
 
 Player::~Player()
 {
-    if(m_Stats.GetAllocatorCreationCount() > 1)
-    {
-        printf("WARNING: %zu VmaAllocator objects were created. It is recommended to use just one.\n",
-            m_Stats.GetAllocatorCreationCount());
-        printf("    At most %zu allocators existed simultaneously.\n",
-            m_Stats.GetAllocatorPeakCount());
-    }
-
     if(g_Verbosity > VERBOSITY::MINIMUM)
     {
         PrintStats();
@@ -621,14 +593,14 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
         {
             if(ValidateFunctionParameterCount(lineNumber, csvSplit, 0, false))
             {
-                m_Stats.RegisterCreateAllocator();
+                // Nothing.
             }
         }
         else if(StrRangeEq(functionName, "vmaDestroyAllocator"))
         {
             if(ValidateFunctionParameterCount(lineNumber, csvSplit, 0, false))
             {
-                m_Stats.RegisterDestroyAllocator();
+                // Nothing.
             }
         }
         else if(StrRangeEq(functionName, "vmaCreatePool"))
