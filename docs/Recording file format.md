@@ -158,6 +158,10 @@ No parameters.
 
 - allocation : pointer
 
+**vmaMakePoolAllocationsLost** (min format version: 1.2)
+
+- pool : pointer
+
 ## Data types
 
 **bool**

@@ -65,6 +65,7 @@ enum class VMA_FUNCTION
     InvalidateAllocation,
     TouchAllocation,
     GetAllocationInfo,
+    MakePoolAllocationsLost,
     Count
 };
 static const char* VMA_FUNCTION_NAMES[] = {
@@ -86,6 +87,7 @@ static const char* VMA_FUNCTION_NAMES[] = {
     "vmaInvalidateAllocation",
     "vmaTouchAllocation",
     "vmaGetAllocationInfo",
+    "vmaMakePoolAllocationsLost",
 };
 static_assert(
     _countof(VMA_FUNCTION_NAMES) == (size_t)VMA_FUNCTION::Count,
@@ -573,6 +575,7 @@ private:
     void ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteTouchAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
@@ -704,6 +707,8 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteTouchAllocation(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaGetAllocationInfo"))
             ExecuteGetAllocationInfo(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaMakePoolAllocationsLost"))
+            ExecuteMakePoolAllocationsLost(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -1983,6 +1988,42 @@ void Player::ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSpli
             if(IssueWarning())
             {
                 printf("Line %zu: Invalid parameters for vmaGetAllocationInfo.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::MakePoolAllocationsLost);
+
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Pools.find(origPtr);
+                if(it != m_Pools.end())
+                {
+                    vmaMakePoolAllocationsLost(m_Allocator, it->second.pool, nullptr);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaMakePoolAllocationsLost.\n", lineNumber);
             }
         }
     }

@@ -4854,6 +4854,8 @@ public:
         VmaAllocation allocation);
     void RecordGetAllocationInfo(uint32_t frameIndex,
         VmaAllocation allocation);
+    void RecordMakePoolAllocationsLost(uint32_t frameIndex,
+        VmaPool pool);
 
 private:
     struct CallParams
@@ -8507,6 +8509,18 @@ void VmaRecorder::RecordGetAllocationInfo(uint32_t frameIndex,
     Flush();
 }
 
+void VmaRecorder::RecordMakePoolAllocationsLost(uint32_t frameIndex,
+    VmaPool pool)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaMakePoolAllocationsLost,%p\n", callParams.threadId, callParams.time, frameIndex,
+        pool);
+    Flush();
+}
+
 VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData)
 {
     if(pUserData != VMA_NULL)
@@ -10400,6 +10414,13 @@ void vmaMakePoolAllocationsLost(
     VMA_ASSERT(allocator && pool);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        allocator->GetRecorder()->RecordMakePoolAllocationsLost(allocator->GetCurrentFrameIndex(), pool);
+    }
+#endif
 
     allocator->MakePoolAllocationsLost(pool, pLostAllocationCount);
 }
