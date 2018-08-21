@@ -1,6 +1,48 @@
 #include "Common.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+// LineSplit class
+
+bool LineSplit::GetNextLine(StrRange& out)
+{
+    if(m_NextLineBeg < m_NumBytes)
+    {
+        out.beg = m_Data + m_NextLineBeg;
+        size_t currLineEnd = m_NextLineBeg;
+        while(currLineEnd < m_NumBytes && m_Data[currLineEnd] != '\n')
+            ++currLineEnd;
+        out.end = m_Data + currLineEnd;
+        m_NextLineBeg = currLineEnd + 1; // Past '\n'
+        ++m_NextLineIndex;
+        return true;
+    }
+    else
+        return false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CsvSplit class
+
+void CsvSplit::Set(const StrRange& line, size_t maxCount)
+{
+    assert(maxCount <= RANGE_COUNT_MAX);
+    m_Line = line;
+    const size_t strLen = line.length();
+    size_t rangeIndex = 0;
+    size_t charIndex = 0;
+    while(charIndex < strLen && rangeIndex < maxCount)
+    {
+        m_Ranges[rangeIndex * 2] = charIndex;
+        while(charIndex < strLen && (rangeIndex + 1 == maxCount || m_Line.beg[charIndex] != ','))
+            ++charIndex;
+        m_Ranges[rangeIndex * 2 + 1] = charIndex;
+        ++rangeIndex;
+        ++charIndex; // Past ','
+    }
+    m_Count = rangeIndex;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // class CmdLineParser
 
 bool CmdLineParser::ReadNextArg(std::string *OutArg)

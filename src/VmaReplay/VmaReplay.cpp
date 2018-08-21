@@ -33,6 +33,7 @@ static const int RESULT_ERROR_VULKAN       = -4;
 enum CMD_LINE_OPT
 {
     CMD_LINE_OPT_VERBOSITY,
+    CMD_LINE_OPT_LINES,
 };
 
 static enum class VERBOSITY
@@ -97,168 +98,13 @@ static std::string g_FilePath;
 // Most significant 16 bits are major version, least significant 16 bits are minor version.
 static uint32_t g_FileVersion;
 
+static RangeSequence<size_t> g_LineRanges;
+
 static bool ValidateFileVersion()
 {
     const uint32_t major = g_FileVersion >> 16;
     const uint32_t minor = g_FileVersion & 0xFFFF;
     return major == 1 && minor <= 2;
-}
-
-struct StrRange
-{
-    const char* beg;
-    const char* end;
-
-    StrRange() { }
-    StrRange(const char* beg, const char* end) : beg(beg), end(end) { }
-    explicit StrRange(const char* sz) : beg(sz), end(sz + strlen(sz)) { }
-    explicit StrRange(const std::string& s) : beg(s.data()), end(s.data() + s.length()) { }
-
-    size_t length() const { return end - beg; }
-    void to_str(std::string& out) { out.assign(beg, end); }
-};
-
-static inline bool StrRangeEq(const StrRange& lhs, const char* rhsSz)
-{
-    const size_t rhsLen = strlen(rhsSz);
-    return rhsLen == lhs.length() &&
-        memcmp(lhs.beg, rhsSz, rhsLen) == 0;
-}
-
-static inline bool StrRangeToUint(const StrRange& s, uint32_t& out)
-{
-    char* end = (char*)s.end;
-    out = (uint32_t)strtoul(s.beg, &end, 10);
-    return end == s.end;
-}
-static inline bool StrRangeToUint(const StrRange& s, uint64_t& out)
-{
-    char* end = (char*)s.end;
-    out = (uint64_t)strtoull(s.beg, &end, 10);
-    return end == s.end;
-}
-static inline bool StrRangeToPtr(const StrRange& s, uint64_t& out)
-{
-    char* end = (char*)s.end;
-    out = (uint64_t)strtoull(s.beg, &end, 16);
-    return end == s.end;
-}
-static inline bool StrRangeToFloat(const StrRange& s, float& out)
-{
-    char* end = (char*)s.end;
-    out = strtof(s.beg, &end);
-    return end == s.end;
-}
-static inline bool StrRangeToBool(const StrRange& s, bool& out)
-{
-    if(s.end - s.beg == 1)
-    {
-        if(*s.beg == '1')
-        {
-            out = true;
-        }
-        else if(*s.beg == '0')
-        {
-            out = false;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    else
-    {
-        return false;
-    }
-
-    return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// LineSplit class
-
-class LineSplit
-{
-public:
-    LineSplit(const char* data, size_t numBytes) :
-        m_Data(data),
-        m_NumBytes(numBytes),
-        m_NextLineBeg(0),
-        m_NextLineIndex(0)
-    {
-    }
-
-    bool GetNextLine(StrRange& out);
-    size_t GetNextLineIndex() const { return m_NextLineIndex; }
-
-private:
-    const char* const m_Data;
-    const size_t m_NumBytes;
-    size_t m_NextLineBeg;
-    size_t m_NextLineIndex;
-};
-
-bool LineSplit::GetNextLine(StrRange& out)
-{
-    if(m_NextLineBeg < m_NumBytes)
-    {
-        out.beg = m_Data + m_NextLineBeg;
-        size_t currLineEnd = m_NextLineBeg;
-        while(currLineEnd < m_NumBytes && m_Data[currLineEnd] != '\n')
-            ++currLineEnd;
-        out.end = m_Data + currLineEnd;
-        m_NextLineBeg = currLineEnd + 1; // Past '\n'
-        ++m_NextLineIndex;
-        return true;
-    }
-    else
-        return false;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// CsvSplit class
-
-class CsvSplit
-{
-public:
-    static const size_t RANGE_COUNT_MAX = 32;
-
-    void Set(const StrRange& line, size_t maxCount = RANGE_COUNT_MAX);
-
-    const StrRange& GetLine() const { return m_Line; }
-
-    size_t GetCount() const { return m_Count; }
-    StrRange GetRange(size_t index) const 
-    {
-        return StrRange {
-            m_Line.beg + m_Ranges[index * 2],
-            m_Line.beg + m_Ranges[index * 2 + 1] };
-    }
-
-private:
-    StrRange m_Line = { nullptr, nullptr };
-    size_t m_Count = 0;
-    size_t m_Ranges[RANGE_COUNT_MAX * 2]; // Pairs of begin-end.
-};
-
-void CsvSplit::Set(const StrRange& line, size_t maxCount)
-{
-    assert(maxCount <= RANGE_COUNT_MAX);
-    m_Line = line;
-    const size_t strLen = line.length();
-    size_t rangeIndex = 0;
-    size_t charIndex = 0;
-    while(charIndex < strLen && rangeIndex < maxCount)
-    {
-        m_Ranges[rangeIndex * 2] = charIndex;
-        while(charIndex < strLen && (rangeIndex + 1 == maxCount || m_Line.beg[charIndex] != ','))
-            ++charIndex;
-        m_Ranges[rangeIndex * 2 + 1] = charIndex;
-        ++rangeIndex;
-        ++charIndex; // Past ','
-    }
-    m_Count = rangeIndex;
 }
 
 static bool ParseFileVersion(const StrRange& s)
@@ -2042,11 +1888,15 @@ static void PrintCommandLineSyntax()
         "        0 - Minimum verbosity. Prints only warnings and errors.\n"
         "        1 - Default verbosity. Prints important messages and statistics.\n"
         "        2 - Maximum verbosity. Prints a lot of information.\n"
+        "    --Lines <Ranges> - Replay only limited set of lines from file\n"
+        "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
     );
 }
 
 static int ProcessFile(const char* data, size_t numBytes)
 {
+    const bool useLineRanges = !g_LineRanges.IsEmpty();
+
     // Begin stats.
     if(g_Verbosity == VERBOSITY::MAXIMUM)
     {
@@ -2076,18 +1926,36 @@ static int ProcessFile(const char* data, size_t numBytes)
 
     Player player;
     int result = player.Init();
+    size_t executedLineCount = 0;
     if(result == 0)
     {
         if(g_Verbosity > VERBOSITY::MINIMUM)
         {
-            printf("Playing...\n");
+            if(useLineRanges)
+            {
+                printf("Playing (limited range of lines)...\n");
+            }
+            else
+            {
+                printf("Playing...\n");
+            }
         }
 
         const time_point timeBeg = std::chrono::high_resolution_clock::now();
 
         while(lineSplit.GetNextLine(line))
         {
-            player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
+            bool execute = true;
+            if(useLineRanges)
+            {
+                execute = g_LineRanges.Includes(lineSplit.GetNextLineIndex());
+            }
+
+            if(execute)
+            {
+                player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
+                ++executedLineCount;
+            }
         }
 
         const duration playDuration = std::chrono::high_resolution_clock::now() - timeBeg;
@@ -2099,6 +1967,7 @@ static int ProcessFile(const char* data, size_t numBytes)
             SecondsToFriendlyStr(ToFloatSeconds(playDuration), playDurationStr);
 
             printf("Done.\n");
+            printf("Executed %zu file lines\n", executedLineCount);
             printf("Playback took: %s\n", playDurationStr.c_str());
         }
         if(g_Verbosity == VERBOSITY::MAXIMUM)
@@ -2154,6 +2023,7 @@ static int main2(int argc, char** argv)
     CmdLineParser cmdLineParser(argc, argv);
 
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VERBOSITY, 'v', true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_LINES, "Lines", true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2172,6 +2042,15 @@ static int main2(int argc, char** argv)
                         g_Verbosity = (VERBOSITY)verbosityVal;
                     }
                     else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
+            case CMD_LINE_OPT_LINES:
+                {
+                    if(!g_LineRanges.Parse(StrRange(cmdLineParser.GetParameter())))
                     {
                         PrintCommandLineSyntax();
                         return RESULT_ERROR_COMMAND_LINE;
