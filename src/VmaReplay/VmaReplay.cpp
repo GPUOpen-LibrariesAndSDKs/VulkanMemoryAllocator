@@ -36,6 +36,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_ITERATIONS,
     CMD_LINE_OPT_LINES,
     CMD_LINE_OPT_PHYSICAL_DEVICE,
+    CMD_LINE_OPT_USER_DATA,
 };
 
 static enum class VERBOSITY
@@ -103,6 +104,7 @@ static uint32_t g_FileVersion;
 static size_t g_IterationCount = 1;
 static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
+static bool g_UserDataEnabled = true;
 
 static bool ValidateFileVersion()
 {
@@ -1088,6 +1090,12 @@ bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& c
 
 bool Player::PrepareUserData(size_t lineNumber, uint32_t allocCreateFlags, const StrRange& userDataColumn, const StrRange& wholeLine, void*& outUserData)
 {
+    if(!g_UserDataEnabled)
+    {
+        outUserData = nullptr;
+        return true;
+    }
+
     // String
     if((allocCreateFlags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0)
     {
@@ -1240,6 +1248,11 @@ void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
 void Player::ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit)
 {
     m_Stats.RegisterFunctionCall(VMA_FUNCTION::SetAllocationUserData);
+
+    if(!g_UserDataEnabled)
+    {
+        return;
+    }
 
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, true))
     {
@@ -1910,7 +1923,7 @@ static void PrintCommandLineSyntax()
         "Command line syntax:\n"
         "    VmaReplay [Options] <SrcFile.csv>\n"
         "Available options:\n"
-        "    -v <Level> - Verbosity level:\n"
+        "    -v <Number> - Verbosity level:\n"
         "        0 - Minimum verbosity. Prints only warnings and errors.\n"
         "        1 - Default verbosity. Prints important messages and statistics.\n"
         "        2 - Maximum verbosity. Prints a lot of information.\n"
@@ -1919,6 +1932,8 @@ static void PrintCommandLineSyntax()
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
+        "    --UserData <Value> - 0 to disable or 1 to enable setting pUserData during playback.\n"
+        "        Default is 1. Affects both creation of buffers and images, as well as calls to vmaSetAllocationUserData.\n"
     );
 }
 
@@ -2074,6 +2089,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_ITERATIONS, 'i', true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_LINES, "Lines", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_PHYSICAL_DEVICE, "PhysicalDevice", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_USER_DATA, "UserData", true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2114,6 +2130,13 @@ static int main2(int argc, char** argv)
                 break;
             case CMD_LINE_OPT_PHYSICAL_DEVICE:
                 if(!StrRangeToUint(StrRange(cmdLineParser.GetParameter()), g_PhysicalDeviceIndex))
+                {
+                    PrintCommandLineSyntax();
+                    return RESULT_ERROR_COMMAND_LINE;
+                }
+                break;
+            case CMD_LINE_OPT_USER_DATA:
+                if(!StrRangeToBool(StrRange(cmdLineParser.GetParameter()), g_UserDataEnabled))
                 {
                     PrintCommandLineSyntax();
                     return RESULT_ERROR_COMMAND_LINE;
