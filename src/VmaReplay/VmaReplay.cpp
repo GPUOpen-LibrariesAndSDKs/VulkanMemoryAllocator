@@ -38,6 +38,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_PHYSICAL_DEVICE,
     CMD_LINE_OPT_USER_DATA,
     CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION,
+    CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION,
 };
 
 static enum class VERBOSITY
@@ -118,6 +119,7 @@ static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
 static bool g_UserDataEnabled = true;
 VULKAN_EXTENSION_REQUEST g_VK_KHR_dedicated_allocation_request = VULKAN_EXTENSION_REQUEST::DEFAULT;
+VULKAN_EXTENSION_REQUEST g_VK_LAYER_LUNARG_standard_validation = VULKAN_EXTENSION_REQUEST::DEFAULT;
 
 static bool ValidateFileVersion()
 {
@@ -282,7 +284,6 @@ void Statistics::RegisterCreateAllocation()
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_validation";
 
 static bool g_MemoryAliasingWarningEnabled = true;
-static bool g_EnableValidationLayer = true;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
     VkDebugReportFlagsEXT flags,
@@ -726,13 +727,25 @@ int Player::InitVulkan()
         assert(res == VK_SUCCESS);
     }
 
-    if(g_EnableValidationLayer == true)
+    const bool validationLayersAvailable =
+        IsLayerSupported(instanceLayerProps.data(), instanceLayerProps.size(), VALIDATION_LAYER_NAME);
+
+    bool validationLayersEnabled = false;
+    switch(g_VK_LAYER_LUNARG_standard_validation)
     {
-        if(IsLayerSupported(instanceLayerProps.data(), instanceLayerProps.size(), VALIDATION_LAYER_NAME) == false)
+    case VULKAN_EXTENSION_REQUEST::DISABLED:
+        break;
+    case VULKAN_EXTENSION_REQUEST::DEFAULT:
+        validationLayersEnabled = validationLayersAvailable;
+        break;
+    case VULKAN_EXTENSION_REQUEST::ENABLED:
+        validationLayersEnabled = validationLayersAvailable;
+        if(!validationLayersAvailable)
         {
-            printf("WARNING: Layer \"%s\" not supported.\n", VALIDATION_LAYER_NAME);
-            g_EnableValidationLayer = false;
+            printf("WARNING: %s layer cannot be enabled.\n", VALIDATION_LAYER_NAME);
         }
+        break;
+    default: assert(0);
     }
 
     std::vector<const char*> instanceExtensions;
@@ -740,7 +753,7 @@ int Player::InitVulkan()
     //instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
     std::vector<const char*> instanceLayers;
-    if(g_EnableValidationLayer)
+    if(validationLayersEnabled)
     {
         instanceLayers.push_back(VALIDATION_LAYER_NAME);
         instanceExtensions.push_back("VK_EXT_debug_report");
@@ -767,8 +780,10 @@ int Player::InitVulkan()
         return RESULT_ERROR_VULKAN;
     }
 
-    if(g_EnableValidationLayer)
+    if(validationLayersEnabled)
+    {
         RegisterDebugCallbacks();
+    }
 
     // Find physical device
 
@@ -1981,8 +1996,10 @@ static void PrintCommandLineSyntax()
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
         "    --UserData <Value> - 0 to disable or 1 to enable setting pUserData during playback.\n"
         "        Default is 1. Affects both creation of buffers and images, as well as calls to vmaSetAllocationUserData.\n"
+        "    --VK_LAYER_LUNARG_standard_validation <Value> - 0 to disable or 1 to enable validation layers.\n"
+        "        By default the layers are silently enabled if available.\n"
         "    --VK_KHR_dedicated_allocation <Value> - 0 to disable or 1 to enable this extension.\n"
-        "        By defalut the extension is silently enabled if available.\n"
+        "        By default the extension is silently enabled if available.\n"
     );
 }
 
@@ -2140,6 +2157,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_PHYSICAL_DEVICE, "PhysicalDevice", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_USER_DATA, "UserData", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION, "VK_KHR_dedicated_allocation", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION, VALIDATION_LAYER_NAME, true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2198,6 +2216,22 @@ static int main2(int argc, char** argv)
                     if(StrRangeToBool(StrRange(cmdLineParser.GetParameter()), newValue))
                     {
                         g_VK_KHR_dedicated_allocation_request = newValue ?
+                            VULKAN_EXTENSION_REQUEST::ENABLED :
+                            VULKAN_EXTENSION_REQUEST::DISABLED;
+                    }
+                    else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
+            case CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION:
+                {
+                    bool newValue;
+                    if(StrRangeToBool(StrRange(cmdLineParser.GetParameter()), newValue))
+                    {
+                        g_VK_LAYER_LUNARG_standard_validation = newValue ?
                             VULKAN_EXTENSION_REQUEST::ENABLED :
                             VULKAN_EXTENSION_REQUEST::DISABLED;
                     }
