@@ -97,6 +97,10 @@ static_assert(
     _countof(VMA_FUNCTION_NAMES) == (size_t)VMA_FUNCTION::Count,
     "VMA_FUNCTION_NAMES array doesn't match VMA_FUNCTION enum.");
 
+// Set this to false to disable deleting leaked VmaAllocation, VmaPool objects
+// and let VMA report asserts about them.
+static const bool CLEANUP_LEAKED_OBJECTS = true;
+
 static std::string g_FilePath;
 // Most significant 16 bits are major version, least significant 16 bits are minor version.
 static uint32_t g_FileVersion;
@@ -895,9 +899,12 @@ void Player::FinalizeVulkan()
     {
         printf("WARNING: Allocations not destroyed: %zu.\n", m_Allocations.size());
 
-        for(const auto it : m_Allocations)
+        if(CLEANUP_LEAKED_OBJECTS)
         {
-            Destroy(it.second);
+            for(const auto it : m_Allocations)
+            {
+                Destroy(it.second);
+            }
         }
 
         m_Allocations.clear();
@@ -907,8 +914,13 @@ void Player::FinalizeVulkan()
     {
         printf("WARNING: Custom pools not destroyed: %zu.\n", m_Pools.size());
 
-        for(const auto it : m_Pools)
-            vmaDestroyPool(m_Allocator, it.second.pool);
+        if(CLEANUP_LEAKED_OBJECTS)
+        {
+            for(const auto it : m_Pools)
+            {
+                vmaDestroyPool(m_Allocator, it.second.pool);
+            }
+        }
 
         m_Pools.clear();
     }
