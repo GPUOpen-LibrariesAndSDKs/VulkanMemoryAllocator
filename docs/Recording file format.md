@@ -174,3 +174,27 @@ If `pUserData` was a pointer, it is encoded as hexadecimal string.
 If `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` was used with the allocation, the string is written as-is.
 It may contain additional commas.
 It should not contain end-of-line characters - results are then undefined.
+
+# Example file
+
+    Vulkan Memory Allocator,Calls recording
+    1,2
+    12552,0.000,0,vmaCreateAllocator
+    12552,0.010,0,vmaCreateImage,0,1,37,128,128,1,1,1,1,1,1,0,8,36,2,0,0,0,0000000000000000,000001D85B8B1A80,
+    12552,0.010,0,vmaSetAllocationUserData,000001D85B8B1A80,Ala ma kota
+    12552,0.015,0,vmaCreateImage,0,1,37,128,128,1,1,1,1,0,6,0,0,0,1,0,0,0,0000000000000000,000001D85B8B1620,
+    12552,0.017,0,vmaDestroyImage,000001D85B8B1A80
+    12552,0.017,0,vmaCreateBuffer,0,768,1,0,4,2,0,0,0,0000000000000000,000001D85B8B19E0,
+    12552,0.017,0,vmaCreateBuffer,0,768,130,0,0,1,0,0,0,0000000000000000,000001D85B8B1A80,
+    12552,0.017,0,vmaCreateBuffer,0,60,1,0,4,2,0,0,0,0000000000000000,000001D85B8B1DA0,
+    12552,0.017,0,vmaCreateBuffer,0,60,66,0,0,1,0,0,0,0000000000000000,000001D85B8B16C0,
+    12552,0.017,0,vmaDestroyBuffer,000001D85B8B1DA0
+    12552,0.017,0,vmaDestroyBuffer,000001D85B8B19E0
+    12552,0.022,0,vmaCreateImage,0,1,126,1424,704,1,1,1,1,0,32,0,0,0,1,0,0,0,0000000000000000,000001D85B8B1EE0,
+    12552,0.048,0,vmaDestroyImage,000001D85B8B1EE0
+    12552,0.053,0,vmaCreateImage,0,1,126,1424,704,1,1,1,1,0,32,0,0,0,1,0,0,0,0000000000000000,000001D85B8B1EE0,
+    12552,0.662,0,vmaDestroyImage,000001D85B8B1EE0
+    12552,0.695,0,vmaDestroyImage,000001D85B8B1620
+    12552,0.695,0,vmaDestroyBuffer,000001D85B8B16C0
+    12552,0.695,0,vmaDestroyBuffer,000001D85B8B1A80
+    12552,0.695,0,vmaDestroyAllocator
