@@ -45,6 +45,52 @@ static enum class VERBOSITY
 
 enum class OBJECT_TYPE { BUFFER, IMAGE };
 
+enum class VMA_FUNCTION
+{
+    CreatePool,
+    DestroyPool,
+    SetAllocationUserData,
+    CreateBuffer,
+    DestroyBuffer,
+    CreateImage,
+    DestroyImage,
+    FreeMemory,
+    CreateLostAllocation,
+    AllocateMemory,
+    AllocateMemoryForBuffer,
+    AllocateMemoryForImage,
+    MapMemory,
+    UnmapMemory,
+    FlushAllocation,
+    InvalidateAllocation,
+    TouchAllocation,
+    GetAllocationInfo,
+    Count
+};
+static const char* VMA_FUNCTION_NAMES[] = {
+    "vmaCreatePool",
+    "vmaDestroyPool",
+    "vmaSetAllocationUserData",
+    "vmaCreateBuffer",
+    "vmaDestroyBuffer",
+    "vmaCreateImage",
+    "vmaDestroyImage",
+    "vmaFreeMemory",
+    "vmaCreateLostAllocation",
+    "vmaAllocateMemory",
+    "vmaAllocateMemoryForBuffer",
+    "vmaAllocateMemoryForImage",
+    "vmaMapMemory",
+    "vmaUnmapMemory",
+    "vmaFlushAllocation",
+    "vmaInvalidateAllocation",
+    "vmaTouchAllocation",
+    "vmaGetAllocationInfo",
+};
+static_assert(
+    _countof(VMA_FUNCTION_NAMES) == (size_t)VMA_FUNCTION::Count,
+    "VMA_FUNCTION_NAMES array doesn't match VMA_FUNCTION enum.");
+
 static std::string g_FilePath;
 // Most significant 16 bits are major version, least significant 16 bits are minor version.
 static uint32_t g_FileVersion;
@@ -242,18 +288,21 @@ public:
 
     Statistics() { }
 
+    const size_t* GetFunctionCallCount() const { return m_FunctionCallCount; }
     size_t GetImageCreationCount(uint32_t imgClass) const { return m_ImageCreationCount[imgClass]; }
     size_t GetLinearImageCreationCount() const { return m_LinearImageCreationCount; }
     size_t GetBufferCreationCount(uint32_t bufClass) const { return m_BufferCreationCount[bufClass]; }
     size_t GetAllocationCreationCount() const { return m_AllocationCreationCount; }
     size_t GetPoolCreationCount() const { return m_PoolCreationCount; }
 
+    void RegisterFunctionCall(VMA_FUNCTION func);
     void RegisterCreateImage(uint32_t usage, uint32_t tiling);
     void RegisterCreateBuffer(uint32_t usage);
     void RegisterCreatePool();
     void RegisterCreateAllocation();
 
 private:
+    size_t m_FunctionCallCount[(size_t)VMA_FUNCTION::Count] = {};
     size_t m_ImageCreationCount[4] = { };
     size_t m_LinearImageCreationCount = 0;
     size_t m_BufferCreationCount[4] = { };
@@ -322,6 +371,11 @@ uint32_t Statistics::ImageUsageToClass(uint32_t usage)
     {
         return 3;
     }
+}
+
+void Statistics::RegisterFunctionCall(VMA_FUNCTION func)
+{
+    ++m_FunctionCallCount[(size_t)func];
 }
 
 void Statistics::RegisterCreateImage(uint32_t usage, uint32_t tiling)
@@ -506,10 +560,10 @@ private:
     void ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit);
-    void ExecuteDestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteDestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyBuffer); DestroyAllocation(lineNumber, csvSplit); }
     void ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit);
-    void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
-    void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyImage); DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::FreeMemory); DestroyAllocation(lineNumber, csvSplit); }
     void ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType);
@@ -1120,6 +1174,20 @@ void Player::PrintStats()
     {
         printf("    VMA used from only one thread.\n");
     }
+
+    // Function call count
+    if(g_Verbosity == VERBOSITY::MAXIMUM)
+    {
+        printf("    Function call count:\n");
+        const size_t* const functionCallCount = m_Stats.GetFunctionCallCount();
+        for(size_t i = 0; i < (size_t)VMA_FUNCTION::Count; ++i)
+        {
+            if(functionCallCount[i] > 0)
+            {
+                printf("        %s %zu\n", VMA_FUNCTION_NAMES[i], functionCallCount[i]);
+            }
+        }
+    }
 }
 
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
@@ -1174,6 +1242,8 @@ bool Player::PrepareUserData(size_t lineNumber, uint32_t allocCreateFlags, const
 
 void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::CreatePool);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 7, false))
     {
         VmaPoolCreateInfo poolCreateInfo = {};
@@ -1255,6 +1325,8 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyPool);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
         uint64_t origPtr = 0;
@@ -1290,6 +1362,8 @@ void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::SetAllocationUserData);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, true))
     {
         uint64_t origPtr = 0;
@@ -1331,6 +1405,8 @@ void Player::ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csv
 
 void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::CreateBuffer);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 12, true))
     {
         VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -1416,6 +1492,8 @@ void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::CreateImage);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 21, true))
     {
         VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -1475,6 +1553,8 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::CreateLostAllocation);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
         uint64_t origPtr = 0;
@@ -1499,6 +1579,8 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
 
 void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::AllocateMemory);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 11, true))
     {
         VkMemoryRequirements memReq = {};
@@ -1548,6 +1630,17 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType)
 {
+    switch(objType)
+    {
+    case OBJECT_TYPE::BUFFER:
+        m_Stats.RegisterFunctionCall(VMA_FUNCTION::AllocateMemoryForBuffer);
+        break;
+    case OBJECT_TYPE::IMAGE:
+        m_Stats.RegisterFunctionCall(VMA_FUNCTION::AllocateMemoryForImage);
+        break;
+    default: assert(0);
+    }
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 13, true))
     {
         VkMemoryRequirements memReq = {};
@@ -1615,6 +1708,8 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
 
 void Player::ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::MapMemory);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
         uint64_t origPtr = 0;
@@ -1664,6 +1759,8 @@ void Player::ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::UnmapMemory);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
         uint64_t origPtr = 0;
@@ -1708,6 +1805,8 @@ void Player::ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteFlushAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::FlushAllocation);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 3, false))
     {
         uint64_t origPtr = 0;
@@ -1756,6 +1855,8 @@ void Player::ExecuteFlushAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::InvalidateAllocation);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 3, false))
     {
         uint64_t origPtr = 0;
@@ -1804,6 +1905,8 @@ void Player::ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvS
 
 void Player::ExecuteTouchAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::TouchAllocation);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
         uint64_t origPtr = 0;
@@ -1844,6 +1947,8 @@ void Player::ExecuteTouchAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 
 void Player::ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSplit)
 {
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::GetAllocationInfo);
+
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
         uint64_t origPtr = 0;
