@@ -40,6 +40,8 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION,
     CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION,
     CMD_LINE_OPT_MEM_STATS,
+    CMD_LINE_OPT_DUMP_STATS_AFTER_LINE,
+    CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE,
 };
 
 static enum class VERBOSITY
@@ -119,9 +121,20 @@ static size_t g_IterationCount = 1;
 static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
 static bool g_UserDataEnabled = true;
-static bool g_MemStatsEnabled = true;
+static bool g_MemStatsEnabled = false;
 VULKAN_EXTENSION_REQUEST g_VK_KHR_dedicated_allocation_request = VULKAN_EXTENSION_REQUEST::DEFAULT;
 VULKAN_EXTENSION_REQUEST g_VK_LAYER_LUNARG_standard_validation = VULKAN_EXTENSION_REQUEST::DEFAULT;
+
+struct StatsAfterLineEntry
+{
+    size_t line;
+    bool detailed;
+
+    bool operator<(const StatsAfterLineEntry& rhs) const { return line < rhs.line; }
+    bool operator==(const StatsAfterLineEntry& rhs) const { return line == rhs.line; }
+};
+static std::vector<StatsAfterLineEntry> g_DumpStatsAfterLine;
+static size_t g_DumpStatsAfterLineNextIndex = 0;
 
 static bool ValidateFileVersion()
 {
@@ -483,6 +496,8 @@ public:
     ~Player();
 
     void ExecuteLine(size_t lineNumber, const StrRange& line);
+    void DumpStats(const char* fileNameFormat, size_t lineNumber, bool detailed);
+
     void PrintStats();
 
 private:
@@ -725,6 +740,29 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             printf("Line %zu: Too few columns.\n", lineNumber);
         }
     }
+}
+
+void Player::DumpStats(const char* fileNameFormat, size_t lineNumber, bool detailed)
+{
+    char* pStatsString = nullptr;
+    vmaBuildStatsString(m_Allocator, &pStatsString, detailed ? VK_TRUE : VK_FALSE);
+
+    char fileName[MAX_PATH];
+    sprintf_s(fileName, fileNameFormat, lineNumber);
+
+    FILE* file = nullptr;
+    errno_t err = fopen_s(&file, fileName, "wb");
+    if(err == 0)
+    {
+        fwrite(pStatsString, 1, strlen(pStatsString), file);
+        fclose(file);
+    }
+    else
+    {
+        printf("ERROR: Failed to write file: %s\n", fileName);
+    }
+
+    vmaFreeStatsString(m_Allocator, pStatsString);
 }
 
 void Player::Destroy(const Allocation& alloc)
@@ -2145,7 +2183,11 @@ static void PrintCommandLineSyntax()
         "    -i <Number> - Repeat playback given number of times (iterations)\n"
         "        Default is 1. Vulkan is reinitialized with every iteration.\n"
         "    --MemStats <Value> - 0 to disable or 1 to enable memory statistics.\n"
-        "        Default is 1. Enabling it may negatively impact playback performance.\n"
+        "        Default is 0. Enabling it may negatively impact playback performance.\n"
+        "    --DumpStatsAfterLine <Line> - Dump VMA statistics to JSON file after specified source file line finishes execution.\n"
+        "        File is written to current directory with name: VmaReplay_Line####.json.\n"
+        "        This parameter can be repeated.\n"
+        "    --DumpDetailedStatsAfterLine <Line> - Like command above, but includes detailed map.\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
@@ -2163,6 +2205,7 @@ static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes,
     outDuration = duration::max();
 
     const bool useLineRanges = !g_LineRanges.IsEmpty();
+    const bool useDumpStatsAfterLine = !g_DumpStatsAfterLine.empty();
 
     LineSplit lineSplit(data, numBytes);
     StrRange line;
@@ -2206,16 +2249,38 @@ static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes,
 
         while(lineSplit.GetNextLine(line))
         {
+            const size_t currLineNumber = lineSplit.GetNextLineIndex();
+
             bool execute = true;
             if(useLineRanges)
             {
-                execute = g_LineRanges.Includes(lineSplit.GetNextLineIndex());
+                execute = g_LineRanges.Includes(currLineNumber);
             }
 
             if(execute)
             {
-                player.ExecuteLine(lineSplit.GetNextLineIndex(), line);
+                player.ExecuteLine(currLineNumber, line);
                 ++executedLineCount;
+            }
+
+            while(useDumpStatsAfterLine &&
+                g_DumpStatsAfterLineNextIndex < g_DumpStatsAfterLine.size() &&
+                currLineNumber >= g_DumpStatsAfterLine[g_DumpStatsAfterLineNextIndex].line)
+            {
+                const size_t requestedLine = g_DumpStatsAfterLine[g_DumpStatsAfterLineNextIndex].line;
+                const bool detailed = g_DumpStatsAfterLine[g_DumpStatsAfterLineNextIndex].detailed;
+                
+                if(g_Verbosity == VERBOSITY::MAXIMUM)
+                {
+                    printf("Dumping %sstats after line %zu actual line %zu...\n",
+                        detailed ? "detailed " : "",
+                        requestedLine,
+                        currLineNumber);
+                }
+
+                player.DumpStats("VmaReplay_Line%04zu.json", requestedLine, detailed);
+                
+                ++g_DumpStatsAfterLineNextIndex;
             }
         }
 
@@ -2314,6 +2379,8 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION, "VK_KHR_dedicated_allocation", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION, VALIDATION_LAYER_NAME, true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_MEM_STATS, "MemStats", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_STATS_AFTER_LINE, "DumpStatsAfterLine", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE, "DumpDetailedStatsAfterLine", true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2405,6 +2472,23 @@ static int main2(int argc, char** argv)
                     return RESULT_ERROR_COMMAND_LINE;
                 }
                 break;
+            case CMD_LINE_OPT_DUMP_STATS_AFTER_LINE:
+            case CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE:
+                {
+                    size_t line;
+                    if(StrRangeToUint(StrRange(cmdLineParser.GetParameter()), line))
+                    {
+                        const bool detailed =
+                            cmdLineParser.GetOptId() == CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE;
+                        g_DumpStatsAfterLine.push_back({line, detailed});
+                    }
+                    else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
             default:
                 assert(0);
             }
@@ -2429,11 +2513,19 @@ static int main2(int argc, char** argv)
         }
     }
 
+    // Postprocess command line parameters.
+
     if(g_FilePath.empty())
     {
         PrintCommandLineSyntax();
         return RESULT_ERROR_COMMAND_LINE;
     }
+
+    // Sort g_DumpStatsAfterLine and make unique.
+    std::sort(g_DumpStatsAfterLine.begin(), g_DumpStatsAfterLine.end());
+    g_DumpStatsAfterLine.erase(
+        std::unique(g_DumpStatsAfterLine.begin(), g_DumpStatsAfterLine.end()),
+        g_DumpStatsAfterLine.end());
 
     return ProcessFile();
 }
