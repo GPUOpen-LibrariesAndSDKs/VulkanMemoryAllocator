@@ -4803,6 +4803,10 @@ public:
         VmaAllocation allocation);
     void RecordDestroyImage(uint32_t frameIndex,
         VmaAllocation allocation);
+    void RecordTouchAllocation(uint32_t frameIndex,
+        VmaAllocation allocation);
+    void RecordGetAllocationInfo(uint32_t frameIndex,
+        VmaAllocation allocation);
 
 private:
     struct CallParams
@@ -8432,6 +8436,30 @@ void VmaRecorder::RecordDestroyImage(uint32_t frameIndex,
     Flush();
 }
 
+void VmaRecorder::RecordTouchAllocation(uint32_t frameIndex,
+    VmaAllocation allocation)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaTouchAllocation,%p\n", callParams.threadId, callParams.time, frameIndex,
+        allocation);
+    Flush();
+}
+
+void VmaRecorder::RecordGetAllocationInfo(uint32_t frameIndex,
+    VmaAllocation allocation)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaGetAllocationInfo,%p\n", callParams.threadId, callParams.time, frameIndex,
+        allocation);
+    Flush();
+}
+
 VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData)
 {
     if(pUserData != VMA_NULL)
@@ -10519,6 +10547,15 @@ void vmaGetAllocationInfo(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        allocator->GetRecorder()->RecordGetAllocationInfo(
+            allocator->GetCurrentFrameIndex(),
+            allocation);
+    }
+#endif
+
     allocator->GetAllocationInfo(allocation, pAllocationInfo);
 }
 
@@ -10529,6 +10566,15 @@ VkBool32 vmaTouchAllocation(
     VMA_ASSERT(allocator && allocation);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        allocator->GetRecorder()->RecordTouchAllocation(
+            allocator->GetCurrentFrameIndex(),
+            allocation);
+    }
+#endif
 
     return allocator->TouchAllocation(allocation);
 }

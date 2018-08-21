@@ -517,6 +517,8 @@ private:
     void ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteFlushAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteTouchAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
@@ -644,6 +646,10 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteFlushAllocation(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaInvalidateAllocation"))
             ExecuteInvalidateAllocation(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaTouchAllocation"))
+            ExecuteTouchAllocation(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaGetAllocationInfo"))
+            ExecuteGetAllocationInfo(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -1620,11 +1626,21 @@ void Player::ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit)
                 const auto it = m_Allocations.find(origPtr);
                 if(it != m_Allocations.end())
                 {
-                    void* pData;
-                    VkResult res = vmaMapMemory(m_Allocator, it->second.allocation, &pData);
-                    if(res != VK_SUCCESS)
+                    if(it->second.allocation)
                     {
-                        printf("Line %zu: vmaMapMemory failed (%d)\n", lineNumber, res);
+                        void* pData;
+                        VkResult res = vmaMapMemory(m_Allocator, it->second.allocation, &pData);
+                        if(res != VK_SUCCESS)
+                        {
+                            printf("Line %zu: vmaMapMemory failed (%d)\n", lineNumber, res);
+                        }
+                    }
+                    else
+                    {
+                        if(IssueWarning())
+                        {
+                            printf("Line %zu: Cannot call vmaMapMemory - allocation is null.\n", lineNumber);
+                        }
                     }
                 }
                 else
@@ -1659,7 +1675,17 @@ void Player::ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit)
                 const auto it = m_Allocations.find(origPtr);
                 if(it != m_Allocations.end())
                 {
-                    vmaUnmapMemory(m_Allocator, it->second.allocation);
+                    if(it->second.allocation)
+                    {
+                        vmaUnmapMemory(m_Allocator, it->second.allocation);
+                    }
+                    else
+                    {
+                        if(IssueWarning())
+                        {
+                            printf("Line %zu: Cannot call vmaUnmapMemory - allocation is null.\n", lineNumber);
+                        }
+                    }
                 }
                 else
                 {
@@ -1697,7 +1723,17 @@ void Player::ExecuteFlushAllocation(size_t lineNumber, const CsvSplit& csvSplit)
                 const auto it = m_Allocations.find(origPtr);
                 if(it != m_Allocations.end())
                 {
-                    vmaFlushAllocation(m_Allocator, it->second.allocation, offset, size);
+                    if(it->second.allocation)
+                    {
+                        vmaFlushAllocation(m_Allocator, it->second.allocation, offset, size);
+                    }
+                    else
+                    {
+                        if(IssueWarning())
+                        {
+                            printf("Line %zu: Cannot call vmaFlushAllocation - allocation is null.\n", lineNumber);
+                        }
+                    }
                 }
                 else
                 {
@@ -1735,7 +1771,17 @@ void Player::ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvS
                 const auto it = m_Allocations.find(origPtr);
                 if(it != m_Allocations.end())
                 {
-                    vmaInvalidateAllocation(m_Allocator, it->second.allocation, offset, size);
+                    if(it->second.allocation)
+                    {
+                        vmaInvalidateAllocation(m_Allocator, it->second.allocation, offset, size);
+                    }
+                    else
+                    {
+                        if(IssueWarning())
+                        {
+                            printf("Line %zu: Cannot call vmaInvalidateAllocation - allocation is null.\n", lineNumber);
+                        }
+                    }
                 }
                 else
                 {
@@ -1751,6 +1797,87 @@ void Player::ExecuteInvalidateAllocation(size_t lineNumber, const CsvSplit& csvS
             if(IssueWarning())
             {
                 printf("Line %zu: Invalid parameters for vmaInvalidateAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteTouchAllocation(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            const auto it = m_Allocations.find(origPtr);
+            if(it != m_Allocations.end())
+            {
+                if(it->second.allocation)
+                {
+                    vmaTouchAllocation(m_Allocator, it->second.allocation);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Cannot call vmaTouchAllocation - allocation is null.\n", lineNumber);
+                    }
+                }
+            }
+            else
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaTouchAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            const auto it = m_Allocations.find(origPtr);
+            if(it != m_Allocations.end())
+            {
+                if(it->second.allocation)
+                {
+                    VmaAllocationInfo allocInfo;
+                    vmaGetAllocationInfo(m_Allocator, it->second.allocation, &allocInfo);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Cannot call vmaGetAllocationInfo - allocation is null.\n", lineNumber);
+                    }
+                }
+            }
+            else
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaGetAllocationInfo.\n", lineNumber);
             }
         }
     }

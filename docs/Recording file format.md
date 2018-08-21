@@ -154,6 +154,10 @@ No parameters.
 - offset : uint64
 - size : uint64
 
+**vmaTouchAllocation, vmaGetAllocationInfo** (min format version 1.2)
+
+- allocation : pointer
+
 ## Data types
 
 **bool**
