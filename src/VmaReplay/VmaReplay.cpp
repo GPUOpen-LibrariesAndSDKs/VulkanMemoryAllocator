@@ -35,6 +35,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_VERBOSITY,
     CMD_LINE_OPT_ITERATIONS,
     CMD_LINE_OPT_LINES,
+    CMD_LINE_OPT_PHYSICAL_DEVICE,
 };
 
 static enum class VERBOSITY
@@ -100,6 +101,7 @@ static std::string g_FilePath;
 static uint32_t g_FileVersion;
 
 static size_t g_IterationCount = 1;
+static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
 
 static bool ValidateFileVersion()
@@ -354,6 +356,7 @@ public:
     ~Player();
 
     void ExecuteLine(size_t lineNumber, const StrRange& line);
+    void PrintStats();
 
 private:
     static const size_t MAX_WARNINGS_TO_SHOW = 64;
@@ -416,7 +419,6 @@ private:
     int InitVulkan();
     void FinalizeVulkan();
     void RegisterDebugCallbacks();
-    void PrintStats();
 
     // If parmeter count doesn't match, issues warning and returns false.
     bool ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound);
@@ -457,11 +459,6 @@ int Player::Init()
 
 Player::~Player()
 {
-    if(g_Verbosity > VERBOSITY::MINIMUM)
-    {
-        PrintStats();
-    }
-
     FinalizeVulkan();
 
     if(g_Verbosity < VERBOSITY::MAXIMUM && m_WarningCount > MAX_WARNINGS_TO_SHOW)
@@ -762,20 +759,26 @@ int Player::InitVulkan()
 
     // Find physical device
 
-    uint32_t deviceCount = 0;
-    res = vkEnumeratePhysicalDevices(m_VulkanInstance, &deviceCount, nullptr);
+    uint32_t physicalDeviceCount = 0;
+    res = vkEnumeratePhysicalDevices(m_VulkanInstance, &physicalDeviceCount, nullptr);
     assert(res == VK_SUCCESS);
-    if(deviceCount == 0)
+    if(physicalDeviceCount == 0)
     {
         printf("ERROR: No Vulkan physical devices found.\n");
         return RESULT_ERROR_VULKAN;
     }
-    else if(deviceCount > 1)
-        printf("WARNING: %u Vulkan physical devices found. Choosing first one.\n", deviceCount);
 
-    std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
-    res = vkEnumeratePhysicalDevices(m_VulkanInstance, &deviceCount, physicalDevices.data());
+    std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+    res = vkEnumeratePhysicalDevices(m_VulkanInstance, &physicalDeviceCount, physicalDevices.data());
     assert(res == VK_SUCCESS);
+
+    if(g_PhysicalDeviceIndex >= physicalDeviceCount)
+    {
+        printf("ERROR: Incorrect Vulkan physical device index %u. System has %u physical devices.\n",
+            g_PhysicalDeviceIndex,
+            physicalDeviceCount);
+        return RESULT_ERROR_VULKAN;
+    }
 
     m_PhysicalDevice = physicalDevices[0];
 
@@ -964,6 +967,11 @@ void Player::RegisterDebugCallbacks()
 
 void Player::PrintStats()
 {
+    if(g_Verbosity == VERBOSITY::MINIMUM)
+    {
+        return;
+    }
+
     printf("Statistics:\n");
     if(m_Stats.GetAllocationCreationCount() > 0)
     {
@@ -1910,6 +1918,7 @@ static void PrintCommandLineSyntax()
         "        Default is 1. Vulkan is reinitialized with every iteration.\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
+        "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
     );
 }
 
@@ -1991,6 +2000,8 @@ static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes,
             printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
             printf("Executed %zu file lines\n", executedLineCount);
         }
+
+        player.PrintStats();
     }
 
     return result;
@@ -2062,6 +2073,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VERBOSITY, 'v', true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_ITERATIONS, 'i', true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_LINES, "Lines", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_PHYSICAL_DEVICE, "PhysicalDevice", true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2095,6 +2107,13 @@ static int main2(int argc, char** argv)
                 break;
             case CMD_LINE_OPT_LINES:
                 if(!g_LineRanges.Parse(StrRange(cmdLineParser.GetParameter())))
+                {
+                    PrintCommandLineSyntax();
+                    return RESULT_ERROR_COMMAND_LINE;
+                }
+                break;
+            case CMD_LINE_OPT_PHYSICAL_DEVICE:
+                if(!StrRangeToUint(StrRange(cmdLineParser.GetParameter()), g_PhysicalDeviceIndex))
                 {
                     PrintCommandLineSyntax();
                     return RESULT_ERROR_COMMAND_LINE;
