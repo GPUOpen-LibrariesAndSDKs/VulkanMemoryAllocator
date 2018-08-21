@@ -37,6 +37,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_LINES,
     CMD_LINE_OPT_PHYSICAL_DEVICE,
     CMD_LINE_OPT_USER_DATA,
+    CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION,
 };
 
 static enum class VERBOSITY
@@ -46,6 +47,13 @@ static enum class VERBOSITY
     MAXIMUM,
     COUNT,
 } g_Verbosity = VERBOSITY::DEFAULT;
+
+enum class VULKAN_EXTENSION_REQUEST
+{
+    DISABLED,
+    ENABLED,
+    DEFAULT
+};
 
 enum class OBJECT_TYPE { BUFFER, IMAGE };
 
@@ -109,6 +117,7 @@ static size_t g_IterationCount = 1;
 static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
 static bool g_UserDataEnabled = true;
+VULKAN_EXTENSION_REQUEST g_VK_KHR_dedicated_allocation_request = VULKAN_EXTENSION_REQUEST::DEFAULT;
 
 static bool ValidateFileVersion()
 {
@@ -274,8 +283,6 @@ static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_valid
 
 static bool g_MemoryAliasingWarningEnabled = true;
 static bool g_EnableValidationLayer = true;
-static bool VK_KHR_get_memory_requirements2_enabled = false;
-static bool VK_KHR_dedicated_allocation_enabled = false;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
     VkDebugReportFlagsEXT flags,
@@ -828,6 +835,9 @@ int Player::InitVulkan()
     VkPhysicalDeviceFeatures enabledFeatures;
     InitVulkanFeatures(enabledFeatures, supportedFeatures);
 
+    bool VK_KHR_get_memory_requirements2_available = false;
+    bool VK_KHR_dedicated_allocation_available = false;
+
     // Determine list of device extensions to enable.
     std::vector<const char*> enabledDeviceExtensions;
     //enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -846,16 +856,41 @@ int Player::InitVulkan()
             {
                 if(strcmp(properties[i].extensionName, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME) == 0)
                 {
-                    enabledDeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
-                    VK_KHR_get_memory_requirements2_enabled = true;
+                    VK_KHR_get_memory_requirements2_available = true;
                 }
                 else if(strcmp(properties[i].extensionName, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME) == 0)
                 {
-                    enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
-                    VK_KHR_dedicated_allocation_enabled = true;
+                    VK_KHR_dedicated_allocation_available = true;
                 }
             }
         }
+    }
+
+    const bool dedicatedAllocationAvailable =
+        VK_KHR_get_memory_requirements2_available && VK_KHR_dedicated_allocation_available;
+
+    bool dedicatedAllocationEnabled = false;
+    switch(g_VK_KHR_dedicated_allocation_request)
+    {
+    case VULKAN_EXTENSION_REQUEST::DISABLED:
+        break;
+    case VULKAN_EXTENSION_REQUEST::DEFAULT:
+        dedicatedAllocationEnabled = dedicatedAllocationAvailable;
+        break;
+    case VULKAN_EXTENSION_REQUEST::ENABLED:
+        dedicatedAllocationEnabled = dedicatedAllocationAvailable;
+        if(!dedicatedAllocationAvailable)
+        {
+            printf("WARNING: VK_KHR_dedicated_allocation extension cannot be enabled.\n");
+        }
+        break;
+    default: assert(0);
+    }
+
+    if(dedicatedAllocationEnabled)
+    {
+        enabledDeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+        enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
     }
 
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
@@ -878,7 +913,7 @@ int Player::InitVulkan()
     allocatorInfo.physicalDevice = m_PhysicalDevice;
     allocatorInfo.device = m_Device;
 
-    if(VK_KHR_dedicated_allocation_enabled)
+    if(dedicatedAllocationEnabled)
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
@@ -1946,6 +1981,8 @@ static void PrintCommandLineSyntax()
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
         "    --UserData <Value> - 0 to disable or 1 to enable setting pUserData during playback.\n"
         "        Default is 1. Affects both creation of buffers and images, as well as calls to vmaSetAllocationUserData.\n"
+        "    --VK_KHR_dedicated_allocation <Value> - 0 to disable or 1 to enable this extension.\n"
+        "        By defalut the extension is silently enabled if available.\n"
     );
 }
 
@@ -2102,6 +2139,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_LINES, "Lines", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_PHYSICAL_DEVICE, "PhysicalDevice", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_USER_DATA, "UserData", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION, "VK_KHR_dedicated_allocation", true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2152,6 +2190,22 @@ static int main2(int argc, char** argv)
                 {
                     PrintCommandLineSyntax();
                     return RESULT_ERROR_COMMAND_LINE;
+                }
+                break;
+            case CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION:
+                {
+                    bool newValue;
+                    if(StrRangeToBool(StrRange(cmdLineParser.GetParameter()), newValue))
+                    {
+                        g_VK_KHR_dedicated_allocation_request = newValue ?
+                            VULKAN_EXTENSION_REQUEST::ENABLED :
+                            VULKAN_EXTENSION_REQUEST::DISABLED;
+                    }
+                    else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
                 }
                 break;
             default:
