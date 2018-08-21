@@ -33,6 +33,7 @@ static const int RESULT_ERROR_VULKAN       = -4;
 enum CMD_LINE_OPT
 {
     CMD_LINE_OPT_VERBOSITY,
+    CMD_LINE_OPT_ITERATIONS,
     CMD_LINE_OPT_LINES,
 };
 
@@ -98,6 +99,7 @@ static std::string g_FilePath;
 // Most significant 16 bits are major version, least significant 16 bits are minor version.
 static uint32_t g_FileVersion;
 
+static size_t g_IterationCount = 1;
 static RangeSequence<size_t> g_LineRanges;
 
 static bool ValidateFileVersion()
@@ -680,7 +682,7 @@ bool Player::IssueWarning()
 
 int Player::InitVulkan()
 {
-    if(g_Verbosity > VERBOSITY::MINIMUM)
+    if(g_Verbosity == VERBOSITY::MAXIMUM)
     {
         printf("Initializing Vulkan...\n");
     }
@@ -1888,20 +1890,18 @@ static void PrintCommandLineSyntax()
         "        0 - Minimum verbosity. Prints only warnings and errors.\n"
         "        1 - Default verbosity. Prints important messages and statistics.\n"
         "        2 - Maximum verbosity. Prints a lot of information.\n"
+        "    -i <Number> - Repeat playback given number of times (iterations)\n"
+        "        Default is 1. Vulkan is reinitialized with every iteration.\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
     );
 }
 
-static int ProcessFile(const char* data, size_t numBytes)
+static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes, duration& outDuration)
 {
-    const bool useLineRanges = !g_LineRanges.IsEmpty();
+    outDuration = duration::max();
 
-    // Begin stats.
-    if(g_Verbosity == VERBOSITY::MAXIMUM)
-    {
-        printf("File size: %zu B\n", numBytes);
-    }
+    const bool useLineRanges = !g_LineRanges.IsEmpty();
 
     LineSplit lineSplit(data, numBytes);
     StrRange line;
@@ -1933,11 +1933,11 @@ static int ProcessFile(const char* data, size_t numBytes)
         {
             if(useLineRanges)
             {
-                printf("Playing (limited range of lines)...\n");
+                printf("Playing #%zu (limited range of lines)...\n", iterationIndex + 1);
             }
             else
             {
-                printf("Playing...\n");
+                printf("Playing #%zu...\n", iterationIndex + 1);
             }
         }
 
@@ -1959,6 +1959,7 @@ static int ProcessFile(const char* data, size_t numBytes)
         }
 
         const duration playDuration = std::chrono::high_resolution_clock::now() - timeBeg;
+        outDuration = playDuration;
 
         // End stats.
         if(g_Verbosity > VERBOSITY::MINIMUM)
@@ -1967,12 +1968,12 @@ static int ProcessFile(const char* data, size_t numBytes)
             SecondsToFriendlyStr(ToFloatSeconds(playDuration), playDurationStr);
 
             printf("Done.\n");
-            printf("Executed %zu file lines\n", executedLineCount);
             printf("Playback took: %s\n", playDurationStr.c_str());
         }
         if(g_Verbosity == VERBOSITY::MAXIMUM)
         {
             printf("File lines: %zu\n", lineSplit.GetNextLineIndex());
+            printf("Executed %zu file lines\n", executedLineCount);
         }
     }
 
@@ -1999,7 +2000,27 @@ static int ProcessFile()
         {
             std::vector<char> fileContents(fileSize);
             fread(fileContents.data(), 1, fileSize, file);
-            ProcessFile(fileContents.data(), fileContents.size());
+
+            // Begin stats.
+            if(g_Verbosity == VERBOSITY::MAXIMUM)
+            {
+                printf("File size: %zu B\n", fileSize);
+            }
+
+            duration durationSum = duration::zero();
+            for(size_t i = 0; i < g_IterationCount; ++i)
+            {
+                duration currDuration;
+                ProcessFile(i, fileContents.data(), fileContents.size(), currDuration);
+                durationSum += currDuration;
+            }
+
+            if(g_IterationCount > 1)
+            {
+                std::string playDurationStr;
+                SecondsToFriendlyStr(ToFloatSeconds(durationSum / g_IterationCount), playDurationStr);
+                printf("Average playback time from %zu iterations: %s\n", g_IterationCount, playDurationStr.c_str());
+            }
         }
         else
         {
@@ -2023,6 +2044,7 @@ static int main2(int argc, char** argv)
     CmdLineParser cmdLineParser(argc, argv);
 
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VERBOSITY, 'v', true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_ITERATIONS, 'i', true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_LINES, "Lines", true);
 
     CmdLineParser::RESULT res;
@@ -2048,13 +2070,18 @@ static int main2(int argc, char** argv)
                     }
                 }
                 break;
-            case CMD_LINE_OPT_LINES:
+            case CMD_LINE_OPT_ITERATIONS:
+                if(!StrRangeToUint(StrRange(cmdLineParser.GetParameter()), g_IterationCount))
                 {
-                    if(!g_LineRanges.Parse(StrRange(cmdLineParser.GetParameter())))
-                    {
-                        PrintCommandLineSyntax();
-                        return RESULT_ERROR_COMMAND_LINE;
-                    }
+                    PrintCommandLineSyntax();
+                    return RESULT_ERROR_COMMAND_LINE;
+                }
+                break;
+            case CMD_LINE_OPT_LINES:
+                if(!g_LineRanges.Parse(StrRange(cmdLineParser.GetParameter())))
+                {
+                    PrintCommandLineSyntax();
+                    return RESULT_ERROR_COMMAND_LINE;
                 }
                 break;
             default:
