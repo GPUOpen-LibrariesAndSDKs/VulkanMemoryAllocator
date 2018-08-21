@@ -328,6 +328,24 @@ static bool IsLayerSupported(const VkLayerProperties* pProps, size_t propCount, 
 
 static const size_t FIRST_PARAM_INDEX = 4;
 
+static void InitVulkanFeatures(
+    VkPhysicalDeviceFeatures& outFeatures,
+    const VkPhysicalDeviceFeatures& supportedFeatures)
+{
+    ZeroMemory(&outFeatures, sizeof(outFeatures));
+
+    // Enable something what may interact with memory/buffer/image support.
+
+    outFeatures.fullDrawIndexUint32 = supportedFeatures.fullDrawIndexUint32;
+    outFeatures.imageCubeArray = supportedFeatures.imageCubeArray;
+    outFeatures.geometryShader = supportedFeatures.geometryShader;
+    outFeatures.tessellationShader = supportedFeatures.tessellationShader;
+    outFeatures.multiDrawIndirect = supportedFeatures.multiDrawIndirect;
+    outFeatures.textureCompressionETC2 = supportedFeatures.textureCompressionETC2;
+    outFeatures.textureCompressionASTC_LDR = supportedFeatures.textureCompressionASTC_LDR;
+    outFeatures.textureCompressionBC = supportedFeatures.textureCompressionBC;
+}
+
 class Player
 {
 public:
@@ -785,6 +803,9 @@ int Player::InitVulkan()
         return RESULT_ERROR_VULKAN;
     }
 
+    VkPhysicalDeviceFeatures supportedFeatures;
+    vkGetPhysicalDeviceFeatures(m_PhysicalDevice, &supportedFeatures);
+
     // Create logical device
 
     const float queuePriority = 1.f;
@@ -795,13 +816,8 @@ int Player::InitVulkan()
     deviceQueueCreateInfo.pQueuePriorities = &queuePriority;
 
     // Enable something what may interact with memory/buffer/image support.
-    VkPhysicalDeviceFeatures deviceFeatures = {};
-    deviceFeatures.fullDrawIndexUint32 = VK_TRUE;
-    deviceFeatures.imageCubeArray = VK_TRUE;
-    deviceFeatures.geometryShader = VK_TRUE;
-    deviceFeatures.tessellationShader = VK_TRUE;
-    deviceFeatures.multiDrawIndirect = VK_TRUE;
-    deviceFeatures.textureCompressionBC = VK_TRUE;
+    VkPhysicalDeviceFeatures enabledFeatures;
+    InitVulkanFeatures(enabledFeatures, supportedFeatures);
 
     // Determine list of device extensions to enable.
     std::vector<const char*> enabledDeviceExtensions;
@@ -838,7 +854,7 @@ int Player::InitVulkan()
     deviceCreateInfo.ppEnabledExtensionNames = !enabledDeviceExtensions.empty() ? enabledDeviceExtensions.data() : nullptr;
     deviceCreateInfo.queueCreateInfoCount = 1;
     deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
-    deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+    deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
 
     res = vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
     if(res != VK_SUCCESS)
