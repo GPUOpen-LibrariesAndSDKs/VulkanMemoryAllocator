@@ -39,6 +39,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_USER_DATA,
     CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION,
     CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION,
+    CMD_LINE_OPT_MEM_STATS,
 };
 
 static enum class VERBOSITY
@@ -118,6 +119,7 @@ static size_t g_IterationCount = 1;
 static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
 static bool g_UserDataEnabled = true;
+static bool g_MemStatsEnabled = true;
 VULKAN_EXTENSION_REQUEST g_VK_KHR_dedicated_allocation_request = VULKAN_EXTENSION_REQUEST::DEFAULT;
 VULKAN_EXTENSION_REQUEST g_VK_LAYER_LUNARG_standard_validation = VULKAN_EXTENSION_REQUEST::DEFAULT;
 
@@ -155,7 +157,9 @@ public:
     static uint32_t BufferUsageToClass(uint32_t usage);
     static uint32_t ImageUsageToClass(uint32_t usage);
 
-    Statistics() { }
+    Statistics();
+    void Init(uint32_t memHeapCount, uint32_t memTypeCount);
+    void PrintMemStats() const;
 
     const size_t* GetFunctionCallCount() const { return m_FunctionCallCount; }
     size_t GetImageCreationCount(uint32_t imgClass) const { return m_ImageCreationCount[imgClass]; }
@@ -170,13 +174,38 @@ public:
     void RegisterCreatePool();
     void RegisterCreateAllocation();
 
+    void UpdateMemStats(const VmaStats& currStats);
+
 private:
+    uint32_t m_MemHeapCount = 0;
+    uint32_t m_MemTypeCount = 0;
+
     size_t m_FunctionCallCount[(size_t)VMA_FUNCTION::Count] = {};
     size_t m_ImageCreationCount[4] = { };
     size_t m_LinearImageCreationCount = 0;
     size_t m_BufferCreationCount[4] = { };
     size_t m_AllocationCreationCount = 0; // Also includes buffers and images, and lost allocations.
     size_t m_PoolCreationCount = 0;
+    
+    // Structure similar to VmaStatInfo, but not the same.
+    struct MemStatInfo
+    {
+        uint32_t blockCount;
+        uint32_t allocationCount;
+        uint32_t unusedRangeCount;
+        VkDeviceSize usedBytes;
+        VkDeviceSize unusedBytes;
+        VkDeviceSize totalBytes;
+    };
+    struct MemStats
+    {
+        MemStatInfo memoryType[VK_MAX_MEMORY_TYPES];
+        MemStatInfo memoryHeap[VK_MAX_MEMORY_HEAPS];
+        MemStatInfo total;
+    } m_PeakMemStats;
+
+    void UpdateMemStatInfo(MemStatInfo& inoutPeakInfo, const VmaStatInfo& currInfo);
+    static void PrintMemStatInfo(const MemStatInfo& info);
 };
 
 uint32_t Statistics::BufferUsageToClass(uint32_t usage)
@@ -242,6 +271,45 @@ uint32_t Statistics::ImageUsageToClass(uint32_t usage)
     }
 }
 
+Statistics::Statistics()
+{
+    ZeroMemory(&m_PeakMemStats, sizeof(m_PeakMemStats));
+}
+
+void Statistics::Init(uint32_t memHeapCount, uint32_t memTypeCount)
+{
+    m_MemHeapCount = memHeapCount;
+    m_MemTypeCount = memTypeCount;
+}
+
+void Statistics::PrintMemStats() const
+{
+    printf("Memory statistics:\n");
+
+    printf("    Total:\n");
+    PrintMemStatInfo(m_PeakMemStats.total);
+
+    for(uint32_t i = 0; i < m_MemHeapCount; ++i)
+    {
+        const MemStatInfo& info = m_PeakMemStats.memoryHeap[i];
+        if(info.blockCount > 0 || info.totalBytes > 0)
+        {
+            printf("    Heap %u:\n", i);
+            PrintMemStatInfo(info);
+        }
+    }
+
+    for(uint32_t i = 0; i < m_MemTypeCount; ++i)
+    {
+        const MemStatInfo& info = m_PeakMemStats.memoryType[i];
+        if(info.blockCount > 0 || info.totalBytes > 0)
+        {
+            printf("    Type %u:\n", i);
+            PrintMemStatInfo(info);
+        }
+    }
+}
+
 void Statistics::RegisterFunctionCall(VMA_FUNCTION func)
 {
     ++m_FunctionCallCount[(size_t)func];
@@ -276,6 +344,51 @@ void Statistics::RegisterCreatePool()
 void Statistics::RegisterCreateAllocation()
 {
     ++m_AllocationCreationCount;
+}
+
+void Statistics::UpdateMemStats(const VmaStats& currStats)
+{
+    UpdateMemStatInfo(m_PeakMemStats.total, currStats.total);
+    
+    for(uint32_t i = 0; i < m_MemHeapCount; ++i)
+    {
+        UpdateMemStatInfo(m_PeakMemStats.memoryHeap[i], currStats.memoryHeap[i]);
+    }
+
+    for(uint32_t i = 0; i < m_MemTypeCount; ++i)
+    {
+        UpdateMemStatInfo(m_PeakMemStats.memoryType[i], currStats.memoryType[i]);
+    }
+}
+
+void Statistics::UpdateMemStatInfo(MemStatInfo& inoutPeakInfo, const VmaStatInfo& currInfo)
+{
+#define SET_PEAK(inoutDst, src) \
+    if((src) > (inoutDst)) \
+    { \
+        (inoutDst) = (src); \
+    }
+
+    SET_PEAK(inoutPeakInfo.blockCount, currInfo.blockCount);
+    SET_PEAK(inoutPeakInfo.allocationCount, currInfo.allocationCount);
+    SET_PEAK(inoutPeakInfo.unusedRangeCount, currInfo.unusedRangeCount);
+    SET_PEAK(inoutPeakInfo.usedBytes, currInfo.usedBytes);
+    SET_PEAK(inoutPeakInfo.unusedBytes, currInfo.unusedBytes);
+    SET_PEAK(inoutPeakInfo.totalBytes, currInfo.usedBytes + currInfo.unusedBytes);
+
+#undef SET_PEAK
+}
+
+void Statistics::PrintMemStatInfo(const MemStatInfo& info)
+{
+    printf("        Peak blocks %u, allocations %u, unused ranges %u\n",
+        info.blockCount,
+        info.allocationCount,
+        info.unusedRangeCount);
+    printf("        Peak total bytes: %llu, used bytes %llu, unused bytes %llu\n",
+        info.totalBytes,
+        info.usedBytes,
+        info.unusedBytes);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -383,6 +496,7 @@ private:
     uint32_t m_GraphicsQueueFamilyIndex = UINT_MAX;
     VkDevice m_Device = VK_NULL_HANDLE;
     VmaAllocator m_Allocator = VK_NULL_HANDLE;
+    const VkPhysicalDeviceMemoryProperties* m_MemProps = nullptr;
 
     PFN_vkCreateDebugReportCallbackEXT m_pvkCreateDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT m_pvkDebugReportMessageEXT;
@@ -440,6 +554,8 @@ private:
     // If failed, prints warning, returns false, and sets allocCreateInfo.pUserData to null.
     bool PrepareUserData(size_t lineNumber, uint32_t allocCreateFlags, const StrRange& userDataColumn, const StrRange& wholeLine, void*& outUserData);
 
+    void UpdateMemStats();
+
     void ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit);
@@ -468,7 +584,15 @@ Player::Player()
 
 int Player::Init()
 {
-    return InitVulkan();
+    int result = InitVulkan();
+    
+    if(result == 0)
+    {
+        m_Stats.Init(m_MemProps->memoryHeapCount, m_MemProps->memoryTypeCount);
+        UpdateMemStats();
+    }
+    
+    return result;
 }
 
 Player::~Player()
@@ -940,6 +1064,8 @@ int Player::InitVulkan()
         return RESULT_ERROR_VULKAN;
     }
 
+    vmaGetMemoryProperties(m_Allocator, &m_MemProps);
+
     return 0;
 }
 
@@ -1129,6 +1255,11 @@ void Player::PrintStats()
             }
         }
     }
+
+    if(g_MemStatsEnabled)
+    {
+        m_Stats.PrintMemStats();
+    }
 }
 
 bool Player::ValidateFunctionParameterCount(size_t lineNumber, const CsvSplit& csvSplit, size_t expectedParamCount, bool lastUnbound)
@@ -1185,6 +1316,18 @@ bool Player::PrepareUserData(size_t lineNumber, uint32_t allocCreateFlags, const
     }
     outUserData = 0;
     return false;
+}
+
+void Player::UpdateMemStats()
+{
+    if(!g_MemStatsEnabled)
+    {
+        return;
+    }
+
+    VmaStats stats;
+    vmaCalculateStats(m_Allocator, &stats);
+    m_Stats.UpdateMemStats(stats);
 }
 
 void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
@@ -1259,6 +1402,8 @@ void Player::ExecuteCreatePool(size_t lineNumber, const CsvSplit& csvSplit)
                     }
                 }
             }
+
+            UpdateMemStats();
         }
         else
         {
@@ -1286,6 +1431,7 @@ void Player::ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit)
                 if(it != m_Pools.end())
                 {
                     vmaDestroyPool(m_Allocator, it->second.pool);
+                    UpdateMemStats();
                     m_Pools.erase(it);
                 }
                 else
@@ -1395,6 +1541,7 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
             Allocation allocDesc = { };
             allocDesc.allocationFlags = allocCreateInfo.flags;
             VkResult res = vmaCreateBuffer(m_Allocator, &bufCreateInfo, &allocCreateInfo, &allocDesc.buffer, &allocDesc.allocation, nullptr);
+            UpdateMemStats();
             AddAllocation(lineNumber, origPtr, res, "vmaCreateBuffer", std::move(allocDesc));
         }
         else
@@ -1421,6 +1568,7 @@ void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
                 if(it != m_Allocations.end())
                 {
                     Destroy(it->second);
+                    UpdateMemStats();
                     m_Allocations.erase(it);
                 }
                 else
@@ -1491,6 +1639,7 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             Allocation allocDesc = {};
             allocDesc.allocationFlags = allocCreateInfo.flags;
             VkResult res = vmaCreateImage(m_Allocator, &imageCreateInfo, &allocCreateInfo, &allocDesc.image, &allocDesc.allocation, nullptr);
+            UpdateMemStats();
             AddAllocation(lineNumber, origPtr, res, "vmaCreateImage", std::move(allocDesc));
         }
         else
@@ -1515,6 +1664,7 @@ void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvS
         {
             Allocation allocDesc = {};
             vmaCreateLostAllocation(m_Allocator, &allocDesc.allocation);
+            UpdateMemStats();
             m_Stats.RegisterCreateAllocation();
 
             AddAllocation(lineNumber, origPtr, VK_SUCCESS, "vmaCreateLostAllocation", std::move(allocDesc));
@@ -1563,6 +1713,7 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
                     allocCreateInfo.pUserData);
             }
 
+            UpdateMemStats();
             m_Stats.RegisterCreateAllocation();
 
             Allocation allocDesc = {};
@@ -1641,6 +1792,7 @@ void Player::ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvS
                 m_AllocateForBufferImageWarningIssued = true;
             }
 
+            UpdateMemStats();
             m_Stats.RegisterCreateAllocation();
 
             Allocation allocDesc = {};
@@ -1956,6 +2108,7 @@ void Player::ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& c
                 if(it != m_Pools.end())
                 {
                     vmaMakePoolAllocationsLost(m_Allocator, it->second.pool, nullptr);
+                    UpdateMemStats();
                 }
                 else
                 {
@@ -1991,6 +2144,8 @@ static void PrintCommandLineSyntax()
         "        2 - Maximum verbosity. Prints a lot of information.\n"
         "    -i <Number> - Repeat playback given number of times (iterations)\n"
         "        Default is 1. Vulkan is reinitialized with every iteration.\n"
+        "    --MemStats <Value> - 0 to disable or 1 to enable memory statistics.\n"
+        "        Default is 1. Enabling it may negatively impact playback performance.\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
@@ -2158,6 +2313,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_USER_DATA, "UserData", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION, "VK_KHR_dedicated_allocation", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION, VALIDATION_LAYER_NAME, true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_MEM_STATS, "MemStats", true);
 
     CmdLineParser::RESULT res;
     while((res = cmdLineParser.ReadNext()) != CmdLineParser::RESULT_END)
@@ -2240,6 +2396,13 @@ static int main2(int argc, char** argv)
                         PrintCommandLineSyntax();
                         return RESULT_ERROR_COMMAND_LINE;
                     }
+                }
+                break;
+            case CMD_LINE_OPT_MEM_STATS:
+                if(!StrRangeToBool(StrRange(cmdLineParser.GetParameter()), g_MemStatsEnabled))
+                {
+                    PrintCommandLineSyntax();
+                    return RESULT_ERROR_COMMAND_LINE;
                 }
                 break;
             default:
