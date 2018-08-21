@@ -53,7 +53,7 @@ struct StrRange
     explicit StrRange(const std::string& s) : beg(s.data()), end(s.data() + s.length()) { }
 
     size_t length() const { return end - beg; }
-    void to_str(std::string& out) { out.assign(beg, end); }
+    void to_str(std::string& out) const { out.assign(beg, end); }
 };
 
 inline bool StrRangeEq(const StrRange& lhs, const char* rhsSz)

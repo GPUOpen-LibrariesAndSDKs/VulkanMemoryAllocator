@@ -4799,6 +4799,10 @@ class VmaRecorder
 public:
     VmaRecorder();
     VkResult Init(const VmaRecordSettings& settings, bool useMutex);
+    void WriteConfiguration(
+        const VkPhysicalDeviceProperties& devProps,
+        const VkPhysicalDeviceMemoryProperties& memProps,
+        bool dedicatedAllocationExtensionEnabled);
     ~VmaRecorder();
 
     void RecordCreateAllocator(uint32_t frameIndex);
@@ -8163,7 +8167,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,2");
+    fprintf(m_File, "%s\n", "1,3");
 
     return VK_SUCCESS;
 }
@@ -8541,6 +8545,52 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
     }
 }
 
+void VmaRecorder::WriteConfiguration(
+    const VkPhysicalDeviceProperties& devProps,
+    const VkPhysicalDeviceMemoryProperties& memProps,
+    bool dedicatedAllocationExtensionEnabled)
+{
+    fprintf(m_File, "Config,Begin\n");
+
+    fprintf(m_File, "PhysicalDevice,apiVersion,%u\n", devProps.apiVersion);
+    fprintf(m_File, "PhysicalDevice,driverVersion,%u\n", devProps.driverVersion);
+    fprintf(m_File, "PhysicalDevice,vendorID,%u\n", devProps.vendorID);
+    fprintf(m_File, "PhysicalDevice,deviceID,%u\n", devProps.deviceID);
+    fprintf(m_File, "PhysicalDevice,deviceType,%u\n", devProps.deviceType);
+    fprintf(m_File, "PhysicalDevice,deviceName,%s\n", devProps.deviceName);
+
+    fprintf(m_File, "PhysicalDeviceLimits,maxMemoryAllocationCount,%u\n", devProps.limits.maxMemoryAllocationCount);
+    fprintf(m_File, "PhysicalDeviceLimits,bufferImageGranularity,%llu\n", devProps.limits.bufferImageGranularity);
+    fprintf(m_File, "PhysicalDeviceLimits,nonCoherentAtomSize,%llu\n", devProps.limits.nonCoherentAtomSize);
+
+    fprintf(m_File, "PhysicalDeviceMemory,HeapCount,%u\n", memProps.memoryHeapCount);
+    for(uint32_t i = 0; i < memProps.memoryHeapCount; ++i)
+    {
+        fprintf(m_File, "PhysicalDeviceMemory,Heap,%u,size,%llu\n", i, memProps.memoryHeaps[i].size);
+        fprintf(m_File, "PhysicalDeviceMemory,Heap,%u,flags,%u\n", i, memProps.memoryHeaps[i].flags);
+    }
+    fprintf(m_File, "PhysicalDeviceMemory,TypeCount,%u\n", memProps.memoryTypeCount);
+    for(uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
+    {
+        fprintf(m_File, "PhysicalDeviceMemory,Type,%u,heapIndex,%u\n", i, memProps.memoryTypes[i].heapIndex);
+        fprintf(m_File, "PhysicalDeviceMemory,Type,%u,propertyFlags,%u\n", i, memProps.memoryTypes[i].propertyFlags);
+    }
+
+    fprintf(m_File, "Extension,VK_KHR_dedicated_allocation,%u\n", dedicatedAllocationExtensionEnabled ? 1 : 0);
+
+    fprintf(m_File, "Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,%u\n", VMA_DEBUG_ALWAYS_DEDICATED_MEMORY ? 1 : 0);
+    fprintf(m_File, "Macro,VMA_DEBUG_ALIGNMENT,%llu\n", (VkDeviceSize)VMA_DEBUG_ALIGNMENT);
+    fprintf(m_File, "Macro,VMA_DEBUG_MARGIN,%llu\n", (VkDeviceSize)VMA_DEBUG_MARGIN);
+    fprintf(m_File, "Macro,VMA_DEBUG_INITIALIZE_ALLOCATIONS,%u\n", VMA_DEBUG_INITIALIZE_ALLOCATIONS ? 1 : 0);
+    fprintf(m_File, "Macro,VMA_DEBUG_DETECT_CORRUPTION,%u\n", VMA_DEBUG_DETECT_CORRUPTION ? 1 : 0);
+    fprintf(m_File, "Macro,VMA_DEBUG_GLOBAL_MUTEX,%u\n", VMA_DEBUG_GLOBAL_MUTEX ? 1 : 0);
+    fprintf(m_File, "Macro,VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY,%llu\n", (VkDeviceSize)VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY);
+    fprintf(m_File, "Macro,VMA_SMALL_HEAP_MAX_SIZE,%llu\n", (VkDeviceSize)VMA_SMALL_HEAP_MAX_SIZE);
+    fprintf(m_File, "Macro,VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE,%llu\n", (VkDeviceSize)VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
+
+    fprintf(m_File, "Config,End\n");
+}
+
 void VmaRecorder::GetBasicParams(CallParams& outParams)
 {
     outParams.threadId = GetCurrentThreadId();
@@ -8670,6 +8720,10 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
         {
             return res;
         }
+        m_pRecorder->WriteConfiguration(
+            m_PhysicalDeviceProperties,
+            m_MemProps,
+            m_UseKhrDedicatedAllocation);
         m_pRecorder->RecordCreateAllocator(GetCurrentFrameIndex());
 #else
         VMA_ASSERT(0 && "VmaAllocatorCreateInfo::pRecordSettings used, but not supported due to VMA_RECORDING_ENABLED not defined to 1.");

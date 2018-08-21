@@ -117,6 +117,10 @@ static std::string g_FilePath;
 // Most significant 16 bits are major version, least significant 16 bits are minor version.
 static uint32_t g_FileVersion;
 
+inline uint32_t MakeVersion(uint32_t major, uint32_t minor) { return (major << 16) | minor; }
+inline uint32_t GetVersionMajor(uint32_t version) { return version >> 16; }
+inline uint32_t GetVersionMinor(uint32_t version) { return version & 0xFFFF; }
+
 static size_t g_IterationCount = 1;
 static uint32_t g_PhysicalDeviceIndex = 0;
 static RangeSequence<size_t> g_LineRanges;
@@ -138,9 +142,13 @@ static size_t g_DumpStatsAfterLineNextIndex = 0;
 
 static bool ValidateFileVersion()
 {
-    const uint32_t major = g_FileVersion >> 16;
-    const uint32_t minor = g_FileVersion & 0xFFFF;
-    return major == 1 && minor <= 2;
+    if(GetVersionMajor(g_FileVersion) == 1 &&
+        GetVersionMinor(g_FileVersion) <= 3)
+    {
+        return true;
+    }
+
+    return false;
 }
 
 static bool ParseFileVersion(const StrRange& s)
@@ -405,6 +413,373 @@ void Statistics::PrintMemStatInfo(const MemStatInfo& info)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// class ConfigurationParser
+
+class ConfigurationParser
+{
+public:
+    ConfigurationParser();
+    
+    bool Parse(LineSplit& lineSplit);
+
+    void Compare(
+        const VkPhysicalDeviceProperties& devProps,
+        const VkPhysicalDeviceMemoryProperties& memProps,
+        bool dedicatedAllocationExtensionEnabled);
+
+private:
+    enum class OPTION
+    {
+        PhysicalDevice_apiVersion,
+        PhysicalDevice_driverVersion,
+        PhysicalDevice_vendorID,
+        PhysicalDevice_deviceID,
+        PhysicalDevice_deviceType,
+        PhysicalDevice_deviceName,
+        PhysicalDeviceLimits_maxMemoryAllocationCount,
+        PhysicalDeviceLimits_bufferImageGranularity,
+        PhysicalDeviceLimits_nonCoherentAtomSize,
+        Extension_VK_KHR_dedicated_allocation,
+        Macro_VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,
+        Macro_VMA_DEBUG_ALIGNMENT,
+        Macro_VMA_DEBUG_MARGIN,
+        Macro_VMA_DEBUG_INITIALIZE_ALLOCATIONS,
+        Macro_VMA_DEBUG_DETECT_CORRUPTION,
+        Macro_VMA_DEBUG_GLOBAL_MUTEX,
+        Macro_VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY,
+        Macro_VMA_SMALL_HEAP_MAX_SIZE,
+        Macro_VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE,
+        Count
+    };
+
+    std::vector<bool> m_OptionSet;
+    std::vector<std::string> m_OptionValue;
+    VkPhysicalDeviceMemoryProperties m_MemProps;
+
+    bool m_WarningHeaderPrinted = false;
+
+    void SetOption(
+        size_t lineNumber,
+        OPTION option,
+        const StrRange& str);
+    void EnsureWarningHeader();
+    void CompareOption(VERBOSITY minVerbosity, const char* name,
+        OPTION option, uint32_t currValue);
+    void CompareOption(VERBOSITY minVerbosity, const char* name,
+        OPTION option, uint64_t currValue);
+    void CompareOption(VERBOSITY minVerbosity, const char* name,
+        OPTION option, bool currValue);
+    void CompareOption(VERBOSITY minVerbosity, const char* name,
+        OPTION option, const char* currValue);
+};
+
+ConfigurationParser::ConfigurationParser() :
+    m_OptionSet((size_t)OPTION::Count),
+    m_OptionValue((size_t)OPTION::Count)
+{
+    ZeroMemory(&m_MemProps, sizeof(m_MemProps));
+}
+
+bool ConfigurationParser::Parse(LineSplit& lineSplit)
+{
+    for(auto& it : m_OptionSet)
+    {
+        it = false;
+    }
+    for(auto& it : m_OptionValue)
+    {
+        it.clear();
+    }
+
+    StrRange line;
+
+    if(!lineSplit.GetNextLine(line) && !StrRangeEq(line, "Config,Begin"))
+    {
+        return false;
+    }
+
+    CsvSplit csvSplit;
+    while(lineSplit.GetNextLine(line))
+    {
+        if(StrRangeEq(line, "Config,End"))
+        {
+            break;
+        }
+
+        const size_t currLineNumber = lineSplit.GetNextLineIndex();
+
+        csvSplit.Set(line);
+        if(csvSplit.GetCount() == 0)
+        {
+            return false;
+        }
+
+        const StrRange optionName = csvSplit.GetRange(0);
+        if(StrRangeEq(optionName, "PhysicalDevice"))
+        {
+            if(csvSplit.GetCount() >= 3)
+            {
+                const StrRange subOptionName = csvSplit.GetRange(1);
+                if(StrRangeEq(subOptionName, "apiVersion"))
+                    SetOption(currLineNumber, OPTION::PhysicalDevice_apiVersion, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "driverVersion"))
+                    SetOption(currLineNumber, OPTION::PhysicalDevice_driverVersion, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "vendorID"))
+                    SetOption(currLineNumber, OPTION::PhysicalDevice_vendorID, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "deviceID"))
+                    SetOption(currLineNumber, OPTION::PhysicalDevice_deviceID, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "deviceType"))
+                    SetOption(currLineNumber, OPTION::PhysicalDevice_deviceType, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "deviceName"))
+                    SetOption(currLineNumber, OPTION::PhysicalDevice_deviceName, StrRange(csvSplit.GetRange(2).beg, line.end));
+                else
+                    printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
+            }
+            else
+                printf("Line %zu: Too few columns.\n", currLineNumber);
+        }
+        else if(StrRangeEq(optionName, "PhysicalDeviceLimits"))
+        {
+            if(csvSplit.GetCount() >= 3)
+            {
+                const StrRange subOptionName = csvSplit.GetRange(1);
+                if(StrRangeEq(subOptionName, "maxMemoryAllocationCount"))
+                    SetOption(currLineNumber, OPTION::PhysicalDeviceLimits_maxMemoryAllocationCount, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "bufferImageGranularity"))
+                    SetOption(currLineNumber, OPTION::PhysicalDeviceLimits_bufferImageGranularity, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "nonCoherentAtomSize"))
+                    SetOption(currLineNumber, OPTION::PhysicalDeviceLimits_nonCoherentAtomSize, csvSplit.GetRange(2));
+                else
+                    printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
+            }
+            else
+                printf("Line %zu: Too few columns.\n", currLineNumber);
+        }
+        else if(StrRangeEq(optionName, "Extension"))
+        {
+            if(csvSplit.GetCount() >= 3)
+            {
+                const StrRange subOptionName = csvSplit.GetRange(1);
+                if(StrRangeEq(subOptionName, "VK_KHR_dedicated_allocation"))
+                    SetOption(currLineNumber, OPTION::Extension_VK_KHR_dedicated_allocation, csvSplit.GetRange(2));
+                else
+                    printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
+            }
+            else
+                printf("Line %zu: Too few columns.\n", currLineNumber);
+        }
+        else if(StrRangeEq(optionName, "Macro"))
+        {
+            if(csvSplit.GetCount() >= 3)
+            {
+                const StrRange subOptionName = csvSplit.GetRange(1);
+                if(StrRangeEq(subOptionName, "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_ALWAYS_DEDICATED_MEMORY, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEBUG_ALIGNMENT"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_ALIGNMENT, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEBUG_MARGIN"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_MARGIN, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEBUG_INITIALIZE_ALLOCATIONS"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_INITIALIZE_ALLOCATIONS, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEBUG_DETECT_CORRUPTION"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_DETECT_CORRUPTION, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEBUG_GLOBAL_MUTEX"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_GLOBAL_MUTEX, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_SMALL_HEAP_MAX_SIZE"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_SMALL_HEAP_MAX_SIZE, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE, csvSplit.GetRange(2));
+                else
+                    printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
+            }
+            else
+                printf("Line %zu: Too few columns.\n", currLineNumber);
+        }
+        else if(StrRangeEq(optionName, "PhysicalDeviceMemory"))
+        {
+            uint32_t value = 0;
+            if(csvSplit.GetCount() == 3 && StrRangeEq(csvSplit.GetRange(1), "HeapCount") &&
+                StrRangeToUint(csvSplit.GetRange(2), value))
+            {
+                m_MemProps.memoryHeapCount = value;
+            }
+            else if(csvSplit.GetCount() == 3 && StrRangeEq(csvSplit.GetRange(1), "TypeCount") &&
+                StrRangeToUint(csvSplit.GetRange(2), value))
+            {
+                m_MemProps.memoryTypeCount = value;
+            }
+            else if(csvSplit.GetCount() == 5 && StrRangeEq(csvSplit.GetRange(1), "Heap") &&
+                StrRangeToUint(csvSplit.GetRange(2), value) &&
+                value < m_MemProps.memoryHeapCount)
+            {
+                if(StrRangeEq(csvSplit.GetRange(3), "size") &&
+                    StrRangeToUint(csvSplit.GetRange(4), m_MemProps.memoryHeaps[value].size))
+                {
+                     // Parsed.
+                }
+                else if(StrRangeEq(csvSplit.GetRange(3), "flags") &&
+                    StrRangeToUint(csvSplit.GetRange(4), m_MemProps.memoryHeaps[value].flags))
+                {
+                     // Parsed.
+                }
+                else
+                    printf("Line %zu: Invalid configuration option.\n", currLineNumber);
+            }
+            else if(csvSplit.GetCount() == 5 && StrRangeEq(csvSplit.GetRange(1), "Type") &&
+                StrRangeToUint(csvSplit.GetRange(2), value) &&
+                value < m_MemProps.memoryTypeCount)
+            {
+                if(StrRangeEq(csvSplit.GetRange(3), "heapIndex") &&
+                    StrRangeToUint(csvSplit.GetRange(4), m_MemProps.memoryTypes[value].heapIndex))
+                {
+                     // Parsed.
+                }
+                else if(StrRangeEq(csvSplit.GetRange(3), "propertyFlags") &&
+                    StrRangeToUint(csvSplit.GetRange(4), m_MemProps.memoryTypes[value].propertyFlags))
+                {
+                     // Parsed.
+                }
+                else
+                    printf("Line %zu: Invalid configuration option.\n", currLineNumber);
+            }
+            else
+                printf("Line %zu: Invalid configuration option.\n", currLineNumber);
+        }
+        else
+            printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
+    }
+
+    return true;
+}
+
+void ConfigurationParser::Compare(
+    const VkPhysicalDeviceProperties& devProps,
+    const VkPhysicalDeviceMemoryProperties& memProps,
+    bool dedicatedAllocationExtensionEnabled)
+{
+    CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice apiVersion",
+        OPTION::PhysicalDevice_apiVersion, devProps.apiVersion);
+    CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice driverVersion",
+        OPTION::PhysicalDevice_driverVersion, devProps.driverVersion);
+    CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice vendorID",
+        OPTION::PhysicalDevice_vendorID, devProps.vendorID);
+    CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice deviceID",
+        OPTION::PhysicalDevice_deviceID, devProps.deviceID);
+    CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice deviceType",
+        OPTION::PhysicalDevice_deviceType, (uint32_t)devProps.deviceType);
+    CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice deviceName",
+        OPTION::PhysicalDevice_deviceName, devProps.deviceName);
+
+    CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits maxMemoryAllocationCount",
+        OPTION::PhysicalDeviceLimits_maxMemoryAllocationCount, devProps.limits.maxMemoryAllocationCount);
+    CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits bufferImageGranularity",
+        OPTION::PhysicalDeviceLimits_bufferImageGranularity, devProps.limits.bufferImageGranularity);
+    CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits nonCoherentAtomSize",
+        OPTION::PhysicalDeviceLimits_nonCoherentAtomSize, devProps.limits.nonCoherentAtomSize);
+    CompareOption(VERBOSITY::DEFAULT, "Extension VK_KHR_dedicated_allocation",
+        OPTION::Extension_VK_KHR_dedicated_allocation, dedicatedAllocationExtensionEnabled);
+}
+
+void ConfigurationParser::SetOption(
+    size_t lineNumber,
+    OPTION option,
+    const StrRange& str)
+{
+    if(m_OptionSet[(size_t)option])
+    {
+        printf("Line %zu: Option already specified.\n" ,lineNumber);
+    }
+
+    m_OptionSet[(size_t)option] = true;
+
+    std::string val;
+    str.to_str(val);
+    m_OptionValue[(size_t)option] = std::move(val);
+}
+
+void ConfigurationParser::EnsureWarningHeader()
+{
+    if(!m_WarningHeaderPrinted)
+    {
+        printf("WARNING: Following configuration parameters don't match:\n");
+        m_WarningHeaderPrinted = true;
+    }
+}
+
+void ConfigurationParser::CompareOption(VERBOSITY minVerbosity, const char* name,
+    OPTION option, uint32_t currValue)
+{
+    if(m_OptionSet[(size_t)option] &&
+        g_Verbosity >= minVerbosity)
+    {
+        uint32_t origValue;
+        if(StrRangeToUint(StrRange(m_OptionValue[(size_t)option]), origValue))
+        {
+            if(origValue != currValue)
+            {
+                EnsureWarningHeader();
+                printf("    %s: original %u, current %u\n", name, origValue, currValue);
+            }
+        }
+    }
+}
+
+void ConfigurationParser::CompareOption(VERBOSITY minVerbosity, const char* name,
+    OPTION option, uint64_t currValue)
+{
+    if(m_OptionSet[(size_t)option] &&
+        g_Verbosity >= minVerbosity)
+    {
+        uint64_t origValue;
+        if(StrRangeToUint(StrRange(m_OptionValue[(size_t)option]), origValue))
+        {
+            if(origValue != currValue)
+            {
+                EnsureWarningHeader();
+                printf("    %s: original %llu, current %llu\n", name, origValue, currValue);
+            }
+        }
+    }
+}
+
+void ConfigurationParser::CompareOption(VERBOSITY minVerbosity, const char* name,
+    OPTION option, bool currValue)
+{
+    if(m_OptionSet[(size_t)option] &&
+        g_Verbosity >= minVerbosity)
+    {
+        bool origValue;
+        if(StrRangeToBool(StrRange(m_OptionValue[(size_t)option]), origValue))
+        {
+            if(origValue != currValue)
+            {
+                EnsureWarningHeader();
+                printf("    %s: original %u, current %u\n", name,
+                    origValue ? 1 : 0,
+                    currValue ? 1 : 0);
+            }
+        }
+    }
+}
+
+void ConfigurationParser::CompareOption(VERBOSITY minVerbosity, const char* name,
+    OPTION option, const char* currValue)
+{
+    if(m_OptionSet[(size_t)option] &&
+        g_Verbosity >= minVerbosity)
+    {
+        const std::string& origValue = m_OptionValue[(size_t)option];
+        if(origValue != currValue)
+        {
+            EnsureWarningHeader();
+            printf("    %s: original \"%s\", current \"%s\"\n", name, origValue.c_str(), currValue);
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // class Player
 
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_validation";
@@ -495,6 +870,7 @@ public:
     int Init();
     ~Player();
 
+    void ApplyConfig(ConfigurationParser& configParser);
     void ExecuteLine(size_t lineNumber, const StrRange& line);
     void DumpStats(const char* fileNameFormat, size_t lineNumber, bool detailed);
 
@@ -511,6 +887,8 @@ private:
     uint32_t m_GraphicsQueueFamilyIndex = UINT_MAX;
     VkDevice m_Device = VK_NULL_HANDLE;
     VmaAllocator m_Allocator = VK_NULL_HANDLE;
+    bool m_DedicatedAllocationEnabled = false;
+    const VkPhysicalDeviceProperties* m_DevProps = nullptr;
     const VkPhysicalDeviceMemoryProperties* m_MemProps = nullptr;
 
     PFN_vkCreateDebugReportCallbackEXT m_pvkCreateDebugReportCallbackEXT;
@@ -616,6 +994,11 @@ Player::~Player()
 
     if(g_Verbosity < VERBOSITY::MAXIMUM && m_WarningCount > MAX_WARNINGS_TO_SHOW)
         printf("WARNING: %zu more warnings not shown.\n", m_WarningCount - MAX_WARNINGS_TO_SHOW);
+}
+
+void Player::ApplyConfig(ConfigurationParser& configParser)
+{
+    configParser.Compare(*m_DevProps, *m_MemProps, m_DedicatedAllocationEnabled);
 }
 
 void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
@@ -1046,16 +1429,15 @@ int Player::InitVulkan()
     const bool dedicatedAllocationAvailable =
         VK_KHR_get_memory_requirements2_available && VK_KHR_dedicated_allocation_available;
 
-    bool dedicatedAllocationEnabled = false;
     switch(g_VK_KHR_dedicated_allocation_request)
     {
     case VULKAN_EXTENSION_REQUEST::DISABLED:
         break;
     case VULKAN_EXTENSION_REQUEST::DEFAULT:
-        dedicatedAllocationEnabled = dedicatedAllocationAvailable;
+        m_DedicatedAllocationEnabled = dedicatedAllocationAvailable;
         break;
     case VULKAN_EXTENSION_REQUEST::ENABLED:
-        dedicatedAllocationEnabled = dedicatedAllocationAvailable;
+        m_DedicatedAllocationEnabled = dedicatedAllocationAvailable;
         if(!dedicatedAllocationAvailable)
         {
             printf("WARNING: VK_KHR_dedicated_allocation extension cannot be enabled.\n");
@@ -1064,7 +1446,7 @@ int Player::InitVulkan()
     default: assert(0);
     }
 
-    if(dedicatedAllocationEnabled)
+    if(m_DedicatedAllocationEnabled)
     {
         enabledDeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
         enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
@@ -1090,7 +1472,7 @@ int Player::InitVulkan()
     allocatorInfo.physicalDevice = m_PhysicalDevice;
     allocatorInfo.device = m_Device;
 
-    if(dedicatedAllocationEnabled)
+    if(m_DedicatedAllocationEnabled)
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
@@ -1102,6 +1484,7 @@ int Player::InitVulkan()
         return RESULT_ERROR_VULKAN;
     }
 
+    vmaGetPhysicalDeviceProperties(m_Allocator, &m_DevProps);
     vmaGetMemoryProperties(m_Allocator, &m_MemProps);
 
     return 0;
@@ -2225,11 +2608,30 @@ static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes,
 
     if(g_Verbosity == VERBOSITY::MAXIMUM)
     {
-        printf("Format version: %u,%u\n", g_FileVersion >> 16, g_FileVersion & 0xFFFF);
+        printf("Format version: %u,%u\n",
+            GetVersionMajor(g_FileVersion),
+            GetVersionMinor(g_FileVersion));
+    }
+
+    // Parse configuration
+    const bool configEnabled = g_FileVersion >= MakeVersion(1, 3);
+    ConfigurationParser configParser;
+    if(configEnabled)
+    {
+        if(!configParser.Parse(lineSplit))
+        {
+            return RESULT_ERROR_FORMAT;
+        }
     }
 
     Player player;
     int result = player.Init();
+
+    if(configEnabled)
+    {
+        player.ApplyConfig(configParser);
+    }
+
     size_t executedLineCount = 0;
     if(result == 0)
     {
