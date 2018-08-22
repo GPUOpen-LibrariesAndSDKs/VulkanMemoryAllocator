@@ -1733,7 +1733,7 @@ static void TestLinearAllocator()
         }
 
         // Allocate number of buffers until pool is full again.
-        // This way we make sure ring buffers wraps around.
+        // This way we make sure ring buffers wraps around, front in in the middle.
         res = VK_SUCCESS;
         for(size_t i = 0; res == VK_SUCCESS; ++i)
         {
@@ -1784,6 +1784,35 @@ static void TestLinearAllocator()
             ++newCount;
             if(allocInfo.offset < firstNewOffset)
                 break;
+        }
+
+        // Delete buffers that are lost.
+        for(size_t i = bufInfo.size(); i--; )
+        {
+            vmaGetAllocationInfo(g_hAllocator, bufInfo[i].Allocation, &allocInfo);
+            if(allocInfo.deviceMemory == VK_NULL_HANDLE)
+            {
+                vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
+                bufInfo.erase(bufInfo.begin() + i);
+            }
+        }
+
+        // Test vmaMakePoolAllocationsLost
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            size_t lostAllocCount = SIZE_MAX;
+            vmaMakePoolAllocationsLost(g_hAllocator, pool, &lostAllocCount);
+            assert(lostAllocCount > 0);
+
+            size_t realLostAllocCount = 0;
+            for(size_t i = 0; i < bufInfo.size(); ++i)
+            {
+                vmaGetAllocationInfo(g_hAllocator, bufInfo[i].Allocation, &allocInfo);
+                if(allocInfo.deviceMemory == VK_NULL_HANDLE)
+                    ++realLostAllocCount;
+            }
+            assert(realLostAllocCount == lostAllocCount);
         }
 
         // Destroy all the buffers in forward order.

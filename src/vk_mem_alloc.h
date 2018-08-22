@@ -8504,8 +8504,44 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
 
 uint32_t VmaBlockMetadata_Linear::MakeAllocationsLost(uint32_t currentFrameIndex, uint32_t frameInUseCount)
 {
-    VMA_ASSERT(0 && "TODO");
-    return 0;
+    uint32_t lostAllocationCount = 0;
+    
+    SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+    for(size_t i = m_1stNullItemsBeginCount, count = suballocations1st.size(); i < count; ++i)
+    {
+        VmaSuballocation& suballoc = suballocations1st[i];
+        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE &&
+            suballoc.hAllocation->CanBecomeLost() &&
+            suballoc.hAllocation->MakeLost(currentFrameIndex, frameInUseCount))
+        {
+            suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
+            suballoc.hAllocation = VK_NULL_HANDLE;
+            ++m_1stNullItemsMiddleCount;
+            ++lostAllocationCount;
+        }
+    }
+
+    SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+    for(size_t i = 0, count = suballocations2nd.size(); i < count; ++i)
+    {
+        VmaSuballocation& suballoc = suballocations2nd[i];
+        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE &&
+            suballoc.hAllocation->CanBecomeLost() &&
+            suballoc.hAllocation->MakeLost(currentFrameIndex, frameInUseCount))
+        {
+            suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
+            suballoc.hAllocation = VK_NULL_HANDLE;
+            ++m_2ndNullItemsCount;
+            ++lostAllocationCount;
+        }
+    }
+
+    if(lostAllocationCount)
+    {
+        CleanupAfterFree();
+    }
+
+    return lostAllocationCount;
 }
 
 VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
