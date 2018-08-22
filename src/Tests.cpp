@@ -1570,6 +1570,137 @@ static void TestLinearAllocator()
         }
     }
 
+    // Test double stack.
+    {
+        // Allocate number of buffers of varying size that surely fit into this block, alternate from bottom/top.
+        VkDeviceSize prevOffsetLower = 0;
+        VkDeviceSize prevOffsetUpper = poolCreateInfo.blockSize;
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            const bool upperAddress = (i % 2) != 0;
+            if(upperAddress)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            if(upperAddress)
+            {
+                assert(allocInfo.offset < prevOffsetUpper);
+                prevOffsetUpper = allocInfo.offset;
+            }
+            else
+            {
+                assert(allocInfo.offset >= prevOffsetLower);
+                prevOffsetLower = allocInfo.offset;
+            }
+            assert(prevOffsetLower < prevOffsetUpper);
+            bufInfo.push_back(newBufInfo);
+        }
+
+        // Destroy few buffers from top of the stack.
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Create some more
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            const bool upperAddress = (i % 2) != 0;
+            if(upperAddress)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+        }
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Create buffers on both sides until we reach out of memory.
+        prevOffsetLower = 0;
+        prevOffsetUpper = poolCreateInfo.blockSize;
+        res = VK_SUCCESS;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            const bool upperAddress = (i % 2) != 0;
+            if(upperAddress)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                if(upperAddress)
+                {
+                    assert(allocInfo.offset < prevOffsetUpper);
+                    prevOffsetUpper = allocInfo.offset;
+                }
+                else
+                {
+                    assert(allocInfo.offset >= prevOffsetLower);
+                    prevOffsetLower = allocInfo.offset;
+                }
+                assert(prevOffsetLower < prevOffsetUpper);
+                bufInfo.push_back(newBufInfo);
+            }
+        }
+
+        // Destroy the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+
+        // Create buffers on upper side only, constant size, until we reach out of memory.
+        prevOffsetUpper = poolCreateInfo.blockSize;
+        res = VK_SUCCESS;
+        allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+        bufCreateInfo.size = bufSizeMax;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                assert(allocInfo.offset < prevOffsetUpper);
+                prevOffsetUpper = allocInfo.offset;
+                bufInfo.push_back(newBufInfo);
+            }
+        }
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
     vmaDestroyPool(g_hAllocator, pool);
 }
 
