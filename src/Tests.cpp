@@ -101,6 +101,8 @@ struct PoolTestResult
 
 static const uint32_t IMAGE_BYTES_PER_PIXEL = 1;
 
+static uint32_t g_FrameIndex = 0;
+
 struct BufferInfo
 {
     VkBuffer Buffer = VK_NULL_HANDLE;
@@ -1699,6 +1701,95 @@ static void TestLinearAllocator()
             vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
             bufInfo.pop_back();
         }
+    }
+
+    // Test ring buffer with lost allocations.
+    {
+        // Allocate number of buffers until pool is full.
+        // Notice CAN_BECOME_LOST flag and call to vmaSetCurrentFrameIndex.
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT;
+        res = VK_SUCCESS;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+                bufInfo.push_back(newBufInfo);
+        }
+
+        // Free first half of it.
+        {
+            const size_t buffersToDelete = bufInfo.size() / 2;
+            for(size_t i = 0; i < buffersToDelete; ++i)
+            {
+                vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
+            }
+            bufInfo.erase(bufInfo.begin(), bufInfo.begin() + buffersToDelete);
+        }
+
+        // Allocate number of buffers until pool is full again.
+        // This way we make sure ring buffers wraps around.
+        res = VK_SUCCESS;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+                bufInfo.push_back(newBufInfo);
+        }
+
+        VkDeviceSize firstNewOffset;
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            // Allocate a large buffer with CAN_MAKE_OTHER_LOST.
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
+            bufCreateInfo.size = bufSizeMax;
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            firstNewOffset = allocInfo.offset;
+
+            // Make sure at least one buffer from the beginning became lost.
+            vmaGetAllocationInfo(g_hAllocator, bufInfo[0].Allocation, &allocInfo);
+            assert(allocInfo.deviceMemory == VK_NULL_HANDLE);
+        }
+
+        // Allocate more buffers that CAN_MAKE_OTHER_LOST until we wrap-around with this.
+        size_t newCount = 1;
+        for(;;)
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            ++newCount;
+            if(allocInfo.offset < firstNewOffset)
+                break;
+        }
+
+        // Destroy all the buffers in forward order.
+        for(size_t i = 0; i < bufInfo.size(); ++i)
+            vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
+        bufInfo.clear();
     }
 
     vmaDestroyPool(g_hAllocator, pool);
@@ -3541,10 +3632,12 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    // TEMP tests
-TestLinearAllocator();
-ManuallyTestLinearAllocator();
-return;
+    // TODO delete
+    {
+        TestLinearAllocator();
+        ManuallyTestLinearAllocator();
+        return;
+    }
 
     // # Simple tests
 
@@ -3561,6 +3654,7 @@ return;
     TestMapping();
     TestMappingMultithreaded();
     TestLinearAllocator();
+    ManuallyTestLinearAllocator();
     TestDefragmentationSimple();
     TestDefragmentationFull();
 

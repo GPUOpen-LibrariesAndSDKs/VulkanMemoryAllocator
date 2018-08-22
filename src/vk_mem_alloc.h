@@ -8102,6 +8102,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
     VMA_ASSERT(pAllocationRequest != VMA_NULL);
     VMA_HEAVY_ASSERT(Validate());
 
+    const VkDeviceSize size = GetSize();
     SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
 
@@ -8114,11 +8115,11 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
         }
 
         // Try to allocate before 2nd.back(), or end of block if 2nd.empty().
-        if(allocSize > GetSize())
+        if(allocSize > size)
         {
             return false;
         }
-        VkDeviceSize resultBaseOffset = GetSize() - allocSize;
+        VkDeviceSize resultBaseOffset = size - allocSize;
         if(!suballocations2nd.empty())
         {
             const VmaSuballocation& lastSuballoc = suballocations2nd.back();
@@ -8208,11 +8209,12 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
             return true;
         }
     }
-    else
+    else // !upperAddress
     {
         if(m_2ndVectorMode == SECOND_VECTOR_EMPTY || m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
         {
             // Try to allocate at the end of 1st vector.
+
             VkDeviceSize resultBaseOffset = 0;
             if(!suballocations1st.empty())
             {
@@ -8259,7 +8261,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
             }
 
             const VkDeviceSize freeSpaceEnd = m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK ?
-                suballocations2nd.back().offset : GetSize();
+                suballocations2nd.back().offset : size;
 
             // There is enough free space at the end after alignment.
             if(resultOffset + allocSize + VMA_DEBUG_MARGIN <= freeSpaceEnd)
@@ -8300,6 +8302,8 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
         // beginning of 1st vector as the end of free space.
         if(m_2ndVectorMode == SECOND_VECTOR_EMPTY || m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
         {
+            VMA_ASSERT(!suballocations1st.empty());
+
             VkDeviceSize resultBaseOffset = 0;
             if(!suballocations2nd.empty())
             {
@@ -8345,15 +8349,81 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
                 }
             }
 
+            pAllocationRequest->itemsToMakeLostCount = 0;
+            pAllocationRequest->sumItemSize = 0;
+            size_t index1st = m_1stNullItemsBeginCount;
+
+            if(canMakeOtherLost)
+            {
+                while(index1st < suballocations1st.size() &&
+                    resultOffset + allocSize + VMA_DEBUG_MARGIN > suballocations1st[index1st].offset)
+                {
+                    // Next colliding allocation at the beginning of 1st vector found. Try to make it lost.
+                    const VmaSuballocation& suballoc = suballocations1st[index1st];
+                    if(suballoc.type == VMA_SUBALLOCATION_TYPE_FREE)
+                    {
+                        // No problem.
+                    }
+                    else
+                    {
+                        VMA_ASSERT(suballoc.hAllocation != VK_NULL_HANDLE);
+                        if(suballoc.hAllocation->CanBecomeLost() &&
+                            suballoc.hAllocation->GetLastUseFrameIndex() + frameInUseCount < currentFrameIndex)
+                        {
+                            ++pAllocationRequest->itemsToMakeLostCount;
+                            pAllocationRequest->sumItemSize += suballoc.size;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                    ++index1st;
+                }
+
+                // Check next suballocations for BufferImageGranularity conflicts.
+                // If conflict exists, we must mark more allocations lost or fail.
+                if(bufferImageGranularity > 1)
+                {
+                    while(index1st < suballocations1st.size())
+                    {
+                        const VmaSuballocation& suballoc = suballocations1st[index1st];
+                        if(VmaBlocksOnSamePage(resultOffset, allocSize, suballoc.offset, bufferImageGranularity))
+                        {
+                            if(suballoc.hAllocation != VK_NULL_HANDLE)
+                            {
+                                // Not checking actual VmaIsBufferImageGranularityConflict(allocType, suballoc.type).
+                                if(suballoc.hAllocation->CanBecomeLost() &&
+                                    suballoc.hAllocation->GetLastUseFrameIndex() + frameInUseCount < currentFrameIndex)
+                                {
+                                    ++pAllocationRequest->itemsToMakeLostCount;
+                                    pAllocationRequest->sumItemSize += suballoc.size;
+                                }
+                                else
+                                {
+                                    return false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Already on next page.
+                            break;
+                        }
+                        ++index1st;
+                    }
+                }
+            }
+
             // There is enough free space at the end after alignment.
-            const VkDeviceSize freeSpace2ndTo1stEnd = suballocations1st[m_1stNullItemsBeginCount].offset;
-            if(resultOffset + allocSize + VMA_DEBUG_MARGIN <= freeSpace2ndTo1stEnd)
+            if(index1st == suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN < size ||
+                index1st < suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= suballocations1st[index1st].offset)
             {
                 // Check next suballocations for BufferImageGranularity conflicts.
                 // If conflict exists, allocation cannot be made here.
                 if(bufferImageGranularity > 1)
                 {
-                    for(size_t nextSuballocIndex = m_1stNullItemsBeginCount;
+                    for(size_t nextSuballocIndex = index1st;
                         nextSuballocIndex < suballocations1st.size();
                         nextSuballocIndex++)
                     {
@@ -8375,10 +8445,11 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
 
                 // All tests passed: Success.
                 pAllocationRequest->offset = resultOffset;
-                pAllocationRequest->sumFreeSize = freeSpace2ndTo1stEnd - resultBaseOffset;
-                pAllocationRequest->sumItemSize = 0;
+                pAllocationRequest->sumFreeSize =
+                    (index1st < suballocations1st.size() ? suballocations1st[index1st].offset : size)
+                    - resultBaseOffset
+                    - pAllocationRequest->sumItemSize;
                 // pAllocationRequest->item unused.
-                pAllocationRequest->itemsToMakeLostCount = 0;
                 return true;
             }
         }
@@ -8392,8 +8463,43 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
     uint32_t frameInUseCount,
     VmaAllocationRequest* pAllocationRequest)
 {
-    VMA_ASSERT(0 && "TODO");
-    return false;
+    if(pAllocationRequest->itemsToMakeLostCount == 0)
+    {
+        return true;
+    }
+
+    VMA_ASSERT(m_2ndVectorMode == SECOND_VECTOR_EMPTY || m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER);
+    
+    SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+    size_t index1st = m_1stNullItemsBeginCount;
+    size_t madeLostCount = 0;
+    while(madeLostCount < pAllocationRequest->itemsToMakeLostCount)
+    {
+        VMA_ASSERT(index1st < suballocations1st.size());
+        VmaSuballocation& suballoc = suballocations1st[index1st];
+        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
+        {
+            VMA_ASSERT(suballoc.hAllocation != VK_NULL_HANDLE);
+            VMA_ASSERT(suballoc.hAllocation->CanBecomeLost());
+            if(suballoc.hAllocation->MakeLost(currentFrameIndex, frameInUseCount))
+            {
+                suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
+                suballoc.hAllocation = VK_NULL_HANDLE;
+                ++m_1stNullItemsMiddleCount;
+                ++madeLostCount;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        ++index1st;
+    }
+
+    CleanupAfterFree();
+    //VMA_HEAVY_ASSERT(Validate()); // Already called by ClanupAfterFree().
+    
+    return true;
 }
 
 uint32_t VmaBlockMetadata_Linear::MakeAllocationsLost(uint32_t currentFrameIndex, uint32_t frameInUseCount)
