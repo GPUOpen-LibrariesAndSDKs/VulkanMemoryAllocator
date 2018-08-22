@@ -624,19 +624,19 @@ void SecondsToFriendlyStr(float seconds, std::string& out)
     // #.### ns
     if(seconds < 1e-6)
     {
-        sprintf_s(s, "%.3f ns", seconds * 1e-9);
+        sprintf_s(s, "%.3f ns", seconds * 1e9);
         out += s;
     }
     // #.### us
     else if(seconds < 1e-3)
     {
-        sprintf_s(s, "%.3f us", seconds * 1e-6);
+        sprintf_s(s, "%.3f us", seconds * 1e6);
         out += s;
     }
     // #.### ms
     else if(seconds < 1.f)
     {
-        sprintf_s(s, "%.3f ms", seconds * 1e-3);
+        sprintf_s(s, "%.3f ms", seconds * 1e3);
         out += s;
     }
     // #.### s

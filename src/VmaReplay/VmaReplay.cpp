@@ -406,7 +406,7 @@ void Statistics::PrintMemStatInfo(const MemStatInfo& info)
         info.blockCount,
         info.allocationCount,
         info.unusedRangeCount);
-    printf("        Peak total bytes: %llu, used bytes %llu, unused bytes %llu\n",
+    printf("        Peak total bytes %llu, used bytes %llu, unused bytes %llu\n",
         info.totalBytes,
         info.usedBytes,
         info.unusedBytes);
@@ -423,9 +423,9 @@ public:
     bool Parse(LineSplit& lineSplit);
 
     void Compare(
-        const VkPhysicalDeviceProperties& devProps,
-        const VkPhysicalDeviceMemoryProperties& memProps,
-        bool dedicatedAllocationExtensionEnabled);
+        const VkPhysicalDeviceProperties& currDevProps,
+        const VkPhysicalDeviceMemoryProperties& currMemProps,
+        bool currDedicatedAllocationExtensionEnabled);
 
 private:
     enum class OPTION
@@ -471,6 +471,8 @@ private:
         OPTION option, bool currValue);
     void CompareOption(VERBOSITY minVerbosity, const char* name,
         OPTION option, const char* currValue);
+    void CompareMemProps(
+        const VkPhysicalDeviceMemoryProperties& currMemProps);
 };
 
 ConfigurationParser::ConfigurationParser() :
@@ -655,31 +657,33 @@ bool ConfigurationParser::Parse(LineSplit& lineSplit)
 }
 
 void ConfigurationParser::Compare(
-    const VkPhysicalDeviceProperties& devProps,
-    const VkPhysicalDeviceMemoryProperties& memProps,
-    bool dedicatedAllocationExtensionEnabled)
+    const VkPhysicalDeviceProperties& currDevProps,
+    const VkPhysicalDeviceMemoryProperties& currMemProps,
+    bool currDedicatedAllocationExtensionEnabled)
 {
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice apiVersion",
-        OPTION::PhysicalDevice_apiVersion, devProps.apiVersion);
+        OPTION::PhysicalDevice_apiVersion, currDevProps.apiVersion);
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice driverVersion",
-        OPTION::PhysicalDevice_driverVersion, devProps.driverVersion);
+        OPTION::PhysicalDevice_driverVersion, currDevProps.driverVersion);
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice vendorID",
-        OPTION::PhysicalDevice_vendorID, devProps.vendorID);
+        OPTION::PhysicalDevice_vendorID, currDevProps.vendorID);
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice deviceID",
-        OPTION::PhysicalDevice_deviceID, devProps.deviceID);
+        OPTION::PhysicalDevice_deviceID, currDevProps.deviceID);
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice deviceType",
-        OPTION::PhysicalDevice_deviceType, (uint32_t)devProps.deviceType);
+        OPTION::PhysicalDevice_deviceType, (uint32_t)currDevProps.deviceType);
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice deviceName",
-        OPTION::PhysicalDevice_deviceName, devProps.deviceName);
+        OPTION::PhysicalDevice_deviceName, currDevProps.deviceName);
 
     CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits maxMemoryAllocationCount",
-        OPTION::PhysicalDeviceLimits_maxMemoryAllocationCount, devProps.limits.maxMemoryAllocationCount);
+        OPTION::PhysicalDeviceLimits_maxMemoryAllocationCount, currDevProps.limits.maxMemoryAllocationCount);
     CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits bufferImageGranularity",
-        OPTION::PhysicalDeviceLimits_bufferImageGranularity, devProps.limits.bufferImageGranularity);
+        OPTION::PhysicalDeviceLimits_bufferImageGranularity, currDevProps.limits.bufferImageGranularity);
     CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits nonCoherentAtomSize",
-        OPTION::PhysicalDeviceLimits_nonCoherentAtomSize, devProps.limits.nonCoherentAtomSize);
+        OPTION::PhysicalDeviceLimits_nonCoherentAtomSize, currDevProps.limits.nonCoherentAtomSize);
     CompareOption(VERBOSITY::DEFAULT, "Extension VK_KHR_dedicated_allocation",
-        OPTION::Extension_VK_KHR_dedicated_allocation, dedicatedAllocationExtensionEnabled);
+        OPTION::Extension_VK_KHR_dedicated_allocation, currDedicatedAllocationExtensionEnabled);
+
+    CompareMemProps(currMemProps);
 }
 
 void ConfigurationParser::SetOption(
@@ -776,6 +780,50 @@ void ConfigurationParser::CompareOption(VERBOSITY minVerbosity, const char* name
             EnsureWarningHeader();
             printf("    %s: original \"%s\", current \"%s\"\n", name, origValue.c_str(), currValue);
         }
+    }
+}
+
+void ConfigurationParser::CompareMemProps(
+    const VkPhysicalDeviceMemoryProperties& currMemProps)
+{
+    if(g_Verbosity < VERBOSITY::DEFAULT)
+    {
+        return;
+    }
+
+    bool memoryMatch =
+        currMemProps.memoryHeapCount == m_MemProps.memoryHeapCount &&
+        currMemProps.memoryTypeCount == m_MemProps.memoryTypeCount;
+
+    for(uint32_t i = 0; memoryMatch && i < currMemProps.memoryHeapCount; ++i)
+    {
+        memoryMatch =
+            currMemProps.memoryHeaps[i].flags == m_MemProps.memoryHeaps[i].flags;
+    }
+    for(uint32_t i = 0; memoryMatch && i < currMemProps.memoryTypeCount; ++i)
+    {
+        memoryMatch =
+            currMemProps.memoryTypes[i].heapIndex == m_MemProps.memoryTypes[i].heapIndex &&
+            currMemProps.memoryTypes[i].propertyFlags == m_MemProps.memoryTypes[i].propertyFlags;
+    }
+
+    if(memoryMatch && g_Verbosity == VERBOSITY::MAXIMUM)
+    {
+        bool memorySizeMatch = true;
+        for(uint32_t i = 0; memorySizeMatch && i < currMemProps.memoryHeapCount; ++i)
+        {
+            memorySizeMatch =
+                currMemProps.memoryHeaps[i].size == m_MemProps.memoryHeaps[i].size;
+        }
+
+        if(!memorySizeMatch)
+        {
+            printf("WARNING: Sizes of original memory heaps are different from current ones.\n");
+        }
+    }
+    else
+    {
+        printf("WARNING: Layout of original memory heaps and types is different from current one.\n");
     }
 }
 
