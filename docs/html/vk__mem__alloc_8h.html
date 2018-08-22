@@ -80,6 +80,9 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to some Vulkan functions - a subset used by the library.  <a href="struct_vma_vulkan_functions.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording calls to VMA functions. To be used in <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee" title="Parameters for recording of VMA calls. Can be null. ">VmaAllocatorCreateInfo::pRecordSettings</a>.  <a href="struct_vma_record_settings.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="struct_vma_allocator_create_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -111,6 +114,8 @@ Classes</h2></td></tr>
 Macros</h2></td></tr>
 <tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
 <tr class="separator:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c">VMA_RECORDING_ENABLED</a>&#160;&#160;&#160;0</td></tr>
+<tr class="separator:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae25f0d55fd91cb166f002b63244800e1"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1">VMA_STATS_STRING_ENABLED</a>&#160;&#160;&#160;1</td></tr>
 <tr class="separator:ae25f0d55fd91cb166f002b63244800e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -133,6 +138,14 @@ Typedefs</h2></td></tr>
 <tr class="memitem:a97064a1a271b0061ebfc3a079862d0c5"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a97064a1a271b0061ebfc3a079862d0c5">VmaVulkanFunctions</a></td></tr>
 <tr class="memdesc:a97064a1a271b0061ebfc3a079862d0c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to some Vulkan functions - a subset used by the library.  <a href="#a97064a1a271b0061ebfc3a079862d0c5">More...</a><br /></td></tr>
 <tr class="separator:a97064a1a271b0061ebfc3a079862d0c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade20b626a6635ce1bf30ea53dea774e4"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ade20b626a6635ce1bf30ea53dea774e4">VmaRecordFlagBits</a></td></tr>
+<tr class="memdesc:ade20b626a6635ce1bf30ea53dea774e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum. ">VmaRecordSettings::flags</a>.  <a href="#ade20b626a6635ce1bf30ea53dea774e4">More...</a><br /></td></tr>
+<tr class="separator:ade20b626a6635ce1bf30ea53dea774e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3929a1a4547c592fc0b0e55ef452828"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828">VmaRecordFlags</a></td></tr>
+<tr class="separator:af3929a1a4547c592fc0b0e55ef452828"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ab61e87ff6365f1d59915eadc37a9f0"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0ab61e87ff6365f1d59915eadc37a9f0">VmaRecordSettings</a></td></tr>
+<tr class="memdesc:a0ab61e87ff6365f1d59915eadc37a9f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording calls to VMA functions. To be used in <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee" title="Parameters for recording of VMA calls. Can be null. ">VmaAllocatorCreateInfo::pRecordSettings</a>.  <a href="#a0ab61e87ff6365f1d59915eadc37a9f0">More...</a><br /></td></tr>
+<tr class="separator:a0ab61e87ff6365f1d59915eadc37a9f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae0f6d1d733dded220d28134da46b4283"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae0f6d1d733dded220d28134da46b4283">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:ae0f6d1d733dded220d28134da46b4283"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="#ae0f6d1d733dded220d28134da46b4283">More...</a><br /></td></tr>
 <tr class="separator:ae0f6d1d733dded220d28134da46b4283"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -180,6 +193,11 @@ Enumerations</h2></td></tr>
  }<tr class="memdesc:a4f87c9100d154a65a4ad495f7763cf7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized. ">VmaAllocator</a>.  <a href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7c">More...</a><br /></td></tr>
 </td></tr>
 <tr class="separator:a4f87c9100d154a65a4ad495f7763cf7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4dd2c44642312a147a4e93373a6e64d2"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a> { <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7">VMA_RECORD_FLUSH_AFTER_CALL_BIT</a> = 0x00000001, 
+<a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e">VMA_RECORD_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+ }<tr class="memdesc:a4dd2c44642312a147a4e93373a6e64d2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum. ">VmaRecordSettings::flags</a>.  <a href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">More...</a><br /></td></tr>
+</td></tr>
+<tr class="separator:a4dd2c44642312a147a4e93373a6e64d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5846affa1e9da3800e3e78fae2305cc"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cc">VmaMemoryUsage</a> { <br />
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd">VMA_MEMORY_USAGE_UNKNOWN</a> = 0, 
 <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7">VMA_MEMORY_USAGE_GPU_ONLY</a> = 1, 
@@ -328,6 +346,20 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define VMA_DEDICATED_ALLOCATION&#160;&#160;&#160;0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1f0c126759fc96ccb6e2d23c101d770c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f0c126759fc96ccb6e2d23c101d770c">&#9670;&nbsp;</a></span>VMA_RECORDING_ENABLED</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VMA_RECORDING_ENABLED&#160;&#160;&#160;0</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -613,6 +645,52 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="ade20b626a6635ce1bf30ea53dea774e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade20b626a6635ce1bf30ea53dea774e4">&#9670;&nbsp;</a></span>VmaRecordFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a>  <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum. ">VmaRecordSettings::flags</a>. </p>
+
+</div>
+</div>
+<a id="af3929a1a4547c592fc0b0e55ef452828"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3929a1a4547c592fc0b0e55ef452828">&#9670;&nbsp;</a></span>VmaRecordFlags</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef VkFlags <a class="el" href="vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828">VmaRecordFlags</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0ab61e87ff6365f1d59915eadc37a9f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ab61e87ff6365f1d59915eadc37a9f0">&#9670;&nbsp;</a></span>VmaRecordSettings</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef struct <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a>  <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Parameters for recording calls to VMA functions. To be used in <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee" title="Parameters for recording of VMA calls. Can be null. ">VmaAllocatorCreateInfo::pRecordSettings</a>. </p>
+
+</div>
+</div>
 <a id="a810b009a788ee8aac72a25b42ffbe31c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a810b009a788ee8aac72a25b42ffbe31c">&#9670;&nbsp;</a></span>VmaStatInfo</h2>
 
@@ -801,6 +879,28 @@ Functions</h2></td></tr>
 <p>If you also allocate using <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a> or <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, exact type of such allocations is not known, so allocator must be conservative in handling Buffer-Image Granularity, which can lead to suboptimal allocation (wasted memory). In that case, if you can make sure you always allocate only buffers and linear images or only optimal images out of this pool, use this flag to make allocator disregard Buffer-Image Granularity and so make allocations more optimal. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a9a7c45f9c863695d98c83fa5ac940fe7a1c7312bea9ea246846b9054fd6bd6aec"></a>VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
+<a id="a4dd2c44642312a147a4e93373a6e64d2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4dd2c44642312a147a4e93373a6e64d2">&#9670;&nbsp;</a></span>VmaRecordFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum. ">VmaRecordSettings::flags</a>. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7"></a>VMA_RECORD_FLUSH_AFTER_CALL_BIT&#160;</td><td class="fielddoc"><p>Enables flush after recording every function call. </p>
+<p>Enable it if you expect your application to crash, which may leave recording file truncated. It may degrade performance though. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e"></a>VMA_RECORD_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>

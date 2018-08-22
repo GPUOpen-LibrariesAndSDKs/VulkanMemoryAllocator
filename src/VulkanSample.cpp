@@ -190,6 +190,18 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
     {
         return VK_FALSE;
     }
+
+    /*
+    "Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used."
+    Ignoring because we map entire VkDeviceMemory blocks, where different types of
+    images and buffers may end up together, especially on GPUs with unified memory
+    like Intel.
+    */
+    if(strstr(pMessage, "Mapping an image with layout") != nullptr &&
+        strstr(pMessage, "can result in undefined behavior if this memory is used by the device") != nullptr)
+    {
+        return VK_FALSE;
+    }
     
     switch(flags)
     {

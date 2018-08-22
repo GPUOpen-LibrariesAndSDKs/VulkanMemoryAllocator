@@ -17,5 +17,7 @@ var searchData=
   ['vma_5fmemory_5fusage_5fmax_5fenum',['VMA_MEMORY_USAGE_MAX_ENUM',['../vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca091e69437ef693e8d0d287f1c719ba6e',1,'vk_mem_alloc.h']]],
   ['vma_5fmemory_5fusage_5funknown',['VMA_MEMORY_USAGE_UNKNOWN',['../vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd',1,'vk_mem_alloc.h']]],
   ['vma_5fpool_5fcreate_5fflag_5fbits_5fmax_5fenum',['VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM',['../vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a1c7312bea9ea246846b9054fd6bd6aec',1,'vk_mem_alloc.h']]],
-  ['vma_5fpool_5fcreate_5fignore_5fbuffer_5fimage_5fgranularity_5fbit',['VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT',['../vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2',1,'vk_mem_alloc.h']]]
+  ['vma_5fpool_5fcreate_5fignore_5fbuffer_5fimage_5fgranularity_5fbit',['VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT',['../vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2',1,'vk_mem_alloc.h']]],
+  ['vma_5frecord_5fflag_5fbits_5fmax_5fenum',['VMA_RECORD_FLAG_BITS_MAX_ENUM',['../vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e',1,'vk_mem_alloc.h']]],
+  ['vma_5frecord_5fflush_5fafter_5fcall_5fbit',['VMA_RECORD_FLUSH_AFTER_CALL_BIT',['../vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7',1,'vk_mem_alloc.h']]]
 ];

@@ -100,6 +100,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a3dc197be3227da7338b1643f70db36bd"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd">pVulkanFunctions</a></td></tr>
 <tr class="memdesc:a3dc197be3227da7338b1643f70db36bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to Vulkan functions. Can be null if you leave define <code>VMA_STATIC_VULKAN_FUNCTIONS 1</code>.  <a href="#a3dc197be3227da7338b1643f70db36bd">More...</a><br /></td></tr>
 <tr class="separator:a3dc197be3227da7338b1643f70db36bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace2aa4877b16a42b0b7673d4e26000ee"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee">pRecordSettings</a></td></tr>
+<tr class="memdesc:ace2aa4877b16a42b0b7673d4e26000ee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording of VMA calls. Can be null.  <a href="#ace2aa4877b16a42b0b7673d4e26000ee">More...</a><br /></td></tr>
+<tr class="separator:ace2aa4877b16a42b0b7673d4e26000ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Description of a Allocator to be created. </p>
@@ -228,6 +231,23 @@ Public Attributes</h2></td></tr>
 
 <p>Vulkan physical device. </p>
 <p>It must be valid throughout whole lifetime of created allocator. </p>
+
+</div>
+</div>
+<a id="ace2aa4877b16a42b0b7673d4e26000ee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace2aa4877b16a42b0b7673d4e26000ee">&#9670;&nbsp;</a></span>pRecordSettings</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a>* VmaAllocatorCreateInfo::pRecordSettings</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Parameters for recording of VMA calls. Can be null. </p>
+<p>If not null, it enables recording of calls to VMA functions to a file. If support for recording is not enabled using <code>VMA_RECORDING_ENABLED</code> macro, creation of the allocator object fails with <code>VK_ERROR_FEATURE_NOT_PRESENT</code>. </p>
 
 </div>
 </div>

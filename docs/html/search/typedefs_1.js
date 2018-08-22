@@ -15,6 +15,9 @@ var searchData=
   ['vmapoolcreateflags',['VmaPoolCreateFlags',['../vk__mem__alloc_8h.html#a2770e325ea42e087c1b91fdf46d0292a',1,'vk_mem_alloc.h']]],
   ['vmapoolcreateinfo',['VmaPoolCreateInfo',['../vk__mem__alloc_8h.html#a211706e9348dcee25a843ed4ea69bce7',1,'vk_mem_alloc.h']]],
   ['vmapoolstats',['VmaPoolStats',['../vk__mem__alloc_8h.html#a2e5612d871d64c5624087b837a338c34',1,'vk_mem_alloc.h']]],
+  ['vmarecordflagbits',['VmaRecordFlagBits',['../vk__mem__alloc_8h.html#ade20b626a6635ce1bf30ea53dea774e4',1,'vk_mem_alloc.h']]],
+  ['vmarecordflags',['VmaRecordFlags',['../vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828',1,'vk_mem_alloc.h']]],
+  ['vmarecordsettings',['VmaRecordSettings',['../vk__mem__alloc_8h.html#a0ab61e87ff6365f1d59915eadc37a9f0',1,'vk_mem_alloc.h']]],
   ['vmastatinfo',['VmaStatInfo',['../vk__mem__alloc_8h.html#a810b009a788ee8aac72a25b42ffbe31c',1,'vk_mem_alloc.h']]],
   ['vmastats',['VmaStats',['../vk__mem__alloc_8h.html#a732be855fb4a7c248e6853d928a729af',1,'vk_mem_alloc.h']]],
   ['vmavulkanfunctions',['VmaVulkanFunctions',['../vk__mem__alloc_8h.html#a97064a1a271b0061ebfc3a079862d0c5',1,'vk_mem_alloc.h']]]
