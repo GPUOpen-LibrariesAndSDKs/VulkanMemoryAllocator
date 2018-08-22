@@ -4536,8 +4536,87 @@ private:
     void UnregisterFreeSuballocation(VmaSuballocationList::iterator item);
 };
 
+/*
+Allocations and their references in internal data structure look like this:
+
+if(m_2ndVectorMode == SECOND_VECTOR_EMPTY):
+
+        0 +-------+
+          |       |
+          |       |
+          |       |
+          +-------+
+          | Alloc |  1st[m_1stNullItemsBeginCount]
+          +-------+
+          | Alloc |  1st[m_1stNullItemsBeginCount + 1]
+          +-------+
+          |  ...  |
+          +-------+
+          | Alloc |  1st[1st.size() - 1]
+          +-------+
+          |       |
+          |       |
+          |       |
+GetSize() +-------+
+
+if(m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER):
+
+        0 +-------+
+          | Alloc |  2nd[0]
+          +-------+
+          | Alloc |  2nd[1]
+          +-------+
+          |  ...  |
+          +-------+
+          | Alloc |  2nd[2nd.size() - 1]
+          +-------+
+          |       |
+          |       |
+          |       |
+          +-------+
+          | Alloc |  1st[m_1stNullItemsBeginCount]
+          +-------+
+          | Alloc |  1st[m_1stNullItemsBeginCount + 1]
+          +-------+
+          |  ...  |
+          +-------+
+          | Alloc |  1st[1st.size() - 1]
+          +-------+
+          |       |
+GetSize() +-------+
+
+if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK):
+
+        0 +-------+
+          |       |
+          |       |
+          |       |
+          +-------+
+          | Alloc |  1st[m_1stNullItemsBeginCount]
+          +-------+
+          | Alloc |  1st[m_1stNullItemsBeginCount + 1]
+          +-------+
+          |  ...  |
+          +-------+
+          | Alloc |  1st[1st.size() - 1]
+          +-------+
+          |       |
+          |       |
+          |       |
+          +-------+
+          | Alloc |  2nd[2nd.size() - 1]
+          +-------+
+          |  ...  |
+          +-------+
+          | Alloc |  2nd[1]
+          +-------+
+          | Alloc |  2nd[0]
+GetSize() +-------+
+
+*/
 class VmaBlockMetadata_Linear : public VmaBlockMetadata
 {
+    VMA_CLASS_NO_COPY(VmaBlockMetadata_Linear)
 public:
     VmaBlockMetadata_Linear(VmaAllocator hAllocator);
     virtual ~VmaBlockMetadata_Linear();
@@ -4602,6 +4681,11 @@ private:
         all have smaller offset.
         */
         SECOND_VECTOR_RING_BUFFER,
+        /*
+        Suballocations in 2nd vector are upper side of double stack.
+        They all have offsets higher than those in 1st vector.
+        Top of this stack means smaller offsets, but higher indices in this vector.
+        */
         SECOND_VECTOR_DOUBLE_STACK,
     };
 
@@ -7234,12 +7318,56 @@ bool VmaBlockMetadata_Linear::Validate() const
 
         offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
     }
-
-    if(offset > GetSize())
+    if(nullItem1stCount != m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount)
     {
         return false;
     }
-    if(nullItem1stCount != m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount)
+
+    if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
+    {
+        const size_t suballoc2ndCount = suballocations2nd.size();
+        size_t nullItem2ndCount = 0;
+        for(size_t i = suballoc2ndCount; i--; )
+        {
+            const VmaSuballocation& suballoc = suballocations2nd[i];
+            const bool currFree = (suballoc.type == VMA_SUBALLOCATION_TYPE_FREE);
+
+            if(currFree != (suballoc.hAllocation == VK_NULL_HANDLE))
+            {
+                return false;
+            }
+            if(suballoc.offset < offset)
+            {
+                return false;
+            }
+
+            if(!currFree)
+            {
+                if(suballoc.hAllocation->GetOffset() != suballoc.offset)
+                {
+                    return false;
+                }
+                if(suballoc.hAllocation->GetSize() != suballoc.size)
+                {
+                    return false;
+                }
+            }
+
+            if(currFree)
+            {
+                ++nullItem2ndCount;
+            }
+
+            offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
+        }
+
+        if(nullItem2ndCount != m_2ndNullItemsCount)
+        {
+            return false;
+        }
+    }
+
+    if(offset > GetSize())
     {
         return false;
     }
@@ -7343,7 +7471,9 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
     }
 
     size_t nextAlloc1stIndex = m_1stNullItemsBeginCount;
-    while(lastOffset < size)
+    const VkDeviceSize freeSpace1stTo2ndEnd =
+        m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK ? suballocations2nd.back().offset : size;
+    while(lastOffset < freeSpace1stTo2ndEnd)
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while(nextAlloc1stIndex < suballoc1stCount &&
@@ -7381,10 +7511,10 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
         // We are at the end.
         else
         {
-            // There is free space from lastOffset to size.
-            if(lastOffset < size)
+            // There is free space from lastOffset to freeSpace1stTo2ndEnd.
+            if(lastOffset < freeSpace1stTo2ndEnd)
             {
-                const VkDeviceSize unusedRangeSize = size - lastOffset;
+                const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
                 ++outInfo.unusedRangeCount;
                 outInfo.unusedBytes += unusedRangeSize;
                 outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
@@ -7392,7 +7522,64 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
            }
 
             // End of loop.
-            lastOffset = size;
+            lastOffset = freeSpace1stTo2ndEnd;
+        }
+    }
+
+    if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
+    {
+        size_t nextAlloc2ndIndex = suballocations2nd.size() - 1;
+        while(lastOffset < size)
+        {
+            // Find next non-null allocation or move nextAllocIndex to the end.
+            while(nextAlloc2ndIndex != SIZE_MAX &&
+                suballocations2nd[nextAlloc2ndIndex].hAllocation == VK_NULL_HANDLE)
+            {
+                --nextAlloc2ndIndex;
+            }
+
+            // Found non-null allocation.
+            if(nextAlloc2ndIndex != SIZE_MAX)
+            {
+                const VmaSuballocation& suballoc = suballocations2nd[nextAlloc2ndIndex];
+            
+                // 1. Process free space before this allocation.
+                if(lastOffset < suballoc.offset)
+                {
+                    // There is free space from lastOffset to suballoc.offset.
+                    const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
+                    ++outInfo.unusedRangeCount;
+                    outInfo.unusedBytes += unusedRangeSize;
+                    outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
+                    outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                }
+            
+                // 2. Process this allocation.
+                // There is allocation with suballoc.offset, suballoc.size.
+                outInfo.usedBytes += suballoc.size;
+                outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, suballoc.size);
+                outInfo.allocationSizeMax = VMA_MIN(outInfo.allocationSizeMax, suballoc.size);
+            
+                // 3. Prepare for next iteration.
+                lastOffset = suballoc.offset + suballoc.size;
+                --nextAlloc2ndIndex;
+            }
+            // We are at the end.
+            else
+            {
+                // There is free space from lastOffset to size.
+                if(lastOffset < size)
+                {
+                    const VkDeviceSize unusedRangeSize = size - lastOffset;
+                    ++outInfo.unusedRangeCount;
+                    outInfo.unusedBytes += unusedRangeSize;
+                    outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
+                    outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+               }
+
+                // End of loop.
+                lastOffset = size;
+            }
         }
     }
 
@@ -7466,7 +7653,9 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
     }
 
     size_t nextAlloc1stIndex = m_1stNullItemsBeginCount;
-    while(lastOffset < size)
+    const VkDeviceSize freeSpace1stTo2ndEnd =
+        m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK ? suballocations2nd.back().offset : size;
+    while(lastOffset < freeSpace1stTo2ndEnd)
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while(nextAlloc1stIndex < suballoc1stCount &&
@@ -7501,17 +7690,70 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
         // We are at the end.
         else
         {
-            if(lastOffset < size)
+            if(lastOffset < freeSpace1stTo2ndEnd)
             {
-                // There is free space from lastOffset to size.
-                const VkDeviceSize unusedRangeSize = size - lastOffset;
+                // There is free space from lastOffset to freeSpace1stTo2ndEnd.
+                const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
                 inoutStats.unusedSize += unusedRangeSize;
                 ++inoutStats.unusedRangeCount;
                 inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
             }
 
             // End of loop.
-            lastOffset = size;
+            lastOffset = freeSpace1stTo2ndEnd;
+        }
+    }
+
+    if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
+    {
+        size_t nextAlloc2ndIndex = suballocations2nd.size() - 1;
+        while(lastOffset < size)
+        {
+            // Find next non-null allocation or move nextAlloc2ndIndex to the end.
+            while(nextAlloc2ndIndex != SIZE_MAX &&
+                suballocations2nd[nextAlloc2ndIndex].hAllocation == VK_NULL_HANDLE)
+            {
+                --nextAlloc2ndIndex;
+            }
+
+            // Found non-null allocation.
+            if(nextAlloc2ndIndex != SIZE_MAX)
+            {
+                const VmaSuballocation& suballoc = suballocations2nd[nextAlloc2ndIndex];
+            
+                // 1. Process free space before this allocation.
+                if(lastOffset < suballoc.offset)
+                {
+                    // There is free space from lastOffset to suballoc.offset.
+                    const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
+                    inoutStats.unusedSize += unusedRangeSize;
+                    ++inoutStats.unusedRangeCount;
+                    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
+                }
+            
+                // 2. Process this allocation.
+                // There is allocation with suballoc.offset, suballoc.size.
+                ++inoutStats.allocationCount;
+            
+                // 3. Prepare for next iteration.
+                lastOffset = suballoc.offset + suballoc.size;
+                --nextAlloc2ndIndex;
+            }
+            // We are at the end.
+            else
+            {
+                if(lastOffset < size)
+                {
+                    // There is free space from lastOffset to size.
+                    const VkDeviceSize unusedRangeSize = size - lastOffset;
+                    inoutStats.unusedSize += unusedRangeSize;
+                    ++inoutStats.unusedRangeCount;
+                    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
+                }
+
+                // End of loop.
+                lastOffset = size;
+            }
         }
     }
 }
@@ -7519,8 +7761,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
 #if VMA_STATS_STRING_ENABLED
 void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
 {
-    // TODO include 2nd vector
-
     const VkDeviceSize size = GetSize();
     const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
@@ -7586,7 +7826,9 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
 
     size_t nextAlloc1stIndex = m_1stNullItemsBeginCount;
     size_t alloc1stCount = 0;
-    while(lastOffset < size)
+    const VkDeviceSize freeSpace1stTo2ndEnd =
+        m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK ? suballocations2nd.back().offset : size;
+    while(lastOffset < freeSpace1stTo2ndEnd)
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while(nextAlloc1stIndex < suballoc1stCount &&
@@ -7621,12 +7863,60 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
         {
             if(lastOffset < size)
             {
-                // There is free space from lastOffset to size.
+                // There is free space from lastOffset to freeSpace1stTo2ndEnd.
                 ++unusedRangeCount;
             }
 
             // End of loop.
-            lastOffset = size;
+            lastOffset = freeSpace1stTo2ndEnd;
+        }
+    }
+
+    if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
+    {
+        size_t nextAlloc2ndIndex = suballocations2nd.size() - 1;
+        while(lastOffset < size)
+        {
+            // Find next non-null allocation or move nextAlloc2ndIndex to the end.
+            while(nextAlloc2ndIndex != SIZE_MAX &&
+                suballocations2nd[nextAlloc2ndIndex].hAllocation == VK_NULL_HANDLE)
+            {
+                --nextAlloc2ndIndex;
+            }
+
+            // Found non-null allocation.
+            if(nextAlloc2ndIndex != SIZE_MAX)
+            {
+                const VmaSuballocation& suballoc = suballocations2nd[nextAlloc2ndIndex];
+            
+                // 1. Process free space before this allocation.
+                if(lastOffset < suballoc.offset)
+                {
+                    // There is free space from lastOffset to suballoc.offset.
+                    ++unusedRangeCount;
+                }
+            
+                // 2. Process this allocation.
+                // There is allocation with suballoc.offset, suballoc.size.
+                ++alloc2ndCount;
+                usedBytes += suballoc.size;
+            
+                // 3. Prepare for next iteration.
+                lastOffset = suballoc.offset + suballoc.size;
+                ++nextAlloc2ndIndex;
+            }
+            // We are at the end.
+            else
+            {
+                if(lastOffset < size)
+                {
+                    // There is free space from lastOffset to size.
+                    ++unusedRangeCount;
+                }
+
+                // End of loop.
+                lastOffset = size;
+            }
         }
     }
 
@@ -7687,7 +7977,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
     }
 
     nextAlloc1stIndex = m_1stNullItemsBeginCount;
-    while(lastOffset < size)
+    while(lastOffset < freeSpace1stTo2ndEnd)
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while(nextAlloc1stIndex < suballoc1stCount &&
@@ -7720,15 +8010,64 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
         // We are at the end.
         else
         {
-            if(lastOffset < size)
+            if(lastOffset < freeSpace1stTo2ndEnd)
             {
-                // There is free space from lastOffset to size.
-                const VkDeviceSize unusedRangeSize = size - lastOffset;
+                // There is free space from lastOffset to freeSpace1stTo2ndEnd.
+                const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
                 PrintDetailedMap_UnusedRange(json, lastOffset, unusedRangeSize);
             }
 
             // End of loop.
-            lastOffset = size;
+            lastOffset = freeSpace1stTo2ndEnd;
+        }
+    }
+
+    if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
+    {
+        size_t nextAlloc2ndIndex = suballocations2nd.size() - 1;
+        while(lastOffset < size)
+        {
+            // Find next non-null allocation or move nextAlloc2ndIndex to the end.
+            while(nextAlloc2ndIndex != SIZE_MAX &&
+                suballocations2nd[nextAlloc2ndIndex].hAllocation == VK_NULL_HANDLE)
+            {
+                --nextAlloc2ndIndex;
+            }
+
+            // Found non-null allocation.
+            if(nextAlloc2ndIndex != SIZE_MAX)
+            {
+                const VmaSuballocation& suballoc = suballocations2nd[nextAlloc2ndIndex];
+            
+                // 1. Process free space before this allocation.
+                if(lastOffset < suballoc.offset)
+                {
+                    // There is free space from lastOffset to suballoc.offset.
+                    const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
+                    PrintDetailedMap_UnusedRange(json, lastOffset, unusedRangeSize);
+                }
+            
+                // 2. Process this allocation.
+                // There is allocation with suballoc.offset, suballoc.size.
+                PrintDetailedMap_Allocation(json, suballoc.offset, suballoc.hAllocation);
+            
+                // 3. Prepare for next iteration.
+                lastOffset = suballoc.offset + suballoc.size;
+                --nextAlloc2ndIndex;
+            }
+            // We are at the end.
+            else
+            {
+                if(lastOffset < size)
+                {
+                    // There is free space from lastOffset to size.
+                    const VkDeviceSize unusedRangeSize = size - lastOffset;
+                    PrintDetailedMap_UnusedRange(json, lastOffset, unusedRangeSize);
+                }
+
+                // End of loop.
+                lastOffset = size;
+            }
         }
     }
 
