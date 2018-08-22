@@ -1519,6 +1519,7 @@ int Player::InitVulkan()
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice = m_PhysicalDevice;
     allocatorInfo.device = m_Device;
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
 
     if(m_DedicatedAllocationEnabled)
     {
