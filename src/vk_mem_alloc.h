@@ -7914,7 +7914,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
             
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
-                ++nextAlloc2ndIndex;
+                --nextAlloc2ndIndex;
             }
             // We are at the end.
             else

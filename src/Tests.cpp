@@ -1704,6 +1704,120 @@ static void TestLinearAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void ManuallyTestLinearAllocator()
+{
+    VmaStats origStats;
+    vmaCalculateStats(g_hAllocator, &origStats);
+
+    wprintf(L"Manually test linear allocator\n");
+
+    RandomNumberGenerator rand{645332};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = 10 * 1024;
+    poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    std::vector<BufferInfo> bufInfo;
+    VmaAllocationInfo allocInfo;
+    BufferInfo newBufInfo;
+
+    // Test double stack.
+    {
+        /*
+        Lower: Buffer 32 B, Buffer 1024 B, Buffer 32 B
+        Upper: Buffer 16 B, Buffer 1024 B, Buffer 128 B
+
+        Totally:
+        1 block allocated
+        10240 Vulkan bytes
+        6 new allocations
+        2256 bytes in allocations
+        */
+
+        bufCreateInfo.size = 32;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 1024;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 32;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+
+        bufCreateInfo.size = 128;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 1024;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 16;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        VmaStats currStats;
+        vmaCalculateStats(g_hAllocator, &currStats);
+        VmaPoolStats poolStats;
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+
+        char* statsStr = nullptr;
+        vmaBuildStatsString(g_hAllocator, &statsStr, VK_TRUE);
+
+        // PUT BREAKPOINT HERE TO CHECK.
+        // Inspect: currStats versus origStats, poolStats, statsStr.
+        int I = 0;
+
+        vmaFreeStatsString(g_hAllocator, statsStr);
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
 static void TestPool_SameSize()
 {
     const VkDeviceSize BUF_SIZE = 1024 * 1024;
@@ -3429,6 +3543,7 @@ void Test()
 
     // TEMP tests
 TestLinearAllocator();
+ManuallyTestLinearAllocator();
 return;
 
     // # Simple tests
