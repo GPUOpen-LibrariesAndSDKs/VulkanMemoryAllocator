@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.1.0-alpha.3</b> (2018-06-14)
+<b>Version 2.1.0-alpha.4</b> (2018-08-22)
 
 Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
