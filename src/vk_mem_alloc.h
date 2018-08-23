@@ -7237,6 +7237,15 @@ bool VmaBlockMetadata_Linear::Validate() const
         }
     }
 
+    if(m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount > suballocations1st.size())
+    {
+        return false;
+    }
+    if(m_2ndNullItemsCount > suballocations2nd.size())
+    {
+        return false;
+    }
+
     VkDeviceSize sumUsedSize = 0;
     const size_t suballoc1stCount = suballocations1st.size();
     VkDeviceSize offset = VMA_DEBUG_MARGIN;
