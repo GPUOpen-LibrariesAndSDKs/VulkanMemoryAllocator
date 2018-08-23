@@ -3671,13 +3671,6 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    // TODO delete
-    {
-        TestLinearAllocator();
-        ManuallyTestLinearAllocator();
-        return;
-    }
-
     // # Simple tests
 
     TestBasics();
