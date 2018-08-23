@@ -1862,15 +1862,16 @@ typedef struct VmaPoolCreateInfo {
     VkDeviceSize blockSize;
     /** \brief Minimum number of blocks to be always allocated in this pool, even if they stay empty.
 
-    Set to 0 to have no preallocated blocks and let the pool be completely empty.
+    Set to 0 to have no preallocated blocks and allow the pool be completely empty.
     */
     size_t minBlockCount;
     /** \brief Maximum number of blocks that can be allocated in this pool. Optional.
 
-    Optional. Set to 0 to use `SIZE_MAX`, which means no limit.
+    Optional. Set to 0 to use default, which is `SIZE_MAX`, which means no limit.
+    When #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT is used, default is 1.
     
     Set to same value as minBlockCount to have fixed amount of memory allocated
-    throuout whole lifetime of this pool.
+    throughout whole lifetime of this pool.
     */
     size_t maxBlockCount;
     /** \brief Maximum number of additional frames that are in use at the same time as current frame.
@@ -11553,11 +11554,8 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
     {
         newCreateInfo.maxBlockCount = isLinearAlgorithm ? 1 : SIZE_MAX;
     }
-    if(newCreateInfo.minBlockCount > newCreateInfo.maxBlockCount)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-    if(isLinearAlgorithm && newCreateInfo.maxBlockCount > 1)
+    if(newCreateInfo.minBlockCount > newCreateInfo.maxBlockCount ||
+        isLinearAlgorithm && newCreateInfo.maxBlockCount > 1)
     {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
