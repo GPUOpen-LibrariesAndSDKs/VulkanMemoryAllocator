@@ -3003,8 +3003,8 @@ Cmp should return true if first argument is less than second argument.
 Returned value is the found element, if present in the collection or place where
 new element with value (key) should be inserted.
 */
-template <typename IterT, typename KeyT, typename CmpT>
-static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, CmpT cmp)
+template <typename CmpLess, typename IterT, typename KeyT>
+static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, CmpLess cmp)
 {
     size_t down = 0, up = (end - beg);
     while(down < up)
@@ -3387,23 +3387,18 @@ bool VmaVectorRemoveSorted(VectorT& vector, const typename VectorT::value_type& 
     return false;
 }
 
-template<typename CmpLess, typename VectorT>
-size_t VmaVectorFindSorted(const VectorT& vector, const typename VectorT::value_type& value)
+template<typename CmpLess, typename IterT, typename KeyT>
+IterT VmaVectorFindSorted(const IterT& beg, const IterT& end, const KeyT& value)
 {
     CmpLess comparator;
-    typename VectorT::iterator it = VmaBinaryFindFirstNotLess(
-        vector.data(),
-        vector.data() + vector.size(),
-        value,
-        comparator);
-    if(it != vector.size() && !comparator(*it, value) && !comparator(value, *it))
+    typename IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
+        beg, end, value, comparator);
+    if(it == end ||
+        !comparator(*it, value) && !comparator(value, *it))
     {
-        return it - vector.begin();
+        return it;
     }
-    else
-    {
-        return vector.size();
-    }
+    return end;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4336,6 +4331,22 @@ struct VmaSuballocation
     VkDeviceSize size;
     VmaAllocation hAllocation;
     VmaSuballocationType type;
+};
+
+// Comparator for offsets.
+struct VmaSuballocationOffsetLess
+{
+    bool operator()(const VmaSuballocation& lhs, const VmaSuballocation& rhs) const
+    {
+        return lhs.offset < rhs.offset;
+    }
+};
+struct VmaSuballocationOffsetGreater
+{
+    bool operator()(const VmaSuballocation& lhs, const VmaSuballocation& rhs) const
+    {
+        return lhs.offset > rhs.offset;
+    }
 };
 
 typedef VmaList< VmaSuballocation, VmaStlAllocator<VmaSuballocation> > VmaSuballocationList;
@@ -8754,7 +8765,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         }
     }
 
-    // Last allocation in 2-part ring buffer or top of 2nd stack (same logic).
+    // Last allocation in 2-part ring buffer or top of upper stack (same logic).
     if(m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER ||
         m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
     {
@@ -8781,16 +8792,20 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
     }
 
     // Item from the middle of 1st vector.
-    // TODO optimize using binary search.
-    for(size_t i = m_1stNullItemsBeginCount + 1; i < suballocations1st.size(); ++i)
     {
-        VmaSuballocation& currSuballoc = suballocations1st[i];
-        if(currSuballoc.offset == offset)
+        VmaSuballocation refSuballoc;
+        refSuballoc.offset = offset;
+        // Rest of members stays uninitialized intentionally for better performance.
+        SuballocationVectorType::iterator it = VmaVectorFindSorted<VmaSuballocationOffsetLess>(
+            suballocations1st.begin() + m_1stNullItemsBeginCount,
+            suballocations1st.end(),
+            refSuballoc);
+        if(it != suballocations1st.end())
         {
-            currSuballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
-            currSuballoc.hAllocation = VK_NULL_HANDLE;
+            it->type = VMA_SUBALLOCATION_TYPE_FREE;
+            it->hAllocation = VK_NULL_HANDLE;
             ++m_1stNullItemsMiddleCount;
-            m_SumFreeSize += currSuballoc.size;
+            m_SumFreeSize += it->size;
             CleanupAfterFree();
             return;
         }
@@ -8799,19 +8814,20 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
     if(m_2ndVectorMode != SECOND_VECTOR_EMPTY)
     {
         // Item from the middle of 2nd vector.
-        // TODO optimize using binary search. Careful when DOUBLE_STACK - suballocations are then sorted in reverse order of offsets.
-        for(size_t i = 0; i < suballocations2nd.size() - 1; ++i)
+        VmaSuballocation refSuballoc;
+        refSuballoc.offset = offset;
+        // Rest of members stays uninitialized intentionally for better performance.
+        SuballocationVectorType::iterator it = m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER ?
+            VmaVectorFindSorted<VmaSuballocationOffsetLess>(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc) :
+            VmaVectorFindSorted<VmaSuballocationOffsetGreater>(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc);
+        if(it != suballocations2nd.end())
         {
-            VmaSuballocation& currSuballoc = suballocations2nd[i];
-            if(currSuballoc.offset == offset)
-            {
-                currSuballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
-                currSuballoc.hAllocation = VK_NULL_HANDLE;
-                ++m_2ndNullItemsCount;
-                m_SumFreeSize += currSuballoc.size;
-                CleanupAfterFree();
-                return;
-            }
+            it->type = VMA_SUBALLOCATION_TYPE_FREE;
+            it->hAllocation = VK_NULL_HANDLE;
+            ++m_2ndNullItemsCount;
+            m_SumFreeSize += it->size;
+            CleanupAfterFree();
+            return;
         }
     }
 
