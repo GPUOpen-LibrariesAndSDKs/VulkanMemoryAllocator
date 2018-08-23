@@ -4927,7 +4927,6 @@ public:
     ~VmaPool_T();
 
     uint32_t GetId() const { return m_Id; }
-    uint32_t GetFlags() const { return m_Flags; }
     void SetId(uint32_t id) { VMA_ASSERT(m_Id == 0); m_Id = id; }
 
 #if VMA_STATS_STRING_ENABLED
@@ -4936,7 +4935,6 @@ public:
 
 private:
     uint32_t m_Id;
-    uint32_t m_Flags;
 };
 
 class VmaDefragmentator
@@ -9205,8 +9203,7 @@ VmaPool_T::VmaPool_T(
         createInfo.frameInUseCount,
         true, // isCustomPool
         (createInfo.flags & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) != 0), // linearAlgorithm
-    m_Id(0),
-    m_Flags(createInfo.flags)
+    m_Id(0)
 {
 }
 
@@ -9797,6 +9794,12 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
         {
             json.WriteString("FrameInUseCount");
             json.WriteNumber(m_FrameInUseCount);
+        }
+
+        if(m_LinearAlgorithm)
+        {
+            json.WriteString("LinearAlgorithm");
+            json.WriteBool(true);
         }
     }
     else
@@ -12165,6 +12168,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
         }
     }
 
+    // Custom pools
     {
         VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
         const size_t poolCount = m_Pools.size();

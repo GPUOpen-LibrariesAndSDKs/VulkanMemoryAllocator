@@ -46,10 +46,12 @@ args = argParser.parse_args()
 data = {}
 
 
-def ProcessBlock(dstBlockList, iBlockId, objBlock):
+def ProcessBlock(dstBlockList, iBlockId, objBlock, bLinearAlgorithm):
     iBlockSize = int(objBlock['TotalBytes'])
     arrSuballocs  = objBlock['Suballocations']
     dstBlockObj = {'ID': iBlockId, 'Size':iBlockSize, 'Suballocations':[]}
+    if bLinearAlgorithm:
+    	dstBlockObj['LinearAlgorithm'] = True
     dstBlockList.append(dstBlockObj)
     for objSuballoc in arrSuballocs:
         dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size']), int(objSuballoc['Usage']) if ('Usage' in objSuballoc) else 0))
@@ -182,16 +184,18 @@ if 'DefaultPools' in jsonSrc:
         iType = int(sType[5:])
         typeData = GetDataForMemoryType(iType)
         for sBlockId, objBlock in tType[1]['Blocks'].items():
-            ProcessBlock(typeData['DefaultPoolBlocks'], int(sBlockId), objBlock)
+            ProcessBlock(typeData['DefaultPoolBlocks'], int(sBlockId), objBlock, False)
 if 'Pools' in jsonSrc:
     objPools = jsonSrc['Pools']
     for sPoolId, objPool in objPools.items():
         iType = int(objPool['MemoryTypeIndex'])
         typeData = GetDataForMemoryType(iType)
         objBlocks = objPool['Blocks']
+        bLinearAlgorithm = 'LinearAlgorithm' in objPool and objPool['LinearAlgorithm']
         for sBlockId, objBlock in objBlocks.items():
-            typeData['CustomPools'][int(sPoolId)] = []
-            ProcessBlock(typeData['CustomPools'][int(sPoolId)], int(sBlockId), objBlock)
+            dstBlockArray = []
+            typeData['CustomPools'][int(sPoolId)] = dstBlockArray
+            ProcessBlock(dstBlockArray, int(sBlockId), objBlock, bLinearAlgorithm)
 
 iImgSizeY, fPixelsPerByte = CalcParams()
 
@@ -240,7 +244,11 @@ for iMemTypeIndex in sorted(data.keys()):
     index = 0
     for iPoolId, listPool in dictMemType['CustomPools'].items():
         for objBlock in listPool:
-          draw.text((IMG_MARGIN, y), "Custom pool %d block %d" % (iPoolId, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
+          if 'LinearAlgorithm' in objBlock:
+              linearAlgorithmStr = ' (linear algorithm)';
+          else:
+              linearAlgorithmStr = '';
+          draw.text((IMG_MARGIN, y), "Custom pool %d%s block %d" % (iPoolId, linearAlgorithmStr, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
           y += FONT_SIZE + IMG_MARGIN
           DrawBlock(draw, y, objBlock)
           y += MAP_SIZE + IMG_MARGIN
@@ -262,5 +270,6 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
   - Key is integer pool ID. Value is list of objects, each containing dictionary with:
     - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
+    - Fixed key 'LinearAlgorithm'. Optional. Value is True.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
 """
