@@ -11543,13 +11543,23 @@ bool VmaAllocator_T::TouchAllocation(VmaAllocation hAllocation)
 
 VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool)
 {
-    VMA_DEBUG_LOG("  CreatePool: MemoryTypeIndex=%u", pCreateInfo->memoryTypeIndex);
+    VMA_DEBUG_LOG("  CreatePool: MemoryTypeIndex=%u, flags=%u", pCreateInfo->memoryTypeIndex, pCreateInfo->flags);
+
+    const bool isLinearAlgorithm = (pCreateInfo->flags & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) != 0;
 
     VmaPoolCreateInfo newCreateInfo = *pCreateInfo;
 
     if(newCreateInfo.maxBlockCount == 0)
     {
-        newCreateInfo.maxBlockCount = SIZE_MAX;
+        newCreateInfo.maxBlockCount = isLinearAlgorithm ? 1 : SIZE_MAX;
+    }
+    if(newCreateInfo.minBlockCount > newCreateInfo.maxBlockCount)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+    if(isLinearAlgorithm && newCreateInfo.maxBlockCount > 1)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
     if(newCreateInfo.blockSize == 0)
     {

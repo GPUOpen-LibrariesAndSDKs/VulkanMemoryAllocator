@@ -1821,6 +1821,16 @@ static void TestLinearAllocator()
         bufInfo.clear();
     }
 
+    // Try to create pool with maxBlockCount higher than 1. It should fail.
+    {
+        VmaPoolCreateInfo altPoolCreateInfo = poolCreateInfo;
+        altPoolCreateInfo.maxBlockCount = 2;
+
+        VmaPool altPool = nullptr;
+        res = vmaCreatePool(g_hAllocator, &altPoolCreateInfo, &altPool);
+        assert(res != VK_SUCCESS);
+    }
+
     vmaDestroyPool(g_hAllocator, pool);
 }
 
