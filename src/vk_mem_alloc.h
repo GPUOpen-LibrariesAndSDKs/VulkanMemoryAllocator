@@ -8618,7 +8618,44 @@ uint32_t VmaBlockMetadata_Linear::MakeAllocationsLost(uint32_t currentFrameIndex
 
 VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
 {
-    // TODO
+    SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+    for(size_t i = m_1stNullItemsBeginCount, count = suballocations1st.size(); i < count; ++i)
+    {
+        const VmaSuballocation& suballoc = suballocations1st[i];
+        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
+        {
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
+            {
+                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
+                return VK_ERROR_VALIDATION_FAILED_EXT;
+            }
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
+            {
+                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
+                return VK_ERROR_VALIDATION_FAILED_EXT;
+            }
+        }
+    }
+
+    SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+    for(size_t i = 0, count = suballocations2nd.size(); i < count; ++i)
+    {
+        const VmaSuballocation& suballoc = suballocations2nd[i];
+        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
+        {
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
+            {
+                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
+                return VK_ERROR_VALIDATION_FAILED_EXT;
+            }
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
+            {
+                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
+                return VK_ERROR_VALIDATION_FAILED_EXT;
+            }
+        }
+    }
+
     return VK_SUCCESS;
 }
 
