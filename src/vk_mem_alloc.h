@@ -4629,7 +4629,7 @@ public:
 
     virtual bool Validate() const;
     virtual size_t GetAllocationCount() const;
-    virtual VkDeviceSize GetSumFreeSize() const;
+    virtual VkDeviceSize GetSumFreeSize() const { return m_SumFreeSize; }
     virtual VkDeviceSize GetUnusedRangeSizeMax() const;
     virtual bool IsEmpty() const { return GetAllocationCount() == 0; }
 
@@ -4696,6 +4696,7 @@ private:
         SECOND_VECTOR_DOUBLE_STACK,
     };
 
+    VkDeviceSize m_SumFreeSize;
     SuballocationVectorType m_Suballocations0, m_Suballocations1;
     uint32_t m_1stVectorIndex;
     SECOND_VECTOR_MODE m_2ndVectorMode;
@@ -7179,6 +7180,7 @@ void VmaBlockMetadata_Generic::UnregisterFreeSuballocation(VmaSuballocationList:
 // class VmaBlockMetadata_Linear
 
 VmaBlockMetadata_Linear::VmaBlockMetadata_Linear(VmaAllocator hAllocator) :
+    m_SumFreeSize(0),
     m_Suballocations0(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
     m_Suballocations1(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
     m_1stVectorIndex(0),
@@ -7196,6 +7198,7 @@ VmaBlockMetadata_Linear::~VmaBlockMetadata_Linear()
 void VmaBlockMetadata_Linear::Init(VkDeviceSize size)
 {
     VmaBlockMetadata::Init(size);
+    m_SumFreeSize = size;
 }
 
 bool VmaBlockMetadata_Linear::Validate() const
@@ -7234,6 +7237,7 @@ bool VmaBlockMetadata_Linear::Validate() const
         }
     }
 
+    VkDeviceSize sumUsedSize = 0;
     const size_t suballoc1stCount = suballocations1st.size();
     VkDeviceSize offset = VMA_DEBUG_MARGIN;
 
@@ -7265,9 +7269,9 @@ bool VmaBlockMetadata_Linear::Validate() const
                 {
                     return false;
                 }
+                sumUsedSize += suballoc.size;
             }
-
-            if(currFree)
+            else
             {
                 ++nullItem2ndCount;
             }
@@ -7321,9 +7325,9 @@ bool VmaBlockMetadata_Linear::Validate() const
             {
                 return false;
             }
+            sumUsedSize += suballoc.size;
         }
-
-        if(currFree)
+        else
         {
             ++nullItem1stCount;
         }
@@ -7363,9 +7367,9 @@ bool VmaBlockMetadata_Linear::Validate() const
                 {
                     return false;
                 }
+                sumUsedSize += suballoc.size;
             }
-
-            if(currFree)
+            else
             {
                 ++nullItem2ndCount;
             }
@@ -7383,6 +7387,10 @@ bool VmaBlockMetadata_Linear::Validate() const
     {
         return false;
     }
+    if(m_SumFreeSize != GetSize() - sumUsedSize)
+    {
+        return false;
+    }
 
     return true;
 }
@@ -7391,12 +7399,6 @@ size_t VmaBlockMetadata_Linear::GetAllocationCount() const
 {
     return AccessSuballocations1st().size() - (m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount) +
         AccessSuballocations2nd().size() - m_2ndNullItemsCount;
-}
-
-VkDeviceSize VmaBlockMetadata_Linear::GetSumFreeSize() const
-{
-    // TODO
-    return GetSize();
 }
 
 VkDeviceSize VmaBlockMetadata_Linear::GetUnusedRangeSizeMax() const
@@ -8486,6 +8488,7 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
             {
                 suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
                 suballoc.hAllocation = VK_NULL_HANDLE;
+                m_SumFreeSize += suballoc.size;
                 ++m_1stNullItemsMiddleCount;
                 ++madeLostCount;
             }
@@ -8518,6 +8521,7 @@ uint32_t VmaBlockMetadata_Linear::MakeAllocationsLost(uint32_t currentFrameIndex
             suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
             suballoc.hAllocation = VK_NULL_HANDLE;
             ++m_1stNullItemsMiddleCount;
+            m_SumFreeSize += suballoc.size;
             ++lostAllocationCount;
         }
     }
@@ -8617,6 +8621,8 @@ void VmaBlockMetadata_Linear::Alloc(
             }
         }
     }
+
+    m_SumFreeSize -= newSuballoc.size;
 }
 
 void VmaBlockMetadata_Linear::Free(const VmaAllocation allocation)
@@ -8637,6 +8643,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         {
             firstSuballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
             firstSuballoc.hAllocation = VK_NULL_HANDLE;
+            m_SumFreeSize += firstSuballoc.size;
             ++m_1stNullItemsBeginCount;
             CleanupAfterFree();
             return;
@@ -8650,6 +8657,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         VmaSuballocation& lastSuballoc = suballocations2nd.back();
         if(lastSuballoc.offset == offset)
         {
+            m_SumFreeSize += lastSuballoc.size;
             suballocations2nd.pop_back();
             CleanupAfterFree();
             return;
@@ -8661,6 +8669,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         VmaSuballocation& lastSuballoc = suballocations1st.back();
         if(lastSuballoc.offset == offset)
         {
+            m_SumFreeSize += lastSuballoc.size;
             suballocations1st.pop_back();
             CleanupAfterFree();
             return;
@@ -8677,6 +8686,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
             currSuballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
             currSuballoc.hAllocation = VK_NULL_HANDLE;
             ++m_1stNullItemsMiddleCount;
+            m_SumFreeSize += currSuballoc.size;
             CleanupAfterFree();
             return;
         }
@@ -8694,6 +8704,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
                 currSuballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
                 currSuballoc.hAllocation = VK_NULL_HANDLE;
                 ++m_2ndNullItemsCount;
+                m_SumFreeSize += currSuballoc.size;
                 CleanupAfterFree();
                 return;
             }
