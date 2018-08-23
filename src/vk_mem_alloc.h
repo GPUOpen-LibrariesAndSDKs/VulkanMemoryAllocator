@@ -55,6 +55,11 @@ Documentation of all members: vk_mem_alloc.h
     - [Finding out if memory is mappable](@ref memory_mapping_finding_if_memory_mappable)
   - \subpage custom_memory_pools
     - [Choosing memory type index](@ref custom_memory_pools_MemTypeIndex)
+    - [Linear allocation algorithm](@ref linear_algorithm)
+      - [Free-at-once](@ref linear_algorithm_free_at_once)
+      - [Stack](@ref linear_algorithm_stack)
+      - [Double stack](@ref linear_algorithm_double_stack)
+      - [Ring buffer](@ref linear_algorithm_ring_buffer)
   - \subpage defragmentation
   - \subpage lost_allocations
   - \subpage statistics
@@ -563,6 +568,85 @@ When creating buffers/images allocated in that pool, provide following parameter
   or the other way around.
 - VmaAllocationCreateInfo: You don't need to pass same parameters. Fill only `pool` member.
   Other members are ignored anyway.
+
+\section linear_algorithm Linear allocation algorithm
+
+Each Vulkan memory block managed by this library has accompanying metadata that
+keeps track of used and unused regions. By default, the metadata structure and
+algorithm tries to find best place for new allocations among free regions to
+optimize memory usage. This way you can allocate and free objects in any order.
+
+![Default allocation algorithm](../gfx/Linear_allocator_1_algo_default.png)
+
+Sometimes there is a need to use simpler, linear allocation algorithm. You can
+create custom pool that uses such algorithm by adding flag
+#VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT to VmaPoolCreateInfo::flags while creating
+#VmaPool object. Then an alternative metadata management is used. It always
+creates new allocations after last one and doesn't reuse free regions after
+allocations freed in the middle. It results in better allocation performance and
+less memory consumed by metadata.
+
+![Linear allocation algorithm](../gfx/Linear_allocator_2_algo_linear.png)
+
+With this one flag, you can create a custom pool that can be used in many ways:
+free-at-once, stack, double stack, and ring buffer. See below for details.
+
+Pools with linear algorithm must have only one memory block -
+VmaPoolCreateInfo::maxBlockCount must be 1.
+
+\subsection linear_algorithm_free_at_once Free-at-once
+
+In a pool that uses linear algorithm, you still need to free all the allocations
+individually, e.g. by using vmaFreeMemory() or vmaDestroyBuffer(). You can free
+them in any order. New allocations are always made after last one - free space
+in the middle is not reused. However, when you release all the allocation and
+the pool becomes empty, allocation starts from the beginning again. This way you
+can use linear algorithm to speed up creation of allocations that you are going
+to release all at once.
+
+![Free-at-once](../gfx/Linear_allocator_3_free_at_once.png)
+
+\subsection linear_algorithm_stack Stack
+
+When you free an allocation that was created last, its space can be reused.
+Thanks to this, if you always release allocations in the order opposite to their
+creation (LIFO - Last In First Out), you can achieve behavior of a stack.
+
+![Stack](../gfx/Linear_allocator_4_stack.png)
+
+\subsection linear_algorithm_double_stack Double stack
+
+The space reserved by a custom pool with linear algorithm may be used by two
+stacks:
+
+- First, default one, growing up from offset 0.
+- Second, "upper" one, growing down from the end towards lower offsets.
+
+To make allocation from upper stack, add flag #VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
+to VmaAllocationCreateInfo::flags.
+
+When the two stacks' ends meet so there is not enough space between them for a
+new allocation, such allocation fails with usual
+`VK_ERROR_OUT_OF_DEVICE_MEMORY` error.
+
+![Double stack](../gfx/Linear_allocator_7_double_stack.png)
+
+\subsection linear_algorithm_ring_buffer Ring buffer
+
+When you free some allocations from the beginning and there is not enough free space
+for a new one at the end of a pool, allocator's "cursor" wraps around to the
+beginning and starts allocation there. Thanks to this, if you always release
+allocations in the same order as you created them (FIFO - First In First Out),
+you can achieve behavior of a ring buffer / queue.
+
+![Ring buffer](../gfx/Linear_allocator_5_ring_buffer.png)
+
+Pools with linear algorithm support lost allocations when used as ring buffer.
+If there is not enough free space for a new allocation, but existing allocations
+from the front of the queue can become lost, they become lost and the allocation
+succeeds.
+
+![Ring buffer with lost allocations](../gfx/Linear_allocator_6_ring_buffer_lost.png)
 
 
 \page defragmentation Defragmentation
@@ -1706,7 +1790,9 @@ typedef enum VmaAllocationCreateFlagBits {
     freed together with the allocation. It is also used in vmaBuildStatsString().
     */
     VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT = 0x00000020,
-    /** TODO
+    /** Allocation will be created from upper stack in a double stack pool.
+
+    This flag is only allowed for custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT flag.
     */
     VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT = 0x00000040,
 
@@ -1836,10 +1922,19 @@ typedef enum VmaPoolCreateFlagBits {
     */
     VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT = 0x00000002,
 
-    /** \brief TODO
+    /** \brief Enables alternative, linear allocation algorithm in this pool.
 
-    TODO
-    */
+Specify this flag to enable linear allocation algorithm, which always creates
+new allocations after last one and doesn't reuse space from allocations freed in
+between. It trades memory consumption for simplified algorithm and data
+structure, which has better performance and uses less memory for metadata.
+
+By using this flag, you can achieve behavior of free-at-once, stack,
+ring buffer, and double stack. For details, see documentation chapter
+\ref linear_algorithm.
+
+When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
+*/
     VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT = 0x00000004,
 
     VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
@@ -1867,10 +1962,10 @@ typedef struct VmaPoolCreateInfo {
     size_t minBlockCount;
     /** \brief Maximum number of blocks that can be allocated in this pool. Optional.
 
-    Optional. Set to 0 to use default, which is `SIZE_MAX`, which means no limit.
+    Set to 0 to use default, which is `SIZE_MAX`, which means no limit.
     When #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT is used, default is 1.
     
-    Set to same value as minBlockCount to have fixed amount of memory allocated
+    Set to same value as VmaPoolCreateInfo::minBlockCount to have fixed amount of memory allocated
     throughout whole lifetime of this pool.
     */
     size_t maxBlockCount;
@@ -1957,7 +2052,7 @@ void vmaMakePoolAllocationsLost(
 
 Corruption detection is enabled only when `VMA_DEBUG_DETECT_CORRUPTION` macro is defined to nonzero,
 `VMA_DEBUG_MARGIN` is defined to nonzero and the pool is created in memory type that is
-`HOST_VISIBLE` and `HOST_COHERENT`. For more information, see [Corruption detection](@ref corruption_detection).
+`HOST_VISIBLE` and `HOST_COHERENT`. For more information, see [Corruption detection](@ref debugging_memory_usage_corruption_detection).
 
 Possible return values:
 
@@ -2233,7 +2328,7 @@ void vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, V
 
 Corruption detection is enabled only when `VMA_DEBUG_DETECT_CORRUPTION` macro is defined to nonzero,
 `VMA_DEBUG_MARGIN` is defined to nonzero and only for memory types that are
-`HOST_VISIBLE` and `HOST_COHERENT`. For more information, see [Corruption detection](@ref corruption_detection).
+`HOST_VISIBLE` and `HOST_COHERENT`. For more information, see [Corruption detection](@ref debugging_memory_usage_corruption_detection).
 
 Possible return values:
 
