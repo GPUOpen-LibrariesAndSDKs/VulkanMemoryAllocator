@@ -2286,10 +2286,14 @@ usage. Only allocations that are in pAllocations array can be moved. All other
 allocations are considered nonmovable in this call. Basic rules:
 
 - Only allocations made in memory types that have
-  `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag can be compacted. You may pass other
-  allocations but it makes no sense - these will never be moved.
-- You may pass allocations made with #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT but
-  it makes no sense - they will never be moved.
+  `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` and `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT`
+  flags can be compacted. You may pass other allocations but it makes no sense -
+  these will never be moved.
+- Custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT flag are not
+  defragmented. Allocations passed to this function that come from such pools
+  are ignored.
+- Allocations created with #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT or
+  created as dedicated allocations for any other reason are also ignored.
 - Both allocations made with or without #VMA_ALLOCATION_CREATE_MAPPED_BIT
   flag can be compacted. If not persistently mapped, memory will be mapped
   temporarily inside this function if needed.
@@ -9971,6 +9975,7 @@ VmaDefragmentator::VmaDefragmentator(
     m_Allocations(VmaStlAllocator<AllocationInfo>(hAllocator->GetAllocationCallbacks())),
     m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks()))
 {
+    VMA_ASSERT(!pBlockVector->UsesLinearAlgorithm());
 }
 
 VmaDefragmentator::~VmaDefragmentator()
@@ -11470,9 +11475,10 @@ VkResult VmaAllocator_T::Defragment(
         VMA_ASSERT(hAlloc);
         const uint32_t memTypeIndex = hAlloc->GetMemoryTypeIndex();
         // DedicatedAlloc cannot be defragmented.
+        const VkMemoryPropertyFlags requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         if((hAlloc->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK) &&
-            // Only HOST_VISIBLE memory types can be defragmented.
-            ((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0) &&
+            // Only HOST_VISIBLE and HOST_COHERENT memory types can be defragmented.
+            ((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & requiredMemFlags) == requiredMemFlags) &&
             // Lost allocation cannot be defragmented.
             (hAlloc->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST))
         {
@@ -11482,7 +11488,11 @@ VkResult VmaAllocator_T::Defragment(
             // This allocation belongs to custom pool.
             if(hAllocPool != VK_NULL_HANDLE)
             {
-                pAllocBlockVector = &hAllocPool->GetBlockVector();
+                // Pools with linear algorithm are not defragmented.
+                if(!hAllocPool->m_BlockVector.UsesLinearAlgorithm())
+                {
+                    pAllocBlockVector = &hAllocPool->GetBlockVector();
+                }
             }
             // This allocation belongs to general pool.
             else
@@ -11490,11 +11500,14 @@ VkResult VmaAllocator_T::Defragment(
                 pAllocBlockVector = m_pBlockVectors[memTypeIndex];
             }
 
-            VmaDefragmentator* const pDefragmentator = pAllocBlockVector->EnsureDefragmentator(this, currentFrameIndex);
-
-            VkBool32* const pChanged = (pAllocationsChanged != VMA_NULL) ?
-                &pAllocationsChanged[allocIndex] : VMA_NULL;
-            pDefragmentator->AddAllocation(hAlloc, pChanged);
+            if(pAllocBlockVector != VMA_NULL)
+            {
+                VmaDefragmentator* const pDefragmentator =
+                    pAllocBlockVector->EnsureDefragmentator(this, currentFrameIndex);
+                VkBool32* const pChanged = (pAllocationsChanged != VMA_NULL) ?
+                    &pAllocationsChanged[allocIndex] : VMA_NULL;
+                pDefragmentator->AddAllocation(hAlloc, pChanged);
+            }
         }
     }
 
