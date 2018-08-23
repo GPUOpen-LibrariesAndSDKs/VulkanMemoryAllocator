@@ -4926,8 +4926,8 @@ public:
         const VmaPoolCreateInfo& createInfo);
     ~VmaPool_T();
 
-    VmaBlockVector& GetBlockVector() { return m_BlockVector; }
     uint32_t GetId() const { return m_Id; }
+    uint32_t GetFlags() const { return m_Flags; }
     void SetId(uint32_t id) { VMA_ASSERT(m_Id == 0); m_Id = id; }
 
 #if VMA_STATS_STRING_ENABLED
@@ -4936,6 +4936,7 @@ public:
 
 private:
     uint32_t m_Id;
+    uint32_t m_Flags;
 };
 
 class VmaDefragmentator
@@ -9204,7 +9205,8 @@ VmaPool_T::VmaPool_T(
         createInfo.frameInUseCount,
         true, // isCustomPool
         (createInfo.flags & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) != 0), // linearAlgorithm
-    m_Id(0)
+    m_Id(0),
+    m_Flags(createInfo.flags)
 {
 }
 
@@ -11415,7 +11417,7 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
         VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
         for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
         {
-            m_Pools[poolIndex]->GetBlockVector().AddStats(pStats);
+            m_Pools[poolIndex]->m_BlockVector.AddStats(pStats);
         }
     }
 
@@ -11491,7 +11493,7 @@ VkResult VmaAllocator_T::Defragment(
                 // Pools with linear algorithm are not defragmented.
                 if(!hAllocPool->m_BlockVector.UsesLinearAlgorithm())
                 {
-                    pAllocBlockVector = &hAllocPool->GetBlockVector();
+                    pAllocBlockVector = &hAllocPool->m_BlockVector;
                 }
             }
             // This allocation belongs to general pool.
@@ -11541,7 +11543,7 @@ VkResult VmaAllocator_T::Defragment(
     // Process custom pools.
     for(size_t poolIndex = 0; (poolIndex < poolCount) && (result == VK_SUCCESS); ++poolIndex)
     {
-        result = m_Pools[poolIndex]->GetBlockVector().Defragment(
+        result = m_Pools[poolIndex]->m_BlockVector.Defragment(
             pDefragmentationStats,
             maxBytesToMove,
             maxAllocationsToMove);
@@ -11552,7 +11554,7 @@ VkResult VmaAllocator_T::Defragment(
     // Process custom pools.
     for(size_t poolIndex = poolCount; poolIndex--; )
     {
-        m_Pools[poolIndex]->GetBlockVector().DestroyDefragmentator();
+        m_Pools[poolIndex]->m_BlockVector.DestroyDefragmentator();
     }
 
     // Process standard memory.
@@ -11799,9 +11801,9 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
         VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
         for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
         {
-            if(((1u << m_Pools[poolIndex]->GetBlockVector().GetMemoryTypeIndex()) & memoryTypeBits) != 0)
+            if(((1u << m_Pools[poolIndex]->m_BlockVector.GetMemoryTypeIndex()) & memoryTypeBits) != 0)
             {
-                VkResult localRes = m_Pools[poolIndex]->GetBlockVector().CheckCorruption();
+                VkResult localRes = m_Pools[poolIndex]->m_BlockVector.CheckCorruption();
                 switch(localRes)
                 {
                 case VK_ERROR_FEATURE_NOT_PRESENT:
