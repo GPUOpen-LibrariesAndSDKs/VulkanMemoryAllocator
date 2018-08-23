@@ -7403,8 +7403,66 @@ size_t VmaBlockMetadata_Linear::GetAllocationCount() const
 
 VkDeviceSize VmaBlockMetadata_Linear::GetUnusedRangeSizeMax() const
 {
-    // TODO
-    return GetSize();
+    const VkDeviceSize size = GetSize();
+
+    /*
+    We don't consider gaps inside allocation vectors with freed allocations because
+    they are not suitable for reuse in linear allocator. We consider only space that
+    is available for new allocations.
+    */
+    if(IsEmpty())
+    {
+        return size;
+    }
+    
+    const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+
+    switch(m_2ndVectorMode)
+    {
+    case SECOND_VECTOR_EMPTY:
+        /*
+        Available space is after end of 1st, as well as before beginning of 1st (which
+        whould make it a ring buffer).
+        */
+        {
+            const size_t suballocations1stCount = suballocations1st.size();
+            VMA_ASSERT(suballocations1stCount > m_1stNullItemsBeginCount);
+            const VmaSuballocation& firstSuballoc = suballocations1st[m_1stNullItemsBeginCount];
+            const VmaSuballocation& lastSuballoc  = suballocations1st[suballocations1stCount - 1];
+            return VMA_MAX(
+                firstSuballoc.offset,
+                size - (lastSuballoc.offset + lastSuballoc.size));
+        }
+        break;
+
+    case SECOND_VECTOR_RING_BUFFER:
+        /*
+        Available space is only between end of 2nd and beginning of 1st.
+        */
+        {
+            const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+            const VmaSuballocation& lastSuballoc2nd = suballocations2nd.back();
+            const VmaSuballocation& firstSuballoc1st = suballocations1st[m_1stNullItemsBeginCount];
+            return firstSuballoc1st.offset - (lastSuballoc2nd.offset + lastSuballoc2nd.size);
+        }
+        break;
+
+    case SECOND_VECTOR_DOUBLE_STACK:
+        /*
+        Available space is only between end of 1st and top of 2nd.
+        */
+        {
+            const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+            const VmaSuballocation& topSuballoc2nd = suballocations2nd.back();
+            const VmaSuballocation& lastSuballoc1st = suballocations1st.back();
+            return topSuballoc2nd.offset - (lastSuballoc1st.offset + lastSuballoc1st.size);
+        }
+        break;
+
+    default:
+        VMA_ASSERT(0);
+        return 0;
+    }
 }
 
 void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
