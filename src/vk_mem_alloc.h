@@ -1806,6 +1806,29 @@ typedef enum VmaAllocationCreateFlagBits {
     */
     VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT = 0x00000040,
 
+    /** Allocation strategy that chooses smallest possible free range for the
+    allocation.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT  = 0x00010000,
+    /** Allocation strategy that chooses biggest possible free range for the
+    allocation.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT = 0x00020000,
+    /** Allocation strategy that chooses first suitable free range for the
+    allocation.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT = 0x00040000,
+
+    /** Allocation strategy that tries to minimize memory usage.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT,
+    /** Allocation strategy that tries to minimize allocation time.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT,
+    /** Allocation strategy that tries to minimize memory fragmentation.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT,
+
     VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocationCreateFlagBits;
 typedef VkFlags VmaAllocationCreateFlags;
@@ -2791,22 +2814,6 @@ If providing your own implementation, you need to implement a subset of std::ato
 */
 #ifndef VMA_ATOMIC_UINT32
    #define VMA_ATOMIC_UINT32 std::atomic<uint32_t>
-#endif
-
-#ifndef VMA_BEST_FIT
-    /**
-    Main parameter for function assessing how good is a free suballocation for a new
-    allocation request.
-    
-    - Set to 1 to use Best-Fit algorithm - prefer smaller blocks, as close to the
-      size of requested allocations as possible.
-    - Set to 0 to use Worst-Fit algorithm - prefer larger blocks, as large as
-      possible.
-    
-    Experiments in special testing environment showed that Best-Fit algorithm is
-    better.
-    */
-    #define VMA_BEST_FIT (1)
 #endif
 
 #ifndef VMA_DEBUG_ALWAYS_DEDICATED_MEMORY
@@ -4536,6 +4543,7 @@ public:
         bool upperAddress,
         VmaSuballocationType allocType,
         bool canMakeOtherLost,
+        uint32_t strategy, // Always one of VMA_ALLOCATION_CREATE_STRATEGY_* flags.
         VmaAllocationRequest* pAllocationRequest) = 0;
 
     virtual bool MakeRequestedAllocationsLost(
@@ -4608,6 +4616,7 @@ public:
         bool upperAddress,
         VmaSuballocationType allocType,
         bool canMakeOtherLost,
+        uint32_t strategy,
         VmaAllocationRequest* pAllocationRequest);
 
     virtual bool MakeRequestedAllocationsLost(
@@ -4776,6 +4785,7 @@ public:
         bool upperAddress,
         VmaSuballocationType allocType,
         bool canMakeOtherLost,
+        uint32_t strategy,
         VmaAllocationRequest* pAllocationRequest);
 
     virtual bool MakeRequestedAllocationsLost(
@@ -5036,6 +5046,7 @@ private:
         VmaAllocationCreateFlags allocFlags,
         void* pUserData,
         VmaSuballocationType suballocType,
+        uint32_t strategy,
         VmaAllocation* pAllocation);
 
     VkResult CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIndex);
@@ -6576,16 +6587,6 @@ void VmaBlockMetadata_Generic::PrintDetailedMap(class VmaJsonWriter& json) const
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
-/*
-How many suitable free suballocations to analyze before choosing best one.
-- Set to 1 to use First-Fit algorithm - first suitable free suballocation will
-  be chosen.
-- Set to UINT32_MAX to use Best-Fit/Worst-Fit algorithm - all suitable free
-  suballocations will be analized and best one will be chosen.
-- Any other value is also acceptable.
-*/
-//static const uint32_t MAX_SUITABLE_SUBALLOCATIONS_TO_CHECK = 8;
-
 bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     uint32_t currentFrameIndex,
     uint32_t frameInUseCount,
@@ -6595,6 +6596,7 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     bool upperAddress,
     VmaSuballocationType allocType,
     bool canMakeOtherLost,
+    uint32_t strategy,
     VmaAllocationRequest* pAllocationRequest)
 {
     VMA_ASSERT(allocSize > 0);
@@ -6604,7 +6606,8 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     VMA_HEAVY_ASSERT(Validate());
 
     // There is not enough total free space in this block to fullfill the request: Early return.
-    if(canMakeOtherLost == false && m_SumFreeSize < allocSize + 2 * VMA_DEBUG_MARGIN)
+    if(canMakeOtherLost == false &&
+        m_SumFreeSize < allocSize + 2 * VMA_DEBUG_MARGIN)
     {
         return false;
     }
@@ -6613,7 +6616,7 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     const size_t freeSuballocCount = m_FreeSuballocationsBySize.size();
     if(freeSuballocCount > 0)
     {
-        if(VMA_BEST_FIT)
+        if(strategy == VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
         {
             // Find first free suballocation with size not less than allocSize + 2 * VMA_DEBUG_MARGIN.
             VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
@@ -6643,7 +6646,7 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
                 }
             }
         }
-        else
+        else // WORST_FIT, FIRST_FIT
         {
             // Search staring from biggest suballocations.
             for(size_t index = freeSuballocCount; index--; )
@@ -6700,7 +6703,8 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
                 {
                     tmpAllocRequest.item = suballocIt;
 
-                    if(tmpAllocRequest.CalcCost() < pAllocationRequest->CalcCost())
+                    if(tmpAllocRequest.CalcCost() < pAllocationRequest->CalcCost() ||
+                        strategy == VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT)
                     {
                         *pAllocationRequest = tmpAllocRequest;
                     }
@@ -8306,6 +8310,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
     bool upperAddress,
     VmaSuballocationType allocType,
     bool canMakeOtherLost,
+    uint32_t strategy,
     VmaAllocationRequest* pAllocationRequest)
 {
     VMA_ASSERT(allocSize > 0);
@@ -9444,6 +9449,10 @@ VkResult VmaBlockVector::Allocate(
     const bool canCreateNewBlock =
         ((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0) &&
         (m_Blocks.size() < m_MaxBlockCount);
+    uint32_t strategy = createInfo.flags & (
+        VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT |
+        VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT |
+        VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT);
 
     // If linearAlgorithm is used, canMakeOtherLost is available only when used as ring buffer.
     // Which in turn is available only when maxBlockCount = 1.
@@ -9456,6 +9465,20 @@ VkResult VmaBlockVector::Allocate(
     if(isUpperAddress &&
         (!m_LinearAlgorithm || m_MaxBlockCount > 1))
     {
+        return VK_ERROR_FEATURE_NOT_PRESENT;
+    }
+
+    // Validate strategy.
+    switch(strategy)
+    {
+    case 0:
+        strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
+        break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT:
+    case VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT:
+    case VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT:
+        break;
+    default:
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
 
@@ -9494,6 +9517,7 @@ VkResult VmaBlockVector::Allocate(
                     allocFlagsCopy,
                     createInfo.pUserData,
                     suballocType,
+                    strategy,
                     pAllocation);
                 if(res == VK_SUCCESS)
                 {
@@ -9504,25 +9528,54 @@ VkResult VmaBlockVector::Allocate(
         }
         else
         {
-            // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
-            for(size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex )
+            if(strategy == VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
             {
-                VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
-                VMA_ASSERT(pCurrBlock);
-                VkResult res = AllocateFromBlock(
-                    pCurrBlock,
-                    hCurrentPool,
-                    currentFrameIndex,
-                    size,
-                    alignment,
-                    allocFlagsCopy,
-                    createInfo.pUserData,
-                    suballocType,
-                    pAllocation);
-                if(res == VK_SUCCESS)
+                // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
+                for(size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex )
                 {
-                    VMA_DEBUG_LOG("    Returned from existing block #%u", (uint32_t)blockIndex);
-                    return VK_SUCCESS;
+                    VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
+                    VMA_ASSERT(pCurrBlock);
+                    VkResult res = AllocateFromBlock(
+                        pCurrBlock,
+                        hCurrentPool,
+                        currentFrameIndex,
+                        size,
+                        alignment,
+                        allocFlagsCopy,
+                        createInfo.pUserData,
+                        suballocType,
+                        strategy,
+                        pAllocation);
+                    if(res == VK_SUCCESS)
+                    {
+                        VMA_DEBUG_LOG("    Returned from existing block #%u", (uint32_t)blockIndex);
+                        return VK_SUCCESS;
+                    }
+                }
+            }
+            else // WORST_FIT, FIRST_FIT
+            {
+                // Backward order in m_Blocks - prefer blocks with largest amount of free space.
+                for(size_t blockIndex = m_Blocks.size(); blockIndex--; )
+                {
+                    VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
+                    VMA_ASSERT(pCurrBlock);
+                    VkResult res = AllocateFromBlock(
+                        pCurrBlock,
+                        hCurrentPool,
+                        currentFrameIndex,
+                        size,
+                        alignment,
+                        allocFlagsCopy,
+                        createInfo.pUserData,
+                        suballocType,
+                        strategy,
+                        pAllocation);
+                    if(res == VK_SUCCESS)
+                    {
+                        VMA_DEBUG_LOG("    Returned from existing block #%u", (uint32_t)blockIndex);
+                        return VK_SUCCESS;
+                    }
                 }
             }
         }
@@ -9589,6 +9642,7 @@ VkResult VmaBlockVector::Allocate(
                     allocFlagsCopy,
                     createInfo.pUserData,
                     suballocType,
+                    strategy,
                     pAllocation);
                 if(res == VK_SUCCESS)
                 {
@@ -9615,34 +9669,76 @@ VkResult VmaBlockVector::Allocate(
             VkDeviceSize bestRequestCost = VK_WHOLE_SIZE;
 
             // 1. Search existing allocations.
-            // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
-            for(size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex )
+            if(strategy == VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
             {
-                VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
-                VMA_ASSERT(pCurrBlock);
-                VmaAllocationRequest currRequest = {};
-                if(pCurrBlock->m_pMetadata->CreateAllocationRequest(
-                    currentFrameIndex,
-                    m_FrameInUseCount,
-                    m_BufferImageGranularity,
-                    size,
-                    alignment,
-                    (createInfo.flags & VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0,
-                    suballocType,
-                    canMakeOtherLost,
-                    &currRequest))
+                // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
+                for(size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex )
                 {
-                    const VkDeviceSize currRequestCost = currRequest.CalcCost();
-                    if(pBestRequestBlock == VMA_NULL ||
-                        currRequestCost < bestRequestCost)
+                    VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
+                    VMA_ASSERT(pCurrBlock);
+                    VmaAllocationRequest currRequest = {};
+                    if(pCurrBlock->m_pMetadata->CreateAllocationRequest(
+                        currentFrameIndex,
+                        m_FrameInUseCount,
+                        m_BufferImageGranularity,
+                        size,
+                        alignment,
+                        (createInfo.flags & VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0,
+                        suballocType,
+                        canMakeOtherLost,
+                        strategy,
+                        &currRequest))
                     {
-                        pBestRequestBlock = pCurrBlock;
-                        bestRequest = currRequest;
-                        bestRequestCost = currRequestCost;
-
-                        if(bestRequestCost == 0)
+                        const VkDeviceSize currRequestCost = currRequest.CalcCost();
+                        if(pBestRequestBlock == VMA_NULL ||
+                            currRequestCost < bestRequestCost)
                         {
-                            break;
+                            pBestRequestBlock = pCurrBlock;
+                            bestRequest = currRequest;
+                            bestRequestCost = currRequestCost;
+
+                            if(bestRequestCost == 0)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else // WORST_FIT, FIRST_FIT
+            {
+                // Backward order in m_Blocks - prefer blocks with largest amount of free space.
+                for(size_t blockIndex = m_Blocks.size(); blockIndex--; )
+                {
+                    VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
+                    VMA_ASSERT(pCurrBlock);
+                    VmaAllocationRequest currRequest = {};
+                    if(pCurrBlock->m_pMetadata->CreateAllocationRequest(
+                        currentFrameIndex,
+                        m_FrameInUseCount,
+                        m_BufferImageGranularity,
+                        size,
+                        alignment,
+                        (createInfo.flags & VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0,
+                        suballocType,
+                        canMakeOtherLost,
+                        strategy,
+                        &currRequest))
+                    {
+                        const VkDeviceSize currRequestCost = currRequest.CalcCost();
+                        if(pBestRequestBlock == VMA_NULL ||
+                            currRequestCost < bestRequestCost ||
+                            strategy == VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT)
+                        {
+                            pBestRequestBlock = pCurrBlock;
+                            bestRequest = currRequest;
+                            bestRequestCost = currRequestCost;
+
+                            if(bestRequestCost == 0 ||
+                                strategy == VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT)
+                            {
+                                break;
+                            }
                         }
                     }
                 }
@@ -9835,6 +9931,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
     VmaAllocationCreateFlags allocFlags,
     void* pUserData,
     VmaSuballocationType suballocType,
+    uint32_t strategy,
     VmaAllocation* pAllocation)
 {
     VMA_ASSERT((allocFlags & VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT) == 0);
@@ -9852,6 +9949,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
         isUpperAddress,
         suballocType,
         false, // canMakeOtherLost
+        strategy,
         &currRequest))
     {
         // Allocate from pCurrBlock.
@@ -10262,6 +10360,7 @@ VkResult VmaDefragmentator::DefragmentRound(
                 false, // upperAddress
                 suballocType,
                 false, // canMakeOtherLost
+                VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT,
                 &dstAllocRequest) &&
             MoveMakesSense(
                 dstBlockIndex, dstAllocRequest.offset, srcBlockIndex, srcOffset))
