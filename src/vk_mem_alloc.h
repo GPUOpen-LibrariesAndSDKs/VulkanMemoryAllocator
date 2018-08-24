@@ -641,7 +641,7 @@ you can achieve behavior of a ring buffer / queue.
 
 ![Ring buffer](../gfx/Linear_allocator_5_ring_buffer.png)
 
-Pools with linear algorithm support lost allocations when used as ring buffer.
+Pools with linear algorithm support [lost allocations](@ref lost_allocations) when used as ring buffer.
 If there is not enough free space for a new allocation, but existing allocations
 from the front of the queue can become lost, they become lost and the allocation
 succeeds.
@@ -8333,7 +8333,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
             for(size_t nextSuballocIndex = suballocations2nd.size(); nextSuballocIndex--; )
             {
                 const VmaSuballocation& nextSuballoc = suballocations2nd[nextSuballocIndex];
-                if(VmaBlocksOnSamePage(nextSuballoc.offset, nextSuballoc.size, resultOffset, bufferImageGranularity))
+                if(VmaBlocksOnSamePage(resultOffset, allocSize, nextSuballoc.offset, bufferImageGranularity))
                 {
                     if(VmaIsBufferImageGranularityConflict(nextSuballoc.type, allocType))
                     {
@@ -8364,7 +8364,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
                 for(size_t prevSuballocIndex = suballocations1st.size(); prevSuballocIndex--; )
                 {
                     const VmaSuballocation& prevSuballoc = suballocations1st[prevSuballocIndex];
-                    if(VmaBlocksOnSamePage(resultOffset, allocSize, prevSuballoc.offset, bufferImageGranularity))
+                    if(VmaBlocksOnSamePage(prevSuballoc.offset, prevSuballoc.size, resultOffset, bufferImageGranularity))
                     {
                         if(VmaIsBufferImageGranularityConflict(allocType, prevSuballoc.type))
                         {

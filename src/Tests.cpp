@@ -7,7 +7,25 @@
 
 #ifdef _WIN32
 
+enum CONFIG_TYPE {
+    CONFIG_TYPE_MINIMUM,
+    CONFIG_TYPE_SMALL,
+    CONFIG_TYPE_AVERAGE,
+    CONFIG_TYPE_LARGE,
+    CONFIG_TYPE_MAXIMUM,
+    CONFIG_TYPE_COUNT
+};
+
+static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
+//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
+
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
+
+static const wchar_t* FREE_ORDER_NAMES[] = {
+    L"FORWARD",
+    L"BACKWARD",
+    L"RANDOM",
+};
 
 struct AllocationSize
 {
@@ -1948,6 +1966,169 @@ static void ManuallyTestLinearAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER freeOrder)
+{
+    RandomNumberGenerator rand{16223};
+
+    const VkDeviceSize bufSizeMin = 32;
+    const VkDeviceSize bufSizeMax = 1024;
+    const size_t maxBufCapacity = 10000;
+    const uint32_t iterationCount = 10;
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = bufSizeMax;
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = bufSizeMax * maxBufCapacity;
+    if(linear)
+        poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    // Buffer created just to get memory requirements. Never bound to any memory.
+    VkBuffer dummyBuffer = VK_NULL_HANDLE;
+    res = vkCreateBuffer(g_hDevice, &sampleBufCreateInfo, nullptr, &dummyBuffer);
+    assert(res == VK_SUCCESS && dummyBuffer);
+
+    VkMemoryRequirements memReq = {};
+    vkGetBufferMemoryRequirements(g_hDevice, dummyBuffer, &memReq);
+
+    vkDestroyBuffer(g_hDevice, dummyBuffer, nullptr);
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    VmaAllocation alloc;
+    std::vector<VmaAllocation> baseAllocations;
+
+    if(!empty)
+    {
+        // Make allocations up to half of pool size.
+        VkDeviceSize totalSize = 0;
+        while(totalSize < poolCreateInfo.blockSize / 2)
+        {
+            memReq.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+            assert(res == VK_SUCCESS);
+            baseAllocations.push_back(alloc);
+            totalSize += memReq.size;
+        }
+
+        // Delete half of them, choose randomly.
+        size_t allocsToDelete = baseAllocations.size() / 2;
+        for(size_t i = 0; i < allocsToDelete; ++i)
+        {
+            const size_t index = (size_t)rand.Generate() % baseAllocations.size();
+            vmaFreeMemory(g_hAllocator, baseAllocations[index]);
+            baseAllocations.erase(baseAllocations.begin() + index);
+        }
+    }
+
+    // BENCHMARK
+    const size_t allocCount = maxBufCapacity / 2;
+    std::vector<VmaAllocation> testAllocations;
+    testAllocations.reserve(allocCount);
+    duration allocTotalDuration = duration::zero();
+    duration freeTotalDuration = duration::zero();
+    for(uint32_t iterationIndex = 0; iterationIndex < iterationCount; ++iterationIndex)
+    {
+        // Allocations
+        time_point allocTimeBeg = std::chrono::high_resolution_clock::now();
+        for(size_t i = 0; i < allocCount; ++i)
+        {
+            memReq.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+            assert(res == VK_SUCCESS);
+            testAllocations.push_back(alloc);
+        }
+        allocTotalDuration += std::chrono::high_resolution_clock::now() - allocTimeBeg;
+
+        // Deallocations
+        switch(freeOrder)
+        {
+        case FREE_ORDER::FORWARD:
+            // Leave testAllocations unchanged.
+            break;
+        case FREE_ORDER::BACKWARD:
+            std::reverse(testAllocations.begin(), testAllocations.end());
+            break;
+        case FREE_ORDER::RANDOM:
+            std::shuffle(testAllocations.begin(), testAllocations.end(), MyUniformRandomNumberGenerator(rand));
+            break;
+        default: assert(0);
+        }
+
+        time_point freeTimeBeg = std::chrono::high_resolution_clock::now();
+        for(size_t i = 0; i < allocCount; ++i)
+            vmaFreeMemory(g_hAllocator, testAllocations[i]);
+        freeTotalDuration += std::chrono::high_resolution_clock::now() - freeTimeBeg;
+
+        testAllocations.clear();
+    }
+
+    // Delete baseAllocations
+    while(!baseAllocations.empty())
+    {
+        vmaFreeMemory(g_hAllocator, baseAllocations.back());
+        baseAllocations.pop_back();
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+
+    wprintf(L"    LinearAlgorithm=%u %s FreeOrder=%s: allocations %g s, free %g s\n",
+        linear ? 1 : 0,
+        empty ? L"Empty" : L"Not empty",
+        FREE_ORDER_NAMES[(size_t)freeOrder],
+        ToFloatSeconds(allocTotalDuration),
+        ToFloatSeconds(freeTotalDuration));
+}
+
+static void BenchmarkLinearAllocator()
+{
+    wprintf(L"Benchmark linear allocator\n");
+
+    uint32_t freeOrderCount = 1;
+    if(ConfigType >= CONFIG_TYPE::CONFIG_TYPE_LARGE)
+        freeOrderCount = 3;
+    else if(ConfigType >= CONFIG_TYPE::CONFIG_TYPE_SMALL)
+        freeOrderCount = 2;
+
+    const uint32_t emptyCount = ConfigType >= CONFIG_TYPE::CONFIG_TYPE_SMALL ? 2 : 1;
+
+    for(uint32_t freeOrderIndex = 0; freeOrderIndex < freeOrderCount; ++freeOrderIndex)
+    {
+        FREE_ORDER freeOrder = FREE_ORDER::COUNT;
+        switch(freeOrderIndex)
+        {
+        case 0: freeOrder = FREE_ORDER::BACKWARD; break;
+        case 1: freeOrder = FREE_ORDER::FORWARD; break;
+        case 2: freeOrder = FREE_ORDER::RANDOM; break;
+        default: assert(0);
+        }
+
+        for(uint32_t emptyIndex = 0; emptyIndex < emptyCount; ++emptyIndex)
+        {
+            for(uint32_t linearIndex = 0; linearIndex < 2; ++linearIndex)
+            {
+                BenchmarkLinearAllocatorCase(
+                    linearIndex ? 1 : 0, // linear
+                    emptyIndex ? 0 : 1, // empty
+                    freeOrder); // freeOrder
+            }
+        }
+    }
+}
+
 static void TestPool_SameSize()
 {
     const VkDeviceSize BUF_SIZE = 1024 * 1024;
@@ -3194,17 +3375,6 @@ static void PerformCustomPoolTest(FILE* file)
     WritePoolTestResult(file, "Code desc", "Test desc", config, result);
 }
 
-enum CONFIG_TYPE {
-    CONFIG_TYPE_MINIMUM,
-    CONFIG_TYPE_SMALL,
-    CONFIG_TYPE_AVERAGE,
-    CONFIG_TYPE_LARGE,
-    CONFIG_TYPE_MAXIMUM,
-    CONFIG_TYPE_COUNT
-};
-
-static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
-//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 static const char* CODE_DESCRIPTION = "Foo";
 
 static void PerformMainTests(FILE* file)
@@ -3687,6 +3857,7 @@ void Test()
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
+    BenchmarkLinearAllocator();
     TestDefragmentationSimple();
     TestDefragmentationFull();
 

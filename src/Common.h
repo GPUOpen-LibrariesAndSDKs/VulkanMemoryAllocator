@@ -206,6 +206,19 @@ private:
     uint32_t GenerateFast() { return m_Value = (m_Value * 196314165 + 907633515); }
 };
 
+// Wrapper for RandomNumberGenerator compatible with STL "UniformRandomNumberGenerator" idea.
+struct MyUniformRandomNumberGenerator
+{
+    typedef uint32_t result_type;
+    MyUniformRandomNumberGenerator(RandomNumberGenerator& gen) : m_Gen(gen) { }
+    static uint32_t min() { return 0; }
+    static uint32_t max() { return UINT32_MAX; }
+    uint32_t operator()() { return m_Gen.Generate(); }
+
+private:
+    RandomNumberGenerator& m_Gen;
+};
+
 void ReadFile(std::vector<char>& out, const char* fileName);
 
 enum class CONSOLE_COLOR
