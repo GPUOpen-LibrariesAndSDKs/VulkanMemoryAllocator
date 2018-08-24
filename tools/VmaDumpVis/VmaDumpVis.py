@@ -48,13 +48,13 @@ data = {}
 
 def ProcessBlock(dstBlockList, iBlockId, objBlock, bLinearAlgorithm):
     iBlockSize = int(objBlock['TotalBytes'])
-    arrSuballocs  = objBlock['Suballocations']
+    arrSuballocs = objBlock['Suballocations']
     dstBlockObj = {'ID': iBlockId, 'Size':iBlockSize, 'Suballocations':[]}
     if bLinearAlgorithm:
-    	dstBlockObj['LinearAlgorithm'] = True
-    dstBlockList.append(dstBlockObj)
+        dstBlockObj['LinearAlgorithm'] = True
     for objSuballoc in arrSuballocs:
         dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size']), int(objSuballoc['Usage']) if ('Usage' in objSuballoc) else 0))
+    dstBlockList.append(dstBlockObj)
 
 
 def GetDataForMemoryType(iMemTypeIndex):
@@ -77,15 +77,18 @@ def CalcParams():
     iMaxBlockSize = 0
     for dictMemType in data.values():
         iImgSizeY += IMG_MARGIN + FONT_SIZE
-        iImgSizeY += len(dictMemType['DedicatedAllocations']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for tDedicatedAlloc in dictMemType['DedicatedAllocations']:
+        lDedicatedAllocations = dictMemType['DedicatedAllocations']
+        iImgSizeY += len(lDedicatedAllocations) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+        for tDedicatedAlloc in lDedicatedAllocations:
             iMaxBlockSize = max(iMaxBlockSize, tDedicatedAlloc[1])
-        iImgSizeY += len(dictMemType['DefaultPoolBlocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for objBlock in dictMemType['DefaultPoolBlocks']:
+        lDefaultPoolBlocks = dictMemType['DefaultPoolBlocks']
+        iImgSizeY += len(lDefaultPoolBlocks) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+        for objBlock in lDefaultPoolBlocks:
             iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
-        iImgSizeY += len(dictMemType['CustomPools']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for listPool in dictMemType['CustomPools'].values():
-            for objBlock in listPool:
+        dCustomPools = dictMemType['CustomPools']
+        for lBlocks in dCustomPools.values():
+            iImgSizeY += len(lBlocks) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+            for objBlock in lBlocks:
                 iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
     fPixelsPerByte = (IMG_SIZE_X - IMG_MARGIN * 2) / float(iMaxBlockSize)
     return iImgSizeY, fPixelsPerByte
@@ -192,9 +195,9 @@ if 'Pools' in jsonSrc:
         typeData = GetDataForMemoryType(iType)
         objBlocks = objPool['Blocks']
         bLinearAlgorithm = 'LinearAlgorithm' in objPool and objPool['LinearAlgorithm']
+        dstBlockArray = []
+        typeData['CustomPools'][int(sPoolId)] = dstBlockArray
         for sBlockId, objBlock in objBlocks.items():
-            dstBlockArray = []
-            typeData['CustomPools'][int(sPoolId)] = dstBlockArray
             ProcessBlock(dstBlockArray, int(sBlockId), objBlock, bLinearAlgorithm)
 
 iImgSizeY, fPixelsPerByte = CalcParams()
@@ -244,15 +247,15 @@ for iMemTypeIndex in sorted(data.keys()):
     index = 0
     for iPoolId, listPool in dictMemType['CustomPools'].items():
         for objBlock in listPool:
-          if 'LinearAlgorithm' in objBlock:
-              linearAlgorithmStr = ' (linear algorithm)';
-          else:
-              linearAlgorithmStr = '';
-          draw.text((IMG_MARGIN, y), "Custom pool %d%s block %d" % (iPoolId, linearAlgorithmStr, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
-          y += FONT_SIZE + IMG_MARGIN
-          DrawBlock(draw, y, objBlock)
-          y += MAP_SIZE + IMG_MARGIN
-          index += 1
+            if 'LinearAlgorithm' in objBlock:
+                linearAlgorithmStr = ' (linear algorithm)';
+            else:
+                linearAlgorithmStr = '';
+            draw.text((IMG_MARGIN, y), "Custom pool %d%s block %d" % (iPoolId, linearAlgorithmStr, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
+            y += FONT_SIZE + IMG_MARGIN
+            DrawBlock(draw, y, objBlock)
+            y += MAP_SIZE + IMG_MARGIN
+            index += 1
 del draw
 img.save(args.output)
 
@@ -267,7 +270,7 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
 - Fixed key 'CustomPools'. Value is dictionary.
-  - Key is integer pool ID. Value is list of objects, each containing dictionary with:
+  - Key is integer pool ID. Value is list of objects representing memory blocks, each containing dictionary with:
     - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
     - Fixed key 'LinearAlgorithm'. Optional. Value is True.
