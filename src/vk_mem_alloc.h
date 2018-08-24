@@ -1951,9 +1951,13 @@ typedef struct VmaPoolCreateInfo {
     /** \brief Use combination of #VmaPoolCreateFlagBits.
     */
     VmaPoolCreateFlags flags;
-    /** \brief Size of a single `VkDeviceMemory` block to be allocated as part of this pool, in bytes.
+    /** \brief Size of a single `VkDeviceMemory` block to be allocated as part of this pool, in bytes. Optional.
 
-    Optional. Leave 0 to use default.
+    Specify nonzero to set explicit, constant size of memory blocks used by this
+    pool.
+
+    Leave 0 to use default and let the library manage block sizes automatically.
+    Sizes of particular blocks may vary.
     */
     VkDeviceSize blockSize;
     /** \brief Minimum number of blocks to be always allocated in this pool, even if they stay empty.
@@ -4926,6 +4930,7 @@ public:
         VkDeviceSize bufferImageGranularity,
         uint32_t frameInUseCount,
         bool isCustomPool,
+        bool explicitBlockSize,
         bool linearAlgorithm);
     ~VmaBlockVector();
 
@@ -4988,6 +4993,7 @@ private:
     const VkDeviceSize m_BufferImageGranularity;
     const uint32_t m_FrameInUseCount;
     const bool m_IsCustomPool;
+    const bool m_ExplicitBlockSize;
     const bool m_LinearAlgorithm;
     bool m_HasEmptyBlock;
     VMA_MUTEX m_Mutex;
@@ -5019,7 +5025,8 @@ public:
 
     VmaPool_T(
         VmaAllocator hAllocator,
-        const VmaPoolCreateInfo& createInfo);
+        const VmaPoolCreateInfo& createInfo,
+        VkDeviceSize preferredBlockSize);
     ~VmaPool_T();
 
     uint32_t GetId() const { return m_Id; }
@@ -9288,16 +9295,18 @@ static void VmaPostprocessCalcStatInfo(VmaStatInfo& inoutInfo)
 
 VmaPool_T::VmaPool_T(
     VmaAllocator hAllocator,
-    const VmaPoolCreateInfo& createInfo) :
+    const VmaPoolCreateInfo& createInfo,
+    VkDeviceSize preferredBlockSize) :
     m_BlockVector(
         hAllocator,
         createInfo.memoryTypeIndex,
-        createInfo.blockSize,
+        createInfo.blockSize != 0 ? createInfo.blockSize : preferredBlockSize,
         createInfo.minBlockCount,
         createInfo.maxBlockCount,
         (createInfo.flags & VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT) != 0 ? 1 : hAllocator->GetBufferImageGranularity(),
         createInfo.frameInUseCount,
         true, // isCustomPool
+        createInfo.blockSize != 0, // explicitBlockSize
         (createInfo.flags & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) != 0), // linearAlgorithm
     m_Id(0)
 {
@@ -9320,6 +9329,7 @@ VmaBlockVector::VmaBlockVector(
     VkDeviceSize bufferImageGranularity,
     uint32_t frameInUseCount,
     bool isCustomPool,
+    bool explicitBlockSize,
     bool linearAlgorithm) :
     m_hAllocator(hAllocator),
     m_MemoryTypeIndex(memoryTypeIndex),
@@ -9329,6 +9339,7 @@ VmaBlockVector::VmaBlockVector(
     m_BufferImageGranularity(bufferImageGranularity),
     m_FrameInUseCount(frameInUseCount),
     m_IsCustomPool(isCustomPool),
+    m_ExplicitBlockSize(explicitBlockSize),
     m_LinearAlgorithm(linearAlgorithm),
     m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_HasEmptyBlock(false),
@@ -9499,9 +9510,7 @@ VkResult VmaBlockVector::Allocate(
             uint32_t newBlockSizeShift = 0;
             const uint32_t NEW_BLOCK_SIZE_SHIFT_MAX = 3;
 
-            // Allocating blocks of other sizes is allowed only in default pools.
-            // In custom pools block size is fixed.
-            if(m_IsCustomPool == false)
+            if(!m_ExplicitBlockSize)
             {
                 // Allocate 1/8, 1/4, 1/2 as first blocks.
                 const VkDeviceSize maxExistingBlockSize = CalcMaxBlockSize();
@@ -9523,7 +9532,7 @@ VkResult VmaBlockVector::Allocate(
             size_t newBlockIndex = 0;
             VkResult res = CreateBlock(newBlockSize, &newBlockIndex);
             // Allocation of this size failed? Try 1/2, 1/4, 1/8 of m_PreferredBlockSize.
-            if(m_IsCustomPool == false)
+            if(!m_ExplicitBlockSize)
             {
                 while(res < 0 && newBlockSizeShift < NEW_BLOCK_SIZE_SHIFT_MAX)
                 {
@@ -10918,6 +10927,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             GetBufferImageGranularity(),
             pCreateInfo->frameInUseCount,
             false, // isCustomPool
+            false, // explicitBlockSize
             false); // linearAlgorithm
         // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
         // becase minBlockCount is 0.
@@ -11809,12 +11819,10 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
     {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
-    if(newCreateInfo.blockSize == 0)
-    {
-        newCreateInfo.blockSize = CalcPreferredBlockSize(newCreateInfo.memoryTypeIndex);
-    }
 
-    *pPool = vma_new(this, VmaPool_T)(this, newCreateInfo);
+    const VkDeviceSize preferredBlockSize = CalcPreferredBlockSize(newCreateInfo.memoryTypeIndex);
+
+    *pPool = vma_new(this, VmaPool_T)(this, newCreateInfo, preferredBlockSize);
 
     VkResult res = (*pPool)->m_BlockVector.CreateMinBlocks();
     if(res != VK_SUCCESS)
