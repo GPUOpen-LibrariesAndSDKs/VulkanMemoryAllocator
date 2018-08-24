@@ -132,7 +132,7 @@ Ring buffer</h2>
 <div class="image">
 <img src="../gfx/Linear_allocator_5_ring_buffer.png" alt="Ring buffer"/>
 </div>
-<p>Pools with linear algorithm support lost allocations when used as ring buffer. If there is not enough free space for a new allocation, but existing allocations from the front of the queue can become lost, they become lost and the allocation succeeds.</p>
+<p>Pools with linear algorithm support <a class="el" href="lost_allocations.html">lost allocations</a> when used as ring buffer. If there is not enough free space for a new allocation, but existing allocations from the front of the queue can become lost, they become lost and the allocation succeeds.</p>
 <div class="image">
 <img src="../gfx/Linear_allocator_6_ring_buffer_lost.png" alt="Ring buffer with lost allocations"/>
 </div>
