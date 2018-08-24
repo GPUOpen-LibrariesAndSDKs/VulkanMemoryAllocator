@@ -1839,14 +1839,139 @@ static void TestLinearAllocator()
         bufInfo.clear();
     }
 
-    // Try to create pool with maxBlockCount higher than 1. It should fail.
-    {
-        VmaPoolCreateInfo altPoolCreateInfo = poolCreateInfo;
-        altPoolCreateInfo.maxBlockCount = 2;
+    vmaDestroyPool(g_hAllocator, pool);
+}
 
-        VmaPool altPool = nullptr;
-        res = vmaCreatePool(g_hAllocator, &altPoolCreateInfo, &altPool);
-        assert(res != VK_SUCCESS);
+static void TestLinearAllocatorMultiBlock()
+{
+    wprintf(L"Test linear allocator multi block\n");
+
+    RandomNumberGenerator rand{345673};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024 * 1024;
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+    
+    std::vector<BufferInfo> bufInfo;
+    VmaAllocationInfo allocInfo;
+
+    // Test one-time free.
+    {
+        // Allocate buffers until we move to a second block.
+        VkDeviceMemory lastMem = VK_NULL_HANDLE;
+        for(uint32_t i = 0; ; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            if(lastMem && allocInfo.deviceMemory != lastMem)
+            {
+                break;
+            }
+            lastMem = allocInfo.deviceMemory;
+        }
+
+        assert(bufInfo.size() > 2);
+
+        // Make sure that pool has now two blocks.
+        VmaPoolStats poolStats = {};
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount == 2);
+
+        // Destroy all the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+
+        // Make sure that pool has now at most one block.
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount <= 1);
+    }
+
+    // Test stack.
+    {
+        // Allocate buffers until we move to a second block.
+        VkDeviceMemory lastMem = VK_NULL_HANDLE;
+        for(uint32_t i = 0; ; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            if(lastMem && allocInfo.deviceMemory != lastMem)
+            {
+                break;
+            }
+            lastMem = allocInfo.deviceMemory;
+        }
+
+        assert(bufInfo.size() > 2);
+
+        // Add few more buffers.
+        for(uint32_t i = 0; i < 5; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+        }
+
+        // Make sure that pool has now two blocks.
+        VmaPoolStats poolStats = {};
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount == 2);
+        
+        // Delete half of buffers, LIFO.
+        for(size_t i = 0, countToDelete = bufInfo.size() / 2; i < countToDelete; ++i)
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Add one more buffer.
+        BufferInfo newBufInfo;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        // Make sure that pool has now one block.
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount == 1);
+
+        // Delete all the remaining buffers, LIFO.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
     }
 
     vmaDestroyPool(g_hAllocator, pool);
@@ -3841,6 +3966,16 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
+    if(false)
+    {
+        // # Temporarily insert custom tests here
+TestLinearAllocator();
+ManuallyTestLinearAllocator();
+TestLinearAllocatorMultiBlock();
+BenchmarkLinearAllocator();
+        return;
+    }
+
     // # Simple tests
 
     TestBasics();
@@ -3857,6 +3992,7 @@ void Test()
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
+    TestLinearAllocatorMultiBlock();
     BenchmarkLinearAllocator();
     TestDefragmentationSimple();
     TestDefragmentationFull();
