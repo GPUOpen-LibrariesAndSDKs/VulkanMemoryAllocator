@@ -84,6 +84,7 @@ Documentation of all members: vk_mem_alloc.h
   - \subpage vk_khr_dedicated_allocation
 - \subpage general_considerations
   - [Thread safety](@ref general_considerations_thread_safety)
+  - [Validation layer warnings](@ref general_considerations_validation_layer_warnings)
   - [Allocation algorithm](@ref general_considerations_allocation_algorithm)
   - [Features not supported](@ref general_considerations_features_not_supported)
 
