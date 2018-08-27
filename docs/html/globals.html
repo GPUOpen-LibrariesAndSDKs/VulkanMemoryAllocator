@@ -89,6 +89,9 @@ $(function() {
 <li>VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT
 : <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff">vk_mem_alloc.h</a>
 </li>
+<li>VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
+: <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df">vk_mem_alloc.h</a>
+</li>
 <li>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT
 : <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520">vk_mem_alloc.h</a>
 </li>
@@ -100,6 +103,9 @@ $(function() {
 </li>
 <li>VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT
 : <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878">vk_mem_alloc.h</a>
+</li>
+<li>VMA_DEDICATED_ALLOCATION
+: <a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">vk_mem_alloc.h</a>
 </li>
 <li>VMA_MEMORY_USAGE_CPU_ONLY
 : <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5">vk_mem_alloc.h</a>
@@ -124,6 +130,18 @@ $(function() {
 </li>
 <li>VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT
 : <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2">vk_mem_alloc.h</a>
+</li>
+<li>VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT
+: <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726">vk_mem_alloc.h</a>
+</li>
+<li>VMA_RECORD_FLAG_BITS_MAX_ENUM
+: <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e">vk_mem_alloc.h</a>
+</li>
+<li>VMA_RECORD_FLUSH_AFTER_CALL_BIT
+: <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7">vk_mem_alloc.h</a>
+</li>
+<li>VMA_RECORDING_ENABLED
+: <a class="el" href="vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c">vk_mem_alloc.h</a>
 </li>
 <li>VMA_STATS_STRING_ENABLED
 : <a class="el" href="vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1">vk_mem_alloc.h</a>
@@ -169,6 +187,12 @@ $(function() {
 </li>
 <li>vmaCalculateStats()
 : <a class="el" href="vk__mem__alloc_8h.html#a333b61c1788cb23559177531e6a93ca3">vk_mem_alloc.h</a>
+</li>
+<li>vmaCheckCorruption()
+: <a class="el" href="vk__mem__alloc_8h.html#a49329a7f030dafcf82f7b73334c22e98">vk_mem_alloc.h</a>
+</li>
+<li>vmaCheckPoolCorruption()
+: <a class="el" href="vk__mem__alloc_8h.html#ad535935619c7a549bf837e1bb0068f89">vk_mem_alloc.h</a>
 </li>
 <li>vmaCreateAllocator()
 : <a class="el" href="vk__mem__alloc_8h.html#a200692051ddb34240248234f5f4c17bb">vk_mem_alloc.h</a>
@@ -218,6 +242,9 @@ $(function() {
 <li>vmaFindMemoryTypeIndexForImageInfo()
 : <a class="el" href="vk__mem__alloc_8h.html#a088da83d8eaf3ce9056d9ea0b981d472">vk_mem_alloc.h</a>
 </li>
+<li>vmaFlushAllocation()
+: <a class="el" href="vk__mem__alloc_8h.html#abc34ee6f021f459aff885f3758c435de">vk_mem_alloc.h</a>
+</li>
 <li>vmaFreeMemory()
 : <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vk_mem_alloc.h</a>
 </li>
@@ -239,6 +266,9 @@ $(function() {
 <li>vmaGetPoolStats()
 : <a class="el" href="vk__mem__alloc_8h.html#ae8bf76997b234ef68aad922616df4153">vk_mem_alloc.h</a>
 </li>
+<li>vmaInvalidateAllocation()
+: <a class="el" href="vk__mem__alloc_8h.html#a0d0eb0c1102268fa9a476d12ecbe4006">vk_mem_alloc.h</a>
+</li>
 <li>vmaMakePoolAllocationsLost()
 : <a class="el" href="vk__mem__alloc_8h.html#a736bd6cbda886f36c891727e73bd4024">vk_mem_alloc.h</a>
 </li>
@@ -259,6 +289,15 @@ $(function() {
 </li>
 <li>VmaPoolStats
 : <a class="el" href="vk__mem__alloc_8h.html#a2e5612d871d64c5624087b837a338c34">vk_mem_alloc.h</a>
+</li>
+<li>VmaRecordFlagBits
+: <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">vk_mem_alloc.h</a>
+</li>
+<li>VmaRecordFlags
+: <a class="el" href="vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828">vk_mem_alloc.h</a>
+</li>
+<li>VmaRecordSettings
+: <a class="el" href="vk__mem__alloc_8h.html#a0ab61e87ff6365f1d59915eadc37a9f0">vk_mem_alloc.h</a>
 </li>
 <li>vmaSetAllocationUserData()
 : <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f">vk_mem_alloc.h</a>

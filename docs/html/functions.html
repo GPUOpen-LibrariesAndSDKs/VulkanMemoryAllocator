@@ -82,7 +82,8 @@ $(function() {
 
 <h3><a id="index_b"></a>- b -</h3><ul>
 <li>blockCount
-: <a class="el" href="struct_vma_stat_info.html#abc4bb7cd611900778464c56e50c970a4">VmaStatInfo</a>
+: <a class="el" href="struct_vma_pool_stats.html#aa0b5cb45cef6f18571cefb03b9a230e7">VmaPoolStats</a>
+, <a class="el" href="struct_vma_stat_info.html#abc4bb7cd611900778464c56e50c970a4">VmaStatInfo</a>
 </li>
 <li>blockSize
 : <a class="el" href="struct_vma_pool_create_info.html#aa4265160536cdb9be821b7686c16c676">VmaPoolCreateInfo</a>
@@ -114,6 +115,7 @@ $(function() {
 : <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b">VmaAllocationCreateInfo</a>
 , <a class="el" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">VmaAllocatorCreateInfo</a>
 , <a class="el" href="struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446">VmaPoolCreateInfo</a>
+, <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a">VmaRecordSettings</a>
 </li>
 <li>frameInUseCount
 : <a class="el" href="struct_vma_allocator_create_info.html#a21ea188dd212b8171cb9ecbed4a2a3a7">VmaAllocatorCreateInfo</a>
@@ -165,6 +167,9 @@ $(function() {
 <li>pDeviceMemoryCallbacks
 : <a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e">VmaAllocatorCreateInfo</a>
 </li>
+<li>pFilePath
+: <a class="el" href="struct_vma_record_settings.html#a6cb1fdbf6bcb610b68f2010dd629e89d">VmaRecordSettings</a>
+</li>
 <li>pfnAllocate
 : <a class="el" href="struct_vma_device_memory_callbacks.html#a4f17f7b255101e733b44d5633aceabfb">VmaDeviceMemoryCallbacks</a>
 </li>
@@ -182,6 +187,9 @@ $(function() {
 </li>
 <li>pool
 : <a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150">VmaAllocationCreateInfo</a>
+</li>
+<li>pRecordSettings
+: <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee">VmaAllocatorCreateInfo</a>
 </li>
 <li>preferredFlags
 : <a class="el" href="struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d">VmaAllocationCreateInfo</a>
@@ -273,26 +281,26 @@ $(function() {
 <li>vkDestroyImage
 : <a class="el" href="struct_vma_vulkan_functions.html#a90b898227039b1dcb3520f6e91f09ffa">VmaVulkanFunctions</a>
 </li>
+<li>vkFlushMappedMemoryRanges
+: <a class="el" href="struct_vma_vulkan_functions.html#a33c322f4c4ad2810f8a9c97a277572f9">VmaVulkanFunctions</a>
+</li>
 <li>vkFreeMemory
 : <a class="el" href="struct_vma_vulkan_functions.html#a4c658701778564d62034255b5dda91b4">VmaVulkanFunctions</a>
 </li>
 <li>vkGetBufferMemoryRequirements
 : <a class="el" href="struct_vma_vulkan_functions.html#a5b92901df89a4194b0d12f6071d4d143">VmaVulkanFunctions</a>
 </li>
-<li>vkGetBufferMemoryRequirements2KHR
-: <a class="el" href="struct_vma_vulkan_functions.html#a9d8d1b05d2b1e7e1d9b27f6f585acf9c">VmaVulkanFunctions</a>
-</li>
 <li>vkGetImageMemoryRequirements
 : <a class="el" href="struct_vma_vulkan_functions.html#a475f6f49f8debe4d10800592606d53f4">VmaVulkanFunctions</a>
-</li>
-<li>vkGetImageMemoryRequirements2KHR
-: <a class="el" href="struct_vma_vulkan_functions.html#a9cdcdc1e2b2ea7c571f7d27e30ba6875">VmaVulkanFunctions</a>
 </li>
 <li>vkGetPhysicalDeviceMemoryProperties
 : <a class="el" href="struct_vma_vulkan_functions.html#a60d25c33bba06bb8592e6875cbaa9830">VmaVulkanFunctions</a>
 </li>
 <li>vkGetPhysicalDeviceProperties
 : <a class="el" href="struct_vma_vulkan_functions.html#a77b7a74082823e865dd6546623468f96">VmaVulkanFunctions</a>
+</li>
+<li>vkInvalidateMappedMemoryRanges
+: <a class="el" href="struct_vma_vulkan_functions.html#a5c1093bc32386a8060c37c9f282078a1">VmaVulkanFunctions</a>
 </li>
 <li>vkMapMemory
 : <a class="el" href="struct_vma_vulkan_functions.html#ab5c1f38dea3a2cf00dc9eb4f57218c49">VmaVulkanFunctions</a>

@@ -32,7 +32,7 @@ FONT_SIZE = 10
 MAP_SIZE = 24
 COLOR_TEXT_H1 = (0, 0, 0, 255)
 COLOR_TEXT_H2 = (150, 150, 150, 255)
-COLOR_OUTLINE = (160, 160, 160, 255)
+COLOR_OUTLINE = (155, 155, 155, 255)
 COLOR_OUTLINE_HARD = (0, 0, 0, 255)
 COLOR_GRID_LINE = (224, 224, 224, 255)
 
@@ -46,13 +46,15 @@ args = argParser.parse_args()
 data = {}
 
 
-def ProcessBlock(dstBlockList, objBlock):
+def ProcessBlock(dstBlockList, iBlockId, objBlock, bLinearAlgorithm):
     iBlockSize = int(objBlock['TotalBytes'])
-    arrSuballocs  = objBlock['Suballocations']
-    dstBlockObj = {'Size':iBlockSize, 'Suballocations':[]}
-    dstBlockList.append(dstBlockObj)
+    arrSuballocs = objBlock['Suballocations']
+    dstBlockObj = {'ID': iBlockId, 'Size':iBlockSize, 'Suballocations':[]}
+    if bLinearAlgorithm:
+        dstBlockObj['LinearAlgorithm'] = True
     for objSuballoc in arrSuballocs:
-        dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size'])))
+        dstBlockObj['Suballocations'].append((objSuballoc['Type'], int(objSuballoc['Size']), int(objSuballoc['Usage']) if ('Usage' in objSuballoc) else 0))
+    dstBlockList.append(dstBlockObj)
 
 
 def GetDataForMemoryType(iMemTypeIndex):
@@ -60,7 +62,7 @@ def GetDataForMemoryType(iMemTypeIndex):
     if iMemTypeIndex in data:
         return data[iMemTypeIndex]
     else:
-        newMemTypeData = {'DedicatedAllocations':[], 'DefaultPoolBlocks':[], 'CustomPoolBlocks':[]}
+        newMemTypeData = {'DedicatedAllocations':[], 'DefaultPoolBlocks':[], 'CustomPools':{}}
         data[iMemTypeIndex] = newMemTypeData
         return newMemTypeData
 
@@ -75,44 +77,66 @@ def CalcParams():
     iMaxBlockSize = 0
     for dictMemType in data.values():
         iImgSizeY += IMG_MARGIN + FONT_SIZE
-        iImgSizeY += len(dictMemType['DedicatedAllocations']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for tDedicatedAlloc in dictMemType['DedicatedAllocations']:
+        lDedicatedAllocations = dictMemType['DedicatedAllocations']
+        iImgSizeY += len(lDedicatedAllocations) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+        for tDedicatedAlloc in lDedicatedAllocations:
             iMaxBlockSize = max(iMaxBlockSize, tDedicatedAlloc[1])
-        iImgSizeY += len(dictMemType['DefaultPoolBlocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for objBlock in dictMemType['DefaultPoolBlocks']:
+        lDefaultPoolBlocks = dictMemType['DefaultPoolBlocks']
+        iImgSizeY += len(lDefaultPoolBlocks) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+        for objBlock in lDefaultPoolBlocks:
             iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
-        iImgSizeY += len(dictMemType['CustomPoolBlocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        for objBlock in dictMemType['CustomPoolBlocks']:
-            iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
+        dCustomPools = dictMemType['CustomPools']
+        for lBlocks in dCustomPools.values():
+            iImgSizeY += len(lBlocks) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+            for objBlock in lBlocks:
+                iMaxBlockSize = max(iMaxBlockSize, objBlock['Size'])
     fPixelsPerByte = (IMG_SIZE_X - IMG_MARGIN * 2) / float(iMaxBlockSize)
     return iImgSizeY, fPixelsPerByte
 
 
-def TypeToColor(sType):
+def TypeToColor(sType, iUsage):
     if sType == 'FREE':
         return 220, 220, 220, 255
     elif sType == 'BUFFER':
-        return 255, 255, 0, 255
+        if (iUsage & 0x1C0) != 0: # INDIRECT_BUFFER | VERTEX_BUFFER | INDEX_BUFFER
+            return 255, 148, 148, 255 # Red
+        elif (iUsage & 0x28) != 0: # STORAGE_BUFFER | STORAGE_TEXEL_BUFFER
+            return 255, 187, 121, 255 # Orange
+        elif (iUsage & 0x14) != 0: # UNIFORM_BUFFER | UNIFORM_TEXEL_BUFFER
+            return 255, 255, 0, 255 # Yellow
+        else:
+            return 255, 255, 165, 255 # Light yellow
     elif sType == 'IMAGE_OPTIMAL':
-        return 128, 255, 255, 255
+        if (iUsage & 0x20) != 0: # DEPTH_STENCIL_ATTACHMENT
+            return 246, 128, 255, 255 # Pink
+        elif (iUsage & 0xD0) != 0: # INPUT_ATTACHMENT | TRANSIENT_ATTACHMENT | COLOR_ATTACHMENT
+            return 179, 179, 255, 255 # Blue
+        elif (iUsage & 0x4) != 0: # SAMPLED
+            return 0, 255, 255, 255 # Aqua
+        else:
+            return 183, 255, 255, 255 # Light aqua
     elif sType == 'IMAGE_LINEAR':
-        return 64, 255, 64, 255
+        return 0, 255, 0, 255 # Green
+    elif sType == 'IMAGE_UNKNOWN':
+        return 0, 255, 164, 255 # Green/aqua
+    elif sType == 'UNKNOWN':
+        return 175, 175, 175, 255 # Gray
     assert False
     return 0, 0, 0, 255
 
 
-def DrawDedicatedAllocationBlock(draw, y, tDedicatedAlloc):
+def DrawDedicatedAllocationBlock(draw, y, tDedicatedAlloc): 
     global fPixelsPerByte
     iSizeBytes = tDedicatedAlloc[1]
     iSizePixels = int(iSizeBytes * fPixelsPerByte)
-    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor(tDedicatedAlloc[0]), outline=COLOR_OUTLINE)
+    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor(tDedicatedAlloc[0], tDedicatedAlloc[2]), outline=COLOR_OUTLINE)
 
 
 def DrawBlock(draw, y, objBlock):
     global fPixelsPerByte
     iSizeBytes = objBlock['Size']
     iSizePixels = int(iSizeBytes * fPixelsPerByte)
-    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor('FREE'), outline=None)
+    draw.rectangle([IMG_MARGIN, y, IMG_MARGIN + iSizePixels, y + MAP_SIZE], fill=TypeToColor('FREE', 0), outline=None)
     iByte = 0
     iX = 0
     iLastHardLineX = -1
@@ -122,7 +146,8 @@ def DrawBlock(draw, y, objBlock):
         iXEnd = int(iByteEnd * fPixelsPerByte)
         if sType != 'FREE':
             if iXEnd > iX + 1:
-                draw.rectangle([IMG_MARGIN + iX, y, IMG_MARGIN + iXEnd, y + MAP_SIZE], fill=TypeToColor(sType), outline=COLOR_OUTLINE)
+                iUsage = tSuballoc[2]
+                draw.rectangle([IMG_MARGIN + iX, y, IMG_MARGIN + iXEnd, y + MAP_SIZE], fill=TypeToColor(sType, iUsage), outline=COLOR_OUTLINE)
                 # Hard line was been overwritten by rectangle outline: redraw it.
                 if iLastHardLineX == iX:
                     draw.line([IMG_MARGIN + iX, y, IMG_MARGIN + iX, y + MAP_SIZE], fill=COLOR_OUTLINE_HARD)
@@ -154,24 +179,26 @@ if 'DedicatedAllocations' in jsonSrc:
         iType = int(sType[5:])
         typeData = GetDataForMemoryType(iType)
         for objAlloc in tType[1]:
-            typeData['DedicatedAllocations'].append((objAlloc['Type'], int(objAlloc['Size'])))
+            typeData['DedicatedAllocations'].append((objAlloc['Type'], int(objAlloc['Size']), int(objAlloc['Usage']) if ('Usage' in objAlloc) else 0))
 if 'DefaultPools' in jsonSrc:
     for tType in jsonSrc['DefaultPools'].items():
         sType = tType[0]
         assert sType[:5] == 'Type '
         iType = int(sType[5:])
         typeData = GetDataForMemoryType(iType)
-        for objBlock in tType[1]['Blocks']:
-            ProcessBlock(typeData['DefaultPoolBlocks'], objBlock)
+        for sBlockId, objBlock in tType[1]['Blocks'].items():
+            ProcessBlock(typeData['DefaultPoolBlocks'], int(sBlockId), objBlock, False)
 if 'Pools' in jsonSrc:
-    arrPools = jsonSrc['Pools']
-    for objPool in arrPools:
+    objPools = jsonSrc['Pools']
+    for sPoolId, objPool in objPools.items():
         iType = int(objPool['MemoryTypeIndex'])
         typeData = GetDataForMemoryType(iType)
-        arrBlocks = objPool['Blocks']
-        for objBlock in arrBlocks:
-            ProcessBlock(typeData['CustomPoolBlocks'], objBlock)
-            
+        objBlocks = objPool['Blocks']
+        bLinearAlgorithm = 'LinearAlgorithm' in objPool and objPool['LinearAlgorithm']
+        dstBlockArray = []
+        typeData['CustomPools'][int(sPoolId)] = dstBlockArray
+        for sBlockId, objBlock in objBlocks.items():
+            ProcessBlock(dstBlockArray, int(sBlockId), objBlock, bLinearAlgorithm)
 
 iImgSizeY, fPixelsPerByte = CalcParams()
 
@@ -212,20 +239,23 @@ for iMemTypeIndex in sorted(data.keys()):
         DrawDedicatedAllocationBlock(draw, y, tDedicatedAlloc)
         y += MAP_SIZE + IMG_MARGIN
         index += 1
-    index = 0
     for objBlock in dictMemType['DefaultPoolBlocks']:
-        draw.text((IMG_MARGIN, y), "Default pool block %d" % index, fill=COLOR_TEXT_H2, font=font)
+        draw.text((IMG_MARGIN, y), "Default pool block %d" % objBlock['ID'], fill=COLOR_TEXT_H2, font=font)
         y += FONT_SIZE + IMG_MARGIN
         DrawBlock(draw, y, objBlock)
         y += MAP_SIZE + IMG_MARGIN
-        index += 1
     index = 0
-    for objBlock in dictMemType['CustomPoolBlocks']:
-        draw.text((IMG_MARGIN, y), "Custom pool block %d" % index, fill=COLOR_TEXT_H2, font=font)
-        y += FONT_SIZE + IMG_MARGIN
-        DrawBlock(draw, y, objBlock)
-        y += MAP_SIZE + IMG_MARGIN
-        index += 1
+    for iPoolId, listPool in dictMemType['CustomPools'].items():
+        for objBlock in listPool:
+            if 'LinearAlgorithm' in objBlock:
+                linearAlgorithmStr = ' (linear algorithm)';
+            else:
+                linearAlgorithmStr = '';
+            draw.text((IMG_MARGIN, y), "Custom pool %d%s block %d" % (iPoolId, linearAlgorithmStr, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
+            y += FONT_SIZE + IMG_MARGIN
+            DrawBlock(draw, y, objBlock)
+            y += MAP_SIZE + IMG_MARGIN
+            index += 1
 del draw
 img.save(args.output)
 
@@ -234,10 +264,15 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
 - Fixed key 'DedicatedAllocations'. Value is list of tuples, each containing:
     - [0]: Type : string
     - [1]: Size : integer
+    - [2]: Usage : integer (0 if unknown)
 - Fixed key 'DefaultPoolBlocks'. Value is list of objects, each containing dictionary with:
+    - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
-- Fixed key 'CustomPoolBlocks'. Value is list of objects, each containing dictionary with:
+- Fixed key 'CustomPools'. Value is dictionary.
+  - Key is integer pool ID. Value is list of objects representing memory blocks, each containing dictionary with:
+    - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
+    - Fixed key 'LinearAlgorithm'. Optional. Value is True.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
 """

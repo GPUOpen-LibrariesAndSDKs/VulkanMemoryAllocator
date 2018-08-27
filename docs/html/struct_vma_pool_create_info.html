@@ -80,7 +80,7 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a8405139f63d078340ae74513a59f5446"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use combination of <a class="el" href="vk__mem__alloc_8h.html#a8f93195158e0e2ac80ca352064e71c1f" title="Flags to be passed as VmaPoolCreateInfo::flags. ">VmaPoolCreateFlagBits</a>.  <a href="#a8405139f63d078340ae74513a59f5446">More...</a><br /></td></tr>
 <tr class="separator:a8405139f63d078340ae74513a59f5446"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa4265160536cdb9be821b7686c16c676"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#aa4265160536cdb9be821b7686c16c676">blockSize</a></td></tr>
-<tr class="memdesc:aa4265160536cdb9be821b7686c16c676"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a single <code>VkDeviceMemory</code> block to be allocated as part of this pool, in bytes.  <a href="#aa4265160536cdb9be821b7686c16c676">More...</a><br /></td></tr>
+<tr class="memdesc:aa4265160536cdb9be821b7686c16c676"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a single <code>VkDeviceMemory</code> block to be allocated as part of this pool, in bytes. Optional.  <a href="#aa4265160536cdb9be821b7686c16c676">More...</a><br /></td></tr>
 <tr class="separator:aa4265160536cdb9be821b7686c16c676"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8006fb803185c0a699d30f3e9a865ae"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#ad8006fb803185c0a699d30f3e9a865ae">minBlockCount</a></td></tr>
 <tr class="memdesc:ad8006fb803185c0a699d30f3e9a865ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimum number of blocks to be always allocated in this pool, even if they stay empty.  <a href="#ad8006fb803185c0a699d30f3e9a865ae">More...</a><br /></td></tr>
@@ -107,8 +107,9 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Size of a single <code>VkDeviceMemory</code> block to be allocated as part of this pool, in bytes. </p>
-<p>Optional. Leave 0 to use default. </p>
+<p>Size of a single <code>VkDeviceMemory</code> block to be allocated as part of this pool, in bytes. Optional. </p>
+<p>Specify nonzero to set explicit, constant size of memory blocks used by this pool.</p>
+<p>Leave 0 to use default and let the library manage block sizes automatically. Sizes of particular blocks may vary. </p>
 
 </div>
 </div>
@@ -160,8 +161,8 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Maximum number of blocks that can be allocated in this pool. Optional. </p>
-<p>Optional. Set to 0 to use <code>SIZE_MAX</code>, which means no limit.</p>
-<p>Set to same value as minBlockCount to have fixed amount of memory allocated throuout whole lifetime of this pool. </p>
+<p>Set to 0 to use default, which is <code>SIZE_MAX</code>, which means no limit.</p>
+<p>Set to same value as <a class="el" href="struct_vma_pool_create_info.html#ad8006fb803185c0a699d30f3e9a865ae" title="Minimum number of blocks to be always allocated in this pool, even if they stay empty. ">VmaPoolCreateInfo::minBlockCount</a> to have fixed amount of memory allocated throughout whole lifetime of this pool. </p>
 
 </div>
 </div>
@@ -194,7 +195,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Minimum number of blocks to be always allocated in this pool, even if they stay empty. </p>
-<p>Set to 0 to have no preallocated blocks and let the pool be completely empty. </p>
+<p>Set to 0 to have no preallocated blocks and allow the pool be completely empty. </p>
 
 </div>
 </div>

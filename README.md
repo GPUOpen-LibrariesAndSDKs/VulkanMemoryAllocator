@@ -41,7 +41,9 @@ Additional features:
 - Configuration: Fill optional members of CreateInfo structure to provide custom CPU memory allocator, pointers to Vulkan functions and other parameters.
 - Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library, from assert, mutex, and atomic, to vector and linked list. 
 - Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and you get access to mapped pointer.
+- Support for non-coherent memory. Functions that flush/invalidate memory. nonCoherentAtomSize is respected automatically.
 - Custom memory pools: Create a pool with desired parameters (e.g. fixed or limited maximum size) and allocate memory out of it.
+- Linear allocator: Create a pool with linear algorithm and use it for much faster allocations and deallocations in free-at-once, stack, double stack, or ring buffer fashion.
 - Support for VK_KHR_dedicated_allocation extension: Just enable it and it will be used automatically by the library.
 - Defragmentation: Call one function and let the library move data around to free some memory blocks and make your allocations better compacted.
 - Lost allocations: Allocate memory with appropriate flags and let the library remove allocations that are not used for many frames to make room for new ones.
@@ -49,6 +51,8 @@ Additional features:
 - Debug annotations: Associate string with name or opaque pointer to your own data with every allocation.
 - JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations and gaps between them.
 - Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
+- Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number before and after every allocation to detect out-of-bounds memory corruption.
+- Record and replay sequence of calls to library functions to a file to check correctness, measure performance, and gather statistics.
 
 # Prequisites
 

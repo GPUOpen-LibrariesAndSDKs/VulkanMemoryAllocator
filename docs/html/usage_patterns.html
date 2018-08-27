@@ -66,7 +66,8 @@ $(function() {
 <div class="title">Recommended usage patterns </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h1><a class="anchor" id="usage_patterns_simple"></a>
+<div class="textblock"><p>See also slides from talk: <a href="https://www.gdcvault.com/play/1025458/Advanced-Graphics-Techniques-Tutorial-New">Sawicki, Adam. Advanced Graphics Techniques Tutorial: Memory management in Vulkan and DX12. Game Developers Conference, 2018</a></p>
+<h1><a class="anchor" id="usage_patterns_simple"></a>
 Simple patterns</h1>
 <h2><a class="anchor" id="usage_patterns_simple_render_targets"></a>
 Render targets</h2>
@@ -83,7 +84,7 @@ Immutable resources</h2>
 Dynamic resources</h2>
 <p><b>When:</b> Any resources that change frequently (aka "dynamic"), e.g. every frame or every draw call, written on CPU, read on GPU.</p>
 <p><b>What to do:</b> Create them using <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca9066b52c5a7079bb74a69aaf8b92ff67">VMA_MEMORY_USAGE_CPU_TO_GPU</a>. You can map it and write to it directly on CPU, as well as read from it on GPU.</p>
-<p>This is a more complex situation. Different solutions are possible, and the best one depends on specific GPU type, but you can use this simple approach for the start. Prefer to write to such resource sequentially (e.g. using <code>memcpy</code>). Don't perform random access or any reads from it, as it may be very slow.</p>
+<p>This is a more complex situation. Different solutions are possible, and the best one depends on specific GPU type, but you can use this simple approach for the start. Prefer to write to such resource sequentially (e.g. using <code>memcpy</code>). Don't perform random access or any reads from it on CPU, as it may be very slow.</p>
 <h2><a class="anchor" id="usage_patterns_readback"></a>
 Readback</h2>
 <p><b>When:</b> Resources that contain data written by GPU that you want to read back on CPU, e.g. results of some computations.</p>
@@ -92,7 +93,7 @@ Readback</h2>
 Advanced patterns</h1>
 <h2><a class="anchor" id="usage_patterns_integrated_graphics"></a>
 Detecting integrated graphics</h2>
-<p>You can support integrated graphics (like Intel HD Graphics, AMD APU) better by detecting it in Vulkan. To do it, call <code>vkGetPhysicalDeviceProperties()</code>, inspect <code>VkPhysicalDeviceProperties::deviceType</code> and look for <code>VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU</code>. When you find it, you can assume that memory is unified and all memory types are equally fast to access from GPU, regardless of <code>VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT</code>.</p>
+<p>You can support integrated graphics (like Intel HD Graphics, AMD APU) better by detecting it in Vulkan. To do it, call <code>vkGetPhysicalDeviceProperties()</code>, inspect <code>VkPhysicalDeviceProperties::deviceType</code> and look for <code>VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU</code>. When you find it, you can assume that memory is unified and all memory types are comparably fast to access from GPU, regardless of <code>VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT</code>.</p>
 <p>You can then sum up sizes of all available memory heaps and treat them as useful for your GPU resources, instead of only <code>DEVICE_LOCAL</code> ones. You can also prefer to create your resources in memory types that are <code>HOST_VISIBLE</code> to map them directly instead of submitting explicit transfer (see below).</p>
 <h2><a class="anchor" id="usage_patterns_direct_vs_transfer"></a>
 Direct access versus transfer</h2>
@@ -104,7 +105,7 @@ Direct access versus transfer</h2>
 </ol>
 <p>Which solution is the most efficient depends on your resource and especially on the GPU. It is best to measure it and then make the decision. Some general recommendations:</p>
 <ul>
-<li>On integrated graphics use (2) or (3) to avoid unnecesary time and memory overhead related to using a second copy.</li>
+<li>On integrated graphics use (2) or (3) to avoid unnecesary time and memory overhead related to using a second copy and making transfer.</li>
 <li>For small resources (e.g. constant buffers) use (2). Discrete AMD cards have special 256 MiB pool of video memory that is directly mappable. Even if the resource ends up in system memory, its data may be cached on GPU after first fetch over PCIe bus.</li>
 <li>For larger resources (e.g. textures), decide between (1) and (2). You may want to differentiate NVIDIA and AMD, e.g. by looking for memory type that is both <code>DEVICE_LOCAL</code> and <code>HOST_VISIBLE</code>. When you find it, use (2), otherwise use (1).</li>
 </ul>
@@ -114,7 +115,7 @@ Direct access versus transfer</h2>
 <li>Create just single copy using <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27">VMA_MEMORY_USAGE_GPU_TO_CPU</a>, write to it directly on GPU, map it and read it on CPU.</li>
 </ol>
 <p>You should take some measurements to decide which option is faster in case of your specific resource.</p>
-<p>If you don't want to specialize your code for specific types of GPUs, yon can still make an simple optimization for cases when your resource ends up in mappable memory to use it directly in this case instead of creating CPU-side staging copy. For details see <a class="el" href="memory_mapping.html#memory_mapping_finding_if_memory_mappable">Finding out if memory is mappable</a>. </p>
+<p>If you don't want to specialize your code for specific types of GPUs, you can still make an simple optimization for cases when your resource ends up in mappable memory to use it directly in this case instead of creating CPU-side staging copy. For details see <a class="el" href="memory_mapping.html#memory_mapping_finding_if_memory_mappable">Finding out if memory is mappable</a>. </p>
 </div></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

@@ -7,7 +7,25 @@
 
 #ifdef _WIN32
 
+enum CONFIG_TYPE {
+    CONFIG_TYPE_MINIMUM,
+    CONFIG_TYPE_SMALL,
+    CONFIG_TYPE_AVERAGE,
+    CONFIG_TYPE_LARGE,
+    CONFIG_TYPE_MAXIMUM,
+    CONFIG_TYPE_COUNT
+};
+
+static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
+//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
+
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
+
+static const wchar_t* FREE_ORDER_NAMES[] = {
+    L"FORWARD",
+    L"BACKWARD",
+    L"RANDOM",
+};
 
 struct AllocationSize
 {
@@ -100,6 +118,8 @@ struct PoolTestResult
 };
 
 static const uint32_t IMAGE_BYTES_PER_PIXEL = 1;
+
+static uint32_t g_FrameIndex = 0;
 
 struct BufferInfo
 {
@@ -558,12 +578,12 @@ VkResult MainTest(Result& outResult, const Config& config)
     return res;
 }
 
-static void SaveAllocatorStatsToFile(VmaAllocator alloc, const wchar_t* filePath)
+static void SaveAllocatorStatsToFile(const wchar_t* filePath)
 {
     char* stats;
-    vmaBuildStatsString(alloc, &stats, VK_TRUE);
+    vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
     SaveFile(filePath, stats, strlen(stats));
-    vmaFreeStatsString(alloc, stats);
+    vmaFreeStatsString(g_hAllocator, stats);
 }
 
 struct AllocInfo
@@ -982,7 +1002,7 @@ void TestDefragmentationFull()
     for(size_t i = 0; i < allocations.size(); ++i)
         ValidateAllocationData(allocations[i]);
 
-    SaveAllocatorStatsToFile(g_hAllocator, L"Before.csv");
+    SaveAllocatorStatsToFile(L"Before.csv");
 
     {
         std::vector<VmaAllocation> vmaAllocations(allocations.size());
@@ -1033,7 +1053,7 @@ void TestDefragmentationFull()
 
             wchar_t fileName[MAX_PATH];
             swprintf(fileName, MAX_PATH, L"After_%02u.csv", defragIndex);
-            SaveAllocatorStatsToFile(g_hAllocator, fileName);
+            SaveAllocatorStatsToFile(fileName);
         }
     }
 
@@ -1322,6 +1342,918 @@ void TestHeapSizeLimit()
     vmaDestroyAllocator(hAllocator);
 }
 
+#if VMA_DEBUG_MARGIN
+static void TestDebugMargin()
+{
+    if(VMA_DEBUG_MARGIN == 0)
+    {
+        return;
+    }
+
+    VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    // Create few buffers of different size.
+    const size_t BUF_COUNT = 10;
+    BufferInfo buffers[BUF_COUNT];
+    VmaAllocationInfo allocInfo[BUF_COUNT];
+    for(size_t i = 0; i < 10; ++i)
+    {
+        bufInfo.size = (VkDeviceSize)(i + 1) * 64;
+        // Last one will be mapped.
+        allocCreateInfo.flags = (i == BUF_COUNT - 1) ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
+
+        VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[i].Buffer, &buffers[i].Allocation, &allocInfo[i]);
+        assert(res == VK_SUCCESS);
+        // Margin is preserved also at the beginning of a block.
+        assert(allocInfo[i].offset >= VMA_DEBUG_MARGIN);
+
+        if(i == BUF_COUNT - 1)
+        {
+            // Fill with data.
+            assert(allocInfo[i].pMappedData != nullptr);
+            // Uncomment this "+ 1" to overwrite past end of allocation and check corruption detection.
+            memset(allocInfo[i].pMappedData, 0xFF, bufInfo.size /* + 1 */);
+        }
+    }
+
+    // Check if their offsets preserve margin between them.
+    std::sort(allocInfo, allocInfo + BUF_COUNT, [](const VmaAllocationInfo& lhs, const VmaAllocationInfo& rhs) -> bool
+    {
+        if(lhs.deviceMemory != rhs.deviceMemory)
+        {
+            return lhs.deviceMemory < rhs.deviceMemory;
+        }
+        return lhs.offset < rhs.offset;
+    });
+    for(size_t i = 1; i < BUF_COUNT; ++i)
+    {
+        if(allocInfo[i].deviceMemory == allocInfo[i - 1].deviceMemory)
+        {
+            assert(allocInfo[i].offset >= allocInfo[i - 1].offset + VMA_DEBUG_MARGIN);
+        }
+    }
+
+    VkResult res = vmaCheckCorruption(g_hAllocator, UINT32_MAX);
+    assert(res == VK_SUCCESS);
+
+    // Destroy all buffers.
+    for(size_t i = BUF_COUNT; i--; )
+    {
+        vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
+    }
+}
+#endif
+
+static void TestLinearAllocator()
+{
+    wprintf(L"Test linear allocator\n");
+
+    RandomNumberGenerator rand{645332};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = 1024 * 300;
+    poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    constexpr size_t maxBufCount = 100;
+    std::vector<BufferInfo> bufInfo;
+
+    constexpr VkDeviceSize bufSizeMin = 16;
+    constexpr VkDeviceSize bufSizeMax = 1024;
+    VmaAllocationInfo allocInfo;
+    VkDeviceSize prevOffset = 0;
+
+    // Test one-time free.
+    for(size_t i = 0; i < 2; ++i)
+    {
+        // Allocate number of buffers of varying size that surely fit into this block.
+        VkDeviceSize bufSumSize = 0;
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+            bufSumSize += bufCreateInfo.size;
+        }
+
+        // Validate pool stats.
+        VmaPoolStats stats;
+        vmaGetPoolStats(g_hAllocator, pool, &stats);
+        assert(stats.size == poolCreateInfo.blockSize);
+        assert(stats.unusedSize = poolCreateInfo.blockSize - bufSumSize);
+        assert(stats.allocationCount == bufInfo.size());
+
+        // Destroy the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+    }
+
+    // Test stack.
+    {
+        // Allocate number of buffers of varying size that surely fit into this block.
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+        }
+
+        // Destroy few buffers from top of the stack.
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Create some more
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+        }
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
+    // Test ring buffer.
+    {
+        // Allocate number of buffers that surely fit into this block.
+        bufCreateInfo.size = bufSizeMax;
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            assert(i == 0 || allocInfo.offset > prevOffset);
+            bufInfo.push_back(newBufInfo);
+            prevOffset = allocInfo.offset;
+        }
+
+        // Free and allocate new buffers so many times that we make sure we wrap-around at least once.
+        const size_t buffersPerIter = maxBufCount / 10 - 1;
+        const size_t iterCount = poolCreateInfo.blockSize / bufCreateInfo.size / buffersPerIter * 2;
+        for(size_t iter = 0; iter < iterCount; ++iter)
+        {
+            for(size_t bufPerIter = 0; bufPerIter < buffersPerIter; ++bufPerIter)
+            {
+                const BufferInfo& currBufInfo = bufInfo.front();
+                vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+                bufInfo.erase(bufInfo.begin());
+            }
+            for(size_t bufPerIter = 0; bufPerIter < buffersPerIter; ++bufPerIter)
+            {
+                BufferInfo newBufInfo;
+                res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                    &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+                assert(res == VK_SUCCESS);
+                bufInfo.push_back(newBufInfo);
+            }
+        }
+        
+        // Allocate buffers until we reach out-of-memory.
+        uint32_t debugIndex = 0;
+        while(res == VK_SUCCESS)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                bufInfo.push_back(newBufInfo);
+            }
+            else
+            {
+                assert(res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
+            }
+            ++debugIndex;
+        }
+
+        // Destroy the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+    }
+
+    // Test double stack.
+    {
+        // Allocate number of buffers of varying size that surely fit into this block, alternate from bottom/top.
+        VkDeviceSize prevOffsetLower = 0;
+        VkDeviceSize prevOffsetUpper = poolCreateInfo.blockSize;
+        for(size_t i = 0; i < maxBufCount; ++i)
+        {
+            const bool upperAddress = (i % 2) != 0;
+            if(upperAddress)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            if(upperAddress)
+            {
+                assert(allocInfo.offset < prevOffsetUpper);
+                prevOffsetUpper = allocInfo.offset;
+            }
+            else
+            {
+                assert(allocInfo.offset >= prevOffsetLower);
+                prevOffsetLower = allocInfo.offset;
+            }
+            assert(prevOffsetLower < prevOffsetUpper);
+            bufInfo.push_back(newBufInfo);
+        }
+
+        // Destroy few buffers from top of the stack.
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Create some more
+        for(size_t i = 0; i < maxBufCount / 5; ++i)
+        {
+            const bool upperAddress = (i % 2) != 0;
+            if(upperAddress)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+        }
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Create buffers on both sides until we reach out of memory.
+        prevOffsetLower = 0;
+        prevOffsetUpper = poolCreateInfo.blockSize;
+        res = VK_SUCCESS;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            const bool upperAddress = (i % 2) != 0;
+            if(upperAddress)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                if(upperAddress)
+                {
+                    assert(allocInfo.offset < prevOffsetUpper);
+                    prevOffsetUpper = allocInfo.offset;
+                }
+                else
+                {
+                    assert(allocInfo.offset >= prevOffsetLower);
+                    prevOffsetLower = allocInfo.offset;
+                }
+                assert(prevOffsetLower < prevOffsetUpper);
+                bufInfo.push_back(newBufInfo);
+            }
+        }
+
+        // Destroy the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+
+        // Create buffers on upper side only, constant size, until we reach out of memory.
+        prevOffsetUpper = poolCreateInfo.blockSize;
+        res = VK_SUCCESS;
+        allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+        bufCreateInfo.size = bufSizeMax;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                assert(allocInfo.offset < prevOffsetUpper);
+                prevOffsetUpper = allocInfo.offset;
+                bufInfo.push_back(newBufInfo);
+            }
+        }
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
+    // Test ring buffer with lost allocations.
+    {
+        // Allocate number of buffers until pool is full.
+        // Notice CAN_BECOME_LOST flag and call to vmaSetCurrentFrameIndex.
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT;
+        res = VK_SUCCESS;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+                bufInfo.push_back(newBufInfo);
+        }
+
+        // Free first half of it.
+        {
+            const size_t buffersToDelete = bufInfo.size() / 2;
+            for(size_t i = 0; i < buffersToDelete; ++i)
+            {
+                vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
+            }
+            bufInfo.erase(bufInfo.begin(), bufInfo.begin() + buffersToDelete);
+        }
+
+        // Allocate number of buffers until pool is full again.
+        // This way we make sure ring buffers wraps around, front in in the middle.
+        res = VK_SUCCESS;
+        for(size_t i = 0; res == VK_SUCCESS; ++i)
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            if(res == VK_SUCCESS)
+                bufInfo.push_back(newBufInfo);
+        }
+
+        VkDeviceSize firstNewOffset;
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            // Allocate a large buffer with CAN_MAKE_OTHER_LOST.
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
+            bufCreateInfo.size = bufSizeMax;
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            firstNewOffset = allocInfo.offset;
+
+            // Make sure at least one buffer from the beginning became lost.
+            vmaGetAllocationInfo(g_hAllocator, bufInfo[0].Allocation, &allocInfo);
+            assert(allocInfo.deviceMemory == VK_NULL_HANDLE);
+        }
+
+        // Allocate more buffers that CAN_MAKE_OTHER_LOST until we wrap-around with this.
+        size_t newCount = 1;
+        for(;;)
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            bufCreateInfo.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            ++newCount;
+            if(allocInfo.offset < firstNewOffset)
+                break;
+        }
+
+        // Delete buffers that are lost.
+        for(size_t i = bufInfo.size(); i--; )
+        {
+            vmaGetAllocationInfo(g_hAllocator, bufInfo[i].Allocation, &allocInfo);
+            if(allocInfo.deviceMemory == VK_NULL_HANDLE)
+            {
+                vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
+                bufInfo.erase(bufInfo.begin() + i);
+            }
+        }
+
+        // Test vmaMakePoolAllocationsLost
+        {
+            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            size_t lostAllocCount = SIZE_MAX;
+            vmaMakePoolAllocationsLost(g_hAllocator, pool, &lostAllocCount);
+            assert(lostAllocCount > 0);
+
+            size_t realLostAllocCount = 0;
+            for(size_t i = 0; i < bufInfo.size(); ++i)
+            {
+                vmaGetAllocationInfo(g_hAllocator, bufInfo[i].Allocation, &allocInfo);
+                if(allocInfo.deviceMemory == VK_NULL_HANDLE)
+                    ++realLostAllocCount;
+            }
+            assert(realLostAllocCount == lostAllocCount);
+        }
+
+        // Destroy all the buffers in forward order.
+        for(size_t i = 0; i < bufInfo.size(); ++i)
+            vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
+        bufInfo.clear();
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
+static void TestLinearAllocatorMultiBlock()
+{
+    wprintf(L"Test linear allocator multi block\n");
+
+    RandomNumberGenerator rand{345673};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024 * 1024;
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+    
+    std::vector<BufferInfo> bufInfo;
+    VmaAllocationInfo allocInfo;
+
+    // Test one-time free.
+    {
+        // Allocate buffers until we move to a second block.
+        VkDeviceMemory lastMem = VK_NULL_HANDLE;
+        for(uint32_t i = 0; ; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            if(lastMem && allocInfo.deviceMemory != lastMem)
+            {
+                break;
+            }
+            lastMem = allocInfo.deviceMemory;
+        }
+
+        assert(bufInfo.size() > 2);
+
+        // Make sure that pool has now two blocks.
+        VmaPoolStats poolStats = {};
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount == 2);
+
+        // Destroy all the buffers in random order.
+        while(!bufInfo.empty())
+        {
+            const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+            const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.erase(bufInfo.begin() + indexToDestroy);
+        }
+
+        // Make sure that pool has now at most one block.
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount <= 1);
+    }
+
+    // Test stack.
+    {
+        // Allocate buffers until we move to a second block.
+        VkDeviceMemory lastMem = VK_NULL_HANDLE;
+        for(uint32_t i = 0; ; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+            if(lastMem && allocInfo.deviceMemory != lastMem)
+            {
+                break;
+            }
+            lastMem = allocInfo.deviceMemory;
+        }
+
+        assert(bufInfo.size() > 2);
+
+        // Add few more buffers.
+        for(uint32_t i = 0; i < 5; ++i)
+        {
+            BufferInfo newBufInfo;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+            assert(res == VK_SUCCESS);
+            bufInfo.push_back(newBufInfo);
+        }
+
+        // Make sure that pool has now two blocks.
+        VmaPoolStats poolStats = {};
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount == 2);
+        
+        // Delete half of buffers, LIFO.
+        for(size_t i = 0, countToDelete = bufInfo.size() / 2; i < countToDelete; ++i)
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+
+        // Add one more buffer.
+        BufferInfo newBufInfo;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        // Make sure that pool has now one block.
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        assert(poolStats.blockCount == 1);
+
+        // Delete all the remaining buffers, LIFO.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
+static void ManuallyTestLinearAllocator()
+{
+    VmaStats origStats;
+    vmaCalculateStats(g_hAllocator, &origStats);
+
+    wprintf(L"Manually test linear allocator\n");
+
+    RandomNumberGenerator rand{645332};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = 10 * 1024;
+    poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    std::vector<BufferInfo> bufInfo;
+    VmaAllocationInfo allocInfo;
+    BufferInfo newBufInfo;
+
+    // Test double stack.
+    {
+        /*
+        Lower: Buffer 32 B, Buffer 1024 B, Buffer 32 B
+        Upper: Buffer 16 B, Buffer 1024 B, Buffer 128 B
+
+        Totally:
+        1 block allocated
+        10240 Vulkan bytes
+        6 new allocations
+        2256 bytes in allocations
+        */
+
+        bufCreateInfo.size = 32;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 1024;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 32;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+
+        bufCreateInfo.size = 128;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 1024;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        bufCreateInfo.size = 16;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+
+        VmaStats currStats;
+        vmaCalculateStats(g_hAllocator, &currStats);
+        VmaPoolStats poolStats;
+        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+
+        char* statsStr = nullptr;
+        vmaBuildStatsString(g_hAllocator, &statsStr, VK_TRUE);
+
+        // PUT BREAKPOINT HERE TO CHECK.
+        // Inspect: currStats versus origStats, poolStats, statsStr.
+        int I = 0;
+
+        vmaFreeStatsString(g_hAllocator, statsStr);
+
+        // Destroy the buffers in reverse order.
+        while(!bufInfo.empty())
+        {
+            const BufferInfo& currBufInfo = bufInfo.back();
+            vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+            bufInfo.pop_back();
+        }
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
+static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER freeOrder)
+{
+    RandomNumberGenerator rand{16223};
+
+    const VkDeviceSize bufSizeMin = 32;
+    const VkDeviceSize bufSizeMax = 1024;
+    const size_t maxBufCapacity = 10000;
+    const uint32_t iterationCount = 10;
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = bufSizeMax;
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = bufSizeMax * maxBufCapacity;
+    if(linear)
+        poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    // Buffer created just to get memory requirements. Never bound to any memory.
+    VkBuffer dummyBuffer = VK_NULL_HANDLE;
+    res = vkCreateBuffer(g_hDevice, &sampleBufCreateInfo, nullptr, &dummyBuffer);
+    assert(res == VK_SUCCESS && dummyBuffer);
+
+    VkMemoryRequirements memReq = {};
+    vkGetBufferMemoryRequirements(g_hDevice, dummyBuffer, &memReq);
+
+    vkDestroyBuffer(g_hDevice, dummyBuffer, nullptr);
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    VmaAllocation alloc;
+    std::vector<VmaAllocation> baseAllocations;
+
+    if(!empty)
+    {
+        // Make allocations up to half of pool size.
+        VkDeviceSize totalSize = 0;
+        while(totalSize < poolCreateInfo.blockSize / 2)
+        {
+            memReq.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+            assert(res == VK_SUCCESS);
+            baseAllocations.push_back(alloc);
+            totalSize += memReq.size;
+        }
+
+        // Delete half of them, choose randomly.
+        size_t allocsToDelete = baseAllocations.size() / 2;
+        for(size_t i = 0; i < allocsToDelete; ++i)
+        {
+            const size_t index = (size_t)rand.Generate() % baseAllocations.size();
+            vmaFreeMemory(g_hAllocator, baseAllocations[index]);
+            baseAllocations.erase(baseAllocations.begin() + index);
+        }
+    }
+
+    // BENCHMARK
+    const size_t allocCount = maxBufCapacity / 2;
+    std::vector<VmaAllocation> testAllocations;
+    testAllocations.reserve(allocCount);
+    duration allocTotalDuration = duration::zero();
+    duration freeTotalDuration = duration::zero();
+    for(uint32_t iterationIndex = 0; iterationIndex < iterationCount; ++iterationIndex)
+    {
+        // Allocations
+        time_point allocTimeBeg = std::chrono::high_resolution_clock::now();
+        for(size_t i = 0; i < allocCount; ++i)
+        {
+            memReq.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
+            res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+            assert(res == VK_SUCCESS);
+            testAllocations.push_back(alloc);
+        }
+        allocTotalDuration += std::chrono::high_resolution_clock::now() - allocTimeBeg;
+
+        // Deallocations
+        switch(freeOrder)
+        {
+        case FREE_ORDER::FORWARD:
+            // Leave testAllocations unchanged.
+            break;
+        case FREE_ORDER::BACKWARD:
+            std::reverse(testAllocations.begin(), testAllocations.end());
+            break;
+        case FREE_ORDER::RANDOM:
+            std::shuffle(testAllocations.begin(), testAllocations.end(), MyUniformRandomNumberGenerator(rand));
+            break;
+        default: assert(0);
+        }
+
+        time_point freeTimeBeg = std::chrono::high_resolution_clock::now();
+        for(size_t i = 0; i < allocCount; ++i)
+            vmaFreeMemory(g_hAllocator, testAllocations[i]);
+        freeTotalDuration += std::chrono::high_resolution_clock::now() - freeTimeBeg;
+
+        testAllocations.clear();
+    }
+
+    // Delete baseAllocations
+    while(!baseAllocations.empty())
+    {
+        vmaFreeMemory(g_hAllocator, baseAllocations.back());
+        baseAllocations.pop_back();
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+
+    wprintf(L"    LinearAlgorithm=%u %s FreeOrder=%s: allocations %g s, free %g s\n",
+        linear ? 1 : 0,
+        empty ? L"Empty" : L"Not empty",
+        FREE_ORDER_NAMES[(size_t)freeOrder],
+        ToFloatSeconds(allocTotalDuration),
+        ToFloatSeconds(freeTotalDuration));
+}
+
+static void BenchmarkLinearAllocator()
+{
+    wprintf(L"Benchmark linear allocator\n");
+
+    uint32_t freeOrderCount = 1;
+    if(ConfigType >= CONFIG_TYPE::CONFIG_TYPE_LARGE)
+        freeOrderCount = 3;
+    else if(ConfigType >= CONFIG_TYPE::CONFIG_TYPE_SMALL)
+        freeOrderCount = 2;
+
+    const uint32_t emptyCount = ConfigType >= CONFIG_TYPE::CONFIG_TYPE_SMALL ? 2 : 1;
+
+    for(uint32_t freeOrderIndex = 0; freeOrderIndex < freeOrderCount; ++freeOrderIndex)
+    {
+        FREE_ORDER freeOrder = FREE_ORDER::COUNT;
+        switch(freeOrderIndex)
+        {
+        case 0: freeOrder = FREE_ORDER::BACKWARD; break;
+        case 1: freeOrder = FREE_ORDER::FORWARD; break;
+        case 2: freeOrder = FREE_ORDER::RANDOM; break;
+        default: assert(0);
+        }
+
+        for(uint32_t emptyIndex = 0; emptyIndex < emptyCount; ++emptyIndex)
+        {
+            for(uint32_t linearIndex = 0; linearIndex < 2; ++linearIndex)
+            {
+                BenchmarkLinearAllocatorCase(
+                    linearIndex ? 1 : 0, // linear
+                    emptyIndex ? 0 : 1, // empty
+                    freeOrder); // freeOrder
+            }
+        }
+    }
+}
+
 static void TestPool_SameSize()
 {
     const VkDeviceSize BUF_SIZE = 1024 * 1024;
@@ -1585,7 +2517,116 @@ static void TestPool_SameSize()
 
     items.clear();
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // Test for allocation too large for pool
+
+    {
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.pool = pool;
+
+        VkMemoryRequirements memReq;
+        memReq.memoryTypeBits = UINT32_MAX;
+        memReq.alignment = 1;
+        memReq.size = poolCreateInfo.blockSize + 4;
+        
+        VmaAllocation alloc = nullptr;
+        res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+        assert(res == VK_ERROR_OUT_OF_DEVICE_MEMORY && alloc == nullptr);
+    }
+
     vmaDestroyPool(g_hAllocator, pool);
+}
+
+static bool ValidatePattern(const void* pMemory, size_t size, uint8_t pattern)
+{
+    const uint8_t* pBytes = (const uint8_t*)pMemory;
+    for(size_t i = 0; i < size; ++i)
+    {
+        if(pBytes[i] != pattern)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void TestAllocationsInitialization()
+{
+    VkResult res;
+
+    const size_t BUF_SIZE = 1024;
+
+    // Create pool.
+
+    VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufInfo.size = BUF_SIZE;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo dummyBufAllocCreateInfo = {};
+    dummyBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.blockSize = BUF_SIZE * 10;
+    poolCreateInfo.minBlockCount = 1; // To keep memory alive while pool exists.
+    poolCreateInfo.maxBlockCount = 1;
+    res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufInfo, &dummyBufAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    VmaAllocationCreateInfo bufAllocCreateInfo = {};
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &bufAllocCreateInfo.pool);
+    assert(res == VK_SUCCESS);
+
+    // Create one persistently mapped buffer to keep memory of this block mapped,
+    // so that pointer to mapped data will remain (more or less...) valid even
+    // after destruction of other allocations.
+    
+    bufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    VkBuffer firstBuf;
+    VmaAllocation firstAlloc;
+    res = vmaCreateBuffer(g_hAllocator, &bufInfo, &bufAllocCreateInfo, &firstBuf, &firstAlloc, nullptr);
+    assert(res == VK_SUCCESS);
+
+    // Test buffers.
+
+    for(uint32_t i = 0; i < 2; ++i)
+    {
+        const bool persistentlyMapped = i == 0;
+        bufAllocCreateInfo.flags = persistentlyMapped ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
+        VkBuffer buf;
+        VmaAllocation alloc;
+        VmaAllocationInfo allocInfo;
+        res = vmaCreateBuffer(g_hAllocator, &bufInfo, &bufAllocCreateInfo, &buf, &alloc, &allocInfo);
+        assert(res == VK_SUCCESS);
+
+        void* pMappedData;
+        if(!persistentlyMapped)
+        {
+            res = vmaMapMemory(g_hAllocator, alloc, &pMappedData);
+            assert(res == VK_SUCCESS);
+        }
+        else
+        {
+            pMappedData = allocInfo.pMappedData;
+        }
+
+        // Validate initialized content
+        bool valid = ValidatePattern(pMappedData, BUF_SIZE, 0xDC);
+        assert(valid);
+
+        if(!persistentlyMapped)
+        {
+            vmaUnmapMemory(g_hAllocator, alloc);
+        }
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+
+        // Validate freed content
+        valid = ValidatePattern(pMappedData, BUF_SIZE, 0xEF);
+        assert(valid);
+    }
+
+    vmaDestroyBuffer(g_hAllocator, firstBuf, firstAlloc);
+    vmaDestroyPool(g_hAllocator, bufAllocCreateInfo.pool);
 }
 
 static void TestPool_Benchmark(
@@ -2459,17 +3500,6 @@ static void PerformCustomPoolTest(FILE* file)
     WritePoolTestResult(file, "Code desc", "Test desc", config, result);
 }
 
-enum CONFIG_TYPE {
-    CONFIG_TYPE_MINIMUM,
-    CONFIG_TYPE_SMALL,
-    CONFIG_TYPE_AVERAGE,
-    CONFIG_TYPE_LARGE,
-    CONFIG_TYPE_MAXIMUM,
-    CONFIG_TYPE_COUNT
-};
-
-static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
-//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 static const char* CODE_DESCRIPTION = "Foo";
 
 static void PerformMainTests(FILE* file)
@@ -2936,13 +3966,34 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
+    if(false)
+    {
+        // # Temporarily insert custom tests here
+TestLinearAllocator();
+ManuallyTestLinearAllocator();
+TestLinearAllocatorMultiBlock();
+BenchmarkLinearAllocator();
+        return;
+    }
+
     // # Simple tests
 
     TestBasics();
+#if VMA_DEBUG_MARGIN
+    TestDebugMargin();
+#else
     TestPool_SameSize();
     TestHeapSizeLimit();
+#endif
+#if VMA_DEBUG_INITIALIZE_ALLOCATIONS
+    TestAllocationsInitialization();
+#endif
     TestMapping();
     TestMappingMultithreaded();
+    TestLinearAllocator();
+    ManuallyTestLinearAllocator();
+    TestLinearAllocatorMultiBlock();
+    BenchmarkLinearAllocator();
     TestDefragmentationSimple();
     TestDefragmentationFull();
 

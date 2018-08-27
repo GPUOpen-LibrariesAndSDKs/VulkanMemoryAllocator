@@ -85,6 +85,10 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ab5c1f38dea3a2cf00dc9eb4f57218c49"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acc798589736f0becb317fc2196c1d8b9"><td class="memItemLeft" align="right" valign="top">PFN_vkUnmapMemory&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#acc798589736f0becb317fc2196c1d8b9">vkUnmapMemory</a></td></tr>
 <tr class="separator:acc798589736f0becb317fc2196c1d8b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33c322f4c4ad2810f8a9c97a277572f9"><td class="memItemLeft" align="right" valign="top">PFN_vkFlushMappedMemoryRanges&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a33c322f4c4ad2810f8a9c97a277572f9">vkFlushMappedMemoryRanges</a></td></tr>
+<tr class="separator:a33c322f4c4ad2810f8a9c97a277572f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c1093bc32386a8060c37c9f282078a1"><td class="memItemLeft" align="right" valign="top">PFN_vkInvalidateMappedMemoryRanges&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a5c1093bc32386a8060c37c9f282078a1">vkInvalidateMappedMemoryRanges</a></td></tr>
+<tr class="separator:a5c1093bc32386a8060c37c9f282078a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94fc4f3a605d9880bb3c0ba2c2fc80b2"><td class="memItemLeft" align="right" valign="top">PFN_vkBindBufferMemory&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a94fc4f3a605d9880bb3c0ba2c2fc80b2">vkBindBufferMemory</a></td></tr>
 <tr class="separator:a94fc4f3a605d9880bb3c0ba2c2fc80b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1338d96a128a5ade648b8d934907c637"><td class="memItemLeft" align="right" valign="top">PFN_vkBindImageMemory&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a1338d96a128a5ade648b8d934907c637">vkBindImageMemory</a></td></tr>
@@ -101,10 +105,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a23ebe70be515b9b5010a1d691200e325"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90b898227039b1dcb3520f6e91f09ffa"><td class="memItemLeft" align="right" valign="top">PFN_vkDestroyImage&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a90b898227039b1dcb3520f6e91f09ffa">vkDestroyImage</a></td></tr>
 <tr class="separator:a90b898227039b1dcb3520f6e91f09ffa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9d8d1b05d2b1e7e1d9b27f6f585acf9c"><td class="memItemLeft" align="right" valign="top">PFN_vkGetBufferMemoryRequirements2KHR&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a9d8d1b05d2b1e7e1d9b27f6f585acf9c">vkGetBufferMemoryRequirements2KHR</a></td></tr>
-<tr class="separator:a9d8d1b05d2b1e7e1d9b27f6f585acf9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9cdcdc1e2b2ea7c571f7d27e30ba6875"><td class="memItemLeft" align="right" valign="top">PFN_vkGetImageMemoryRequirements2KHR&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html#a9cdcdc1e2b2ea7c571f7d27e30ba6875">vkGetImageMemoryRequirements2KHR</a></td></tr>
-<tr class="separator:a9cdcdc1e2b2ea7c571f7d27e30ba6875"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Pointers to some Vulkan functions - a subset used by the library. </p>
@@ -208,6 +208,20 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a33c322f4c4ad2810f8a9c97a277572f9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a33c322f4c4ad2810f8a9c97a277572f9">&#9670;&nbsp;</a></span>vkFlushMappedMemoryRanges</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">PFN_vkFlushMappedMemoryRanges VmaVulkanFunctions::vkFlushMappedMemoryRanges</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a4c658701778564d62034255b5dda91b4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4c658701778564d62034255b5dda91b4">&#9670;&nbsp;</a></span>vkFreeMemory</h2>
 
@@ -236,20 +250,6 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9d8d1b05d2b1e7e1d9b27f6f585acf9c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9d8d1b05d2b1e7e1d9b27f6f585acf9c">&#9670;&nbsp;</a></span>vkGetBufferMemoryRequirements2KHR</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">PFN_vkGetBufferMemoryRequirements2KHR VmaVulkanFunctions::vkGetBufferMemoryRequirements2KHR</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a475f6f49f8debe4d10800592606d53f4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a475f6f49f8debe4d10800592606d53f4">&#9670;&nbsp;</a></span>vkGetImageMemoryRequirements</h2>
 
@@ -258,20 +258,6 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">PFN_vkGetImageMemoryRequirements VmaVulkanFunctions::vkGetImageMemoryRequirements</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a9cdcdc1e2b2ea7c571f7d27e30ba6875"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9cdcdc1e2b2ea7c571f7d27e30ba6875">&#9670;&nbsp;</a></span>vkGetImageMemoryRequirements2KHR</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">PFN_vkGetImageMemoryRequirements2KHR VmaVulkanFunctions::vkGetImageMemoryRequirements2KHR</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -300,6 +286,20 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">PFN_vkGetPhysicalDeviceProperties VmaVulkanFunctions::vkGetPhysicalDeviceProperties</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5c1093bc32386a8060c37c9f282078a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5c1093bc32386a8060c37c9f282078a1">&#9670;&nbsp;</a></span>vkInvalidateMappedMemoryRanges</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">PFN_vkInvalidateMappedMemoryRanges VmaVulkanFunctions::vkInvalidateMappedMemoryRanges</td>
         </tr>
       </table>
 </div><div class="memdoc">

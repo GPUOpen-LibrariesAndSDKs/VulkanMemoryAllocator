@@ -74,6 +74,23 @@ Thread safety</h1>
 <li>When the allocator is created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4816ddaed324ba110172ca608a20f29d" title="Allocator and all objects created from it will not be synchronized internally, so you must guarantee ...">VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT</a> flag, calls to functions that take such <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized. ">VmaAllocator</a> object must be synchronized externally.</li>
 <li>Access to a <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a> object must be externally synchronized. For example, you must not call <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> and <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it. ">vmaMapMemory()</a> from different threads at the same time if you pass the same <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a> object to these functions.</li>
 </ul>
+<h1><a class="anchor" id="general_considerations_validation_layer_warnings"></a>
+Validation layer warnings</h1>
+<p>When using this library, you can meet following types of warnings issued by Vulkan validation layer. They don't necessarily indicate a bug, so you may need to just ignore them.</p>
+<ul>
+<li><em>vkBindBufferMemory(): Binding memory to buffer 0xeb8e4 but vkGetBufferMemoryRequirements() has not been called on that buffer.</em><ul>
+<li>It happens when VK_KHR_dedicated_allocation extension is enabled. <code>vkGetBufferMemoryRequirements2KHR</code> function is used instead, while validation layer seems to be unaware of it.</li>
+</ul>
+</li>
+<li><em>Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.</em><ul>
+<li>It happens when you map a buffer or image, because the library maps entire <code>VkDeviceMemory</code> block, where different types of images and buffers may end up together, especially on GPUs with unified memory like Intel.</li>
+</ul>
+</li>
+<li><em>Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.</em><ul>
+<li>It happens when you use lost allocations, and a new image or buffer is created in place of an existing object that bacame lost.</li>
+</ul>
+</li>
+</ul>
 <h1><a class="anchor" id="general_considerations_allocation_algorithm"></a>
 Allocation algorithm</h1>
 <p>The library uses following algorithm for allocation, in order:</p>
@@ -90,7 +107,8 @@ Allocation algorithm</h1>
 Features not supported</h1>
 <p>Features deliberately excluded from the scope of this library:</p>
 <ul>
-<li>Data transfer - issuing commands that transfer data between buffers or images, any usage of <code>VkCommandList</code> or <code>VkCommandQueue</code> and related synchronization is responsibility of the user.</li>
+<li>Data transfer - issuing commands that transfer data between buffers or images, any usage of <code>VkCommandList</code> or <code>VkQueue</code> and related synchronization is responsibility of the user.</li>
+<li>Allocations for imported/exported external memory. They tend to require explicit memory type index and dedicated allocation anyway, so they don't interact with main features of this library. Such special purpose allocations should be made manually, using <code>vkCreateBuffer()</code> and <code>vkAllocateMemory()</code>.</li>
 <li>Support for any programming languages other than C/C++. Bindings to other languages are welcomed as external projects. </li>
 </ul>
 </div></div><!-- contents -->
