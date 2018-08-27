@@ -1,4 +1,4 @@
-# 2.1.0-beta.1 (2018-08-24)
+# 2.1.0-beta.1 (2018-08-27)
 
 Major release after many months of development in "development" branch and features branches. Many new features added, some bugs fixed. API stays backward-compatible.
 
@@ -21,14 +21,17 @@ Major changes:
 - Changed format of JSON dump returned by `vmaBuildStatsString` (not backward compatible!).
   - Custom pools and memory blocks now have IDs that don't change after sorting.
   - Added properties: "CreationFrameIndex", "LastUseFrameIndex", "Usage".
-  - Changed behavior of `vmaGetAllocationInfo` and `vmaTouchAllocation` to update `allocation.lastUseFrameIndex` even if allocation cannot become lost.
   - Changed VmaDumpVis tool to use these new properties for better coloring.
+  - Changed behavior of `vmaGetAllocationInfo` and `vmaTouchAllocation` to update `allocation.lastUseFrameIndex` even if allocation cannot become lost.
 
 Minor changes:
 
+- Changes in custom pools:
+  - Added new structure member `VmaPoolStats::blockCount`.
+  - Changed behavior of `VmaPoolCreateInfo::blockSize` = 0 (default) - it now means that pool may use variable block sizes, just like default pools do.
 - Improved logic of `vmaFindMemoryTypeIndex` for some cases, especially integrated GPUs.
 - VulkanSample application: Removed dependency on external library MathFu. Added own vector and matrix structures.
-- Code changes that improve compatibility with various platforms, including: Visual Studio 2012, 32-bit code, C compilers.
+- Changes that improve compatibility with various platforms, including: Visual Studio 2012, 32-bit code, C compilers.
   - Changed usage of "VK_KHR_dedicated_allocation" extension in the code to be optional, driven by macro `VMA_DEDICATED_ALLOCATION`, for compatibility with Android.
 - Many additions and fixes in documentation, including description of new features, as well as "Validation layer warnings".
 - Other bugfixes.

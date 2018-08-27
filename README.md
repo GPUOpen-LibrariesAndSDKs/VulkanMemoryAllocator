@@ -93,6 +93,7 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 
 # Software using this library
 
+- **[Filament](https://github.com/google/filament)** - physically based rendering engine for Android, Windows, Linux and macOS, from Google. Apache License 2.0.
 - **[Anvil](https://github.com/GPUOpen-LibrariesAndSDKs/Anvil)** - cross-platform framework for Vulkan. License: MIT.
 - **[vkDOOM3](https://github.com/DustinHLand/vkDOOM3)** - Vulkan port of GPL DOOM 3 BFG Edition. License: GNU GPL.
 - **[Lightweight Java Game Library (LWJGL)](https://www.lwjgl.org/)** - includes binding of the library for Java. License: BSD.
@@ -102,4 +103,5 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 
 - **[Awesome Vulkan](https://github.com/vinjn/awesome-vulkan)** - a curated list of awesome Vulkan libraries, debuggers and resources.
 - **[PyVMA](https://github.com/realitix/pyvma)** - Python wrapper for this library. Author: Jean-Sébastien B. (@realitix). License: Apache 2.0.
+- **[vma_sample_sdl](https://github.com/rextimmy/vma_sample_sdl)** - SDL port of the sample app of this library (with the goal of running it on multiple platforms, including MacOS). Author: @rextimmy. License: MIT.
 - **[vulkan-malloc](https://github.com/dylanede/vulkan-malloc)** - Vulkan memory allocation library for Rust. Based on version 1 of this library. Author: Dylan Ede (@dylanede). License: MIT / Apache 2.0.

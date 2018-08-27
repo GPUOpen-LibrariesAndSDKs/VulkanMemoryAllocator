@@ -36,8 +36,17 @@ include all public interface declarations. Example:
 
 #else // #ifdef _WIN32
 
+#ifdef __clang__
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wtautological-compare" // comparison of unsigned expression < 0 is always false
+#endif
+
 #include <vulkan/vulkan.h>
 #include "vk_mem_alloc.h"
+
+#ifdef __clang__
+    #pragma clang diagnostic pop
+#endif
 
 #endif // #ifdef _WIN32
 

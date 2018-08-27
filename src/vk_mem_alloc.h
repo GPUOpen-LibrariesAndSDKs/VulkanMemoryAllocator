@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.1.0-beta.1</b> (2018-08-24)
+<b>Version 2.1.0-beta.1</b> (2018-08-27)
 
 Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -122,6 +122,13 @@ To do it properly:
 \endcode
 
 It may be a good idea to create dedicated CPP file just for this purpose.
+
+Please note that this library includes header `<vulkan/vulkan.h>`, which in turn
+includes `<windows.h>` on Windows. If you need some specific macros defined
+before including these headers (like `NOMINMAX`, `WIN32_LEAN_AND_MEAN`, or
+`WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
+them before every `#include` of this library.
+
 
 \section quick_start_initialization Initialization
 
@@ -3060,9 +3067,13 @@ static void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
 {
     uint32_t* pDst = (uint32_t*)((char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
-    for(size_t i = 0; i < numberCount; ++i, ++pDst)
+    // This condition is to silence clang compiler error: "comparison of unsigned expression < 0 is always false"
+    if(numberCount > 0)
     {
-        *pDst = VMA_CORRUPTION_DETECTION_MAGIC_VALUE;
+        for(size_t i = 0; i < numberCount; ++i, ++pDst)
+        {
+            *pDst = VMA_CORRUPTION_DETECTION_MAGIC_VALUE;
+        }
     }
 }
 
@@ -3070,11 +3081,15 @@ static bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
 {
     const uint32_t* pSrc = (const uint32_t*)((const char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
-    for(size_t i = 0; i < numberCount; ++i, ++pSrc)
+    // This condition is to silence clang compiler error: "comparison of unsigned expression < 0 is always false"
+    if(numberCount > 0)
     {
-        if(*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
+        for(size_t i = 0; i < numberCount; ++i, ++pSrc)
         {
-            return false;
+            if(*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
+            {
+                return false;
+            }
         }
     }
     return true;
@@ -3513,10 +3528,10 @@ template<typename CmpLess, typename IterT, typename KeyT>
 IterT VmaVectorFindSorted(const IterT& beg, const IterT& end, const KeyT& value)
 {
     CmpLess comparator;
-    typename IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
+    IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
         beg, end, value, comparator);
     if(it == end ||
-        !comparator(*it, value) && !comparator(value, *it))
+        (!comparator(*it, value) && !comparator(value, *it)))
     {
         return it;
     }
@@ -8632,8 +8647,8 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
             }
 
             // There is enough free space at the end after alignment.
-            if(index1st == suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN < size ||
-                index1st < suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= suballocations1st[index1st].offset)
+            if((index1st == suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN < size) ||
+                (index1st < suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= suballocations1st[index1st].offset))
             {
                 // Check next suballocations for BufferImageGranularity conflicts.
                 // If conflict exists, allocation cannot be made here.
@@ -11634,8 +11649,7 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
 {
     VMA_ASSERT(allocation);
 
-    if(allocation->CanBecomeLost() == false ||
-        allocation->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
+    if(TouchAllocation(allocation))
     {
         if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
         {
@@ -11854,7 +11868,7 @@ void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationI
         Warning: This is a carefully designed algorithm.
         Do not modify unless you really know what you're doing :)
         */
-        uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
+        const uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
         uint32_t localLastUseFrameIndex = hAllocation->GetLastUseFrameIndex();
         for(;;)
         {
