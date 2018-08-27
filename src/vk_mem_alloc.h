@@ -592,9 +592,6 @@ less memory consumed by metadata.
 With this one flag, you can create a custom pool that can be used in many ways:
 free-at-once, stack, double stack, and ring buffer. See below for details.
 
-Pools with linear algorithm must have only one memory block -
-VmaPoolCreateInfo::maxBlockCount must be 1.
-
 \subsection linear_algorithm_free_at_once Free-at-once
 
 In a pool that uses linear algorithm, you still need to free all the allocations
@@ -607,6 +604,9 @@ to release all at once.
 
 ![Free-at-once](../gfx/Linear_allocator_3_free_at_once.png)
 
+This mode is also available for pools created with VmaPoolCreateInfo::maxBlockCount
+value that allows multiple memory blocks.
+
 \subsection linear_algorithm_stack Stack
 
 When you free an allocation that was created last, its space can be reused.
@@ -614,6 +614,9 @@ Thanks to this, if you always release allocations in the order opposite to their
 creation (LIFO - Last In First Out), you can achieve behavior of a stack.
 
 ![Stack](../gfx/Linear_allocator_4_stack.png)
+
+This mode is also available for pools created with VmaPoolCreateInfo::maxBlockCount
+value that allows multiple memory blocks.
 
 \subsection linear_algorithm_double_stack Double stack
 
@@ -626,11 +629,14 @@ stacks:
 To make allocation from upper stack, add flag #VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
 to VmaAllocationCreateInfo::flags.
 
+![Double stack](../gfx/Linear_allocator_7_double_stack.png)
+
+Double stack is available only in pools with one memory block -
+VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
+
 When the two stacks' ends meet so there is not enough space between them for a
 new allocation, such allocation fails with usual
 `VK_ERROR_OUT_OF_DEVICE_MEMORY` error.
-
-![Double stack](../gfx/Linear_allocator_7_double_stack.png)
 
 \subsection linear_algorithm_ring_buffer Ring buffer
 
@@ -648,6 +654,9 @@ from the front of the queue can become lost, they become lost and the allocation
 succeeds.
 
 ![Ring buffer with lost allocations](../gfx/Linear_allocator_6_ring_buffer_lost.png)
+
+Ring buffer is available only in pools with one memory block -
+VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
 
 
 \page defragmentation Defragmentation
@@ -1968,7 +1977,6 @@ typedef struct VmaPoolCreateInfo {
     /** \brief Maximum number of blocks that can be allocated in this pool. Optional.
 
     Set to 0 to use default, which is `SIZE_MAX`, which means no limit.
-    When #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT is used, default is 1.
     
     Set to same value as VmaPoolCreateInfo::minBlockCount to have fixed amount of memory allocated
     throughout whole lifetime of this pool.
@@ -2005,13 +2013,16 @@ typedef struct VmaPoolStats {
     /** \brief Number of continuous memory ranges in the pool not used by any #VmaAllocation.
     */
     size_t unusedRangeCount;
-    /** \brief Size of the largest continuous free memory region.
+    /** \brief Size of the largest continuous free memory region available for new allocation.
 
     Making a new allocation of that size is not guaranteed to succeed because of
     possible additional margin required to respect alignment and buffer/image
     granularity.
     */
     VkDeviceSize unusedRangeSizeMax;
+    /** \brief Number of `VkDeviceMemory` blocks allocated for this pool.
+    */
+    size_t blockCount;
 } VmaPoolStats;
 
 /** \brief Allocates Vulkan device memory and creates #VmaPool object.
@@ -4506,6 +4517,7 @@ public:
     virtual bool IsEmpty() const = 0;
 
     virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const = 0;
+    // Shouldn't modify blockCount.
     virtual void AddPoolStats(VmaPoolStats& inoutStats) const = 0;
 
 #if VMA_STATS_STRING_ENABLED
@@ -5013,6 +5025,18 @@ private:
     // Performs single step in sorting m_Blocks. They may not be fully sorted
     // after this call.
     void IncrementallySortBlocks();
+
+    // To be used only without CAN_MAKE_OTHER_LOST flag.
+    VkResult AllocateFromBlock(
+        VmaDeviceMemoryBlock* pBlock,
+        VmaPool hCurrentPool,
+        uint32_t currentFrameIndex,
+        VkDeviceSize size,
+        VkDeviceSize alignment,
+        VmaAllocationCreateFlags allocFlags,
+        void* pUserData,
+        VmaSuballocationType suballocType,
+        VmaAllocation* pAllocation);
 
     VkResult CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIndex);
 };
@@ -9374,15 +9398,18 @@ VkResult VmaBlockVector::CreateMinBlocks()
 
 void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
 {
+    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+
+    const size_t blockCount = m_Blocks.size();
+
     pStats->size = 0;
     pStats->unusedSize = 0;
     pStats->allocationCount = 0;
     pStats->unusedRangeCount = 0;
     pStats->unusedRangeSizeMax = 0;
+    pStats->blockCount = blockCount;
 
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
-
-    for(uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
+    for(uint32_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
     {
         const VmaDeviceMemoryBlock* const pBlock = m_Blocks[blockIndex];
         VMA_ASSERT(pBlock);
@@ -9411,15 +9438,23 @@ VkResult VmaBlockVector::Allocate(
     VmaAllocation* pAllocation)
 {
     const bool isUpperAddress = (createInfo.flags & VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0;
-    const bool canMakeOtherLost = (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT) != 0;
+    bool canMakeOtherLost = (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT) != 0;
     const bool mapped = (createInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
     const bool isUserDataString = (createInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0;
     const bool canCreateNewBlock =
         ((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0) &&
         (m_Blocks.size() < m_MaxBlockCount);
 
-    // Upper address can only be used with linear allocator.
-    if(isUpperAddress && !m_LinearAlgorithm)
+    // If linearAlgorithm is used, canMakeOtherLost is available only when used as ring buffer.
+    // Which in turn is available only when maxBlockCount = 1.
+    if(m_LinearAlgorithm && m_MaxBlockCount > 1)
+    {
+        canMakeOtherLost = false;
+    }
+
+    // Upper address can only be used with linear allocator and within single memory block.
+    if(isUpperAddress &&
+        (!m_LinearAlgorithm || m_MaxBlockCount > 1))
     {
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
@@ -9440,65 +9475,55 @@ VkResult VmaBlockVector::Allocate(
     if(!canMakeOtherLost || canCreateNewBlock)
     {
         // 1. Search existing allocations. Try to allocate without making other allocations lost.
-        // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
-        for(size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex )
-        {
-            VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
-            VMA_ASSERT(pCurrBlock);
-            VmaAllocationRequest currRequest = {};
-            if(pCurrBlock->m_pMetadata->CreateAllocationRequest(
-                currentFrameIndex,
-                m_FrameInUseCount,
-                m_BufferImageGranularity,
-                size,
-                alignment,
-                isUpperAddress,
-                suballocType,
-                false, // canMakeOtherLost
-                &currRequest))
-            {
-                // Allocate from pCurrBlock.
-                VMA_ASSERT(currRequest.itemsToMakeLostCount == 0);
+        VmaAllocationCreateFlags allocFlagsCopy = createInfo.flags;
+        allocFlagsCopy &= ~VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
 
-                if(mapped)
-                {
-                    VkResult res = pCurrBlock->Map(m_hAllocator, 1, VMA_NULL);
-                    if(res != VK_SUCCESS)
-                    {
-                        return res;
-                    }
-                }
-            
-                // We no longer have an empty Allocation.
-                if(pCurrBlock->m_pMetadata->IsEmpty())
-                {
-                    m_HasEmptyBlock = false;
-                }
-            
-                *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
-                pCurrBlock->m_pMetadata->Alloc(currRequest, suballocType, size, isUpperAddress, *pAllocation);
-                (*pAllocation)->InitBlockAllocation(
-                    hCurrentPool,
+        if(m_LinearAlgorithm)
+        {
+            // Use only last block.
+            if(!m_Blocks.empty())
+            {
+                VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks.back();
+                VMA_ASSERT(pCurrBlock);
+                VkResult res = AllocateFromBlock(
                     pCurrBlock,
-                    currRequest.offset,
-                    alignment,
+                    hCurrentPool,
+                    currentFrameIndex,
                     size,
+                    alignment,
+                    allocFlagsCopy,
+                    createInfo.pUserData,
                     suballocType,
-                    mapped,
-                    (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
-                VMA_HEAVY_ASSERT(pCurrBlock->Validate());
-                VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
-                (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
-                if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+                    pAllocation);
+                if(res == VK_SUCCESS)
                 {
-                    m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+                    VMA_DEBUG_LOG("    Returned from last block #%u", (uint32_t)(m_Blocks.size() - 1));
+                    return VK_SUCCESS;
                 }
-                if(IsCorruptionDetectionEnabled())
+            }
+        }
+        else
+        {
+            // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
+            for(size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex )
+            {
+                VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
+                VMA_ASSERT(pCurrBlock);
+                VkResult res = AllocateFromBlock(
+                    pCurrBlock,
+                    hCurrentPool,
+                    currentFrameIndex,
+                    size,
+                    alignment,
+                    allocFlagsCopy,
+                    createInfo.pUserData,
+                    suballocType,
+                    pAllocation);
+                if(res == VK_SUCCESS)
                 {
-                    VkResult res = pCurrBlock->WriteMagicValueAroundAllocation(m_hAllocator, currRequest.offset, size);
-                    VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
+                    VMA_DEBUG_LOG("    Returned from existing block #%u", (uint32_t)blockIndex);
+                    return VK_SUCCESS;
                 }
-                return VK_SUCCESS;
             }
         }
 
@@ -9555,56 +9580,24 @@ VkResult VmaBlockVector::Allocate(
                 VmaDeviceMemoryBlock* const pBlock = m_Blocks[newBlockIndex];
                 VMA_ASSERT(pBlock->m_pMetadata->GetSize() >= size);
 
-                if(mapped)
-                {
-                    res = pBlock->Map(m_hAllocator, 1, VMA_NULL);
-                    if(res != VK_SUCCESS)
-                    {
-                        return res;
-                    }
-                }
-
-                // Allocate from pBlock. Because it is empty, dstAllocRequest can be trivially filled.
-                VmaAllocationRequest allocRequest;
-                if(pBlock->m_pMetadata->CreateAllocationRequest(
+                res = AllocateFromBlock(
+                    pBlock,
+                    hCurrentPool,
                     currentFrameIndex,
-                    m_FrameInUseCount,
-                    m_BufferImageGranularity,
                     size,
                     alignment,
-                    isUpperAddress,
+                    allocFlagsCopy,
+                    createInfo.pUserData,
                     suballocType,
-                    false, // canMakeOtherLost
-                    &allocRequest))
+                    pAllocation);
+                if(res == VK_SUCCESS)
                 {
-                    *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
-                    pBlock->m_pMetadata->Alloc(allocRequest, suballocType, size, isUpperAddress, *pAllocation);
-                    (*pAllocation)->InitBlockAllocation(
-                        hCurrentPool,
-                        pBlock,
-                        allocRequest.offset,
-                        alignment,
-                        size,
-                        suballocType,
-                        mapped,
-                        (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
-                    VMA_HEAVY_ASSERT(pBlock->Validate());
-                    VMA_DEBUG_LOG("    Created new allocation Size=%llu", allocInfo.allocationSize);
-                    (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
-                    if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
-                    {
-                        m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
-                    }
-                    if(IsCorruptionDetectionEnabled())
-                    {
-                        res = pBlock->WriteMagicValueAroundAllocation(m_hAllocator, allocRequest.offset, size);
-                        VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
-                    }
+                    VMA_DEBUG_LOG("    Created new block Size=%llu", newBlockSize);
                     return VK_SUCCESS;
                 }
                 else
                 {
-                    // Allocation from empty block failed, possibly due to VMA_DEBUG_MARGIN or alignment.
+                    // Allocation from new block failed, possibly due to VMA_DEBUG_MARGIN or alignment.
                     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
                 }
             }
@@ -9819,15 +9812,91 @@ void VmaBlockVector::Remove(VmaDeviceMemoryBlock* pBlock)
 
 void VmaBlockVector::IncrementallySortBlocks()
 {
-    // Bubble sort only until first swap.
-    for(size_t i = 1; i < m_Blocks.size(); ++i)
+    if(!m_LinearAlgorithm)
     {
-        if(m_Blocks[i - 1]->m_pMetadata->GetSumFreeSize() > m_Blocks[i]->m_pMetadata->GetSumFreeSize())
+        // Bubble sort only until first swap.
+        for(size_t i = 1; i < m_Blocks.size(); ++i)
         {
-            VMA_SWAP(m_Blocks[i - 1], m_Blocks[i]);
-            return;
+            if(m_Blocks[i - 1]->m_pMetadata->GetSumFreeSize() > m_Blocks[i]->m_pMetadata->GetSumFreeSize())
+            {
+                VMA_SWAP(m_Blocks[i - 1], m_Blocks[i]);
+                return;
+            }
         }
     }
+}
+
+VkResult VmaBlockVector::AllocateFromBlock(
+    VmaDeviceMemoryBlock* pBlock,
+    VmaPool hCurrentPool,
+    uint32_t currentFrameIndex,
+    VkDeviceSize size,
+    VkDeviceSize alignment,
+    VmaAllocationCreateFlags allocFlags,
+    void* pUserData,
+    VmaSuballocationType suballocType,
+    VmaAllocation* pAllocation)
+{
+    VMA_ASSERT((allocFlags & VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT) == 0);
+    const bool isUpperAddress = (allocFlags & VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0;
+    const bool mapped = (allocFlags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
+    const bool isUserDataString = (allocFlags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0;
+
+    VmaAllocationRequest currRequest = {};
+    if(pBlock->m_pMetadata->CreateAllocationRequest(
+        currentFrameIndex,
+        m_FrameInUseCount,
+        m_BufferImageGranularity,
+        size,
+        alignment,
+        isUpperAddress,
+        suballocType,
+        false, // canMakeOtherLost
+        &currRequest))
+    {
+        // Allocate from pCurrBlock.
+        VMA_ASSERT(currRequest.itemsToMakeLostCount == 0);
+
+        if(mapped)
+        {
+            VkResult res = pBlock->Map(m_hAllocator, 1, VMA_NULL);
+            if(res != VK_SUCCESS)
+            {
+                return res;
+            }
+        }
+            
+        // We no longer have an empty Allocation.
+        if(pBlock->m_pMetadata->IsEmpty())
+        {
+            m_HasEmptyBlock = false;
+        }
+            
+        *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
+        pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, isUpperAddress, *pAllocation);
+        (*pAllocation)->InitBlockAllocation(
+            hCurrentPool,
+            pBlock,
+            currRequest.offset,
+            alignment,
+            size,
+            suballocType,
+            mapped,
+            (allocFlags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
+        VMA_HEAVY_ASSERT(pBlock->Validate());
+        (*pAllocation)->SetUserData(m_hAllocator, pUserData);
+        if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
+        {
+            m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+        }
+        if(IsCorruptionDetectionEnabled())
+        {
+            VkResult res = pBlock->WriteMagicValueAroundAllocation(m_hAllocator, currRequest.offset, size);
+            VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
+        }
+        return VK_SUCCESS;
+    }
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 
 VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIndex)
@@ -11812,10 +11881,9 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
 
     if(newCreateInfo.maxBlockCount == 0)
     {
-        newCreateInfo.maxBlockCount = isLinearAlgorithm ? 1 : SIZE_MAX;
+        newCreateInfo.maxBlockCount = SIZE_MAX;
     }
-    if(newCreateInfo.minBlockCount > newCreateInfo.maxBlockCount ||
-        isLinearAlgorithm && newCreateInfo.maxBlockCount > 1)
+    if(newCreateInfo.minBlockCount > newCreateInfo.maxBlockCount)
     {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
