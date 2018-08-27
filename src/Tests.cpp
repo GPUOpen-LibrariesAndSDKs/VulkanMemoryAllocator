@@ -7,6 +7,8 @@
 
 #ifdef _WIN32
 
+static const char* CODE_DESCRIPTION = "Foo";
+
 enum CONFIG_TYPE {
     CONFIG_TYPE_MINIMUM,
     CONFIG_TYPE_SMALL,
@@ -212,6 +214,15 @@ public:
     {
     }
 };
+
+static void CurrentTimeToStr(std::string& out)
+{
+    time_t rawTime; time(&rawTime);
+    struct tm timeInfo; localtime_s(&timeInfo, &rawTime);
+    char timeStr[128];
+    strftime(timeStr, _countof(timeStr), "%c", &timeInfo);
+    out = timeStr;
+}
 
 VkResult MainTest(Result& outResult, const Config& config)
 {
@@ -2093,7 +2104,7 @@ static void ManuallyTestLinearAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
-static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER freeOrder)
+static void BenchmarkLinearAllocatorCase(FILE* file, bool linear, bool empty, FREE_ORDER freeOrder)
 {
     RandomNumberGenerator rand{16223};
 
@@ -2212,17 +2223,42 @@ static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER fre
 
     vmaDestroyPool(g_hAllocator, pool);
 
+    const float allocTotalSeconds = ToFloatSeconds(allocTotalDuration);
+    const float freeTotalSeconds  = ToFloatSeconds(freeTotalDuration);
+
     printf("    LinearAlgorithm=%u %s FreeOrder=%s: allocations %g s, free %g s\n",
         linear ? 1 : 0,
         empty ? "Empty" : "Not empty",
         FREE_ORDER_NAMES[(size_t)freeOrder],
-        ToFloatSeconds(allocTotalDuration),
-        ToFloatSeconds(freeTotalDuration));
+        allocTotalSeconds,
+        freeTotalSeconds);
+
+    if(file)
+    {
+        std::string currTime;
+        CurrentTimeToStr(currTime);
+
+        fprintf(file, "%s,%s,%u,%u,%s,%g,%g\n",
+            CODE_DESCRIPTION, currTime.c_str(),
+            linear ? 1 : 0,
+            empty ? 1 : 0,
+            FREE_ORDER_NAMES[(uint32_t)freeOrder],
+            allocTotalSeconds,
+            freeTotalSeconds);
+    }
 }
 
-static void BenchmarkLinearAllocator()
+static void BenchmarkLinearAllocator(FILE* file)
 {
     wprintf(L"Benchmark linear allocator\n");
+
+    if(file)
+    {
+        fprintf(file,
+            "Code,Time,"
+            "Linear,Empty,Free order,"
+            "Allocation time (s),Deallocation time (s)\n");
+    }
 
     uint32_t freeOrderCount = 1;
     if(ConfigType >= CONFIG_TYPE::CONFIG_TYPE_LARGE)
@@ -2248,6 +2284,7 @@ static void BenchmarkLinearAllocator()
             for(uint32_t linearIndex = 0; linearIndex < 2; ++linearIndex)
             {
                 BenchmarkLinearAllocatorCase(
+                    file,
                     linearIndex ? 1 : 0, // linear
                     emptyIndex ? 0 : 1, // empty
                     freeOrder); // freeOrder
@@ -3346,16 +3383,14 @@ static void WriteMainTestResult(
     float deallocationTimeAvgSeconds = ToFloatSeconds(result.DeallocationTimeAvg);
     float deallocationTimeMaxSeconds = ToFloatSeconds(result.DeallocationTimeMax);
 
-    time_t rawTime; time(&rawTime);
-    struct tm timeInfo; localtime_s(&timeInfo, &rawTime);
-    char timeStr[128];
-    strftime(timeStr, _countof(timeStr), "%c", &timeInfo);
+    std::string currTime;
+    CurrentTimeToStr(currTime);
 
     fprintf(file,
         "%s,%s,%s,"
         "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%I64u,%I64u,%I64u\n",
         codeDescription,
-        timeStr,
+        currTime.c_str(),
         testDescription,
         totalTimeSeconds * 1e6f,
         allocationTimeMinSeconds * 1e6f,
@@ -3402,10 +3437,8 @@ static void WritePoolTestResult(
     float deallocationTimeAvgSeconds = ToFloatSeconds(result.DeallocationTimeAvg);
     float deallocationTimeMaxSeconds = ToFloatSeconds(result.DeallocationTimeMax);
 
-    time_t rawTime; time(&rawTime);
-    struct tm timeInfo; localtime_s(&timeInfo, &rawTime);
-    char timeStr[128];
-    strftime(timeStr, _countof(timeStr), "%c", &timeInfo);
+    std::string currTime;
+    CurrentTimeToStr(currTime);
 
     fprintf(file,
         "%s,%s,%s,"
@@ -3414,7 +3447,7 @@ static void WritePoolTestResult(
         // General
         codeDescription,
         testDescription,
-        timeStr,
+        currTime.c_str(),
         // Config
         config.ThreadCount,
         (unsigned long long)config.PoolSize,
@@ -3500,8 +3533,6 @@ static void PerformCustomPoolTest(FILE* file)
 
     WritePoolTestResult(file, "Code desc", "Test desc", config, result);
 }
-
-static const char* CODE_DESCRIPTION = "Foo";
 
 static void PerformMainTests(FILE* file)
 {
@@ -3752,13 +3783,8 @@ static void PerformMainTests(FILE* file)
                                 assert(0);
                             }
 
-                            switch(config.FreeOrder)
-                            {
-                            case FREE_ORDER::FORWARD:  desc6 += ",Forward"; break;
-                            case FREE_ORDER::BACKWARD: desc6 += ",Backward"; break;
-                            case FREE_ORDER::RANDOM:   desc6 += ",Random"; break;
-                            default: assert(0);
-                            }
+                            desc6 += ',';
+                            desc6 += FREE_ORDER_NAMES[(uint32_t)config.FreeOrder];
 
                             const char* testDescription = desc6.c_str();
 
@@ -4035,7 +4061,17 @@ void Test()
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
     TestLinearAllocatorMultiBlock();
-    BenchmarkLinearAllocator();
+
+    {
+        FILE* file;
+        fopen_s(&file, "LinearAllocator.csv", "w");
+        assert(file != NULL);
+        
+        BenchmarkLinearAllocator(file);
+
+        fclose(file);
+    }
+
     TestDefragmentationSimple();
     TestDefragmentationFull();
 
