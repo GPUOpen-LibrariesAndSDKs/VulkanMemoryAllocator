@@ -11542,8 +11542,7 @@ void VmaAllocator_T::FreeMemory(const VmaAllocation allocation)
 {
     VMA_ASSERT(allocation);
 
-    if(allocation->CanBecomeLost() == false ||
-        allocation->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
+    if(TouchAllocation(allocation))
     {
         if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
         {
@@ -11762,7 +11761,7 @@ void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationI
         Warning: This is a carefully designed algorithm.
         Do not modify unless you really know what you're doing :)
         */
-        uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
+        const uint32_t localCurrFrameIndex = m_CurrentFrameIndex.load();
         uint32_t localLastUseFrameIndex = hAllocation->GetLastUseFrameIndex();
         for(;;)
         {
