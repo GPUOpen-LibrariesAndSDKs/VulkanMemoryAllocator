@@ -3318,8 +3318,8 @@ static void TestMappingMultithreaded()
 static void WriteMainTestResultHeader(FILE* file)
 {
     fprintf(file,
-        "Code,Test,Time,"
-        "Config,"
+        "Code,Time,"
+        "Threads,Buffers and images,Sizes,Operations,Allocation strategy,Free order,"
         "Total Time (us),"
         "Allocation Time Min (us),"
         "Allocation Time Avg (us),"
@@ -3353,12 +3353,10 @@ static void WriteMainTestResult(
 
     fprintf(file,
         "%s,%s,%s,"
-        "BeginBytesToAllocate=%I64u MaxBytesToAllocate=%I64u AdditionalOperationCount=%u ThreadCount=%u FreeOrder=%s,"
         "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%I64u,%I64u,%I64u\n",
         codeDescription,
-        testDescription,
         timeStr,
-        config.BeginBytesToAllocate, config.MaxBytesToAllocate, config.AdditionalOperationCount, config.ThreadCount, FREE_ORDER_NAMES[(uint32_t)config.FreeOrder],
+        testDescription,
         totalTimeSeconds * 1e6f,
         allocationTimeMinSeconds * 1e6f,
         allocationTimeAvgSeconds * 1e6f,
@@ -3590,9 +3588,9 @@ static void PerformMainTests(FILE* file)
             std::string desc2 = desc1;
             switch(buffersVsImagesIndex)
             {
-            case 0: desc2 += " Buffers"; break;
-            case 1: desc2 += " Images"; break;
-            case 2: desc2 += " Buffers+Images"; break;
+            case 0: desc2 += ",Buffers"; break;
+            case 1: desc2 += ",Images"; break;
+            case 2: desc2 += ",Buffers+Images"; break;
             default: assert(0);
             }
 
@@ -3604,9 +3602,9 @@ static void PerformMainTests(FILE* file)
                 std::string desc3 = desc2;
                 switch(smallVsLargeIndex)
                 {
-                case 0: desc3 += " Small"; break;
-                case 1: desc3 += " Large"; break;
-                case 2: desc3 += " Small+Large"; break;
+                case 0: desc3 += ",Small"; break;
+                case 1: desc3 += ",Large"; break;
+                case 2: desc3 += ",Small+Large"; break;
                 default: assert(0);
                 }
 
@@ -3710,22 +3708,22 @@ static void PerformMainTests(FILE* file)
                         switch(beginBytesToAllocateIndex)
                         {
                         case 0:
-                            desc5 += " Allocate_100%";
+                            desc5 += ",Allocate_100%";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate;
                             config.AdditionalOperationCount = 0;
                             break;
                         case 1:
-                            desc5 += " Allocate_50%+Operations";
+                            desc5 += ",Allocate_50%+Operations";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate * 50 / 100;
                             config.AdditionalOperationCount = 1024;
                             break;
                         case 2:
-                            desc5 += " Allocate_5%+Operations";
+                            desc5 += ",Allocate_5%+Operations";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate *  5 / 100;
                             config.AdditionalOperationCount = 1024;
                             break;
                         case 3:
-                            desc5 += " Allocate_95%+Operations";
+                            desc5 += ",Allocate_95%+Operations";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate * 95 / 100;
                             config.AdditionalOperationCount = 1024;
                             break;
@@ -3739,31 +3737,42 @@ static void PerformMainTests(FILE* file)
                             switch(strategyIndex)
                             {
                             case 0:
-                                desc6 += " BestFit";
+                                desc6 += ",BestFit";
                                 config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
                                 break;
                             case 1:
-                                desc6 += " WorstFit";
+                                desc6 += ",WorstFit";
                                 config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT;
                                 break;
                             case 2:
-                                desc6 += " FirstFit";
+                                desc6 += ",FirstFit";
                                 config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT;
                                 break;
                             default:
                                 assert(0);
                             }
 
-                           const char* testDescription = desc6.c_str();
+                            switch(config.FreeOrder)
+                            {
+                            case FREE_ORDER::FORWARD:  desc6 += ",Forward"; break;
+                            case FREE_ORDER::BACKWARD: desc6 += ",Backward"; break;
+                            case FREE_ORDER::RANDOM:   desc6 += ",Random"; break;
+                            default: assert(0);
+                            }
+
+                            const char* testDescription = desc6.c_str();
 
                             for(size_t repeat = 0; repeat < repeatCount; ++repeat)
                             {
-                                printf("%s Repeat %u\n", testDescription, (uint32_t)repeat);
+                                printf("%s #%u\n", testDescription, (uint32_t)repeat);
 
                                 Result result{};
                                 VkResult res = MainTest(result, config);
                                 assert(res == VK_SUCCESS);
-                                WriteMainTestResult(file, CODE_DESCRIPTION, testDescription, config, result);
+                                if(file)
+                                {
+                                    WriteMainTestResult(file, CODE_DESCRIPTION, testDescription, config, result);
+                                }
                             }
                         }
                     }
@@ -3984,7 +3993,7 @@ static void PerformPoolTests(FILE* file)
 
                         for(size_t repeat = 0; repeat < repeatCount; ++repeat)
                         {
-                            printf("%s Repeat %u\n", testDescription, (uint32_t)repeat);
+                            printf("%s #%u\n", testDescription, (uint32_t)repeat);
 
                             PoolTestResult result{};
                             g_MemoryAliasingWarningEnabled = false;
@@ -4006,16 +4015,11 @@ void Test()
     if(false)
     {
         // # Temporarily insert custom tests here
-TestLinearAllocator();
-ManuallyTestLinearAllocator();
-TestLinearAllocatorMultiBlock();
-BenchmarkLinearAllocator();
         return;
     }
 
     // # Simple tests
 
-#if 0
     TestBasics();
 #if VMA_DEBUG_MARGIN
     TestDebugMargin();
@@ -4034,7 +4038,6 @@ BenchmarkLinearAllocator();
     BenchmarkLinearAllocator();
     TestDefragmentationSimple();
     TestDefragmentationFull();
-#endif
 
     // # Detailed tests
     FILE* file;
@@ -4045,10 +4048,8 @@ BenchmarkLinearAllocator();
     PerformMainTests(file);
     //PerformCustomMainTest(file);
 
-#if 0
     WritePoolTestResultHeader(file);
     PerformPoolTests(file);
-#endif
     //PerformCustomPoolTest(file);
     
     fclose(file);
