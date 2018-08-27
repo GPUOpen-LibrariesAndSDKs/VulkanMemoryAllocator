@@ -3060,9 +3060,13 @@ static void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
 {
     uint32_t* pDst = (uint32_t*)((char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
-    for(size_t i = 0; i < numberCount; ++i, ++pDst)
+    // This condition is to silence clang compiler error: "comparison of unsigned expression < 0 is always false"
+    if(numberCount > 0)
     {
-        *pDst = VMA_CORRUPTION_DETECTION_MAGIC_VALUE;
+        for(size_t i = 0; i < numberCount; ++i, ++pDst)
+        {
+            *pDst = VMA_CORRUPTION_DETECTION_MAGIC_VALUE;
+        }
     }
 }
 
@@ -3070,11 +3074,15 @@ static bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
 {
     const uint32_t* pSrc = (const uint32_t*)((const char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
-    for(size_t i = 0; i < numberCount; ++i, ++pSrc)
+    // This condition is to silence clang compiler error: "comparison of unsigned expression < 0 is always false"
+    if(numberCount > 0)
     {
-        if(*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
+        for(size_t i = 0; i < numberCount; ++i, ++pSrc)
         {
-            return false;
+            if(*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
+            {
+                return false;
+            }
         }
     }
     return true;
@@ -3513,10 +3521,10 @@ template<typename CmpLess, typename IterT, typename KeyT>
 IterT VmaVectorFindSorted(const IterT& beg, const IterT& end, const KeyT& value)
 {
     CmpLess comparator;
-    typename IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
+    IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
         beg, end, value, comparator);
     if(it == end ||
-        !comparator(*it, value) && !comparator(value, *it))
+        (!comparator(*it, value) && !comparator(value, *it)))
     {
         return it;
     }
@@ -8634,8 +8642,8 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest(
             }
 
             // There is enough free space at the end after alignment.
-            if(index1st == suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN < size ||
-                index1st < suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= suballocations1st[index1st].offset)
+            if((index1st == suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN < size) ||
+                (index1st < suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= suballocations1st[index1st].offset))
             {
                 // Check next suballocations for BufferImageGranularity conflicts.
                 // If conflict exists, allocation cannot be made here.
