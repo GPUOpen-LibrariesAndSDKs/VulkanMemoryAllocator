@@ -130,6 +130,33 @@ struct BufferInfo
     VmaAllocation Allocation = VK_NULL_HANDLE;
 };
 
+static uint32_t GetAllocationStrategyCount()
+{
+    uint32_t strategyCount = 0;
+    switch(ConfigType)
+    {
+    case CONFIG_TYPE_MINIMUM: strategyCount = 1; break;
+    case CONFIG_TYPE_SMALL:   strategyCount = 1; break;
+    case CONFIG_TYPE_AVERAGE: strategyCount = 2; break;
+    case CONFIG_TYPE_LARGE:   strategyCount = 2; break;
+    case CONFIG_TYPE_MAXIMUM: strategyCount = 3; break;
+    default: assert(0);
+    }
+    return strategyCount;
+}
+
+static const char* GetAllocationStrategyName(VmaAllocationCreateFlags allocStrategy)
+{
+    switch(allocStrategy)
+    {
+    case VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT: return "BEST_FIT"; break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT: return "WORST_FIT"; break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT: return "FIRST_FIT"; break;
+    case 0: return "Default"; break;
+    default: assert(0); return "";   
+    }
+}
+
 static void InitResult(Result& outResult)
 {
     outResult.TotalTime = duration::zero();
@@ -2104,7 +2131,11 @@ static void ManuallyTestLinearAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
-static void BenchmarkLinearAllocatorCase(FILE* file, bool linear, bool empty, FREE_ORDER freeOrder)
+static void BenchmarkLinearAllocatorCase(FILE* file,
+    bool linear,
+    bool empty,
+    VmaAllocationCreateFlags allocStrategy,
+    FREE_ORDER freeOrder)
 {
     RandomNumberGenerator rand{16223};
 
@@ -2145,6 +2176,7 @@ static void BenchmarkLinearAllocatorCase(FILE* file, bool linear, bool empty, FR
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.pool = pool;
+    allocCreateInfo.flags = allocStrategy;
 
     VmaAllocation alloc;
     std::vector<VmaAllocation> baseAllocations;
@@ -2226,9 +2258,10 @@ static void BenchmarkLinearAllocatorCase(FILE* file, bool linear, bool empty, FR
     const float allocTotalSeconds = ToFloatSeconds(allocTotalDuration);
     const float freeTotalSeconds  = ToFloatSeconds(freeTotalDuration);
 
-    printf("    LinearAlgorithm=%u %s FreeOrder=%s: allocations %g s, free %g s\n",
+    printf("    LinearAlgorithm=%u %s Allocation=%s FreeOrder=%s: allocations %g s, free %g s\n",
         linear ? 1 : 0,
         empty ? "Empty" : "Not empty",
+        GetAllocationStrategyName(allocStrategy),
         FREE_ORDER_NAMES[(size_t)freeOrder],
         allocTotalSeconds,
         freeTotalSeconds);
@@ -2238,10 +2271,11 @@ static void BenchmarkLinearAllocatorCase(FILE* file, bool linear, bool empty, FR
         std::string currTime;
         CurrentTimeToStr(currTime);
 
-        fprintf(file, "%s,%s,%u,%u,%s,%g,%g\n",
+        fprintf(file, "%s,%s,%u,%u,%s,%s,%g,%g\n",
             CODE_DESCRIPTION, currTime.c_str(),
             linear ? 1 : 0,
             empty ? 1 : 0,
+            GetAllocationStrategyName(allocStrategy),
             FREE_ORDER_NAMES[(uint32_t)freeOrder],
             allocTotalSeconds,
             freeTotalSeconds);
@@ -2256,7 +2290,7 @@ static void BenchmarkLinearAllocator(FILE* file)
     {
         fprintf(file,
             "Code,Time,"
-            "Linear,Empty,Free order,"
+            "Linear,Empty,Allocation strategy,Free order,"
             "Allocation time (s),Deallocation time (s)\n");
     }
 
@@ -2267,6 +2301,7 @@ static void BenchmarkLinearAllocator(FILE* file)
         freeOrderCount = 2;
 
     const uint32_t emptyCount = ConfigType >= CONFIG_TYPE::CONFIG_TYPE_SMALL ? 2 : 1;
+    const uint32_t allocStrategyCount = GetAllocationStrategyCount();
 
     for(uint32_t freeOrderIndex = 0; freeOrderIndex < freeOrderCount; ++freeOrderIndex)
     {
@@ -2283,11 +2318,30 @@ static void BenchmarkLinearAllocator(FILE* file)
         {
             for(uint32_t linearIndex = 0; linearIndex < 2; ++linearIndex)
             {
-                BenchmarkLinearAllocatorCase(
-                    file,
-                    linearIndex ? 1 : 0, // linear
-                    emptyIndex ? 0 : 1, // empty
-                    freeOrder); // freeOrder
+                const bool linear = linearIndex ? 1 : 0;
+
+                uint32_t currAllocStrategyCount = linear ? 1 : allocStrategyCount;
+                for(uint32_t allocStrategyIndex = 0; allocStrategyIndex < currAllocStrategyCount; ++allocStrategyIndex)
+                {
+                    VmaAllocatorCreateFlags strategy = 0;
+                    if(!linear)
+                    {
+                        switch(allocStrategyIndex)
+                        {
+                        case 0: strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT; break;
+                        case 1: strategy = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT; break;
+                        case 2: strategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT; break;
+                        default: assert(0);
+                        }
+                    }
+
+                    BenchmarkLinearAllocatorCase(
+                        file,
+                        linear, // linear
+                        emptyIndex ? 0 : 1, // empty
+                        strategy,
+                        freeOrder); // freeOrder
+                }
             }
         }
     }
@@ -3555,16 +3609,7 @@ static void PerformMainTests(FILE* file)
     default: assert(0);
     }
 
-    size_t strategyCount = 0;
-    switch(ConfigType)
-    {
-    case CONFIG_TYPE_MINIMUM: strategyCount = 1; break;
-    case CONFIG_TYPE_SMALL:   strategyCount = 1; break;
-    case CONFIG_TYPE_AVERAGE: strategyCount = 2; break;
-    case CONFIG_TYPE_LARGE:   strategyCount = 2; break;
-    case CONFIG_TYPE_MAXIMUM: strategyCount = 3; break;
-    default: assert(0);
-    }
+    const size_t strategyCount = GetAllocationStrategyCount();
 
     for(size_t threadCountIndex = 0; threadCountIndex < threadCountCount; ++threadCountIndex)
     {
@@ -4041,6 +4086,8 @@ void Test()
     if(false)
     {
         // # Temporarily insert custom tests here
+        // ########################################
+        // ########################################
         return;
     }
 
