@@ -76,6 +76,7 @@ Project setup</h1>
 <li>In exacly one CPP file define following macro before this include. It enables also internal definitions.</li>
 </ol>
 <div class="fragment"><div class="line"><span class="preprocessor">#define VMA_IMPLEMENTATION</span></div><div class="line"><span class="preprocessor">#include &quot;vk_mem_alloc.h&quot;</span></div></div><!-- fragment --><p>It may be a good idea to create dedicated CPP file just for this purpose.</p>
+<p>Please note that this library includes header <code>&lt;vulkan/vulkan.h&gt;</code>, which in turn includes <code>&lt;windows.h&gt;</code> on Windows. If you need some specific macros defined before including these headers (like <code>NOMINMAX</code>, <code>WIN32_LEAN_AND_MEAN</code>, or <code>WINVER</code> for Windows, <code>VK_USE_PLATFORM_WIN32_KHR</code> for Vulkan), you must define them before every <code>#include</code> of this library.</p>
 <h1><a class="anchor" id="quick_start_initialization"></a>
 Initialization</h1>
 <p>At program startup:</p>

@@ -26,7 +26,9 @@ Major changes:
 
 Minor changes:
 
-- Changed behavior of custom pools: `VmaPoolCreateInfo::blockSize` = 0 (default) now means that pool may use variable block sizes, just like default pools do.
+- Changes in custom pools:
+  - Added new structure member `VmaPoolStats::blockCount`.
+  - Changed behavior of `VmaPoolCreateInfo::blockSize` = 0 (default) - it now means that pool may use variable block sizes, just like default pools do.
 - Improved logic of `vmaFindMemoryTypeIndex` for some cases, especially integrated GPUs.
 - VulkanSample application: Removed dependency on external library MathFu. Added own vector and matrix structures.
 - Code changes that improve compatibility with various platforms, including: Visual Studio 2012, 32-bit code, C compilers.
