@@ -61,6 +61,7 @@ buildoptions { "/MD" }
 
 
 project "VmaReplay"
+removeplatforms { "Linux-x64" }
 kind "ConsoleApp"
 language "C++"
 location "../build"
