@@ -1345,6 +1345,7 @@ The library uses following algorithm for allocation, in order:
 
 Features deliberately excluded from the scope of this library:
 
+- Sparse resources.
 - Data transfer - issuing commands that transfer data between buffers or images, any usage of
   `VkCommandList` or `VkQueue` and related synchronization is responsibility of the user.
 - Allocations for imported/exported external memory. They tend to require
