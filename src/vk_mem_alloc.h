@@ -1836,6 +1836,13 @@ typedef enum VmaAllocationCreateFlagBits {
     */
     VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT,
 
+    /** A bit mask to extract only `STRATEGY` bits from entire set of flags.
+    */
+    VMA_ALLOCATION_CREATE_STRATEGY_MASK =
+        VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT |
+        VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT |
+        VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT,
+
     VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocationCreateFlagBits;
 typedef VkFlags VmaAllocationCreateFlags;
@@ -1976,6 +1983,15 @@ ring buffer, and double stack. For details, see documentation chapter
 When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
 */
     VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT = 0x00000004,
+
+    /** TODO */
+    VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT = 0x00000008,
+
+    /** Bit mask to extract only `ALGORITHM` bits from entire set of flags.
+    */
+    VMA_POOL_CREATE_ALGORITHM_MASK =
+        VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT |
+        VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT,
 
     VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaPoolCreateFlagBits;
@@ -2940,14 +2956,43 @@ static inline T VmaAlignDown(T val, T align)
 
 // Division with mathematical rounding to nearest number.
 template <typename T>
-inline T VmaRoundDiv(T x, T y)
+static inline T VmaRoundDiv(T x, T y)
 {
 	return (x + (y / (T)2)) / y;
 }
 
+// Returns smallest power of 2 greater or equal to v.
+static inline uint32_t VmaNextPow2(uint32_t v)
+{
+	v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; return v;
+}
+// Returns biggest power of 2 less or equal to v.
+/*
+static inline uint32_t VmaPrevPow2(uint32_t v)
+{
+
+}
+*/
+
 static inline bool VmaStrIsEmpty(const char* pStr)
 {
     return pStr == VMA_NULL || *pStr == '\0';
+}
+
+static const char* VmaAlgorithmToStr(uint32_t algorithm)
+{
+    switch(algorithm)
+    {
+    case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
+        return "Linear";
+    case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
+        return "Buddy";
+    case 0:
+        return "Default";
+    default:
+        VMA_ASSERT(0);
+        return "";
+    }
 }
 
 #ifndef VMA_SORT
@@ -4869,6 +4914,96 @@ private:
     void CleanupAfterFree();
 };
 
+class VmaBlockMetadata_Buddy : public VmaBlockMetadata
+{
+    VMA_CLASS_NO_COPY(VmaBlockMetadata_Buddy)
+public:
+    VmaBlockMetadata_Buddy(VmaAllocator hAllocator);
+    virtual ~VmaBlockMetadata_Buddy();
+    virtual void Init(VkDeviceSize size);
+
+    virtual bool Validate() const;
+    virtual size_t GetAllocationCount() const;
+    virtual VkDeviceSize GetSumFreeSize() const;
+    virtual VkDeviceSize GetUnusedRangeSizeMax() const;
+    virtual bool IsEmpty() const;
+
+    virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const;
+    virtual void AddPoolStats(VmaPoolStats& inoutStats) const;
+
+#if VMA_STATS_STRING_ENABLED
+    virtual void PrintDetailedMap(class VmaJsonWriter& json) const;
+#endif
+
+    virtual bool CreateAllocationRequest(
+        uint32_t currentFrameIndex,
+        uint32_t frameInUseCount,
+        VkDeviceSize bufferImageGranularity,
+        VkDeviceSize allocSize,
+        VkDeviceSize allocAlignment,
+        bool upperAddress,
+        VmaSuballocationType allocType,
+        bool canMakeOtherLost,
+        uint32_t strategy,
+        VmaAllocationRequest* pAllocationRequest);
+
+    virtual bool MakeRequestedAllocationsLost(
+        uint32_t currentFrameIndex,
+        uint32_t frameInUseCount,
+        VmaAllocationRequest* pAllocationRequest);
+
+    virtual uint32_t MakeAllocationsLost(uint32_t currentFrameIndex, uint32_t frameInUseCount);
+
+    virtual VkResult CheckCorruption(const void* pBlockData);
+
+    virtual void Alloc(
+        const VmaAllocationRequest& request,
+        VmaSuballocationType type,
+        VkDeviceSize allocSize,
+        bool upperAddress,
+        VmaAllocation hAllocation);
+
+    virtual void Free(const VmaAllocation allocation);
+    virtual void FreeAtOffset(VkDeviceSize offset);
+
+private:
+    static const size_t MAX_LEVELS = 30;
+
+    struct Node
+    {
+        enum TYPE
+        {
+            TYPE_FREE,
+            TYPE_ALLOCATION,
+            TYPE_SPLIT,
+            TYPE_COUNT
+        } type;
+        Node* parent;
+        Node* buddy;
+        union
+        {
+            struct
+            {
+                Node* nextFree;
+            } free;
+            struct
+            {
+                VmaAllocation alloc;
+            } allocation;
+            struct
+            {
+                Node* leftChild;
+            } split;
+        };
+    };
+
+    Node* m_Root;
+    Node* m_FreeList[MAX_LEVELS];
+
+    void DeleteNode(Node* node);
+    bool ValidateNode(const Node* parent, const Node* curr) const;
+};
+
 /*
 Represents a single block of device memory (`VkDeviceMemory`) with all the
 data about its regions (aka suballocations, #VmaAllocation), assigned and free.
@@ -4896,7 +5031,7 @@ public:
         VkDeviceMemory newMemory,
         VkDeviceSize newSize,
         uint32_t id,
-        bool linearAlgorithm);
+        uint32_t algorithm);
     // Always call before destruction.
     void Destroy(VmaAllocator allocator);
     
@@ -4968,7 +5103,7 @@ public:
         uint32_t frameInUseCount,
         bool isCustomPool,
         bool explicitBlockSize,
-        bool linearAlgorithm);
+        uint32_t algorithm);
     ~VmaBlockVector();
 
     VkResult CreateMinBlocks();
@@ -4977,7 +5112,7 @@ public:
     VkDeviceSize GetPreferredBlockSize() const { return m_PreferredBlockSize; }
     VkDeviceSize GetBufferImageGranularity() const { return m_BufferImageGranularity; }
     uint32_t GetFrameInUseCount() const { return m_FrameInUseCount; }
-    bool UsesLinearAlgorithm() const { return m_LinearAlgorithm; }
+    uint32_t GetAlgorithm() const { return m_Algorithm; }
 
     void GetPoolStats(VmaPoolStats* pStats);
 
@@ -5031,7 +5166,7 @@ private:
     const uint32_t m_FrameInUseCount;
     const bool m_IsCustomPool;
     const bool m_ExplicitBlockSize;
-    const bool m_LinearAlgorithm;
+    const uint32_t m_Algorithm;
     bool m_HasEmptyBlock;
     VMA_MUTEX m_Mutex;
     // Incrementally sorted by sumFreeSize, ascending.
@@ -9090,6 +9225,190 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// class VmaBlockMetadata_Buddy
+
+VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(VmaAllocator hAllocator) :
+    m_Root(VMA_NULL)
+{
+    memset(m_FreeList, 0, sizeof(m_FreeList));
+}
+
+VmaBlockMetadata_Buddy::~VmaBlockMetadata_Buddy()
+{
+    DeleteNode(m_Root);
+}
+
+void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
+{
+    VmaBlockMetadata::Init(size);
+
+    Node* rootNode = new Node();
+    rootNode->type = Node::TYPE_FREE;
+    rootNode->parent = VMA_NULL;
+    rootNode->buddy = VMA_NULL;
+    rootNode->free.nextFree = VMA_NULL;
+
+    m_FreeList[0] = rootNode;
+}
+
+bool VmaBlockMetadata_Buddy::Validate() const
+{
+    if(!ValidateNode(VMA_NULL, m_Root))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+size_t VmaBlockMetadata_Buddy::GetAllocationCount() const
+{
+    return 0; // TODO
+}
+
+VkDeviceSize VmaBlockMetadata_Buddy::GetSumFreeSize() const
+{
+    return 0; // TODO
+}
+
+VkDeviceSize VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
+{
+    return 0; // TODO
+}
+
+bool VmaBlockMetadata_Buddy::IsEmpty() const
+{
+    return m_Root->type == Node::TYPE_FREE;
+}
+
+void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
+{
+    // TODO
+}
+
+void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
+{
+    // TODO
+}
+
+#if VMA_STATS_STRING_ENABLED
+
+void VmaBlockMetadata_Buddy::PrintDetailedMap(class VmaJsonWriter& json) const
+{
+    // TODO
+}
+
+#endif // #if VMA_STATS_STRING_ENABLED
+
+bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
+    uint32_t currentFrameIndex,
+    uint32_t frameInUseCount,
+    VkDeviceSize bufferImageGranularity,
+    VkDeviceSize allocSize,
+    VkDeviceSize allocAlignment,
+    bool upperAddress,
+    VmaSuballocationType allocType,
+    bool canMakeOtherLost,
+    uint32_t strategy,
+    VmaAllocationRequest* pAllocationRequest)
+{
+    // TODO
+    return false;
+}
+
+bool VmaBlockMetadata_Buddy::MakeRequestedAllocationsLost(
+    uint32_t currentFrameIndex,
+    uint32_t frameInUseCount,
+    VmaAllocationRequest* pAllocationRequest)
+{
+    return false; // TODO
+}
+
+uint32_t VmaBlockMetadata_Buddy::MakeAllocationsLost(uint32_t currentFrameIndex, uint32_t frameInUseCount)
+{
+    return 0; // TODO
+}
+
+VkResult VmaBlockMetadata_Buddy::CheckCorruption(const void* pBlockData)
+{
+    return VK_SUCCESS; // TODO
+}
+
+void VmaBlockMetadata_Buddy::Alloc(
+    const VmaAllocationRequest& request,
+    VmaSuballocationType type,
+    VkDeviceSize allocSize,
+    bool upperAddress,
+    VmaAllocation hAllocation)
+{
+}
+
+void VmaBlockMetadata_Buddy::Free(const VmaAllocation allocation)
+{
+}
+
+void VmaBlockMetadata_Buddy::FreeAtOffset(VkDeviceSize offset)
+{
+}
+
+void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
+{
+    if(node->type == Node::TYPE_SPLIT)
+    {
+        DeleteNode(node->split.leftChild->buddy);
+        DeleteNode(node->split.leftChild);
+    }
+
+    delete node;
+}
+
+bool VmaBlockMetadata_Buddy::ValidateNode(const Node* parent, const Node* curr) const
+{
+    if(curr->parent != parent)
+    {
+        return false;
+    }
+    if((curr->buddy == VMA_NULL) != (parent == VMA_NULL))
+    {
+        return false;
+    }
+    if(curr->buddy != VMA_NULL && curr->buddy->buddy != curr)
+    {
+        return false;
+    }
+    switch(curr->type)
+    {
+    case Node::TYPE_FREE:
+        break;
+    case Node::TYPE_ALLOCATION:
+        if(curr->allocation.alloc == VK_NULL_HANDLE)
+        {
+            return false;
+        }
+        break;
+    case Node::TYPE_SPLIT:
+        if(curr->split.leftChild == VMA_NULL)
+        {
+            return false;
+        }
+        if(!ValidateNode(curr, curr->split.leftChild))
+        {
+            return false;
+        }
+        if(!ValidateNode(curr, curr->split.leftChild->buddy))
+        {
+            return false;
+        }
+        break;
+    default:
+        return false;
+    }
+
+    return true;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 // class VmaDeviceMemoryBlock
 
 VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator) :
@@ -9108,7 +9427,7 @@ void VmaDeviceMemoryBlock::Init(
     VkDeviceMemory newMemory,
     VkDeviceSize newSize,
     uint32_t id,
-    bool linearAlgorithm)
+    uint32_t algorithm)
 {
     VMA_ASSERT(m_hMemory == VK_NULL_HANDLE);
 
@@ -9116,12 +9435,18 @@ void VmaDeviceMemoryBlock::Init(
     m_Id = id;
     m_hMemory = newMemory;
 
-    if(linearAlgorithm)
+    switch(algorithm)
     {
+    case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
         m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Linear)(hAllocator);
-    }
-    else
-    {
+        break;
+    case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
+        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Buddy)(hAllocator);
+        break;
+    default:
+        VMA_ASSERT(0);
+        // Fall-through.
+    case 0:
         m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Generic)(hAllocator);
     }
     m_pMetadata->Init(newSize);
@@ -9351,7 +9676,7 @@ VmaPool_T::VmaPool_T(
         createInfo.frameInUseCount,
         true, // isCustomPool
         createInfo.blockSize != 0, // explicitBlockSize
-        (createInfo.flags & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) != 0), // linearAlgorithm
+        createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK), // algorithm
     m_Id(0)
 {
 }
@@ -9374,7 +9699,7 @@ VmaBlockVector::VmaBlockVector(
     uint32_t frameInUseCount,
     bool isCustomPool,
     bool explicitBlockSize,
-    bool linearAlgorithm) :
+    uint32_t algorithm) :
     m_hAllocator(hAllocator),
     m_MemoryTypeIndex(memoryTypeIndex),
     m_PreferredBlockSize(preferredBlockSize),
@@ -9384,7 +9709,7 @@ VmaBlockVector::VmaBlockVector(
     m_FrameInUseCount(frameInUseCount),
     m_IsCustomPool(isCustomPool),
     m_ExplicitBlockSize(explicitBlockSize),
-    m_LinearAlgorithm(linearAlgorithm),
+    m_Algorithm(algorithm),
     m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_HasEmptyBlock(false),
     m_pDefragmentator(VMA_NULL),
@@ -9464,21 +9789,18 @@ VkResult VmaBlockVector::Allocate(
     const bool canCreateNewBlock =
         ((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0) &&
         (m_Blocks.size() < m_MaxBlockCount);
-    uint32_t strategy = createInfo.flags & (
-        VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT |
-        VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT |
-        VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT);
+    uint32_t strategy = createInfo.flags & VMA_ALLOCATION_CREATE_STRATEGY_MASK;
 
     // If linearAlgorithm is used, canMakeOtherLost is available only when used as ring buffer.
     // Which in turn is available only when maxBlockCount = 1.
-    if(m_LinearAlgorithm && m_MaxBlockCount > 1)
+    if(m_Algorithm == VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT && m_MaxBlockCount > 1)
     {
         canMakeOtherLost = false;
     }
 
     // Upper address can only be used with linear allocator and within single memory block.
     if(isUpperAddress &&
-        (!m_LinearAlgorithm || m_MaxBlockCount > 1))
+        (m_Algorithm != VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT || m_MaxBlockCount > 1))
     {
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
@@ -9516,7 +9838,7 @@ VkResult VmaBlockVector::Allocate(
         VmaAllocationCreateFlags allocFlagsCopy = createInfo.flags;
         allocFlagsCopy &= ~VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
 
-        if(m_LinearAlgorithm)
+        if(m_Algorithm == VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT)
         {
             // Use only last block.
             if(!m_Blocks.empty())
@@ -9923,7 +10245,7 @@ void VmaBlockVector::Remove(VmaDeviceMemoryBlock* pBlock)
 
 void VmaBlockVector::IncrementallySortBlocks()
 {
-    if(!m_LinearAlgorithm)
+    if(m_Algorithm != VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT)
     {
         // Bubble sort only until first swap.
         for(size_t i = 1; i < m_Blocks.size(); ++i)
@@ -10034,7 +10356,7 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
         mem,
         allocInfo.allocationSize,
         m_NextBlockId++,
-        m_LinearAlgorithm);
+        m_Algorithm);
 
     m_Blocks.push_back(pBlock);
     if(pNewBlockIndex != VMA_NULL)
@@ -10083,10 +10405,10 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
             json.WriteNumber(m_FrameInUseCount);
         }
 
-        if(m_LinearAlgorithm)
+        if(m_Algorithm != 0)
         {
-            json.WriteString("LinearAlgorithm");
-            json.WriteBool(true);
+            json.WriteString("Algorithm");
+            json.WriteString(VmaAlgorithmToStr(m_Algorithm));
         }
     }
     else
@@ -10267,7 +10589,7 @@ VmaDefragmentator::VmaDefragmentator(
     m_Allocations(VmaStlAllocator<AllocationInfo>(hAllocator->GetAllocationCallbacks())),
     m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks()))
 {
-    VMA_ASSERT(!pBlockVector->UsesLinearAlgorithm());
+    VMA_ASSERT(pBlockVector->GetAlgorithm() == 0);
 }
 
 VmaDefragmentator::~VmaDefragmentator()
@@ -11782,7 +12104,7 @@ VkResult VmaAllocator_T::Defragment(
             if(hAllocPool != VK_NULL_HANDLE)
             {
                 // Pools with linear algorithm are not defragmented.
-                if(!hAllocPool->m_BlockVector.UsesLinearAlgorithm())
+                if(hAllocPool->m_BlockVector.GetAlgorithm() == 0)
                 {
                     pAllocBlockVector = &hAllocPool->m_BlockVector;
                 }
@@ -11987,8 +12309,6 @@ bool VmaAllocator_T::TouchAllocation(VmaAllocation hAllocation)
 VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool)
 {
     VMA_DEBUG_LOG("  CreatePool: MemoryTypeIndex=%u, flags=%u", pCreateInfo->memoryTypeIndex, pCreateInfo->flags);
-
-    const bool isLinearAlgorithm = (pCreateInfo->flags & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) != 0;
 
     VmaPoolCreateInfo newCreateInfo = *pCreateInfo;
 
