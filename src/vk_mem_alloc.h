@@ -2964,15 +2964,27 @@ static inline T VmaRoundDiv(T x, T y)
 // Returns smallest power of 2 greater or equal to v.
 static inline uint32_t VmaNextPow2(uint32_t v)
 {
-	v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; return v;
+	v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
 }
-// Returns biggest power of 2 less or equal to v.
-/*
-static inline uint32_t VmaPrevPow2(uint32_t v)
+static inline uint64_t VmaNextPow2(uint64_t v)
 {
-
+	v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v |= v >> 32;
+    v++;
+    return v;
 }
-*/
 
 static inline bool VmaStrIsEmpty(const char* pStr)
 {
@@ -4556,6 +4568,7 @@ struct VmaAllocationRequest
     VkDeviceSize sumItemSize; // Sum size of items to make lost that overlap with proposed allocation.
     VmaSuballocationList::iterator item;
     size_t itemsToMakeLostCount;
+    void* customData;
 
     VkDeviceSize CalcCost() const
     {
@@ -4967,10 +4980,11 @@ public:
     virtual void FreeAtOffset(VkDeviceSize offset);
 
 private:
-    static const size_t MAX_LEVELS = 30;
+    static const size_t MAX_LEVELS = 30; // TODO
 
     struct Node
     {
+        VkDeviceSize offset;
         enum TYPE
         {
             TYPE_FREE,
@@ -5001,7 +5015,16 @@ private:
     Node* m_FreeList[MAX_LEVELS];
 
     void DeleteNode(Node* node);
-    bool ValidateNode(const Node* parent, const Node* curr) const;
+    bool ValidateNode(const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
+    uint32_t AllocSizeToLevel(VkDeviceSize allocSize) const;
+    VkDeviceSize LevelToNodeSize(uint32_t level) const;
+    // Alloc passed just for validation. Can be null.
+    void FreeAtOffset(VmaAllocation alloc, VkDeviceSize offset);
+    void CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const;
+
+#if VMA_STATS_STRING_ENABLED
+    void PrintDetailedMapNode(class VmaJsonWriter& json, const Node* node, VkDeviceSize levelNodeSize) const;
+#endif
 };
 
 /*
@@ -9243,19 +9266,34 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
     VmaBlockMetadata::Init(size);
 
     Node* rootNode = new Node();
+    rootNode->offset = 0;
     rootNode->type = Node::TYPE_FREE;
     rootNode->parent = VMA_NULL;
     rootNode->buddy = VMA_NULL;
     rootNode->free.nextFree = VMA_NULL;
 
+    m_Root = rootNode;
     m_FreeList[0] = rootNode;
 }
 
 bool VmaBlockMetadata_Buddy::Validate() const
 {
-    if(!ValidateNode(VMA_NULL, m_Root))
+    if(!ValidateNode(VMA_NULL, m_Root, 0, GetSize()))
     {
         return false;
+    }
+
+    for(uint32_t level = 0; level < MAX_LEVELS; ++level)
+    {
+        for(Node* freeNode = m_FreeList[level];
+            freeNode != VMA_NULL;
+            freeNode = freeNode->free.nextFree)
+        {
+            if(freeNode->type != Node::TYPE_FREE)
+            {
+                return false;
+            }
+        }
     }
 
     return true;
@@ -9283,7 +9321,16 @@ bool VmaBlockMetadata_Buddy::IsEmpty() const
 
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
-    // TODO
+    outInfo.blockCount = 1;
+
+    outInfo.allocationCount = outInfo.unusedRangeCount = 0;
+    outInfo.unusedBytes = outInfo.unusedBytes = 0;
+
+    outInfo.allocationSizeMax = outInfo.unusedRangeSizeMax = 0;
+    outInfo.allocationSizeMin = outInfo.unusedRangeSizeMin = UINT64_MAX;
+    outInfo.allocationSizeAvg = outInfo.unusedRangeSizeAvg = 0; // Unused.
+
+    CalcAllocationStatInfoNode(outInfo, m_Root, GetSize());
 }
 
 void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
@@ -9295,7 +9342,19 @@ void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
 
 void VmaBlockMetadata_Buddy::PrintDetailedMap(class VmaJsonWriter& json) const
 {
-    // TODO
+    // TODO optimize
+    VmaStatInfo stat;
+    CalcAllocationStatInfo(stat);
+
+    PrintDetailedMap_Begin(
+        json,
+        stat.unusedBytes,
+        stat.allocationCount,
+        stat.unusedRangeCount);
+
+    PrintDetailedMapNode(json, m_Root, GetSize());
+
+    PrintDetailedMap_End(json);
 }
 
 #endif // #if VMA_STATS_STRING_ENABLED
@@ -9312,8 +9371,81 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
     uint32_t strategy,
     VmaAllocationRequest* pAllocationRequest)
 {
+    VMA_ASSERT(!upperAddress && "VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT can be used only with linear algorithm.");
+
+    const VkDeviceSize size = GetSize();
+    if(allocSize > size)
+    {
+        return false;
+    }
+
+    const uint32_t targetLevel = AllocSizeToLevel(allocSize);
+
+    // No free node with intended size.
+    if(m_FreeList[targetLevel] == VMA_NULL)
+    {
+        // Go up until we find free node with larget size.
+        uint32_t level = targetLevel;
+        while(m_FreeList[level] == VMA_NULL)
+        {
+            if(level == 0)
+            {
+                return false;
+            }
+            --level;
+        }
+        
+        // Go down, splitting free nodes.
+        while(level < targetLevel)
+        {
+            // Get first free node at current level.
+            Node* node = m_FreeList[level];
+            // Remove it from list of free nodes at this level.
+            m_FreeList[level] = node->free.nextFree;
+         
+            const uint32_t childrenLevel = level + 1;
+
+            // Create two free sub-nodes.
+            Node* leftChild = new Node();
+            Node* rightChild = new Node();
+
+            leftChild->offset = node->offset;
+            leftChild->type = Node::TYPE_FREE;
+            leftChild->parent = node;
+            leftChild->buddy = rightChild;
+            leftChild->free.nextFree = VMA_NULL;
+
+            rightChild->offset = node->offset + LevelToNodeSize(childrenLevel);
+            rightChild->type = Node::TYPE_FREE;
+            rightChild->parent = node;
+            rightChild->buddy = leftChild;
+            rightChild->free.nextFree = VMA_NULL;
+
+            // Convert current node to split type.
+            node->type = Node::TYPE_SPLIT;
+            node->split.leftChild = leftChild;
+
+            // Add child nodes to free list.
+            leftChild->free.nextFree = m_FreeList[childrenLevel];
+            m_FreeList[childrenLevel] = leftChild;
+
+            rightChild->free.nextFree = m_FreeList[childrenLevel];
+            m_FreeList[childrenLevel] = rightChild;
+
+            ++level;
+        }
+    }
+
+    Node* freeNode = m_FreeList[targetLevel];
+    VMA_ASSERT(freeNode != VMA_NULL);
+    
+    pAllocationRequest->offset = freeNode->offset;
     // TODO
-    return false;
+    pAllocationRequest->sumFreeSize = 0;
+    pAllocationRequest->sumItemSize = 0;
+    pAllocationRequest->itemsToMakeLostCount = 0;
+    pAllocationRequest->customData = (void*)(uintptr_t)targetLevel;
+    return true;
 }
 
 bool VmaBlockMetadata_Buddy::MakeRequestedAllocationsLost(
@@ -9341,14 +9473,27 @@ void VmaBlockMetadata_Buddy::Alloc(
     bool upperAddress,
     VmaAllocation hAllocation)
 {
+    const uint32_t targetLevel = (uint32_t)(uintptr_t)request.customData;
+    VMA_ASSERT(m_FreeList[targetLevel] != VMA_NULL);
+    Node* node = m_FreeList[targetLevel];
+    VMA_ASSERT(node->type == Node::TYPE_FREE);
+    
+    // Remove from free list.
+    m_FreeList[targetLevel] = node->free.nextFree;
+
+    // Convert to allocation node.
+    node->type = Node::TYPE_ALLOCATION;
+    node->allocation.alloc = hAllocation;
 }
 
 void VmaBlockMetadata_Buddy::Free(const VmaAllocation allocation)
 {
+    FreeAtOffset(allocation, allocation->GetOffset());
 }
 
 void VmaBlockMetadata_Buddy::FreeAtOffset(VkDeviceSize offset)
 {
+    FreeAtOffset(VMA_NULL, offset);
 }
 
 void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
@@ -9362,7 +9507,7 @@ void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
     delete node;
 }
 
-bool VmaBlockMetadata_Buddy::ValidateNode(const Node* parent, const Node* curr) const
+bool VmaBlockMetadata_Buddy::ValidateNode(const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
 {
     if(curr->parent != parent)
     {
@@ -9387,17 +9532,31 @@ bool VmaBlockMetadata_Buddy::ValidateNode(const Node* parent, const Node* curr) 
         }
         break;
     case Node::TYPE_SPLIT:
-        if(curr->split.leftChild == VMA_NULL)
         {
-            return false;
-        }
-        if(!ValidateNode(curr, curr->split.leftChild))
-        {
-            return false;
-        }
-        if(!ValidateNode(curr, curr->split.leftChild->buddy))
-        {
-            return false;
+            const uint32_t childrenLevel = level + 1;
+            const VkDeviceSize childrenLevelNodeSize = levelNodeSize / 2;
+            const Node* const leftChild = curr->split.leftChild;
+            if(leftChild == VMA_NULL)
+            {
+                return false;
+            }
+            if(leftChild->offset != curr->offset)
+            {
+                return false;
+            }
+            if(!ValidateNode(curr, leftChild, childrenLevel, childrenLevelNodeSize))
+            {
+                return false;
+            }
+            const Node* const rightChild = leftChild->buddy;
+            if(rightChild->offset != curr->offset + levelNodeSize)
+            {
+                return false;
+            }
+            if(!ValidateNode(curr, rightChild, childrenLevel, childrenLevelNodeSize))
+            {
+                return false;
+            }
         }
         break;
     default:
@@ -9406,6 +9565,118 @@ bool VmaBlockMetadata_Buddy::ValidateNode(const Node* parent, const Node* curr) 
 
     return true;
 }
+
+uint32_t VmaBlockMetadata_Buddy::AllocSizeToLevel(VkDeviceSize allocSize) const
+{
+    // TODO optimize
+    uint32_t level = 0;
+    VkDeviceSize currLevelNodeSize = GetSize();
+    VkDeviceSize nextLevelNodeSize = currLevelNodeSize / 2;
+    while(allocSize <= nextLevelNodeSize && level + 1 < MAX_LEVELS)
+    {
+        ++level;
+        currLevelNodeSize = nextLevelNodeSize;
+        nextLevelNodeSize = currLevelNodeSize / 2;
+    }
+    return level;
+}
+
+VkDeviceSize VmaBlockMetadata_Buddy::LevelToNodeSize(uint32_t level) const
+{
+    // TODO optimize
+    VkDeviceSize result = GetSize();
+    for(uint32_t i = 0; i < level; ++i)
+    {
+        result /= 2;
+    }
+    return result;
+}
+
+void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offset)
+{
+    Node* node = m_Root;
+    uint32_t level = 0;
+    VkDeviceSize levelNodeSize = GetSize();
+    while(node->type == Node::TYPE_SPLIT)
+    {
+        Node* leftChild = node->split.leftChild;
+        Node* rightChild = leftChild->buddy;
+        if(offset < rightChild->offset) // TODO could be calculated
+        {
+            node = leftChild;
+        }
+        else
+        {
+            node = rightChild;
+        }
+        ++level;
+    }
+
+    VMA_ASSERT(node != VMA_NULL && node->type == Node::TYPE_ALLOCATION);
+    VMA_ASSERT(alloc == VK_NULL_HANDLE || node->allocation.alloc == alloc);
+
+    node->type = Node::TYPE_FREE;
+    node->free.nextFree = m_FreeList[level];
+    m_FreeList[level] = node;
+
+    // TODO join free nodes if possible.
+}
+
+void VmaBlockMetadata_Buddy::CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const
+{
+    switch(node->type)
+    {
+    case Node::TYPE_FREE:
+        ++outInfo.unusedRangeCount;
+        outInfo.unusedBytes += levelNodeSize;
+        outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, levelNodeSize);
+        outInfo.unusedRangeSizeMin = VMA_MAX(outInfo.unusedRangeSizeMin, levelNodeSize);
+        break;
+    case Node::TYPE_ALLOCATION:
+        ++outInfo.allocationCount;
+        outInfo.usedBytes += levelNodeSize;
+        outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, levelNodeSize);
+        outInfo.allocationSizeMin = VMA_MAX(outInfo.allocationSizeMin, levelNodeSize);
+        break;
+    case Node::TYPE_SPLIT:
+        {
+            const VkDeviceSize childrenNodeSize = levelNodeSize / 2;
+            const Node* const leftChild = node->split.leftChild;
+            CalcAllocationStatInfoNode(outInfo, leftChild, childrenNodeSize);
+            const Node* const rightChild = leftChild->buddy;
+            CalcAllocationStatInfoNode(outInfo, rightChild, childrenNodeSize);
+        }
+        break;
+    default:
+        VMA_ASSERT(0);
+    }
+}
+
+#if VMA_STATS_STRING_ENABLED
+void VmaBlockMetadata_Buddy::PrintDetailedMapNode(class VmaJsonWriter& json, const Node* node, VkDeviceSize levelNodeSize) const
+{
+    switch(node->type)
+    {
+    case Node::TYPE_FREE:
+        PrintDetailedMap_UnusedRange(json, node->offset, levelNodeSize);
+        break;
+    case Node::TYPE_ALLOCATION:
+        PrintDetailedMap_Allocation(json, node->offset, node->allocation.alloc);
+        break;
+    case Node::TYPE_SPLIT:
+        {
+            const VkDeviceSize childrenNodeSize = levelNodeSize / 2;
+            const Node* const leftChild = node->split.leftChild;
+            PrintDetailedMapNode(json, leftChild, childrenNodeSize);
+            const Node* const rightChild = leftChild->buddy;
+            PrintDetailedMapNode(json, rightChild, childrenNodeSize);
+        }
+        break;
+    default:
+        VMA_ASSERT(0);
+    }
+}
+#endif // #if VMA_STATS_STRING_ENABLED
 
 
 ////////////////////////////////////////////////////////////////////////////////

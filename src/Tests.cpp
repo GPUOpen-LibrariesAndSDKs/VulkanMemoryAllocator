@@ -4079,15 +4079,82 @@ static void PerformPoolTests(FILE* file)
     }
 }
 
+static void BasicTestBuddyAllocator()
+{
+    wprintf(L"Basic test buddy allocator\n");
+
+    RandomNumberGenerator rand{76543};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    poolCreateInfo.blockSize = 1024 * 1024;
+    poolCreateInfo.flags = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    std::vector<BufferInfo> bufInfo;
+    BufferInfo newBufInfo;
+    VmaAllocationInfo allocInfo;
+    
+    bufCreateInfo.size = 1024 * 256;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+
+    bufCreateInfo.size = 1024 * 512;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+
+    bufCreateInfo.size = 1024 * 128;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+
+    SaveAllocatorStatsToFile(L"BuddyTest01.json");
+
+    // Destroy the buffers in random order.
+    while(!bufInfo.empty())
+    {
+        const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+        const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+        vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+        bufInfo.erase(bufInfo.begin() + indexToDestroy);
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
 void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(false)
+    if(true)
     {
         // # Temporarily insert custom tests here
         // ########################################
         // ########################################
+        BasicTestBuddyAllocator();
         return;
     }
 
