@@ -3061,13 +3061,9 @@ static void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
 {
     uint32_t* pDst = (uint32_t*)((char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
-    // This condition is to silence clang compiler error: "comparison of unsigned expression < 0 is always false"
-    if(numberCount > 0)
+    for(size_t i = 0; i < numberCount; ++i, ++pDst)
     {
-        for(size_t i = 0; i < numberCount; ++i, ++pDst)
-        {
-            *pDst = VMA_CORRUPTION_DETECTION_MAGIC_VALUE;
-        }
+        *pDst = VMA_CORRUPTION_DETECTION_MAGIC_VALUE;
     }
 }
 
@@ -3075,15 +3071,11 @@ static bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
 {
     const uint32_t* pSrc = (const uint32_t*)((const char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
-    // This condition is to silence clang compiler error: "comparison of unsigned expression < 0 is always false"
-    if(numberCount > 0)
+    for(size_t i = 0; i < numberCount; ++i, ++pSrc)
     {
-        for(size_t i = 0; i < numberCount; ++i, ++pSrc)
+        if(*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
         {
-            if(*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
-            {
-                return false;
-            }
+            return false;
         }
     }
     return true;
