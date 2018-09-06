@@ -1359,6 +1359,10 @@ Features deliberately excluded from the scope of this library:
 
 #include <vulkan/vulkan.h>
 
+#if VMA_RECORDING_ENABLED
+    #include <Windows.h>
+#endif
+
 #if !defined(VMA_DEDICATED_ALLOCATION)
     #if VK_KHR_get_memory_requirements2 && VK_KHR_dedicated_allocation
         #define VMA_DEDICATED_ALLOCATION 1

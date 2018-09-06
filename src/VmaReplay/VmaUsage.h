@@ -3,8 +3,8 @@
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#define VK_USE_PLATFORM_WIN32_KHR
 
+#define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
 //#define VMA_USE_STL_CONTAINERS 1
