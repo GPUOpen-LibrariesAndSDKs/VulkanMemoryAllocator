@@ -4927,6 +4927,9 @@ private:
     void CleanupAfterFree();
 };
 
+/*
+Level 0 has block size = GetSize(). Level 1 has block size = GetSize() / 2 and so on...
+*/
 class VmaBlockMetadata_Buddy : public VmaBlockMetadata
 {
     VMA_CLASS_NO_COPY(VmaBlockMetadata_Buddy)
@@ -9380,72 +9383,20 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
     }
 
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
-
-    // No free node with intended size.
-    if(m_FreeList[targetLevel] == VMA_NULL)
+    for(uint32_t level = targetLevel + 1; level--; )
     {
-        // Go up until we find free node with larget size.
-        uint32_t level = targetLevel;
-        while(m_FreeList[level] == VMA_NULL)
+        if(m_FreeList[level] != VMA_NULL)
         {
-            if(level == 0)
-            {
-                return false;
-            }
-            --level;
-        }
-        
-        // Go down, splitting free nodes.
-        while(level < targetLevel)
-        {
-            // Get first free node at current level.
-            Node* node = m_FreeList[level];
-            // Remove it from list of free nodes at this level.
-            m_FreeList[level] = node->free.nextFree;
-         
-            const uint32_t childrenLevel = level + 1;
-
-            // Create two free sub-nodes.
-            Node* leftChild = new Node();
-            Node* rightChild = new Node();
-
-            leftChild->offset = node->offset;
-            leftChild->type = Node::TYPE_FREE;
-            leftChild->parent = node;
-            leftChild->buddy = rightChild;
-            leftChild->free.nextFree = VMA_NULL;
-
-            rightChild->offset = node->offset + LevelToNodeSize(childrenLevel);
-            rightChild->type = Node::TYPE_FREE;
-            rightChild->parent = node;
-            rightChild->buddy = leftChild;
-            rightChild->free.nextFree = VMA_NULL;
-
-            // Convert current node to split type.
-            node->type = Node::TYPE_SPLIT;
-            node->split.leftChild = leftChild;
-
-            // Add child nodes to free list.
-            leftChild->free.nextFree = m_FreeList[childrenLevel];
-            m_FreeList[childrenLevel] = leftChild;
-
-            rightChild->free.nextFree = m_FreeList[childrenLevel];
-            m_FreeList[childrenLevel] = rightChild;
-
-            ++level;
+            pAllocationRequest->offset = m_FreeList[level]->offset;
+            pAllocationRequest->sumFreeSize = LevelToNodeSize(level);
+            pAllocationRequest->sumItemSize = 0;
+            pAllocationRequest->itemsToMakeLostCount = 0;
+            pAllocationRequest->customData = (void*)(uintptr_t)level;
+            return true;
         }
     }
 
-    Node* freeNode = m_FreeList[targetLevel];
-    VMA_ASSERT(freeNode != VMA_NULL);
-    
-    pAllocationRequest->offset = freeNode->offset;
-    // TODO
-    pAllocationRequest->sumFreeSize = 0;
-    pAllocationRequest->sumItemSize = 0;
-    pAllocationRequest->itemsToMakeLostCount = 0;
-    pAllocationRequest->customData = (void*)(uintptr_t)targetLevel;
-    return true;
+    return false;
 }
 
 bool VmaBlockMetadata_Buddy::MakeRequestedAllocationsLost(
@@ -9473,17 +9424,60 @@ void VmaBlockMetadata_Buddy::Alloc(
     bool upperAddress,
     VmaAllocation hAllocation)
 {
-    const uint32_t targetLevel = (uint32_t)(uintptr_t)request.customData;
-    VMA_ASSERT(m_FreeList[targetLevel] != VMA_NULL);
-    Node* node = m_FreeList[targetLevel];
-    VMA_ASSERT(node->type == Node::TYPE_FREE);
+    const uint32_t targetLevel = AllocSizeToLevel(allocSize);
+    uint32_t currLevel = (uint32_t)(uintptr_t)request.customData;
+    VMA_ASSERT(m_FreeList[currLevel] != VMA_NULL);
+    Node* currNode = m_FreeList[currLevel];
+    VMA_ASSERT(currNode->type == Node::TYPE_FREE);
+    VMA_ASSERT(currNode->offset == request.offset);
     
+    // Go down, splitting free nodes.
+    while(currLevel < targetLevel)
+    {
+        // currNode is already first free node at currLevel.
+        // Remove it from list of free nodes at this currLevel.
+        m_FreeList[currLevel] = currNode->free.nextFree;
+         
+        const uint32_t childrenLevel = currLevel + 1;
+
+        // Create two free sub-nodes.
+        Node* leftChild = new Node();
+        Node* rightChild = new Node();
+
+        leftChild->offset = currNode->offset;
+        leftChild->type = Node::TYPE_FREE;
+        leftChild->parent = currNode;
+        leftChild->buddy = rightChild;
+        leftChild->free.nextFree = VMA_NULL;
+
+        rightChild->offset = currNode->offset + LevelToNodeSize(childrenLevel);
+        rightChild->type = Node::TYPE_FREE;
+        rightChild->parent = currNode;
+        rightChild->buddy = leftChild;
+        rightChild->free.nextFree = VMA_NULL;
+
+        // Convert current currNode to split type.
+        currNode->type = Node::TYPE_SPLIT;
+        currNode->split.leftChild = leftChild;
+
+        // Add child nodes to free list.
+        rightChild->free.nextFree = m_FreeList[childrenLevel];
+        m_FreeList[childrenLevel] = rightChild;
+
+        leftChild->free.nextFree = m_FreeList[childrenLevel];
+        m_FreeList[childrenLevel] = leftChild;
+
+        ++currLevel;
+        currNode = m_FreeList[currLevel];
+    }
+
     // Remove from free list.
-    m_FreeList[targetLevel] = node->free.nextFree;
+    VMA_ASSERT(currLevel == targetLevel && currNode != VMA_NULL && currNode->type == Node::TYPE_FREE);
+    m_FreeList[targetLevel] = currNode->free.nextFree;
 
     // Convert to allocation node.
-    node->type = Node::TYPE_ALLOCATION;
-    node->allocation.alloc = hAllocation;
+    currNode->type = Node::TYPE_ALLOCATION;
+    currNode->allocation.alloc = hAllocation;
 }
 
 void VmaBlockMetadata_Buddy::Free(const VmaAllocation allocation)
