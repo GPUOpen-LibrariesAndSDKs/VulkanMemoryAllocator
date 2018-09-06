@@ -5001,7 +5001,8 @@ private:
         {
             struct
             {
-                Node* nextFree;
+                Node* prev;
+                Node* next;
             } free;
             struct
             {
@@ -5015,7 +5016,10 @@ private:
     };
 
     Node* m_Root;
-    Node* m_FreeList[MAX_LEVELS];
+    struct {
+        Node* front;
+        Node* back;
+    } m_FreeList[MAX_LEVELS];
 
     void DeleteNode(Node* node);
     bool ValidateNode(const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
@@ -5024,6 +5028,14 @@ private:
     // Alloc passed just for validation. Can be null.
     void FreeAtOffset(VmaAllocation alloc, VkDeviceSize offset);
     void CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const;
+    // Adds node to the front of FreeList at given level.
+    // node->type must be FREE.
+    // node->free.prev, next can be undefined.
+    void AddToFreeListFront(uint32_t level, Node* node);
+    // Removes node from FreeList at given level.
+    // node->type must be FREE.
+    // node->free.prev, next stay untouched.
+    void RemoveFromFreeList(uint32_t level, Node* node);
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMapNode(class VmaJsonWriter& json, const Node* node, VkDeviceSize levelNodeSize) const;
@@ -9273,28 +9285,50 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
     rootNode->type = Node::TYPE_FREE;
     rootNode->parent = VMA_NULL;
     rootNode->buddy = VMA_NULL;
-    rootNode->free.nextFree = VMA_NULL;
 
     m_Root = rootNode;
-    m_FreeList[0] = rootNode;
+    AddToFreeListFront(0, rootNode);
 }
 
 bool VmaBlockMetadata_Buddy::Validate() const
 {
+    // Validate tree.
     if(!ValidateNode(VMA_NULL, m_Root, 0, GetSize()))
     {
         return false;
     }
 
+    // Validate free node lists.
     for(uint32_t level = 0; level < MAX_LEVELS; ++level)
     {
-        for(Node* freeNode = m_FreeList[level];
-            freeNode != VMA_NULL;
-            freeNode = freeNode->free.nextFree)
+        if(m_FreeList[level].front != VMA_NULL &&
+            m_FreeList[level].front->free.prev != VMA_NULL)
         {
-            if(freeNode->type != Node::TYPE_FREE)
+            return false;
+        }
+
+        for(Node* node = m_FreeList[level].front;
+            node != VMA_NULL;
+            node = node->free.next)
+        {
+            if(node->type != Node::TYPE_FREE)
             {
                 return false;
+            }
+            
+            if(node->free.next == VMA_NULL)
+            {
+                if(m_FreeList[level].back != node)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if(node->free.next->free.prev != node)
+                {
+                    return false;
+                }
             }
         }
     }
@@ -9385,9 +9419,9 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
     for(uint32_t level = targetLevel + 1; level--; )
     {
-        if(m_FreeList[level] != VMA_NULL)
+        if(m_FreeList[level].front != VMA_NULL)
         {
-            pAllocationRequest->offset = m_FreeList[level]->offset;
+            pAllocationRequest->offset = m_FreeList[level].front->offset;
             pAllocationRequest->sumFreeSize = LevelToNodeSize(level);
             pAllocationRequest->sumItemSize = 0;
             pAllocationRequest->itemsToMakeLostCount = 0;
@@ -9426,8 +9460,8 @@ void VmaBlockMetadata_Buddy::Alloc(
 {
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
     uint32_t currLevel = (uint32_t)(uintptr_t)request.customData;
-    VMA_ASSERT(m_FreeList[currLevel] != VMA_NULL);
-    Node* currNode = m_FreeList[currLevel];
+    VMA_ASSERT(m_FreeList[currLevel].front != VMA_NULL);
+    Node* currNode = m_FreeList[currLevel].front;
     VMA_ASSERT(currNode->type == Node::TYPE_FREE);
     VMA_ASSERT(currNode->offset == request.offset);
     
@@ -9436,7 +9470,7 @@ void VmaBlockMetadata_Buddy::Alloc(
     {
         // currNode is already first free node at currLevel.
         // Remove it from list of free nodes at this currLevel.
-        m_FreeList[currLevel] = currNode->free.nextFree;
+        RemoveFromFreeList(currLevel, currNode);
          
         const uint32_t childrenLevel = currLevel + 1;
 
@@ -9448,32 +9482,27 @@ void VmaBlockMetadata_Buddy::Alloc(
         leftChild->type = Node::TYPE_FREE;
         leftChild->parent = currNode;
         leftChild->buddy = rightChild;
-        leftChild->free.nextFree = VMA_NULL;
 
         rightChild->offset = currNode->offset + LevelToNodeSize(childrenLevel);
         rightChild->type = Node::TYPE_FREE;
         rightChild->parent = currNode;
         rightChild->buddy = leftChild;
-        rightChild->free.nextFree = VMA_NULL;
 
         // Convert current currNode to split type.
         currNode->type = Node::TYPE_SPLIT;
         currNode->split.leftChild = leftChild;
 
-        // Add child nodes to free list.
-        rightChild->free.nextFree = m_FreeList[childrenLevel];
-        m_FreeList[childrenLevel] = rightChild;
-
-        leftChild->free.nextFree = m_FreeList[childrenLevel];
-        m_FreeList[childrenLevel] = leftChild;
+        // Add child nodes to free list. Order is important!
+        AddToFreeListFront(childrenLevel, rightChild);
+        AddToFreeListFront(childrenLevel, leftChild);
 
         ++currLevel;
-        currNode = m_FreeList[currLevel];
+        currNode = m_FreeList[currLevel].front;
     }
 
     // Remove from free list.
     VMA_ASSERT(currLevel == targetLevel && currNode != VMA_NULL && currNode->type == Node::TYPE_FREE);
-    m_FreeList[targetLevel] = currNode->free.nextFree;
+    RemoveFromFreeList(currLevel, currNode);
 
     // Convert to allocation node.
     currNode->type = Node::TYPE_ALLOCATION;
@@ -9588,9 +9617,9 @@ VkDeviceSize VmaBlockMetadata_Buddy::LevelToNodeSize(uint32_t level) const
 
 void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offset)
 {
+    // Find node and level.
     Node* node = m_Root;
     uint32_t level = 0;
-    VkDeviceSize levelNodeSize = GetSize();
     while(node->type == Node::TYPE_SPLIT)
     {
         Node* leftChild = node->split.leftChild;
@@ -9610,10 +9639,22 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
     VMA_ASSERT(alloc == VK_NULL_HANDLE || node->allocation.alloc == alloc);
 
     node->type = Node::TYPE_FREE;
-    node->free.nextFree = m_FreeList[level];
-    m_FreeList[level] = node;
 
-    // TODO join free nodes if possible.
+    // Join free nodes if possible.
+    while(level > 0 && node->buddy->type == Node::TYPE_FREE)
+    {
+        RemoveFromFreeList(level, node->buddy);
+        Node* const parent = node->parent;
+
+        delete node->buddy;
+        delete node;
+        parent->type = Node::TYPE_FREE;
+        
+        node = parent;
+        --level;
+    }
+
+    AddToFreeListFront(level, node);
 }
 
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const
@@ -9643,6 +9684,59 @@ void VmaBlockMetadata_Buddy::CalcAllocationStatInfoNode(VmaStatInfo& outInfo, co
         break;
     default:
         VMA_ASSERT(0);
+    }
+}
+
+void VmaBlockMetadata_Buddy::AddToFreeListFront(uint32_t level, Node* node)
+{
+    VMA_ASSERT(node->type == Node::TYPE_FREE);
+
+    // List is empty.
+    Node* const frontNode = m_FreeList[level].front;
+    if(frontNode == VMA_NULL)
+    {
+        VMA_ASSERT(m_FreeList[level].back == VMA_NULL);
+        node->free.prev = node->free.next = VMA_NULL;
+        m_FreeList[level].front = m_FreeList[level].back = node;
+    }
+    else
+    {
+        VMA_ASSERT(frontNode->free.prev == VMA_NULL);
+        node->free.prev = VMA_NULL;
+        node->free.next = frontNode;
+        frontNode->free.prev = node;
+        m_FreeList[level].front = node;
+    }
+}
+
+void VmaBlockMetadata_Buddy::RemoveFromFreeList(uint32_t level, Node* node)
+{
+    VMA_ASSERT(m_FreeList[level].front != VMA_NULL);
+
+    // It is at the front.
+    if(node->free.prev == VMA_NULL)
+    {
+        VMA_ASSERT(m_FreeList[level].front == node);
+        m_FreeList[level].front = node->free.next;
+    }
+    else
+    {
+        Node* const prevFreeNode = node->free.prev;
+        VMA_ASSERT(prevFreeNode->free.next == node);
+        prevFreeNode->free.next = node->free.next;
+    }
+
+    // It is at the back.
+    if(node->free.next == VMA_NULL)
+    {
+        VMA_ASSERT(m_FreeList[level].back == node);
+        m_FreeList[level].back = node->free.prev;
+    }
+    else
+    {
+        Node* const nextFreeNode = node->free.next;
+        VMA_ASSERT(nextFreeNode->free.prev == node);
+        nextFreeNode->free.prev = node->free.prev;
     }
 }
 
