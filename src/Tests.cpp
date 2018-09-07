@@ -18,8 +18,8 @@ enum CONFIG_TYPE {
     CONFIG_TYPE_COUNT
 };
 
-static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
-//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
+//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
+static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
 
@@ -28,6 +28,23 @@ static const char* FREE_ORDER_NAMES[] = {
     "BACKWARD",
     "RANDOM",
 };
+
+// Copy of internal VmaAlgorithmToStr.
+static const char* AlgorithmToStr(uint32_t algorithm)
+{
+    switch(algorithm)
+    {
+    case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
+        return "Linear";
+    case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
+        return "Buddy";
+    case 0:
+        return "Default";
+    default:
+        assert(0);
+        return "";
+    }
+}
 
 struct AllocationSize
 {
@@ -2131,8 +2148,8 @@ static void ManuallyTestLinearAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
-static void BenchmarkLinearAllocatorCase(FILE* file,
-    bool linear,
+static void BenchmarkAlgorithmsCase(FILE* file,
+    uint32_t algorithm,
     bool empty,
     VmaAllocationCreateFlags allocStrategy,
     FREE_ORDER freeOrder)
@@ -2156,8 +2173,7 @@ static void BenchmarkLinearAllocatorCase(FILE* file,
     assert(res == VK_SUCCESS);
 
     poolCreateInfo.blockSize = bufSizeMax * maxBufCapacity;
-    if(linear)
-        poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.flags |= algorithm;
     poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
 
     VmaPool pool = nullptr;
@@ -2258,8 +2274,8 @@ static void BenchmarkLinearAllocatorCase(FILE* file,
     const float allocTotalSeconds = ToFloatSeconds(allocTotalDuration);
     const float freeTotalSeconds  = ToFloatSeconds(freeTotalDuration);
 
-    printf("    LinearAlgorithm=%u %s Allocation=%s FreeOrder=%s: allocations %g s, free %g s\n",
-        linear ? 1 : 0,
+    printf("    Algorithm=%s %s Allocation=%s FreeOrder=%s: allocations %g s, free %g s\n",
+        AlgorithmToStr(algorithm),
         empty ? "Empty" : "Not empty",
         GetAllocationStrategyName(allocStrategy),
         FREE_ORDER_NAMES[(size_t)freeOrder],
@@ -2271,9 +2287,9 @@ static void BenchmarkLinearAllocatorCase(FILE* file,
         std::string currTime;
         CurrentTimeToStr(currTime);
 
-        fprintf(file, "%s,%s,%u,%u,%s,%s,%g,%g\n",
+        fprintf(file, "%s,%s,%s,%u,%s,%s,%g,%g\n",
             CODE_DESCRIPTION, currTime.c_str(),
-            linear ? 1 : 0,
+            AlgorithmToStr(algorithm),
             empty ? 1 : 0,
             GetAllocationStrategyName(allocStrategy),
             FREE_ORDER_NAMES[(uint32_t)freeOrder],
@@ -2282,15 +2298,15 @@ static void BenchmarkLinearAllocatorCase(FILE* file,
     }
 }
 
-static void BenchmarkLinearAllocator(FILE* file)
+static void BenchmarkAlgorithms(FILE* file)
 {
-    wprintf(L"Benchmark linear allocator\n");
+    wprintf(L"Benchmark algorithms\n");
 
     if(file)
     {
         fprintf(file,
             "Code,Time,"
-            "Linear,Empty,Allocation strategy,Free order,"
+            "Algorithm,Empty,Allocation strategy,Free order,"
             "Allocation time (s),Deallocation time (s)\n");
     }
 
@@ -2316,15 +2332,28 @@ static void BenchmarkLinearAllocator(FILE* file)
 
         for(uint32_t emptyIndex = 0; emptyIndex < emptyCount; ++emptyIndex)
         {
-            for(uint32_t linearIndex = 0; linearIndex < 2; ++linearIndex)
+            for(uint32_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
             {
-                const bool linear = linearIndex ? 1 : 0;
+                uint32_t algorithm = 0;
+                switch(algorithmIndex)
+                {
+                case 0:
+                    break;
+                case 1:
+                    algorithm = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
+                    break;
+                case 2:
+                    algorithm = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+                    break;
+                default:
+                    assert(0);
+                }
 
-                uint32_t currAllocStrategyCount = linear ? 1 : allocStrategyCount;
+                uint32_t currAllocStrategyCount = algorithm != 0 ? 1 : allocStrategyCount;
                 for(uint32_t allocStrategyIndex = 0; allocStrategyIndex < currAllocStrategyCount; ++allocStrategyIndex)
                 {
                     VmaAllocatorCreateFlags strategy = 0;
-                    if(!linear)
+                    if(currAllocStrategyCount > 1)
                     {
                         switch(allocStrategyIndex)
                         {
@@ -2335,9 +2364,9 @@ static void BenchmarkLinearAllocator(FILE* file)
                         }
                     }
 
-                    BenchmarkLinearAllocatorCase(
+                    BenchmarkAlgorithmsCase(
                         file,
-                        linear, // linear
+                        algorithm,
                         emptyIndex ? 0 : 1, // empty
                         strategy,
                         freeOrder); // freeOrder
@@ -4098,7 +4127,7 @@ static void BasicTestBuddyAllocator()
 
     poolCreateInfo.blockSize = 1024 * 1024;
     poolCreateInfo.flags = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
-    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+    //poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
 
     VmaPool pool = nullptr;
     res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
@@ -4131,11 +4160,22 @@ static void BasicTestBuddyAllocator()
     assert(res == VK_SUCCESS);
     bufInfo.push_back(newBufInfo);
 
-    SaveAllocatorStatsToFile(L"BuddyTest01.json");
 
     VmaPoolStats stats = {};
     vmaGetPoolStats(g_hAllocator, pool, &stats);
     int DBG = 0; // Set breakpoint here to inspect `stats`.
+
+    // Allocate enough new buffers to surely fall into second block.
+    for(uint32_t i = 0; i < 32; ++i)
+    {
+        bufCreateInfo.size = 1024 * (rand.Generate() % 32 + 1);
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+    }
+
+    SaveAllocatorStatsToFile(L"BuddyTest01.json");
 
     // Destroy the buffers in random order.
     while(!bufInfo.empty())
@@ -4158,6 +4198,7 @@ void Test()
         // # Temporarily insert custom tests here
         // ########################################
         // ########################################
+        
         BasicTestBuddyAllocator();
         return;
     }
@@ -4186,9 +4227,7 @@ void Test()
         FILE* file;
         fopen_s(&file, "LinearAllocator.csv", "w");
         assert(file != NULL);
-        
-        BenchmarkLinearAllocator(file);
-
+        BenchmarkAlgorithms(file);
         fclose(file);
     }
 
