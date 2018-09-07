@@ -9,7 +9,7 @@
 
 //#define VMA_USE_STL_CONTAINERS 1
 
-//#define VMA_HEAVY_ASSERT(expr) assert(expr)
+#define VMA_HEAVY_ASSERT(expr) assert(expr)
 
 //#define VMA_DEDICATED_ALLOCATION 0
 
