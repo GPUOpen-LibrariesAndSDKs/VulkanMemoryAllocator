@@ -1357,6 +1357,20 @@ Features deliberately excluded from the scope of this library:
 
 */
 
+/*
+Define this macro to 0/1 to disable/enable support for recording functionality,
+available through VmaAllocatorCreateInfo::pRecordSettings.
+*/
+#ifndef VMA_RECORDING_ENABLED
+    #ifdef _WIN32
+        #define VMA_RECORDING_ENABLED 1
+    #else
+        #define VMA_RECORDING_ENABLED 0
+    #endif
+#endif
+
+#define NOMINMAX // For Windows.h
+
 #include <vulkan/vulkan.h>
 
 #if VMA_RECORDING_ENABLED
@@ -1482,18 +1496,6 @@ typedef enum VmaRecordFlagBits {
     VMA_RECORD_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaRecordFlagBits;
 typedef VkFlags VmaRecordFlags;
-
-/*
-Define this macro to 0/1 to disable/enable support for recording functionality,
-available through VmaAllocatorCreateInfo::pRecordSettings.
-*/
-#ifndef VMA_RECORDING_ENABLED
-    #ifdef _WIN32
-        #define VMA_RECORDING_ENABLED 1
-    #else
-        #define VMA_RECORDING_ENABLED 0
-    #endif
-#endif
 
 /// Parameters for recording calls to VMA functions. To be used in VmaAllocatorCreateInfo::pRecordSettings.
 typedef struct VmaRecordSettings
