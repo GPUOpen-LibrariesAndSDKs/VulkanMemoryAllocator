@@ -2997,6 +2997,29 @@ static inline uint64_t VmaNextPow2(uint64_t v)
     return v;
 }
 
+// Returns largest power of 2 less or equal to v.
+static inline uint32_t VmaPrevPow2(uint32_t v)
+{
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v = v ^ (v >> 1);
+    return v;
+}
+static inline uint64_t VmaPrevPow2(uint64_t v)
+{
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v |= v >> 32;
+    v = v ^ (v >> 1);
+    return v;
+}
+
 static inline bool VmaStrIsEmpty(const char* pStr)
 {
     return pStr == VMA_NULL || *pStr == '\0';
@@ -6586,6 +6609,7 @@ VmaBlockMetadata_Generic::~VmaBlockMetadata_Generic()
 void VmaBlockMetadata_Generic::Init(VkDeviceSize size)
 {
     VmaBlockMetadata::Init(size);
+
     m_FreeCount = 1;
     m_SumFreeSize = size;
 
@@ -6595,6 +6619,7 @@ void VmaBlockMetadata_Generic::Init(VkDeviceSize size)
     suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
     suballoc.hAllocation = VK_NULL_HANDLE;
 
+    VMA_ASSERT(size > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
     m_Suballocations.push_back(suballoc);
     VmaSuballocationList::iterator suballocItem = m_Suballocations.end();
     --suballocItem;
