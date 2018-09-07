@@ -5004,10 +5004,12 @@ private:
     struct ValidationContext
     {
         size_t calculatedAllocationCount;
+        size_t calculatedFreeCount;
         VkDeviceSize calculatedSumFreeSize;
 
         ValidationContext() :
             calculatedAllocationCount(0),
+            calculatedFreeCount(0),
             calculatedSumFreeSize(0) { }
     };
 
@@ -5049,6 +5051,7 @@ private:
     } m_FreeList[MAX_LEVELS];
     // Number of nodes in the tree with type == TYPE_ALLOCATION.
     size_t m_AllocationCount;
+    size_t m_FreeCount;
     VkDeviceSize m_SumFreeSize;
 
     void DeleteNode(Node* node);
@@ -9173,6 +9176,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(VmaAllocator hAllocator) :
     m_Root(VMA_NULL),
     m_AllocationCount(0),
+    m_FreeCount(1),
     m_SumFreeSize(0)
 {
     memset(m_FreeList, 0, sizeof(m_FreeList));
@@ -9265,7 +9269,11 @@ void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 
 void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
 {
-    // TODO
+    inoutStats.size += GetSize();
+    inoutStats.unusedSize += m_SumFreeSize;
+    inoutStats.allocationCount += m_AllocationCount;
+    inoutStats.unusedRangeCount += m_FreeCount;
+    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, GetUnusedRangeSizeMax());
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -9386,6 +9394,7 @@ void VmaBlockMetadata_Buddy::Alloc(
 
         ++currLevel;
         currNode = m_FreeList[currLevel].front;
+        ++m_FreeCount;
     }
 
     // Remove from free list.
@@ -9397,6 +9406,7 @@ void VmaBlockMetadata_Buddy::Alloc(
     currNode->allocation.alloc = hAllocation;
 
     ++m_AllocationCount;
+    --m_FreeCount;
     m_SumFreeSize -= LevelToNodeSize(currLevel);
 }
 
@@ -9421,6 +9431,7 @@ bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* pa
     case Node::TYPE_FREE:
         // curr->free.prev, next are validated separately.
         ctx.calculatedSumFreeSize += levelNodeSize;
+        ++ctx.calculatedFreeCount;
         break;
     case Node::TYPE_ALLOCATION:
         ++ctx.calculatedAllocationCount;
@@ -9504,6 +9515,7 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
     VMA_ASSERT(node != VMA_NULL && node->type == Node::TYPE_ALLOCATION);
     VMA_ASSERT(alloc == VK_NULL_HANDLE || node->allocation.alloc == alloc);
 
+    ++m_FreeCount;
     --m_AllocationCount;
     m_SumFreeSize += levelSize;
 
@@ -9521,6 +9533,7 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
         
         node = parent;
         --level;
+        --m_FreeCount;
     }
 
     AddToFreeListFront(level, node);

@@ -4133,6 +4133,10 @@ static void BasicTestBuddyAllocator()
 
     SaveAllocatorStatsToFile(L"BuddyTest01.json");
 
+    VmaPoolStats stats = {};
+    vmaGetPoolStats(g_hAllocator, pool, &stats);
+    int DBG = 0; // Set breakpoint here to inspect `stats`.
+
     // Destroy the buffers in random order.
     while(!bufInfo.empty())
     {
