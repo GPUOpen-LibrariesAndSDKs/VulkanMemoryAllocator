@@ -9236,9 +9236,17 @@ bool VmaBlockMetadata_Buddy::Validate() const
     return true;
 }
 
-VkDeviceSize VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
+VkDeviceSize VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
 {
-    return 0; // TODO
+    VkDeviceSize levelNodeSize = GetSize();
+    for(uint32_t level = 0; level < MAX_LEVELS; ++level, levelNodeSize /= 2)
+    {
+        if(m_FreeList[level].front != VMA_NULL)
+        {
+            return levelNodeSize;
+        }
+    }
+    return 0;
 }
 
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
