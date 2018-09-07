@@ -2961,6 +2961,17 @@ static inline T VmaRoundDiv(T x, T y)
 	return (x + (y / (T)2)) / y;
 }
 
+/*
+Returns true if given number is a power of two.
+T must be unsigned integer number or signed integer but always nonnegative.
+For 0 returns true.
+*/
+template <typename T>
+inline bool VmaIsPow2(T x)
+{
+    return (x & (x-1)) == 0;
+}
+
 // Returns smallest power of 2 greater or equal to v.
 static inline uint32_t VmaNextPow2(uint32_t v)
 {
@@ -11749,6 +11760,11 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     (*m_VulkanFunctions.vkGetPhysicalDeviceProperties)(m_PhysicalDevice, &m_PhysicalDeviceProperties);
     (*m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties)(m_PhysicalDevice, &m_MemProps);
 
+    VMA_ASSERT(VmaIsPow2(VMA_DEBUG_ALIGNMENT));
+    VMA_ASSERT(VmaIsPow2(VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY));
+    VMA_ASSERT(VmaIsPow2(m_PhysicalDeviceProperties.limits.bufferImageGranularity));
+    VMA_ASSERT(VmaIsPow2(m_PhysicalDeviceProperties.limits.nonCoherentAtomSize));
+
     m_PreferredLargeHeapBlockSize = (pCreateInfo->preferredLargeHeapBlockSize != 0) ?
         pCreateInfo->preferredLargeHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
 
@@ -12196,6 +12212,8 @@ VkResult VmaAllocator_T::AllocateMemory(
     VmaSuballocationType suballocType,
     VmaAllocation* pAllocation)
 {
+    VMA_ASSERT(VmaIsPow2(vkMemReq.alignment));
+
     if((createInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0 &&
         (createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
     {

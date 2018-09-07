@@ -4149,7 +4149,7 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(true)
+    if(false)
     {
         // # Temporarily insert custom tests here
         // ########################################
@@ -4175,6 +4175,8 @@ void Test()
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
     TestLinearAllocatorMultiBlock();
+
+    BasicTestBuddyAllocator();
 
     {
         FILE* file;
