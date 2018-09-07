@@ -4670,6 +4670,11 @@ private:
     VkDeviceSize m_Size;
 };
 
+#define VMA_VALIDATE(cond) do { if(!(cond)) { \
+        VMA_ASSERT(0 && "Validation failed: " ## #cond); \
+        return false; \
+    } } while(false)
+
 class VmaBlockMetadata_Generic : public VmaBlockMetadata
 {
     VMA_CLASS_NO_COPY(VmaBlockMetadata_Generic)
@@ -4950,7 +4955,7 @@ public:
     virtual void Init(VkDeviceSize size);
 
     virtual bool Validate() const;
-    virtual size_t GetAllocationCount() const;
+    virtual size_t GetAllocationCount() const { return m_AllocationCount; }
     virtual VkDeviceSize GetSumFreeSize() const;
     virtual VkDeviceSize GetUnusedRangeSizeMax() const;
     virtual bool IsEmpty() const { return m_Root->type == Node::TYPE_FREE; }
@@ -4981,7 +4986,7 @@ public:
 
     virtual uint32_t MakeAllocationsLost(uint32_t currentFrameIndex, uint32_t frameInUseCount);
 
-    virtual VkResult CheckCorruption(const void* pBlockData);
+    virtual VkResult CheckCorruption(const void* pBlockData) { return VK_ERROR_FEATURE_NOT_PRESENT; }
 
     virtual void Alloc(
         const VmaAllocationRequest& request,
@@ -4995,6 +5000,14 @@ public:
 
 private:
     static const size_t MAX_LEVELS = 30; // TODO
+
+    struct ValidationContext
+    {
+        size_t calculatedAllocationCount;
+
+        ValidationContext() :
+            calculatedAllocationCount(0) { }
+    };
 
     struct Node
     {
@@ -5032,9 +5045,11 @@ private:
         Node* front;
         Node* back;
     } m_FreeList[MAX_LEVELS];
+    // Number of nodes in the tree with type == TYPE_ALLOCATION.
+    size_t m_AllocationCount;
 
     void DeleteNode(Node* node);
-    bool ValidateNode(const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
+    bool ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
     uint32_t AllocSizeToLevel(VkDeviceSize allocSize) const;
     VkDeviceSize LevelToNodeSize(uint32_t level) const;
     // Alloc passed just for validation. Can be null.
@@ -6580,10 +6595,7 @@ void VmaBlockMetadata_Generic::Init(VkDeviceSize size)
 
 bool VmaBlockMetadata_Generic::Validate() const
 {
-    if(m_Suballocations.empty())
-    {
-        return false;
-    }
+    VMA_VALIDATE(!m_Suballocations.empty());
     
     // Expected offset of new suballocation as calculated from previous ones.
     VkDeviceSize calculatedOffset = 0;
@@ -6604,22 +6616,13 @@ bool VmaBlockMetadata_Generic::Validate() const
         const VmaSuballocation& subAlloc = *suballocItem;
         
         // Actual offset of this suballocation doesn't match expected one.
-        if(subAlloc.offset != calculatedOffset)
-        {
-            return false;
-        }
+        VMA_VALIDATE(subAlloc.offset == calculatedOffset);
 
         const bool currFree = (subAlloc.type == VMA_SUBALLOCATION_TYPE_FREE);
         // Two adjacent free suballocations are invalid. They should be merged.
-        if(prevFree && currFree)
-        {
-            return false;
-        }
+        VMA_VALIDATE(!prevFree || !currFree);
 
-        if(currFree != (subAlloc.hAllocation == VK_NULL_HANDLE))
-        {
-            return false;
-        }
+        VMA_VALIDATE(currFree == (subAlloc.hAllocation == VK_NULL_HANDLE));
 
         if(currFree)
         {
@@ -6631,27 +6634,15 @@ bool VmaBlockMetadata_Generic::Validate() const
             }
 
             // Margin required between allocations - every free space must be at least that large.
-            if(subAlloc.size < VMA_DEBUG_MARGIN)
-            {
-                return false;
-            }
+            VMA_VALIDATE(subAlloc.size >= VMA_DEBUG_MARGIN);
         }
         else
         {
-            if(subAlloc.hAllocation->GetOffset() != subAlloc.offset)
-            {
-                return false;
-            }
-            if(subAlloc.hAllocation->GetSize() != subAlloc.size)
-            {
-                return false;
-            }
+            VMA_VALIDATE(subAlloc.hAllocation->GetOffset() == subAlloc.offset);
+            VMA_VALIDATE(subAlloc.hAllocation->GetSize() == subAlloc.size);
 
             // Margin required between allocations - previous allocation must be free.
-            if(VMA_DEBUG_MARGIN > 0 && !prevFree)
-            {
-                return false;
-            }
+            VMA_VALIDATE(VMA_DEBUG_MARGIN == 0 || prevFree);
         }
 
         calculatedOffset += subAlloc.size;
@@ -6660,10 +6651,7 @@ bool VmaBlockMetadata_Generic::Validate() const
 
     // Number of free suballocations registered in m_FreeSuballocationsBySize doesn't
     // match expected one.
-    if(m_FreeSuballocationsBySize.size() != freeSuballocationsToRegister)
-    {
-        return false;
-    }
+    VMA_VALIDATE(m_FreeSuballocationsBySize.size() == freeSuballocationsToRegister);
 
     VkDeviceSize lastSize = 0;
     for(size_t i = 0; i < m_FreeSuballocationsBySize.size(); ++i)
@@ -6671,27 +6659,18 @@ bool VmaBlockMetadata_Generic::Validate() const
         VmaSuballocationList::iterator suballocItem = m_FreeSuballocationsBySize[i];
         
         // Only free suballocations can be registered in m_FreeSuballocationsBySize.
-        if(suballocItem->type != VMA_SUBALLOCATION_TYPE_FREE)
-        {
-            return false;
-        }
+        VMA_VALIDATE(suballocItem->type == VMA_SUBALLOCATION_TYPE_FREE);
         // They must be sorted by size ascending.
-        if(suballocItem->size < lastSize)
-        {
-            return false;
-        }
+        VMA_VALIDATE(suballocItem->size >= lastSize);
 
         lastSize = suballocItem->size;
     }
 
     // Check if totals match calculacted values.
-    if(!ValidateFreeSuballocationList() ||
-        (calculatedOffset != GetSize()) ||
-        (calculatedSumFreeSize != m_SumFreeSize) ||
-        (calculatedFreeCount != m_FreeCount))
-    {
-        return false;
-    }
+    VMA_VALIDATE(ValidateFreeSuballocationList());
+    VMA_VALIDATE(calculatedOffset == GetSize());
+    VMA_VALIDATE(calculatedSumFreeSize == m_SumFreeSize);
+    VMA_VALIDATE(calculatedFreeCount == m_FreeCount);
 
     return true;
 }
@@ -7101,22 +7080,9 @@ bool VmaBlockMetadata_Generic::ValidateFreeSuballocationList() const
     {
         const VmaSuballocationList::iterator it = m_FreeSuballocationsBySize[i];
 
-        if(it->type != VMA_SUBALLOCATION_TYPE_FREE)
-        {
-            VMA_ASSERT(0);
-            return false;
-        }
-        if(it->size < VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
-        {
-            VMA_ASSERT(0);
-            return false;
-        }
-        if(it->size < lastSize)
-        {
-            VMA_ASSERT(0);
-            return false;
-        }
-
+        VMA_VALIDATE(it->type == VMA_SUBALLOCATION_TYPE_FREE);
+        VMA_VALIDATE(it->size >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
+        VMA_VALIDATE(it->size >= lastSize);
         lastSize = it->size;
     }
     return true;
@@ -7551,45 +7517,26 @@ bool VmaBlockMetadata_Linear::Validate() const
     const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
 
-    if(suballocations2nd.empty() != (m_2ndVectorMode == SECOND_VECTOR_EMPTY))
-    {
-        return false;
-    }
-    if(suballocations1st.empty() && !suballocations2nd.empty() &&
-        m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
-    {
-        return false;
-    }
+    VMA_VALIDATE(suballocations2nd.empty() == (m_2ndVectorMode == SECOND_VECTOR_EMPTY));
+    VMA_VALIDATE(!suballocations1st.empty() ||
+        suballocations2nd.empty() ||
+        m_2ndVectorMode != SECOND_VECTOR_RING_BUFFER);
+
     if(!suballocations1st.empty())
     {
         // Null item at the beginning should be accounted into m_1stNullItemsBeginCount.
-        if(suballocations1st[m_1stNullItemsBeginCount].hAllocation == VK_NULL_HANDLE)
-        {
-            return false;
-        }
+        VMA_VALIDATE(suballocations1st[m_1stNullItemsBeginCount].hAllocation != VK_NULL_HANDLE);
         // Null item at the end should be just pop_back().
-        if(suballocations1st.back().hAllocation == VK_NULL_HANDLE)
-        {
-            return false;
-        }
+        VMA_VALIDATE(suballocations1st.back().hAllocation != VK_NULL_HANDLE);
     }
     if(!suballocations2nd.empty())
     {
         // Null item at the end should be just pop_back().
-        if(suballocations2nd.back().hAllocation == VK_NULL_HANDLE)
-        {
-            return false;
-        }
+        VMA_VALIDATE(suballocations2nd.back().hAllocation != VK_NULL_HANDLE);
     }
 
-    if(m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount > suballocations1st.size())
-    {
-        return false;
-    }
-    if(m_2ndNullItemsCount > suballocations2nd.size())
-    {
-        return false;
-    }
+    VMA_VALIDATE(m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount <= suballocations1st.size());
+    VMA_VALIDATE(m_2ndNullItemsCount <= suballocations2nd.size());
 
     VkDeviceSize sumUsedSize = 0;
     const size_t suballoc1stCount = suballocations1st.size();
@@ -7604,25 +7551,13 @@ bool VmaBlockMetadata_Linear::Validate() const
             const VmaSuballocation& suballoc = suballocations2nd[i];
             const bool currFree = (suballoc.type == VMA_SUBALLOCATION_TYPE_FREE);
 
-            if(currFree != (suballoc.hAllocation == VK_NULL_HANDLE))
-            {
-                return false;
-            }
-            if(suballoc.offset < offset)
-            {
-                return false;
-            }
+            VMA_VALIDATE(currFree == (suballoc.hAllocation == VK_NULL_HANDLE));
+            VMA_VALIDATE(suballoc.offset >= offset);
 
             if(!currFree)
             {
-                if(suballoc.hAllocation->GetOffset() != suballoc.offset)
-                {
-                    return false;
-                }
-                if(suballoc.hAllocation->GetSize() != suballoc.size)
-                {
-                    return false;
-                }
+                VMA_VALIDATE(suballoc.hAllocation->GetOffset() == suballoc.offset);
+                VMA_VALIDATE(suballoc.hAllocation->GetSize() == suballoc.size);
                 sumUsedSize += suballoc.size;
             }
             else
@@ -7633,20 +7568,14 @@ bool VmaBlockMetadata_Linear::Validate() const
             offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
         }
 
-        if(nullItem2ndCount != m_2ndNullItemsCount)
-        {
-            return false;
-        }
+        VMA_VALIDATE(nullItem2ndCount == m_2ndNullItemsCount);
     }
 
     for(size_t i = 0; i < m_1stNullItemsBeginCount; ++i)
     {
         const VmaSuballocation& suballoc = suballocations1st[i];
-        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE ||
-            suballoc.hAllocation != VK_NULL_HANDLE)
-        {
-            return false;
-        }
+        VMA_VALIDATE(suballoc.type == VMA_SUBALLOCATION_TYPE_FREE &&
+            suballoc.hAllocation == VK_NULL_HANDLE);
     }
 
     size_t nullItem1stCount = m_1stNullItemsBeginCount;
@@ -7656,29 +7585,14 @@ bool VmaBlockMetadata_Linear::Validate() const
         const VmaSuballocation& suballoc = suballocations1st[i];
         const bool currFree = (suballoc.type == VMA_SUBALLOCATION_TYPE_FREE);
 
-        if(currFree != (suballoc.hAllocation == VK_NULL_HANDLE))
-        {
-            return false;
-        }
-        if(suballoc.offset < offset)
-        {
-            return false;
-        }
-        if(i < m_1stNullItemsBeginCount && !currFree)
-        {
-            return false;
-        }
+        VMA_VALIDATE(currFree == (suballoc.hAllocation == VK_NULL_HANDLE));
+        VMA_VALIDATE(suballoc.offset >= offset);
+        VMA_VALIDATE(i >= m_1stNullItemsBeginCount || currFree);
 
         if(!currFree)
         {
-            if(suballoc.hAllocation->GetOffset() != suballoc.offset)
-            {
-                return false;
-            }
-            if(suballoc.hAllocation->GetSize() != suballoc.size)
-            {
-                return false;
-            }
+            VMA_VALIDATE(suballoc.hAllocation->GetOffset() == suballoc.offset);
+            VMA_VALIDATE(suballoc.hAllocation->GetSize() == suballoc.size);
             sumUsedSize += suballoc.size;
         }
         else
@@ -7688,10 +7602,7 @@ bool VmaBlockMetadata_Linear::Validate() const
 
         offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
     }
-    if(nullItem1stCount != m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount)
-    {
-        return false;
-    }
+    VMA_VALIDATE(nullItem1stCount == m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount);
 
     if(m_2ndVectorMode == SECOND_VECTOR_DOUBLE_STACK)
     {
@@ -7702,25 +7613,13 @@ bool VmaBlockMetadata_Linear::Validate() const
             const VmaSuballocation& suballoc = suballocations2nd[i];
             const bool currFree = (suballoc.type == VMA_SUBALLOCATION_TYPE_FREE);
 
-            if(currFree != (suballoc.hAllocation == VK_NULL_HANDLE))
-            {
-                return false;
-            }
-            if(suballoc.offset < offset)
-            {
-                return false;
-            }
+            VMA_VALIDATE(currFree == (suballoc.hAllocation == VK_NULL_HANDLE));
+            VMA_VALIDATE(suballoc.offset >= offset);
 
             if(!currFree)
             {
-                if(suballoc.hAllocation->GetOffset() != suballoc.offset)
-                {
-                    return false;
-                }
-                if(suballoc.hAllocation->GetSize() != suballoc.size)
-                {
-                    return false;
-                }
+                VMA_VALIDATE(suballoc.hAllocation->GetOffset() == suballoc.offset);
+                VMA_VALIDATE(suballoc.hAllocation->GetSize() == suballoc.size);
                 sumUsedSize += suballoc.size;
             }
             else
@@ -7731,20 +7630,11 @@ bool VmaBlockMetadata_Linear::Validate() const
             offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
         }
 
-        if(nullItem2ndCount != m_2ndNullItemsCount)
-        {
-            return false;
-        }
+        VMA_VALIDATE(nullItem2ndCount == m_2ndNullItemsCount);
     }
 
-    if(offset > GetSize())
-    {
-        return false;
-    }
-    if(m_SumFreeSize != GetSize() - sumUsedSize)
-    {
-        return false;
-    }
+    VMA_VALIDATE(offset <= GetSize());
+    VMA_VALIDATE(m_SumFreeSize == GetSize() - sumUsedSize);
 
     return true;
 }
@@ -9278,7 +9168,8 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 // class VmaBlockMetadata_Buddy
 
 VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(VmaAllocator hAllocator) :
-    m_Root(VMA_NULL)
+    m_Root(VMA_NULL),
+    m_AllocationCount(0)
 {
     memset(m_FreeList, 0, sizeof(m_FreeList));
 }
@@ -9305,52 +9196,37 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
 bool VmaBlockMetadata_Buddy::Validate() const
 {
     // Validate tree.
-    if(!ValidateNode(VMA_NULL, m_Root, 0, GetSize()))
+    ValidationContext ctx;
+    if(!ValidateNode(ctx, VMA_NULL, m_Root, 0, GetSize()))
     {
-        return false;
+        VMA_VALIDATE(false && "ValidateNode failed.");
     }
+    VMA_VALIDATE(m_AllocationCount == ctx.calculatedAllocationCount);
 
     // Validate free node lists.
     for(uint32_t level = 0; level < MAX_LEVELS; ++level)
     {
-        if(m_FreeList[level].front != VMA_NULL &&
-            m_FreeList[level].front->free.prev != VMA_NULL)
-        {
-            return false;
-        }
+        VMA_VALIDATE(m_FreeList[level].front == VMA_NULL ||
+            m_FreeList[level].front->free.prev == VMA_NULL);
 
         for(Node* node = m_FreeList[level].front;
             node != VMA_NULL;
             node = node->free.next)
         {
-            if(node->type != Node::TYPE_FREE)
-            {
-                return false;
-            }
+            VMA_VALIDATE(node->type == Node::TYPE_FREE);
             
             if(node->free.next == VMA_NULL)
             {
-                if(m_FreeList[level].back != node)
-                {
-                    return false;
-                }
+                VMA_VALIDATE(m_FreeList[level].back == node);
             }
             else
             {
-                if(node->free.next->free.prev != node)
-                {
-                    return false;
-                }
+                VMA_VALIDATE(node->free.next->free.prev == node);
             }
         }
     }
 
     return true;
-}
-
-size_t VmaBlockMetadata_Buddy::GetAllocationCount() const
-{
-    return 0; // TODO
 }
 
 VkDeviceSize VmaBlockMetadata_Buddy::GetSumFreeSize() const
@@ -9453,11 +9329,6 @@ uint32_t VmaBlockMetadata_Buddy::MakeAllocationsLost(uint32_t currentFrameIndex,
     return 0; // TODO
 }
 
-VkResult VmaBlockMetadata_Buddy::CheckCorruption(const void* pBlockData)
-{
-    return VK_SUCCESS; // TODO
-}
-
 void VmaBlockMetadata_Buddy::Alloc(
     const VmaAllocationRequest& request,
     VmaSuballocationType type,
@@ -9514,6 +9385,8 @@ void VmaBlockMetadata_Buddy::Alloc(
     // Convert to allocation node.
     currNode->type = Node::TYPE_ALLOCATION;
     currNode->allocation.alloc = hAllocation;
+
+    ++m_AllocationCount;
 }
 
 void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
@@ -9527,56 +9400,36 @@ void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
     delete node;
 }
 
-bool VmaBlockMetadata_Buddy::ValidateNode(const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
+bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
 {
-    if(curr->parent != parent)
-    {
-        return false;
-    }
-    if((curr->buddy == VMA_NULL) != (parent == VMA_NULL))
-    {
-        return false;
-    }
-    if(curr->buddy != VMA_NULL && curr->buddy->buddy != curr)
-    {
-        return false;
-    }
+    VMA_VALIDATE(curr->parent == parent);
+    VMA_VALIDATE((curr->buddy == VMA_NULL) == (parent == VMA_NULL));
+    VMA_VALIDATE(curr->buddy == VMA_NULL || curr->buddy->buddy == curr);
     switch(curr->type)
     {
     case Node::TYPE_FREE:
         // curr->free.prev, next are validated separately.
         break;
     case Node::TYPE_ALLOCATION:
-        if(curr->allocation.alloc == VK_NULL_HANDLE)
-        {
-            return false;
-        }
+        ++ctx.calculatedAllocationCount;
+        VMA_VALIDATE(curr->allocation.alloc != VK_NULL_HANDLE);
         break;
     case Node::TYPE_SPLIT:
         {
             const uint32_t childrenLevel = level + 1;
             const VkDeviceSize childrenLevelNodeSize = levelNodeSize / 2;
             const Node* const leftChild = curr->split.leftChild;
-            if(leftChild == VMA_NULL)
+            VMA_VALIDATE(leftChild != VMA_NULL);
+            VMA_VALIDATE(leftChild->offset == curr->offset);
+            if(!ValidateNode(ctx, curr, leftChild, childrenLevel, childrenLevelNodeSize))
             {
-                return false;
-            }
-            if(leftChild->offset != curr->offset)
-            {
-                return false;
-            }
-            if(!ValidateNode(curr, leftChild, childrenLevel, childrenLevelNodeSize))
-            {
-                return false;
+                VMA_VALIDATE(false && "ValidateNode for left child failed.");
             }
             const Node* const rightChild = leftChild->buddy;
-            if(rightChild->offset != curr->offset + levelNodeSize)
+            VMA_VALIDATE(rightChild->offset == curr->offset + childrenLevelNodeSize);
+            if(!ValidateNode(ctx, curr, rightChild, childrenLevel, childrenLevelNodeSize))
             {
-                return false;
-            }
-            if(!ValidateNode(curr, rightChild, childrenLevel, childrenLevelNodeSize))
-            {
-                return false;
+                VMA_VALIDATE(false && "ValidateNode for right child failed.");
             }
         }
         break;
@@ -9638,6 +9491,8 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
 
     VMA_ASSERT(node != VMA_NULL && node->type == Node::TYPE_ALLOCATION);
     VMA_ASSERT(alloc == VK_NULL_HANDLE || node->allocation.alloc == alloc);
+
+    --m_AllocationCount;
 
     node->type = Node::TYPE_FREE;
 
@@ -9828,11 +9683,8 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
 
 bool VmaDeviceMemoryBlock::Validate() const
 {
-    if((m_hMemory == VK_NULL_HANDLE) ||
-        (m_pMetadata->GetSize() == 0))
-    {
-        return false;
-    }
+    VMA_VALIDATE((m_hMemory != VK_NULL_HANDLE) &&
+        (m_pMetadata->GetSize() != 0));
     
     return m_pMetadata->Validate();
 }

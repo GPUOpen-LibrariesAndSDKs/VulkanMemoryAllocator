@@ -16,7 +16,7 @@ macros if you want to configure the library and then include its header to
 include all public interface declarations. Example:
 */
 
-//#define VMA_HEAVY_ASSERT(expr) assert(expr)
+#define VMA_HEAVY_ASSERT(expr) assert(expr)
 //#define VMA_USE_STL_CONTAINERS 1
 //#define VMA_DEDICATED_ALLOCATION 0
 //#define VMA_DEBUG_MARGIN 16
