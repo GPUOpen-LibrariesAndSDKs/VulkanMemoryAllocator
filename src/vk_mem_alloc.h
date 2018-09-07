@@ -4956,7 +4956,7 @@ public:
 
     virtual bool Validate() const;
     virtual size_t GetAllocationCount() const { return m_AllocationCount; }
-    virtual VkDeviceSize GetSumFreeSize() const;
+    virtual VkDeviceSize GetSumFreeSize() const { return m_SumFreeSize; }
     virtual VkDeviceSize GetUnusedRangeSizeMax() const;
     virtual bool IsEmpty() const { return m_Root->type == Node::TYPE_FREE; }
 
@@ -5004,9 +5004,11 @@ private:
     struct ValidationContext
     {
         size_t calculatedAllocationCount;
+        VkDeviceSize calculatedSumFreeSize;
 
         ValidationContext() :
-            calculatedAllocationCount(0) { }
+            calculatedAllocationCount(0),
+            calculatedSumFreeSize(0) { }
     };
 
     struct Node
@@ -5047,6 +5049,7 @@ private:
     } m_FreeList[MAX_LEVELS];
     // Number of nodes in the tree with type == TYPE_ALLOCATION.
     size_t m_AllocationCount;
+    VkDeviceSize m_SumFreeSize;
 
     void DeleteNode(Node* node);
     bool ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
@@ -9169,7 +9172,8 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
 VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(VmaAllocator hAllocator) :
     m_Root(VMA_NULL),
-    m_AllocationCount(0)
+    m_AllocationCount(0),
+    m_SumFreeSize(0)
 {
     memset(m_FreeList, 0, sizeof(m_FreeList));
 }
@@ -9182,6 +9186,8 @@ VmaBlockMetadata_Buddy::~VmaBlockMetadata_Buddy()
 void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
 {
     VmaBlockMetadata::Init(size);
+
+    m_SumFreeSize = size;
 
     Node* rootNode = new Node();
     rootNode->offset = 0;
@@ -9202,6 +9208,7 @@ bool VmaBlockMetadata_Buddy::Validate() const
         VMA_VALIDATE(false && "ValidateNode failed.");
     }
     VMA_VALIDATE(m_AllocationCount == ctx.calculatedAllocationCount);
+    VMA_VALIDATE(m_SumFreeSize == ctx.calculatedSumFreeSize);
 
     // Validate free node lists.
     for(uint32_t level = 0; level < MAX_LEVELS; ++level)
@@ -9227,11 +9234,6 @@ bool VmaBlockMetadata_Buddy::Validate() const
     }
 
     return true;
-}
-
-VkDeviceSize VmaBlockMetadata_Buddy::GetSumFreeSize() const
-{
-    return 0; // TODO
 }
 
 VkDeviceSize VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
@@ -9387,6 +9389,7 @@ void VmaBlockMetadata_Buddy::Alloc(
     currNode->allocation.alloc = hAllocation;
 
     ++m_AllocationCount;
+    m_SumFreeSize -= LevelToNodeSize(currLevel);
 }
 
 void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
@@ -9409,6 +9412,7 @@ bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* pa
     {
     case Node::TYPE_FREE:
         // curr->free.prev, next are validated separately.
+        ctx.calculatedSumFreeSize += levelNodeSize;
         break;
     case Node::TYPE_ALLOCATION:
         ++ctx.calculatedAllocationCount;
@@ -9493,6 +9497,7 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
     VMA_ASSERT(alloc == VK_NULL_HANDLE || node->allocation.alloc == alloc);
 
     --m_AllocationCount;
+    m_SumFreeSize += levelSize;
 
     node->type = Node::TYPE_FREE;
 

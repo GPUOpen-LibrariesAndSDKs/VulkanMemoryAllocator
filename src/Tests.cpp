@@ -4149,7 +4149,7 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(false)
+    if(true)
     {
         // # Temporarily insert custom tests here
         // ########################################
