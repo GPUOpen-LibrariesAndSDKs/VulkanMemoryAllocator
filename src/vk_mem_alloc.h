@@ -1369,7 +1369,9 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
-#define NOMINMAX // For windows.h
+#ifndef NOMINMAX
+    #define NOMINMAX // For windows.h
+#endif
 
 #include <vulkan/vulkan.h>
 
