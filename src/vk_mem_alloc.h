@@ -125,7 +125,7 @@ It may be a good idea to create dedicated CPP file just for this purpose.
 
 Please note that this library includes header `<vulkan/vulkan.h>`, which in turn
 includes `<windows.h>` on Windows. If you need some specific macros defined
-before including these headers (like `NOMINMAX`, `WIN32_LEAN_AND_MEAN`, or
+before including these headers (like `WIN32_LEAN_AND_MEAN` or
 `WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
 them before every `#include` of this library.
 
