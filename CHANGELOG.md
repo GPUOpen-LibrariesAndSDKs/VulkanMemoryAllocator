@@ -1,3 +1,7 @@
+# 2.1.0 (2018-09-10)
+
+Minor bugfixes.
+
 # 2.1.0-beta.1 (2018-08-27)
 
 Major release after many months of development in "development" branch and features branches. Many new features added, some bugs fixed. API stays backward-compatible.

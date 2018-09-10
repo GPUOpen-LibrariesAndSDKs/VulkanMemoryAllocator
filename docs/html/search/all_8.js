@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['offset',['offset',['../struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268',1,'VmaAllocationInfo']]]
+  ['nominmax',['NOMINMAX',['../vk__mem__alloc_8h.html#a9f918755b601cf4bffca775992e6fb90',1,'vk_mem_alloc.h']]]
 ];
