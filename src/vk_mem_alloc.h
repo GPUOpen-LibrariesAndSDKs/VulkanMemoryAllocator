@@ -1369,12 +1369,12 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
-#define NOMINMAX // For Windows.h
+#define NOMINMAX // For windows.h
 
 #include <vulkan/vulkan.h>
 
 #if VMA_RECORDING_ENABLED
-    #include <Windows.h>
+    #include <windows.h>
 #endif
 
 #if !defined(VMA_DEDICATED_ALLOCATION)
