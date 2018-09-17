@@ -12257,10 +12257,15 @@ void VmaAllocator_T::FreeDedicatedMemory(VmaAllocation allocation)
 
     VkDeviceMemory hMemory = allocation->GetMemory();
     
+    /*
+    There is no need to call this, because Vulkan spec allows to skip vkUnmapMemory
+    before vkFreeMemory.
+
     if(allocation->GetMappedData() != VMA_NULL)
     {
         (*m_VulkanFunctions.vkUnmapMemory)(m_hDevice, hMemory);
     }
+    */
     
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
 
