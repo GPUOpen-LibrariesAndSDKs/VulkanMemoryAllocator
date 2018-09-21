@@ -1965,23 +1965,23 @@ typedef enum VmaPoolCreateFlagBits {
     (wasted memory). In that case, if you can make sure you always allocate only
     buffers and linear images or only optimal images out of this pool, use this flag
     to make allocator disregard Buffer-Image Granularity and so make allocations
-    more optimal.
+    faster and more optimal.
     */
     VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT = 0x00000002,
 
     /** \brief Enables alternative, linear allocation algorithm in this pool.
 
-Specify this flag to enable linear allocation algorithm, which always creates
-new allocations after last one and doesn't reuse space from allocations freed in
-between. It trades memory consumption for simplified algorithm and data
-structure, which has better performance and uses less memory for metadata.
+    Specify this flag to enable linear allocation algorithm, which always creates
+    new allocations after last one and doesn't reuse space from allocations freed in
+    between. It trades memory consumption for simplified algorithm and data
+    structure, which has better performance and uses less memory for metadata.
 
-By using this flag, you can achieve behavior of free-at-once, stack,
-ring buffer, and double stack. For details, see documentation chapter
-\ref linear_algorithm.
+    By using this flag, you can achieve behavior of free-at-once, stack,
+    ring buffer, and double stack. For details, see documentation chapter
+    \ref linear_algorithm.
 
-When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
-*/
+    When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
+    */
     VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT = 0x00000004,
 
     /** TODO */
@@ -9391,6 +9391,16 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
     VmaAllocationRequest* pAllocationRequest)
 {
     VMA_ASSERT(!upperAddress && "VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT can be used only with linear algorithm.");
+
+    // Simple way to respect bufferImageGranularity. May be optimized some day.
+    // Whenever it might be an OPTIMAL image...
+    if(allocType == VMA_SUBALLOCATION_TYPE_UNKNOWN ||
+        allocType == VMA_SUBALLOCATION_TYPE_IMAGE_UNKNOWN ||
+        allocType == VMA_SUBALLOCATION_TYPE_IMAGE_OPTIMAL)
+    {
+        allocAlignment = VMA_MAX(allocAlignment, bufferImageGranularity);
+        allocSize = VMA_MAX(allocSize, bufferImageGranularity);
+    }
 
     if(allocSize > m_UsableSize)
     {
