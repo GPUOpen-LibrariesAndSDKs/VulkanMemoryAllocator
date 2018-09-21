@@ -4967,6 +4967,12 @@ private:
 };
 
 /*
+- GetSize() is the original size of allocated memory block.
+- m_UsableSize is this size aligned down to a power of two.
+  All allocations and calculations happen relative to m_UsableSize.
+- GetUnusableSize() is the difference between them.
+  It is repoted as separate unused range.
+
 Level 0 has block size = GetSize(). Level 1 has block size = GetSize() / 2 and so on...
 */
 class VmaBlockMetadata_Buddy : public VmaBlockMetadata
@@ -4979,7 +4985,7 @@ public:
 
     virtual bool Validate() const;
     virtual size_t GetAllocationCount() const { return m_AllocationCount; }
-    virtual VkDeviceSize GetSumFreeSize() const { return m_SumFreeSize; }
+    virtual VkDeviceSize GetSumFreeSize() const { return m_SumFreeSize + GetUnusableSize(); }
     virtual VkDeviceSize GetUnusedRangeSizeMax() const;
     virtual bool IsEmpty() const { return m_Root->type == Node::TYPE_FREE; }
 
@@ -5067,6 +5073,8 @@ private:
         };
     };
 
+    // Size of the memory block aligned down to a power of two.
+    VkDeviceSize m_UsableSize;
     Node* m_Root;
     struct {
         Node* front;
@@ -5076,13 +5084,14 @@ private:
     size_t m_AllocationCount;
     // Number of nodes in the tree with type == TYPE_FREE.
     size_t m_FreeCount;
-    // This includes space wasted due to internal fragmentation.
+    // This includes space wasted due to internal fragmentation. Doesn't include unusable size.
     VkDeviceSize m_SumFreeSize;
 
+    VkDeviceSize GetUnusableSize() const { return GetSize() - m_UsableSize; }
     void DeleteNode(Node* node);
     bool ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
     uint32_t AllocSizeToLevel(VkDeviceSize allocSize) const;
-    VkDeviceSize LevelToNodeSize(uint32_t level) const;
+    inline VkDeviceSize LevelToNodeSize(uint32_t level) const { return m_UsableSize >> level; }
     // Alloc passed just for validation. Can be null.
     void FreeAtOffset(VmaAllocation alloc, VkDeviceSize offset);
     void CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const;
@@ -9218,7 +9227,8 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
 {
     VmaBlockMetadata::Init(size);
 
-    m_SumFreeSize = size;
+    m_UsableSize = VmaPrevPow2(size);
+    m_SumFreeSize = m_UsableSize;
 
     Node* rootNode = new Node();
     rootNode->offset = 0;
@@ -9234,7 +9244,7 @@ bool VmaBlockMetadata_Buddy::Validate() const
 {
     // Validate tree.
     ValidationContext ctx;
-    if(!ValidateNode(ctx, VMA_NULL, m_Root, 0, GetSize()))
+    if(!ValidateNode(ctx, VMA_NULL, m_Root, 0, LevelToNodeSize(0)))
     {
         VMA_VALIDATE(false && "ValidateNode failed.");
     }
@@ -9269,12 +9279,11 @@ bool VmaBlockMetadata_Buddy::Validate() const
 
 VkDeviceSize VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
 {
-    VkDeviceSize levelNodeSize = GetSize();
-    for(uint32_t level = 0; level < MAX_LEVELS; ++level, levelNodeSize /= 2)
+    for(uint32_t level = 0; level < MAX_LEVELS; ++level)
     {
         if(m_FreeList[level].front != VMA_NULL)
         {
-            return levelNodeSize;
+            return LevelToNodeSize(level);
         }
     }
     return 0;
@@ -9282,6 +9291,8 @@ VkDeviceSize VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
 
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
+    const VkDeviceSize unusableSize = GetUnusableSize();
+
     outInfo.blockCount = 1;
 
     outInfo.allocationCount = outInfo.unusedRangeCount = 0;
@@ -9291,16 +9302,32 @@ void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
     outInfo.allocationSizeMin = outInfo.unusedRangeSizeMin = UINT64_MAX;
     outInfo.allocationSizeAvg = outInfo.unusedRangeSizeAvg = 0; // Unused.
 
-    CalcAllocationStatInfoNode(outInfo, m_Root, GetSize());
+    CalcAllocationStatInfoNode(outInfo, m_Root, LevelToNodeSize(0));
+
+    if(unusableSize > 0)
+    {
+        ++outInfo.unusedRangeCount;
+        outInfo.unusedBytes += unusableSize;
+        outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusableSize);
+        outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusableSize);
+    }
 }
 
 void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
 {
+    const VkDeviceSize unusableSize = GetUnusableSize();
+
     inoutStats.size += GetSize();
-    inoutStats.unusedSize += m_SumFreeSize;
+    inoutStats.unusedSize += m_SumFreeSize + unusableSize;
     inoutStats.allocationCount += m_AllocationCount;
     inoutStats.unusedRangeCount += m_FreeCount;
     inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, GetUnusedRangeSizeMax());
+
+    if(unusableSize > 0)
+    {
+        ++inoutStats.unusedRangeCount;
+        // Not updating inoutStats.unusedRangeSizeMax with unusableSize because this space is not available for allocations.
+    }
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -9317,7 +9344,15 @@ void VmaBlockMetadata_Buddy::PrintDetailedMap(class VmaJsonWriter& json) const
         stat.allocationCount,
         stat.unusedRangeCount);
 
-    PrintDetailedMapNode(json, m_Root, GetSize());
+    PrintDetailedMapNode(json, m_Root, LevelToNodeSize(0));
+
+    const VkDeviceSize unusableSize = GetUnusableSize();
+    if(unusableSize > 0)
+    {
+        PrintDetailedMap_UnusedRange(json,
+            m_UsableSize, // offset
+            unusableSize); // size
+    }
 
     PrintDetailedMap_End(json);
 }
@@ -9338,8 +9373,7 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
 {
     VMA_ASSERT(!upperAddress && "VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT can be used only with linear algorithm.");
 
-    const VkDeviceSize size = GetSize();
-    if(allocSize > size)
+    if(allocSize > m_UsableSize)
     {
         return false;
     }
@@ -9428,7 +9462,7 @@ void VmaBlockMetadata_Buddy::Alloc(
         AddToFreeListFront(childrenLevel, leftChild);
 
         ++m_FreeCount;
-        m_SumFreeSize -= LevelToNodeSize(currLevel) % 2; // Useful only when level node sizes can be non power of 2.
+        //m_SumFreeSize -= LevelToNodeSize(currLevel) % 2; // Useful only when level node sizes can be non power of 2.
         ++currLevel;
         currNode = m_FreeList[currLevel].front;
     }
@@ -9502,28 +9536,17 @@ bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* pa
 
 uint32_t VmaBlockMetadata_Buddy::AllocSizeToLevel(VkDeviceSize allocSize) const
 {
-    // TODO optimize
+    // I know this could be optimized somehow e.g. by using std::log2p1 from C++20.
     uint32_t level = 0;
-    VkDeviceSize currLevelNodeSize = GetSize();
-    VkDeviceSize nextLevelNodeSize = currLevelNodeSize / 2;
+    VkDeviceSize currLevelNodeSize = m_UsableSize;
+    VkDeviceSize nextLevelNodeSize = currLevelNodeSize >> 1;
     while(allocSize <= nextLevelNodeSize && level + 1 < MAX_LEVELS)
     {
         ++level;
         currLevelNodeSize = nextLevelNodeSize;
-        nextLevelNodeSize = currLevelNodeSize / 2;
+        nextLevelNodeSize = currLevelNodeSize >> 1;
     }
     return level;
-}
-
-VkDeviceSize VmaBlockMetadata_Buddy::LevelToNodeSize(uint32_t level) const
-{
-    // TODO optimize
-    VkDeviceSize result = GetSize();
-    for(uint32_t i = 0; i < level; ++i)
-    {
-        result /= 2;
-    }
-    return result;
 }
 
 void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offset)
@@ -9532,10 +9555,10 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
     Node* node = m_Root;
     VkDeviceSize nodeOffset = 0;
     uint32_t level = 0;
-    VkDeviceSize levelSize = GetSize();
+    VkDeviceSize levelNodeSize = LevelToNodeSize(0);
     while(node->type == Node::TYPE_SPLIT)
     {
-        const VkDeviceSize nextLevelSize = levelSize / 2;
+        const VkDeviceSize nextLevelSize = levelNodeSize >> 1;
         if(offset < nodeOffset + nextLevelSize)
         {
             node = node->split.leftChild;
@@ -9546,7 +9569,7 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
             nodeOffset += nextLevelSize;
         }
         ++level;
-        levelSize = nextLevelSize;
+        levelNodeSize = nextLevelSize;
     }
 
     VMA_ASSERT(node != VMA_NULL && node->type == Node::TYPE_ALLOCATION);
@@ -9570,7 +9593,7 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
         
         node = parent;
         --level;
-        m_SumFreeSize += LevelToNodeSize(level) % 2; // Useful only when level node sizes can be non power of 2.
+        //m_SumFreeSize += LevelToNodeSize(level) % 2; // Useful only when level node sizes can be non power of 2.
         --m_FreeCount;
     }
 

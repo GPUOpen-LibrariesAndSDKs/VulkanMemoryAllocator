@@ -4125,7 +4125,8 @@ static void BasicTestBuddyAllocator()
     VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
     assert(res == VK_SUCCESS);
 
-    poolCreateInfo.blockSize = 1024 * 1024;
+    // Deliberately adding 1023 to test usable size smaller than memory block size.
+    poolCreateInfo.blockSize = 1024 * 1024 + 1023;
     poolCreateInfo.flags = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
     //poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
 
@@ -4159,7 +4160,6 @@ static void BasicTestBuddyAllocator()
         &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
     assert(res == VK_SUCCESS);
     bufInfo.push_back(newBufInfo);
-
 
     VmaPoolStats stats = {};
     vmaGetPoolStats(g_hAllocator, pool, &stats);
