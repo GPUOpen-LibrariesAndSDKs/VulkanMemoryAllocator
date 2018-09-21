@@ -7,6 +7,8 @@
 
 #ifdef _WIN32
 
+static const char* CODE_DESCRIPTION = "Foo";
+
 enum CONFIG_TYPE {
     CONFIG_TYPE_MINIMUM,
     CONFIG_TYPE_SMALL,
@@ -16,16 +18,33 @@ enum CONFIG_TYPE {
     CONFIG_TYPE_COUNT
 };
 
-static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
-//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
+//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
+static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
 
-static const wchar_t* FREE_ORDER_NAMES[] = {
-    L"FORWARD",
-    L"BACKWARD",
-    L"RANDOM",
+static const char* FREE_ORDER_NAMES[] = {
+    "FORWARD",
+    "BACKWARD",
+    "RANDOM",
 };
+
+// Copy of internal VmaAlgorithmToStr.
+static const char* AlgorithmToStr(uint32_t algorithm)
+{
+    switch(algorithm)
+    {
+    case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
+        return "Linear";
+    case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
+        return "Buddy";
+    case 0:
+        return "Default";
+    default:
+        assert(0);
+        return "";
+    }
+}
 
 struct AllocationSize
 {
@@ -45,6 +64,7 @@ struct Config
     uint32_t ThreadCount;
     uint32_t ThreadsUsingCommonAllocationsProbabilityPercent;
     FREE_ORDER FreeOrder;
+    VmaAllocationCreateFlags AllocationStrategy; // For VMA_ALLOCATION_CREATE_STRATEGY_*
 };
 
 struct Result
@@ -126,6 +146,33 @@ struct BufferInfo
     VkBuffer Buffer = VK_NULL_HANDLE;
     VmaAllocation Allocation = VK_NULL_HANDLE;
 };
+
+static uint32_t GetAllocationStrategyCount()
+{
+    uint32_t strategyCount = 0;
+    switch(ConfigType)
+    {
+    case CONFIG_TYPE_MINIMUM: strategyCount = 1; break;
+    case CONFIG_TYPE_SMALL:   strategyCount = 1; break;
+    case CONFIG_TYPE_AVERAGE: strategyCount = 2; break;
+    case CONFIG_TYPE_LARGE:   strategyCount = 2; break;
+    case CONFIG_TYPE_MAXIMUM: strategyCount = 3; break;
+    default: assert(0);
+    }
+    return strategyCount;
+}
+
+static const char* GetAllocationStrategyName(VmaAllocationCreateFlags allocStrategy)
+{
+    switch(allocStrategy)
+    {
+    case VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT: return "BEST_FIT"; break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT: return "WORST_FIT"; break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT: return "FIRST_FIT"; break;
+    case 0: return "Default"; break;
+    default: assert(0); return "";   
+    }
+}
 
 static void InitResult(Result& outResult)
 {
@@ -212,6 +259,15 @@ public:
     }
 };
 
+static void CurrentTimeToStr(std::string& out)
+{
+    time_t rawTime; time(&rawTime);
+    struct tm timeInfo; localtime_s(&timeInfo, &rawTime);
+    char timeStr[128];
+    strftime(timeStr, _countof(timeStr), "%c", &timeInfo);
+    out = timeStr;
+}
+
 VkResult MainTest(Result& outResult, const Config& config)
 {
     assert(config.ThreadCount > 0);
@@ -264,6 +320,7 @@ VkResult MainTest(Result& outResult, const Config& config)
 
         VmaAllocationCreateInfo memReq = {};
         memReq.usage = (VmaMemoryUsage)(VMA_MEMORY_USAGE_GPU_ONLY + memUsageIndex);
+        memReq.flags |= config.AllocationStrategy;
 
         Allocation allocation = {};
         VmaAllocationInfo allocationInfo;
@@ -1002,7 +1059,7 @@ void TestDefragmentationFull()
     for(size_t i = 0; i < allocations.size(); ++i)
         ValidateAllocationData(allocations[i]);
 
-    SaveAllocatorStatsToFile(L"Before.csv");
+    //SaveAllocatorStatsToFile(L"Before.csv");
 
     {
         std::vector<VmaAllocation> vmaAllocations(allocations.size());
@@ -1051,9 +1108,9 @@ void TestDefragmentationFull()
             for(size_t i = 0; i < allocations.size(); ++i)
                 ValidateAllocationData(allocations[i]);
 
-            wchar_t fileName[MAX_PATH];
-            swprintf(fileName, MAX_PATH, L"After_%02u.csv", defragIndex);
-            SaveAllocatorStatsToFile(fileName);
+            //wchar_t fileName[MAX_PATH];
+            //swprintf(fileName, MAX_PATH, L"After_%02u.csv", defragIndex);
+            //SaveAllocatorStatsToFile(fileName);
         }
     }
 
@@ -2091,7 +2148,11 @@ static void ManuallyTestLinearAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
-static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER freeOrder)
+static void BenchmarkAlgorithmsCase(FILE* file,
+    uint32_t algorithm,
+    bool empty,
+    VmaAllocationCreateFlags allocStrategy,
+    FREE_ORDER freeOrder)
 {
     RandomNumberGenerator rand{16223};
 
@@ -2112,8 +2173,7 @@ static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER fre
     assert(res == VK_SUCCESS);
 
     poolCreateInfo.blockSize = bufSizeMax * maxBufCapacity;
-    if(linear)
-        poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+    poolCreateInfo.flags |= algorithm;
     poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
 
     VmaPool pool = nullptr;
@@ -2132,6 +2192,7 @@ static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER fre
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.pool = pool;
+    allocCreateInfo.flags = allocStrategy;
 
     VmaAllocation alloc;
     std::vector<VmaAllocation> baseAllocations;
@@ -2210,17 +2271,44 @@ static void BenchmarkLinearAllocatorCase(bool linear, bool empty, FREE_ORDER fre
 
     vmaDestroyPool(g_hAllocator, pool);
 
-    wprintf(L"    LinearAlgorithm=%u %s FreeOrder=%s: allocations %g s, free %g s\n",
-        linear ? 1 : 0,
-        empty ? L"Empty" : L"Not empty",
+    const float allocTotalSeconds = ToFloatSeconds(allocTotalDuration);
+    const float freeTotalSeconds  = ToFloatSeconds(freeTotalDuration);
+
+    printf("    Algorithm=%s %s Allocation=%s FreeOrder=%s: allocations %g s, free %g s\n",
+        AlgorithmToStr(algorithm),
+        empty ? "Empty" : "Not empty",
+        GetAllocationStrategyName(allocStrategy),
         FREE_ORDER_NAMES[(size_t)freeOrder],
-        ToFloatSeconds(allocTotalDuration),
-        ToFloatSeconds(freeTotalDuration));
+        allocTotalSeconds,
+        freeTotalSeconds);
+
+    if(file)
+    {
+        std::string currTime;
+        CurrentTimeToStr(currTime);
+
+        fprintf(file, "%s,%s,%s,%u,%s,%s,%g,%g\n",
+            CODE_DESCRIPTION, currTime.c_str(),
+            AlgorithmToStr(algorithm),
+            empty ? 1 : 0,
+            GetAllocationStrategyName(allocStrategy),
+            FREE_ORDER_NAMES[(uint32_t)freeOrder],
+            allocTotalSeconds,
+            freeTotalSeconds);
+    }
 }
 
-static void BenchmarkLinearAllocator()
+static void BenchmarkAlgorithms(FILE* file)
 {
-    wprintf(L"Benchmark linear allocator\n");
+    wprintf(L"Benchmark algorithms\n");
+
+    if(file)
+    {
+        fprintf(file,
+            "Code,Time,"
+            "Algorithm,Empty,Allocation strategy,Free order,"
+            "Allocation time (s),Deallocation time (s)\n");
+    }
 
     uint32_t freeOrderCount = 1;
     if(ConfigType >= CONFIG_TYPE::CONFIG_TYPE_LARGE)
@@ -2229,6 +2317,7 @@ static void BenchmarkLinearAllocator()
         freeOrderCount = 2;
 
     const uint32_t emptyCount = ConfigType >= CONFIG_TYPE::CONFIG_TYPE_SMALL ? 2 : 1;
+    const uint32_t allocStrategyCount = GetAllocationStrategyCount();
 
     for(uint32_t freeOrderIndex = 0; freeOrderIndex < freeOrderCount; ++freeOrderIndex)
     {
@@ -2243,12 +2332,45 @@ static void BenchmarkLinearAllocator()
 
         for(uint32_t emptyIndex = 0; emptyIndex < emptyCount; ++emptyIndex)
         {
-            for(uint32_t linearIndex = 0; linearIndex < 2; ++linearIndex)
+            for(uint32_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
             {
-                BenchmarkLinearAllocatorCase(
-                    linearIndex ? 1 : 0, // linear
-                    emptyIndex ? 0 : 1, // empty
-                    freeOrder); // freeOrder
+                uint32_t algorithm = 0;
+                switch(algorithmIndex)
+                {
+                case 0:
+                    break;
+                case 1:
+                    algorithm = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
+                    break;
+                case 2:
+                    algorithm = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+                    break;
+                default:
+                    assert(0);
+                }
+
+                uint32_t currAllocStrategyCount = algorithm != 0 ? 1 : allocStrategyCount;
+                for(uint32_t allocStrategyIndex = 0; allocStrategyIndex < currAllocStrategyCount; ++allocStrategyIndex)
+                {
+                    VmaAllocatorCreateFlags strategy = 0;
+                    if(currAllocStrategyCount > 1)
+                    {
+                        switch(allocStrategyIndex)
+                        {
+                        case 0: strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT; break;
+                        case 1: strategy = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT; break;
+                        case 2: strategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT; break;
+                        default: assert(0);
+                        }
+                    }
+
+                    BenchmarkAlgorithmsCase(
+                        file,
+                        algorithm,
+                        emptyIndex ? 0 : 1, // empty
+                        strategy,
+                        freeOrder); // freeOrder
+                }
             }
         }
     }
@@ -3316,8 +3438,8 @@ static void TestMappingMultithreaded()
 static void WriteMainTestResultHeader(FILE* file)
 {
     fprintf(file,
-        "Code,Test,Time,"
-        "Config,"
+        "Code,Time,"
+        "Threads,Buffers and images,Sizes,Operations,Allocation strategy,Free order,"
         "Total Time (us),"
         "Allocation Time Min (us),"
         "Allocation Time Avg (us),"
@@ -3344,19 +3466,15 @@ static void WriteMainTestResult(
     float deallocationTimeAvgSeconds = ToFloatSeconds(result.DeallocationTimeAvg);
     float deallocationTimeMaxSeconds = ToFloatSeconds(result.DeallocationTimeMax);
 
-    time_t rawTime; time(&rawTime);
-    struct tm timeInfo; localtime_s(&timeInfo, &rawTime);
-    char timeStr[128];
-    strftime(timeStr, _countof(timeStr), "%c", &timeInfo);
+    std::string currTime;
+    CurrentTimeToStr(currTime);
 
     fprintf(file,
         "%s,%s,%s,"
-        "BeginBytesToAllocate=%I64u MaxBytesToAllocate=%I64u AdditionalOperationCount=%u ThreadCount=%u FreeOrder=%d,"
         "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%I64u,%I64u,%I64u\n",
         codeDescription,
+        currTime.c_str(),
         testDescription,
-        timeStr,
-        config.BeginBytesToAllocate, config.MaxBytesToAllocate, config.AdditionalOperationCount, config.ThreadCount, (uint32_t)config.FreeOrder,
         totalTimeSeconds * 1e6f,
         allocationTimeMinSeconds * 1e6f,
         allocationTimeAvgSeconds * 1e6f,
@@ -3402,10 +3520,8 @@ static void WritePoolTestResult(
     float deallocationTimeAvgSeconds = ToFloatSeconds(result.DeallocationTimeAvg);
     float deallocationTimeMaxSeconds = ToFloatSeconds(result.DeallocationTimeMax);
 
-    time_t rawTime; time(&rawTime);
-    struct tm timeInfo; localtime_s(&timeInfo, &rawTime);
-    char timeStr[128];
-    strftime(timeStr, _countof(timeStr), "%c", &timeInfo);
+    std::string currTime;
+    CurrentTimeToStr(currTime);
 
     fprintf(file,
         "%s,%s,%s,"
@@ -3414,7 +3530,7 @@ static void WritePoolTestResult(
         // General
         codeDescription,
         testDescription,
-        timeStr,
+        currTime.c_str(),
         // Config
         config.ThreadCount,
         (unsigned long long)config.PoolSize,
@@ -3447,6 +3563,7 @@ static void PerformCustomMainTest(FILE* file)
     config.FreeOrder = FREE_ORDER::FORWARD;
     config.ThreadCount = 16;
     config.ThreadsUsingCommonAllocationsProbabilityPercent = 50;
+    config.AllocationStrategy = 0;
 
     // Buffers
     //config.AllocationSizes.push_back({4, 16, 1024});
@@ -3500,8 +3617,6 @@ static void PerformCustomPoolTest(FILE* file)
     WritePoolTestResult(file, "Code desc", "Test desc", config, result);
 }
 
-static const char* CODE_DESCRIPTION = "Foo";
-
 static void PerformMainTests(FILE* file)
 {
     uint32_t repeatCount = 1;
@@ -3522,6 +3637,9 @@ static void PerformMainTests(FILE* file)
     case CONFIG_TYPE_MAXIMUM: threadCountCount = 7; break;
     default: assert(0);
     }
+
+    const size_t strategyCount = GetAllocationStrategyCount();
+
     for(size_t threadCountIndex = 0; threadCountIndex < threadCountCount; ++threadCountIndex)
     {
         std::string desc1;
@@ -3575,9 +3693,9 @@ static void PerformMainTests(FILE* file)
             std::string desc2 = desc1;
             switch(buffersVsImagesIndex)
             {
-            case 0: desc2 += " Buffers"; break;
-            case 1: desc2 += " Images"; break;
-            case 2: desc2 += " Buffers+Images"; break;
+            case 0: desc2 += ",Buffers"; break;
+            case 1: desc2 += ",Images"; break;
+            case 2: desc2 += ",Buffers+Images"; break;
             default: assert(0);
             }
 
@@ -3589,9 +3707,9 @@ static void PerformMainTests(FILE* file)
                 std::string desc3 = desc2;
                 switch(smallVsLargeIndex)
                 {
-                case 0: desc3 += " Small"; break;
-                case 1: desc3 += " Large"; break;
-                case 2: desc3 += " Small+Large"; break;
+                case 0: desc3 += ",Small"; break;
+                case 1: desc3 += ",Large"; break;
+                case 2: desc3 += ",Small+Large"; break;
                 default: assert(0);
                 }
 
@@ -3695,22 +3813,22 @@ static void PerformMainTests(FILE* file)
                         switch(beginBytesToAllocateIndex)
                         {
                         case 0:
-                            desc5 += " Allocate_100%";
+                            desc5 += ",Allocate_100%";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate;
                             config.AdditionalOperationCount = 0;
                             break;
                         case 1:
-                            desc5 += " Allocate_50%+Operations";
+                            desc5 += ",Allocate_50%+Operations";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate * 50 / 100;
                             config.AdditionalOperationCount = 1024;
                             break;
                         case 2:
-                            desc5 += " Allocate_5%+Operations";
+                            desc5 += ",Allocate_5%+Operations";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate *  5 / 100;
                             config.AdditionalOperationCount = 1024;
                             break;
                         case 3:
-                            desc5 += " Allocate_95%+Operations";
+                            desc5 += ",Allocate_95%+Operations";
                             config.BeginBytesToAllocate = config.MaxBytesToAllocate * 95 / 100;
                             config.AdditionalOperationCount = 1024;
                             break;
@@ -3718,16 +3836,44 @@ static void PerformMainTests(FILE* file)
                             assert(0);
                         }
 
-                        const char* testDescription = desc5.c_str();
-
-                        for(size_t repeat = 0; repeat < repeatCount; ++repeat)
+                        for(size_t strategyIndex = 0; strategyIndex < strategyCount; ++strategyIndex)
                         {
-                            printf("%s Repeat %u\n", testDescription, (uint32_t)repeat);
+                            std::string desc6 = desc5;
+                            switch(strategyIndex)
+                            {
+                            case 0:
+                                desc6 += ",BestFit";
+                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
+                                break;
+                            case 1:
+                                desc6 += ",WorstFit";
+                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT;
+                                break;
+                            case 2:
+                                desc6 += ",FirstFit";
+                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT;
+                                break;
+                            default:
+                                assert(0);
+                            }
 
-                            Result result{};
-                            VkResult res = MainTest(result, config);
-                            assert(res == VK_SUCCESS);
-                            WriteMainTestResult(file, CODE_DESCRIPTION, testDescription, config, result);
+                            desc6 += ',';
+                            desc6 += FREE_ORDER_NAMES[(uint32_t)config.FreeOrder];
+
+                            const char* testDescription = desc6.c_str();
+
+                            for(size_t repeat = 0; repeat < repeatCount; ++repeat)
+                            {
+                                printf("%s #%u\n", testDescription, (uint32_t)repeat);
+
+                                Result result{};
+                                VkResult res = MainTest(result, config);
+                                assert(res == VK_SUCCESS);
+                                if(file)
+                                {
+                                    WriteMainTestResult(file, CODE_DESCRIPTION, testDescription, config, result);
+                                }
+                            }
                         }
                     }
                 }
@@ -3947,7 +4093,7 @@ static void PerformPoolTests(FILE* file)
 
                         for(size_t repeat = 0; repeat < repeatCount; ++repeat)
                         {
-                            printf("%s Repeat %u\n", testDescription, (uint32_t)repeat);
+                            printf("%s #%u\n", testDescription, (uint32_t)repeat);
 
                             PoolTestResult result{};
                             g_MemoryAliasingWarningEnabled = false;
@@ -3962,6 +4108,111 @@ static void PerformPoolTests(FILE* file)
     }
 }
 
+static void BasicTestBuddyAllocator()
+{
+    wprintf(L"Basic test buddy allocator\n");
+
+    RandomNumberGenerator rand{76543};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    assert(res == VK_SUCCESS);
+
+    // Deliberately adding 1023 to test usable size smaller than memory block size.
+    poolCreateInfo.blockSize = 1024 * 1024 + 1023;
+    poolCreateInfo.flags = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
+    //poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    assert(res == VK_SUCCESS);
+
+    VkBufferCreateInfo bufCreateInfo = sampleBufCreateInfo;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+
+    std::vector<BufferInfo> bufInfo;
+    BufferInfo newBufInfo;
+    VmaAllocationInfo allocInfo;
+    
+    bufCreateInfo.size = 1024 * 256;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+
+    bufCreateInfo.size = 1024 * 512;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+
+    bufCreateInfo.size = 1024 * 128;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+    
+    // Test very small allocation, smaller than minimum node size.
+    bufCreateInfo.size = 1;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
+
+    // Test some small allocation with alignment requirement.
+    {
+        VkMemoryRequirements memReq;
+        memReq.alignment = 256;
+        memReq.memoryTypeBits = UINT32_MAX;
+        memReq.size = 32;
+
+        newBufInfo.Buffer = VK_NULL_HANDLE;
+        res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo,
+            &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        assert(allocInfo.offset % memReq.alignment == 0);
+        bufInfo.push_back(newBufInfo);
+    }
+
+    //SaveAllocatorStatsToFile(L"TEST.json");
+
+    VmaPoolStats stats = {};
+    vmaGetPoolStats(g_hAllocator, pool, &stats);
+    int DBG = 0; // Set breakpoint here to inspect `stats`.
+
+    // Allocate enough new buffers to surely fall into second block.
+    for(uint32_t i = 0; i < 32; ++i)
+    {
+        bufCreateInfo.size = 1024 * (rand.Generate() % 32 + 1);
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        bufInfo.push_back(newBufInfo);
+    }
+
+    SaveAllocatorStatsToFile(L"BuddyTest01.json");
+
+    // Destroy the buffers in random order.
+    while(!bufInfo.empty())
+    {
+        const size_t indexToDestroy = rand.Generate() % bufInfo.size();
+        const BufferInfo& currBufInfo = bufInfo[indexToDestroy];
+        vmaDestroyBuffer(g_hAllocator, currBufInfo.Buffer, currBufInfo.Allocation);
+        bufInfo.erase(bufInfo.begin() + indexToDestroy);
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
 void Test()
 {
     wprintf(L"TESTING:\n");
@@ -3969,10 +4220,10 @@ void Test()
     if(false)
     {
         // # Temporarily insert custom tests here
-TestLinearAllocator();
-ManuallyTestLinearAllocator();
-TestLinearAllocatorMultiBlock();
-BenchmarkLinearAllocator();
+        // ########################################
+        // ########################################
+        
+        BasicTestBuddyAllocator();
         return;
     }
 
@@ -3993,7 +4244,17 @@ BenchmarkLinearAllocator();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
     TestLinearAllocatorMultiBlock();
-    BenchmarkLinearAllocator();
+
+    BasicTestBuddyAllocator();
+
+    {
+        FILE* file;
+        fopen_s(&file, "Algorithms.csv", "w");
+        assert(file != NULL);
+        BenchmarkAlgorithms(file);
+        fclose(file);
+    }
+
     TestDefragmentationSimple();
     TestDefragmentationFull();
 
