@@ -4971,9 +4971,11 @@ private:
 - m_UsableSize is this size aligned down to a power of two.
   All allocations and calculations happen relative to m_UsableSize.
 - GetUnusableSize() is the difference between them.
-  It is repoted as separate unused range.
+  It is repoted as separate, unused range, not available for allocations.
 
-Level 0 has block size = GetSize(). Level 1 has block size = GetSize() / 2 and so on...
+Node at level 0 has size = m_UsableSize.
+Each next level contains nodes with size 2 times smaller than current level.
+m_LevelCount is the maximum number of levels to use in the current object.
 */
 class VmaBlockMetadata_Buddy : public VmaBlockMetadata
 {
@@ -5028,7 +5030,8 @@ public:
     virtual void FreeAtOffset(VkDeviceSize offset) { FreeAtOffset(VMA_NULL, offset); }
 
 private:
-    static const size_t MAX_LEVELS = 30; // TODO
+    static const VkDeviceSize MIN_NODE_SIZE = 32;
+    static const size_t MAX_LEVELS = 30;
 
     struct ValidationContext
     {
@@ -5075,6 +5078,8 @@ private:
 
     // Size of the memory block aligned down to a power of two.
     VkDeviceSize m_UsableSize;
+    uint32_t m_LevelCount;
+
     Node* m_Root;
     struct {
         Node* front;
@@ -9230,6 +9235,14 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
     m_UsableSize = VmaPrevPow2(size);
     m_SumFreeSize = m_UsableSize;
 
+    // Calculate m_LevelCount.
+    m_LevelCount = 1;
+    while(m_LevelCount < MAX_LEVELS &&
+        LevelToNodeSize(m_LevelCount) >= MIN_NODE_SIZE)
+    {
+        ++m_LevelCount;
+    }
+
     Node* rootNode = new Node();
     rootNode->offset = 0;
     rootNode->type = Node::TYPE_FREE;
@@ -9252,7 +9265,7 @@ bool VmaBlockMetadata_Buddy::Validate() const
     VMA_VALIDATE(m_SumFreeSize == ctx.calculatedSumFreeSize);
 
     // Validate free node lists.
-    for(uint32_t level = 0; level < MAX_LEVELS; ++level)
+    for(uint32_t level = 0; level < m_LevelCount; ++level)
     {
         VMA_VALIDATE(m_FreeList[level].front == VMA_NULL ||
             m_FreeList[level].front->free.prev == VMA_NULL);
@@ -9274,12 +9287,18 @@ bool VmaBlockMetadata_Buddy::Validate() const
         }
     }
 
+    // Validate that free lists ar higher levels are empty.
+    for(uint32_t level = m_LevelCount; level < MAX_LEVELS; ++level)
+    {
+        VMA_VALIDATE(m_FreeList[level].front == VMA_NULL && m_FreeList[level].back == VMA_NULL);
+    }
+
     return true;
 }
 
 VkDeviceSize VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
 {
-    for(uint32_t level = 0; level < MAX_LEVELS; ++level)
+    for(uint32_t level = 0; level < m_LevelCount; ++level)
     {
         if(m_FreeList[level].front != VMA_NULL)
         {
@@ -9493,6 +9512,7 @@ void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
 
 bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
 {
+    VMA_VALIDATE(level < m_LevelCount);
     VMA_VALIDATE(curr->parent == parent);
     VMA_VALIDATE((curr->buddy == VMA_NULL) == (parent == VMA_NULL));
     VMA_VALIDATE(curr->buddy == VMA_NULL || curr->buddy->buddy == curr);
@@ -9540,7 +9560,7 @@ uint32_t VmaBlockMetadata_Buddy::AllocSizeToLevel(VkDeviceSize allocSize) const
     uint32_t level = 0;
     VkDeviceSize currLevelNodeSize = m_UsableSize;
     VkDeviceSize nextLevelNodeSize = currLevelNodeSize >> 1;
-    while(allocSize <= nextLevelNodeSize && level + 1 < MAX_LEVELS)
+    while(allocSize <= nextLevelNodeSize && level + 1 < m_LevelCount)
     {
         ++level;
         currLevelNodeSize = nextLevelNodeSize;

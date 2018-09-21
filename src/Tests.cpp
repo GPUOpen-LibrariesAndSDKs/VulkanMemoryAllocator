@@ -4160,6 +4160,13 @@ static void BasicTestBuddyAllocator()
         &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
     assert(res == VK_SUCCESS);
     bufInfo.push_back(newBufInfo);
+    
+    // Test very small allocation, smaller than minimum node size.
+    bufCreateInfo.size = 1;
+    res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+        &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
+    assert(res == VK_SUCCESS);
+    bufInfo.push_back(newBufInfo);
 
     VmaPoolStats stats = {};
     vmaGetPoolStats(g_hAllocator, pool, &stats);
