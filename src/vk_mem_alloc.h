@@ -4617,7 +4617,7 @@ in a single VkDeviceMemory block.
 class VmaBlockMetadata
 {
 public:
-    VmaBlockMetadata() : m_Size(0) { }
+    VmaBlockMetadata(VmaAllocator hAllocator);
     virtual ~VmaBlockMetadata() { }
     virtual void Init(VkDeviceSize size) { m_Size = size; }
 
@@ -4675,6 +4675,8 @@ public:
     virtual void FreeAtOffset(VkDeviceSize offset) = 0;
 
 protected:
+    const VkAllocationCallbacks* GetAllocationCallbacks() const { return m_pAllocationCallbacks; }
+
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap_Begin(class VmaJsonWriter& json,
         VkDeviceSize unusedBytes,
@@ -4691,6 +4693,7 @@ protected:
 
 private:
     VkDeviceSize m_Size;
+    const VkAllocationCallbacks* m_pAllocationCallbacks;
 };
 
 #define VMA_VALIDATE(cond) do { if(!(cond)) { \
@@ -6540,6 +6543,12 @@ struct VmaSuballocationItemSizeLess
 ////////////////////////////////////////////////////////////////////////////////
 // class VmaBlockMetadata
 
+VmaBlockMetadata::VmaBlockMetadata(VmaAllocator hAllocator) :
+    m_Size(0),
+    m_pAllocationCallbacks(hAllocator->GetAllocationCallbacks())
+{
+}
+
 #if VMA_STATS_STRING_ENABLED
 
 void VmaBlockMetadata::PrintDetailedMap_Begin(class VmaJsonWriter& json,
@@ -6609,6 +6618,7 @@ void VmaBlockMetadata::PrintDetailedMap_End(class VmaJsonWriter& json) const
 // class VmaBlockMetadata_Generic
 
 VmaBlockMetadata_Generic::VmaBlockMetadata_Generic(VmaAllocator hAllocator) :
+    VmaBlockMetadata(hAllocator),
     m_FreeCount(0),
     m_SumFreeSize(0),
     m_Suballocations(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
@@ -7538,6 +7548,7 @@ void VmaBlockMetadata_Generic::UnregisterFreeSuballocation(VmaSuballocationList:
 // class VmaBlockMetadata_Linear
 
 VmaBlockMetadata_Linear::VmaBlockMetadata_Linear(VmaAllocator hAllocator) :
+    VmaBlockMetadata(hAllocator),
     m_SumFreeSize(0),
     m_Suballocations0(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
     m_Suballocations1(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
@@ -9215,6 +9226,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 // class VmaBlockMetadata_Buddy
 
 VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(VmaAllocator hAllocator) :
+    VmaBlockMetadata(hAllocator),
     m_Root(VMA_NULL),
     m_AllocationCount(0),
     m_FreeCount(1),
@@ -9243,7 +9255,7 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
         ++m_LevelCount;
     }
 
-    Node* rootNode = new Node();
+    Node* rootNode = vma_new(GetAllocationCallbacks(), Node)();
     rootNode->offset = 0;
     rootNode->type = Node::TYPE_FREE;
     rootNode->parent = VMA_NULL;
@@ -9478,8 +9490,8 @@ void VmaBlockMetadata_Buddy::Alloc(
         const uint32_t childrenLevel = currLevel + 1;
 
         // Create two free sub-nodes.
-        Node* leftChild = new Node();
-        Node* rightChild = new Node();
+        Node* leftChild = vma_new(GetAllocationCallbacks(), Node)();
+        Node* rightChild = vma_new(GetAllocationCallbacks(), Node)();
 
         leftChild->offset = currNode->offset;
         leftChild->type = Node::TYPE_FREE;
@@ -9533,7 +9545,7 @@ void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
         DeleteNode(node->split.leftChild);
     }
 
-    delete node;
+    vma_delete(GetAllocationCallbacks(), node);
 }
 
 bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
@@ -9633,8 +9645,8 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation alloc, VkDeviceSize offs
         RemoveFromFreeList(level, node->buddy);
         Node* const parent = node->parent;
 
-        delete node->buddy;
-        delete node;
+        vma_delete(GetAllocationCallbacks(), node->buddy);
+        vma_delete(GetAllocationCallbacks(), node);
         parent->type = Node::TYPE_FREE;
         
         node = parent;
@@ -12474,7 +12486,7 @@ VkResult VmaAllocator_T::Defragment(
             // This allocation belongs to custom pool.
             if(hAllocPool != VK_NULL_HANDLE)
             {
-                // Pools with linear algorithm are not defragmented.
+                // Pools with linear or buddy algorithm are not defragmented.
                 if(hAllocPool->m_BlockVector.GetAlgorithm() == 0)
                 {
                     pAllocBlockVector = &hAllocPool->m_BlockVector;
