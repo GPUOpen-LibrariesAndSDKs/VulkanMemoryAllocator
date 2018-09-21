@@ -4168,6 +4168,23 @@ static void BasicTestBuddyAllocator()
     assert(res == VK_SUCCESS);
     bufInfo.push_back(newBufInfo);
 
+    // Test some small allocation with alignment requirement.
+    {
+        VkMemoryRequirements memReq;
+        memReq.alignment = 256;
+        memReq.memoryTypeBits = UINT32_MAX;
+        memReq.size = 32;
+
+        newBufInfo.Buffer = VK_NULL_HANDLE;
+        res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo,
+            &newBufInfo.Allocation, &allocInfo);
+        assert(res == VK_SUCCESS);
+        assert(allocInfo.offset % memReq.alignment == 0);
+        bufInfo.push_back(newBufInfo);
+    }
+
+    //SaveAllocatorStatsToFile(L"TEST.json");
+
     VmaPoolStats stats = {};
     vmaGetPoolStats(g_hAllocator, pool, &stats);
     int DBG = 0; // Set breakpoint here to inspect `stats`.

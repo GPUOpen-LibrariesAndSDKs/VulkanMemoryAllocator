@@ -9400,14 +9400,19 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
     for(uint32_t level = targetLevel + 1; level--; )
     {
-        if(m_FreeList[level].front != VMA_NULL)
+        for(Node* freeNode = m_FreeList[level].front;
+            freeNode != VMA_NULL;
+            freeNode = freeNode->free.next)
         {
-            pAllocationRequest->offset = m_FreeList[level].front->offset;
-            pAllocationRequest->sumFreeSize = LevelToNodeSize(level);
-            pAllocationRequest->sumItemSize = 0;
-            pAllocationRequest->itemsToMakeLostCount = 0;
-            pAllocationRequest->customData = (void*)(uintptr_t)level;
-            return true;
+            if(freeNode->offset % allocAlignment == 0)
+            {
+                pAllocationRequest->offset = freeNode->offset;
+                pAllocationRequest->sumFreeSize = LevelToNodeSize(level);
+                pAllocationRequest->sumItemSize = 0;
+                pAllocationRequest->itemsToMakeLostCount = 0;
+                pAllocationRequest->customData = (void*)(uintptr_t)level;
+                return true;
+            }
         }
     }
 
@@ -9444,10 +9449,14 @@ void VmaBlockMetadata_Buddy::Alloc(
 {
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
     uint32_t currLevel = (uint32_t)(uintptr_t)request.customData;
-    VMA_ASSERT(m_FreeList[currLevel].front != VMA_NULL);
+    
     Node* currNode = m_FreeList[currLevel].front;
-    VMA_ASSERT(currNode->type == Node::TYPE_FREE);
-    VMA_ASSERT(currNode->offset == request.offset);
+    VMA_ASSERT(currNode != VMA_NULL && currNode->type == Node::TYPE_FREE);
+    while(currNode->offset != request.offset)
+    {
+        currNode = currNode->free.next;
+        VMA_ASSERT(currNode != VMA_NULL && currNode->type == Node::TYPE_FREE);
+    }
     
     // Go down, splitting free nodes.
     while(currLevel < targetLevel)
@@ -9484,10 +9493,17 @@ void VmaBlockMetadata_Buddy::Alloc(
         //m_SumFreeSize -= LevelToNodeSize(currLevel) % 2; // Useful only when level node sizes can be non power of 2.
         ++currLevel;
         currNode = m_FreeList[currLevel].front;
+
+        /*
+        We can be sure that currNode, as left child of node previously split,
+        also fullfills the alignment requirement.
+        */
     }
 
     // Remove from free list.
-    VMA_ASSERT(currLevel == targetLevel && currNode != VMA_NULL && currNode->type == Node::TYPE_FREE);
+    VMA_ASSERT(currLevel == targetLevel &&
+        currNode != VMA_NULL &&
+        currNode->type == Node::TYPE_FREE);
     RemoveFromFreeList(currLevel, currNode);
 
     // Convert to allocation node.
