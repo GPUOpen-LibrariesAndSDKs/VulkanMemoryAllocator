@@ -4217,7 +4217,7 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(true)
+    if(false)
     {
         // # Temporarily insert custom tests here
         // ########################################
@@ -4249,7 +4249,7 @@ void Test()
 
     {
         FILE* file;
-        fopen_s(&file, "LinearAllocator.csv", "w");
+        fopen_s(&file, "Algorithms.csv", "w");
         assert(file != NULL);
         BenchmarkAlgorithms(file);
         fclose(file);

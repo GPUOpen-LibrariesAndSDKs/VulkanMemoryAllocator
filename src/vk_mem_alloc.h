@@ -60,6 +60,7 @@ Documentation of all members: vk_mem_alloc.h
       - [Stack](@ref linear_algorithm_stack)
       - [Double stack](@ref linear_algorithm_double_stack)
       - [Ring buffer](@ref linear_algorithm_ring_buffer)
+    - [Buddy allocation algorithm](@ref buddy_algorithm)
   - \subpage defragmentation
   - \subpage lost_allocations
   - \subpage statistics
@@ -665,6 +666,42 @@ succeeds.
 Ring buffer is available only in pools with one memory block -
 VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
 
+\section buddy_algorithm Buddy allocation algorithm
+
+There is another allocation algorithm that can be used with custom pools, called
+"buddy". Its internal data structure is based on a tree of blocks, each having
+size that is a power of two and a half of its parent's size. When you want to
+allocate memory of certain size, a free node in the tree is located. If it's too
+large, it is recursively split into two halves (called "buddies"). However, if
+requested allocation size is not a power of two, the size of a tree node is
+aligned up to the nearest power of two and the remaining space is wasted. When
+two buddy nodes become free, they are merged back into one larger node.
+
+![Buddy allocator](../gfx/Buddy_allocator.png)
+
+The advantage of buddy allocation algorithm over default algorithm is faster
+allocation and deallocation, as well as smaller external fragmentation. The
+disadvantage is more wasted space (internal fragmentation).
+
+For more information, please read ["Buddy memory allocation" on Wikipedia](https://en.wikipedia.org/wiki/Buddy_memory_allocation)
+or other sources that describe this concept in general.
+
+To use buddy allocation algorithm with a custom pool, add flag
+#VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT to VmaPoolCreateInfo::flags while creating
+#VmaPool object.
+
+Several limitations apply to pools that use buddy algorithm:
+
+- It is recommended to use VmaPoolCreateInfo::blockSize that is a power of two.
+  Otherwise, only largest power of two smaller than the size is used for
+  allocations. The remaining space always stays unused.
+- [Margins](@ref debugging_memory_usage_margins) and
+  [corruption detection](@ref debugging_memory_usage_corruption_detection)
+  don't work in such pools.
+- [Lost allocations](@ref lost_allocations) don't work in such pools. You can
+  use them, but they never become lost. Support may be added in the future.
+- [Defragmentation](@ref defragmentation) doesn't work with allocations made from
+  such pool.
 
 \page defragmentation Defragmentation
 
@@ -987,6 +1024,7 @@ allocations, which have their own memory block of specific size.
 It is thus not applied to allocations made using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag
 or those automatically decided to put into dedicated allocations, e.g. due to its
 large size or recommended by VK_KHR_dedicated_allocation extension.
+Margins are also not active in custom pools created with #VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT flag.
 
 Margins appear in [JSON dump](@ref statistics_json_dump) as part of free space.
 
@@ -1981,10 +2019,20 @@ typedef enum VmaPoolCreateFlagBits {
     \ref linear_algorithm.
 
     When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
+
+    For more details, see [Linear allocation algorithm](@ref linear_algorithm).
     */
     VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT = 0x00000004,
 
-    /** TODO */
+    /** \brief Enables alternative, buddy allocation algorithm in this pool.
+
+    It operates on a tree of blocks, each having size that is a power of two and
+    a half of its parent's size. Comparing to default algorithm, this one provides
+    faster allocation and deallocation and decreased external fragmentation,
+    at the expense of more memory wasted (internal fragmentation).
+
+    For more details, see [Buddy allocation algorithm](@ref buddy_algorithm).
+    */
     VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT = 0x00000008,
 
     /** Bit mask to extract only `ALGORITHM` bits from entire set of flags.
@@ -2446,9 +2494,9 @@ allocations are considered nonmovable in this call. Basic rules:
   `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` and `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT`
   flags can be compacted. You may pass other allocations but it makes no sense -
   these will never be moved.
-- Custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT flag are not
-  defragmented. Allocations passed to this function that come from such pools
-  are ignored.
+- Custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT or
+  #VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT flag are not defragmented. Allocations
+  passed to this function that come from such pools are ignored.
 - Allocations created with #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT or
   created as dedicated allocations for any other reason are also ignored.
 - Both allocations made with or without #VMA_ALLOCATION_CREATE_MAPPED_BIT
