@@ -9366,12 +9366,20 @@ bool VmaBlockMetadata_Buddy::MakeRequestedAllocationsLost(
     uint32_t frameInUseCount,
     VmaAllocationRequest* pAllocationRequest)
 {
-    return false; // TODO
+    /*
+    Lost allocations are not supported in buddy allocator at the moment.
+    Support might be added in the future.
+    */
+    return pAllocationRequest->itemsToMakeLostCount == 0;
 }
 
 uint32_t VmaBlockMetadata_Buddy::MakeAllocationsLost(uint32_t currentFrameIndex, uint32_t frameInUseCount)
 {
-    return 0; // TODO
+    /*
+    Lost allocations are not supported in buddy allocator at the moment.
+    Support might be added in the future.
+    */
+    return 0;
 }
 
 void VmaBlockMetadata_Buddy::Alloc(
