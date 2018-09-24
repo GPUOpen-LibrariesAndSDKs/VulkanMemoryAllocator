@@ -4746,7 +4746,7 @@ private:
 };
 
 #define VMA_VALIDATE(cond) do { if(!(cond)) { \
-        VMA_ASSERT(0 && "Validation failed: " ## #cond); \
+        VMA_ASSERT(0 && "Validation failed: " #cond); \
         return false; \
     } } while(false)
 
