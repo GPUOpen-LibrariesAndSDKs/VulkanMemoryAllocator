@@ -115,12 +115,10 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c">VMA_RECORDING_ENABLED</a>&#160;&#160;&#160;0</td></tr>
-<tr class="separator:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9f918755b601cf4bffca775992e6fb90"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a9f918755b601cf4bffca775992e6fb90">NOMINMAX</a></td></tr>
-<tr class="separator:a9f918755b601cf4bffca775992e6fb90"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
 <tr class="separator:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c">VMA_RECORDING_ENABLED</a>&#160;&#160;&#160;0</td></tr>
+<tr class="separator:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae25f0d55fd91cb166f002b63244800e1"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1">VMA_STATS_STRING_ENABLED</a>&#160;&#160;&#160;1</td></tr>
 <tr class="separator:ae25f0d55fd91cb166f002b63244800e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -223,14 +221,28 @@ Enumerations</h2></td></tr>
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e">VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</a> = 0x00000010, 
 <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520">VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</a> = 0x00000020, 
 <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df">VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT</a> = 0x00000040, 
+<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a839826775c62319466441f86496f036d">VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT</a> = 0x00010000, 
+<br />
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ad242a04f802e25fef0b880afe8bb0a62">VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT</a> = 0x00020000, 
+<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a33eb2052674f3ad92386c714a65fb777">VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT</a> = 0x00040000, 
+<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a8af1210cf591784afa026d94998f735d">VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT, 
+<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a0729e932b7ea170e3a128cad96c5cf6d">VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT, 
+<br />
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a621b704103eb3360230c860acf36e706">VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT, 
+<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a8e16845d81ae3d27c47106d4770d5c7e">VMA_ALLOCATION_CREATE_STRATEGY_MASK</a>, 
 <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882">VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
 <tr class="memdesc:ad9889c10c798b040d59c92f257cae597"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum. ">VmaAllocationCreateInfo::flags</a>.  <a href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597">More...</a><br /></td></tr>
 <tr class="separator:ad9889c10c798b040d59c92f257cae597"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9a7c45f9c863695d98c83fa5ac940fe7"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7">VmaPoolCreateFlagBits</a> { <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2">VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT</a> = 0x00000002, 
+<tr class="memitem:a9a7c45f9c863695d98c83fa5ac940fe7"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7">VmaPoolCreateFlagBits</a> { <br />
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2">VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT</a> = 0x00000002, 
 <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726">VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT</a> = 0x00000004, 
-<a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a1c7312bea9ea246846b9054fd6bd6aec">VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+<a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a97a0dc38e5161b780594d998d313d35e">VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT</a> = 0x00000008, 
+<a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7af4d270f8f42517a0f70037ceb6ac1d9c">VMA_POOL_CREATE_ALGORITHM_MASK</a>, 
+<br />
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a1c7312bea9ea246846b9054fd6bd6aec">VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+<br />
  }</td></tr>
 <tr class="memdesc:a9a7c45f9c863695d98c83fa5ac940fe7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446" title="Use combination of VmaPoolCreateFlagBits. ">VmaPoolCreateInfo::flags</a>.  <a href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7">More...</a><br /></td></tr>
 <tr class="separator:a9a7c45f9c863695d98c83fa5ac940fe7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -345,20 +357,6 @@ Functions</h2></td></tr>
 <tr class="separator:ae50d2cb3b4a3bfd4dd40987234e50e7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="a9f918755b601cf4bffca775992e6fb90"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9f918755b601cf4bffca775992e6fb90">&#9670;&nbsp;</a></span>NOMINMAX</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define NOMINMAX</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="af7b860e63b96d11e44ae8587ba06bbf4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af7b860e63b96d11e44ae8587ba06bbf4">&#9670;&nbsp;</a></span>VMA_DEDICATED_ALLOCATION</h2>
 
@@ -804,6 +802,20 @@ Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df"></a>VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT&#160;</td><td class="fielddoc"><p>Allocation will be created from upper stack in a double stack pool.</p>
 <p>This flag is only allowed for custom pools created with <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726" title="Enables alternative, linear allocation algorithm in this pool. ">VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT</a> flag. </p>
 </td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a839826775c62319466441f86496f036d"></a>VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that chooses smallest possible free range for the allocation. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ad242a04f802e25fef0b880afe8bb0a62"></a>VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that chooses biggest possible free range for the allocation. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a33eb2052674f3ad92386c714a65fb777"></a>VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that chooses first suitable free range for the allocation. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a8af1210cf591784afa026d94998f735d"></a>VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that tries to minimize memory usage. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a0729e932b7ea170e3a128cad96c5cf6d"></a>VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that tries to minimize allocation time. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a621b704103eb3360230c860acf36e706"></a>VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that tries to minimize memory fragmentation. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a8e16845d81ae3d27c47106d4770d5c7e"></a>VMA_ALLOCATION_CREATE_STRATEGY_MASK&#160;</td><td class="fielddoc"><p>A bit mask to extract only <code>STRATEGY</code> bits from entire set of flags. </p>
+</td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882"></a>VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
@@ -900,12 +912,19 @@ Functions</h2></td></tr>
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2"></a>VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT&#160;</td><td class="fielddoc"><p>Use this flag if you always allocate only buffers and linear images or only optimal images out of this pool and so Buffer-Image Granularity can be ignored. </p>
 <p>This is an optional optimization flag.</p>
 <p>If you always allocate using <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a>, <a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, then you don't need to use it because allocator knows exact type of your allocations so it can handle Buffer-Image Granularity in the optimal way.</p>
-<p>If you also allocate using <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a> or <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, exact type of such allocations is not known, so allocator must be conservative in handling Buffer-Image Granularity, which can lead to suboptimal allocation (wasted memory). In that case, if you can make sure you always allocate only buffers and linear images or only optimal images out of this pool, use this flag to make allocator disregard Buffer-Image Granularity and so make allocations more optimal. </p>
+<p>If you also allocate using <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a> or <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, exact type of such allocations is not known, so allocator must be conservative in handling Buffer-Image Granularity, which can lead to suboptimal allocation (wasted memory). In that case, if you can make sure you always allocate only buffers and linear images or only optimal images out of this pool, use this flag to make allocator disregard Buffer-Image Granularity and so make allocations faster and more optimal. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726"></a>VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT&#160;</td><td class="fielddoc"><p>Enables alternative, linear allocation algorithm in this pool. </p>
 <p>Specify this flag to enable linear allocation algorithm, which always creates new allocations after last one and doesn't reuse space from allocations freed in between. It trades memory consumption for simplified algorithm and data structure, which has better performance and uses less memory for metadata.</p>
 <p>By using this flag, you can achieve behavior of free-at-once, stack, ring buffer, and double stack. For details, see documentation chapter <a class="el" href="custom_memory_pools.html#linear_algorithm">Linear allocation algorithm</a>.</p>
-<p>When using this flag, you must specify <a class="el" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c" title="Maximum number of blocks that can be allocated in this pool. Optional. ">VmaPoolCreateInfo::maxBlockCount</a> == 1 (or 0 for default). </p>
+<p>When using this flag, you must specify <a class="el" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c" title="Maximum number of blocks that can be allocated in this pool. Optional. ">VmaPoolCreateInfo::maxBlockCount</a> == 1 (or 0 for default).</p>
+<p>For more details, see <a class="el" href="custom_memory_pools.html#linear_algorithm">Linear allocation algorithm</a>. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a9a7c45f9c863695d98c83fa5ac940fe7a97a0dc38e5161b780594d998d313d35e"></a>VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT&#160;</td><td class="fielddoc"><p>Enables alternative, buddy allocation algorithm in this pool. </p>
+<p>It operates on a tree of blocks, each having size that is a power of two and a half of its parent's size. Comparing to default algorithm, this one provides faster allocation and deallocation and decreased external fragmentation, at the expense of more memory wasted (internal fragmentation).</p>
+<p>For more details, see <a class="el" href="custom_memory_pools.html#buddy_algorithm">Buddy allocation algorithm</a>. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a9a7c45f9c863695d98c83fa5ac940fe7af4d270f8f42517a0f70037ceb6ac1d9c"></a>VMA_POOL_CREATE_ALGORITHM_MASK&#160;</td><td class="fielddoc"><p>Bit mask to extract only <code>ALGORITHM</code> bits from entire set of flags. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a9a7c45f9c863695d98c83fa5ac940fe7a1c7312bea9ea246846b9054fd6bd6aec"></a>VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
@@ -1619,7 +1638,7 @@ Functions</h2></td></tr>
 <p>This function works by moving allocations to different places (different <code>VkDeviceMemory</code> objects and/or different offsets) in order to optimize memory usage. Only allocations that are in pAllocations array can be moved. All other allocations are considered nonmovable in this call. Basic rules:</p>
 <ul>
 <li>Only allocations made in memory types that have <code>VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT</code> and <code>VK_MEMORY_PROPERTY_HOST_COHERENT_BIT</code> flags can be compacted. You may pass other allocations but it makes no sense - these will never be moved.</li>
-<li>Custom pools created with <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726" title="Enables alternative, linear allocation algorithm in this pool. ">VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT</a> flag are not defragmented. Allocations passed to this function that come from such pools are ignored.</li>
+<li>Custom pools created with <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726" title="Enables alternative, linear allocation algorithm in this pool. ">VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT</a> or <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a97a0dc38e5161b780594d998d313d35e" title="Enables alternative, buddy allocation algorithm in this pool. ">VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT</a> flag are not defragmented. Allocations passed to this function that come from such pools are ignored.</li>
 <li>Allocations created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block. ">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a> or created as dedicated allocations for any other reason are also ignored.</li>
 <li>Both allocations made with or without <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it...">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag can be compacted. If not persistently mapped, memory will be mapped temporarily inside this function if needed.</li>
 <li>You must not pass same <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a> object multiple times in pAllocations array.</li>

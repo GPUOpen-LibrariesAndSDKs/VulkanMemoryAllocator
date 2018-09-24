@@ -141,7 +141,23 @@ Ring buffer</h2>
 <div class="image">
 <img src="../gfx/Linear_allocator_6_ring_buffer_lost.png" alt="Ring buffer with lost allocations"/>
 </div>
-<p>Ring buffer is available only in pools with one memory block - <a class="el" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c" title="Maximum number of blocks that can be allocated in this pool. Optional. ">VmaPoolCreateInfo::maxBlockCount</a> must be 1. Otherwise behavior is undefined. </p>
+<p>Ring buffer is available only in pools with one memory block - <a class="el" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c" title="Maximum number of blocks that can be allocated in this pool. Optional. ">VmaPoolCreateInfo::maxBlockCount</a> must be 1. Otherwise behavior is undefined.</p>
+<h1><a class="anchor" id="buddy_algorithm"></a>
+Buddy allocation algorithm</h1>
+<p>There is another allocation algorithm that can be used with custom pools, called "buddy". Its internal data structure is based on a tree of blocks, each having size that is a power of two and a half of its parent's size. When you want to allocate memory of certain size, a free node in the tree is located. If it's too large, it is recursively split into two halves (called "buddies"). However, if requested allocation size is not a power of two, the size of a tree node is aligned up to the nearest power of two and the remaining space is wasted. When two buddy nodes become free, they are merged back into one larger node.</p>
+<div class="image">
+<img src="../gfx/Buddy_allocator.png" alt="Buddy allocator"/>
+</div>
+<p>The advantage of buddy allocation algorithm over default algorithm is faster allocation and deallocation, as well as smaller external fragmentation. The disadvantage is more wasted space (internal fragmentation).</p>
+<p>For more information, please read <a href="https://en.wikipedia.org/wiki/Buddy_memory_allocation">"Buddy memory allocation" on Wikipedia</a> or other sources that describe this concept in general.</p>
+<p>To use buddy allocation algorithm with a custom pool, add flag <a class="el" href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7a97a0dc38e5161b780594d998d313d35e" title="Enables alternative, buddy allocation algorithm in this pool. ">VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT</a> to <a class="el" href="struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446" title="Use combination of VmaPoolCreateFlagBits. ">VmaPoolCreateInfo::flags</a> while creating <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool. ">VmaPool</a> object.</p>
+<p>Several limitations apply to pools that use buddy algorithm:</p>
+<ul>
+<li>It is recommended to use <a class="el" href="struct_vma_pool_create_info.html#aa4265160536cdb9be821b7686c16c676" title="Size of a single VkDeviceMemory block to be allocated as part of this pool, in bytes. Optional. ">VmaPoolCreateInfo::blockSize</a> that is a power of two. Otherwise, only largest power of two smaller than the size is used for allocations. The remaining space always stays unused.</li>
+<li><a class="el" href="debugging_memory_usage.html#debugging_memory_usage_margins">Margins</a> and <a class="el" href="debugging_memory_usage.html#debugging_memory_usage_corruption_detection">corruption detection</a> don't work in such pools.</li>
+<li><a class="el" href="lost_allocations.html">Lost allocations</a> don't work in such pools. You can use them, but they never become lost. Support may be added in the future.</li>
+<li><a class="el" href="defragmentation.html">Defragmentation</a> doesn't work with allocations made from such pool. </li>
+</ul>
 </div></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
