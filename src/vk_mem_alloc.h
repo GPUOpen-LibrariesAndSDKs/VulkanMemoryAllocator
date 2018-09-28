@@ -713,15 +713,74 @@ allocations.
 
 To mitigate this problem, you can use vmaDefragment(). Given set of allocations,
 this function can move them to compact used memory, ensure more continuous free
-space and possibly also free some `VkDeviceMemory`. It can work only on
-allocations made from memory type that is `HOST_VISIBLE`. Allocations are
+space and possibly also free some `VkDeviceMemory`. Currently it can work only on
+allocations made from memory type that is `HOST_VISIBLE` and `HOST_COHERENT`. Allocations are
 modified to point to the new `VkDeviceMemory` and offset. Data in this memory is
 also `memmove`-ed to the new place. However, if you have images or buffers bound
 to these allocations (and you certainly do), you need to destroy, recreate, and
 bind them to the new place in memory.
 
-For further details and example code, see documentation of function
-vmaDefragment().
+After allocation has been moved, its VmaAllocationInfo::deviceMemory and/or
+VmaAllocationInfo::offset changes. You must query them again using
+vmaGetAllocationInfo() if you need them.
+
+If an allocation has been moved, data in memory is copied to new place
+automatically, but if it was bound to a buffer or an image, you must destroy
+that object yourself, create new one and bind it to the new memory pointed by
+the allocation. You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
+`vkCreateBuffer()`, `vkCreateImage()` for that purpose and NOT vmaDestroyBuffer(),
+vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage()! Example:
+
+\code
+VkDevice device = ...;
+VmaAllocator allocator = ...;
+std::vector<VkBuffer> buffers = ...;
+std::vector<VmaAllocation> allocations = ...;
+const size_t allocCount = allocations.size();
+
+std::vector<VkBool32> allocationsChanged(allocCount);
+vmaDefragment(allocator, allocations.data(), allocCount, allocationsChanged.data(), nullptr, nullptr);
+
+for(size_t i = 0; i < allocCount; ++i)
+{
+    if(allocationsChanged[i])
+    {
+        // Destroy buffers that is immutably bound to memory region which is no longer valid.
+        vkDestroyBuffer(device, buffers[i], nullptr);
+
+        // Create new buffer with same parameters.
+        VkBufferCreateInfo bufferInfo = ...;
+        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
+            
+        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
+            
+        // Bind new buffer with new memory region. Data contained in it is already there.
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
+        vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
+    }
+}
+\endcode
+
+Please don't expect memory to be fully compacted after defragmentation.
+Algorithms inside are based on some heuristics that try to maximize number of Vulkan
+memory blocks to make totally empty to release them, as well as to maximimze continuous
+empty space inside remaining blocks, while minimizing the number and size of allocations that
+needs to be moved. Some fragmentation still remains after this call. This is normal.
+
+If you defragment allocations bound to images, these images should be created with
+`VK_IMAGE_CREATE_ALIAS_BIT` flag, to make sure that new image created with same
+parameters and pointing to data copied to another memory region will interpret
+its contents consistently. Otherwise you may experience corrupted data on some
+implementations, e.g. due to different pixel swizzling used internally by the graphics driver.
+
+If you defragment allocations bound to images, new images to be bound to new
+memory region after defragmentation should be created with `VK_IMAGE_LAYOUT_PREINITIALIZED`
+and then transitioned to their original layout from before defragmentation using
+an image memory barrier.
+
+For further details, see documentation of function vmaDefragment().
+
 
 \page lost_allocations Lost allocations
 
@@ -1383,7 +1442,10 @@ The library uses following algorithm for allocation, in order:
 
 Features deliberately excluded from the scope of this library:
 
-- Sparse resources.
+- Support for sparse binding and sparse residency. You can still use these
+  features (when supported by the device) with VMA. You just need to do it
+  yourself. Any explicit support for sparse binding/residency would rather
+  require another, higher-level library on top of VMA.
 - Data transfer - issuing commands that transfer data between buffers or images, any usage of
   `VkCommandList` or `VkQueue` and related synchronization is responsibility of the user.
 - Allocations for imported/exported external memory. They tend to require
@@ -2492,11 +2554,11 @@ typedef struct VmaDefragmentationStats {
 @param[out] pAllocationsChanged Array of boolean values that will indicate whether matching allocation in pAllocations array has been moved. This parameter is optional. Pass null if you don't need this information.
 @param pDefragmentationInfo Configuration parameters. Optional - pass null to use default values.
 @param[out] pDefragmentationStats Statistics returned by the function. Optional - pass null if you don't need this information.
-@return VK_SUCCESS if completed, VK_INCOMPLETE if succeeded but didn't make all possible optimizations because limits specified in pDefragmentationInfo have been reached, negative error code in case of error.
+@return `VK_SUCCESS` if completed, `VK_INCOMPLETE` if succeeded but didn't make all possible optimizations because limits specified in `pDefragmentationInfo` have been reached, negative error code in case of error.
 
 This function works by moving allocations to different places (different
 `VkDeviceMemory` objects and/or different offsets) in order to optimize memory
-usage. Only allocations that are in pAllocations array can be moved. All other
+usage. Only allocations that are in `pAllocations` array can be moved. All other
 allocations are considered nonmovable in this call. Basic rules:
 
 - Only allocations made in memory types that have
@@ -2511,65 +2573,17 @@ allocations are considered nonmovable in this call. Basic rules:
 - Both allocations made with or without #VMA_ALLOCATION_CREATE_MAPPED_BIT
   flag can be compacted. If not persistently mapped, memory will be mapped
   temporarily inside this function if needed.
-- You must not pass same #VmaAllocation object multiple times in pAllocations array.
+- You must not pass same #VmaAllocation object multiple times in `pAllocations` array.
 
 The function also frees empty `VkDeviceMemory` blocks.
 
-After allocation has been moved, its VmaAllocationInfo::deviceMemory and/or
-VmaAllocationInfo::offset changes. You must query them again using
-vmaGetAllocationInfo() if you need them.
-
-If an allocation has been moved, data in memory is copied to new place
-automatically, but if it was bound to a buffer or an image, you must destroy
-that object yourself, create new one and bind it to the new memory pointed by
-the allocation. You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
-`vkCreateBuffer()`, `vkCreateImage()` for that purpose and NOT vmaDestroyBuffer(),
-vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage()! Example:
-
-\code
-VkDevice device = ...;
-VmaAllocator allocator = ...;
-std::vector<VkBuffer> buffers = ...;
-std::vector<VmaAllocation> allocations = ...;
-
-std::vector<VkBool32> allocationsChanged(allocations.size());
-vmaDefragment(allocator, allocations.data(), allocations.size(), allocationsChanged.data(), nullptr, nullptr);
-
-for(size_t i = 0; i < allocations.size(); ++i)
-{
-    if(allocationsChanged[i])
-    {
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
-
-        vkDestroyBuffer(device, buffers[i], nullptr);
-
-        VkBufferCreateInfo bufferInfo = ...;
-        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
-            
-        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
-            
-        vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
-    }
-}
-\endcode
-
-Note: Please don't expect memory to be fully compacted after this call.
-Algorithms inside are based on some heuristics that try to maximize number of Vulkan
-memory blocks to make totally empty to release them, as well as to maximimze continuous
-empty space inside remaining blocks, while minimizing the number and size of data that
-needs to be moved. Some fragmentation still remains after this call. This is normal.
-
-Warning: This function is not 100% correct according to Vulkan specification. Use it
-at your own risk. That's because Vulkan doesn't guarantee that memory
-requirements (size and alignment) for a new buffer or image are consistent. They
-may be different even for subsequent calls with the same parameters. It really
-does happen on some platforms, especially with images.
-
 Warning: This function may be time-consuming, so you shouldn't call it too often
-(like every frame or after every resource creation/destruction).
+(like after every resource creation/destruction).
 You can call it on special occasions (like when reloading a game level or
-when you just destroyed a lot of objects).
+when you just destroyed a lot of objects). Calling it every frame may be OK, but
+you should measure that on your platform.
+
+For more information, see [Defragmentation](@ref defragmentation) chapter.
 */
 VkResult vmaDefragment(
     VmaAllocator allocator,

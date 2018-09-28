@@ -110,7 +110,7 @@ Allocation algorithm</h1>
 Features not supported</h1>
 <p>Features deliberately excluded from the scope of this library:</p>
 <ul>
-<li>Sparse resources.</li>
+<li>Support for sparse binding and sparse residency. You can still use these features (when supported by the device) with VMA. You just need to do it yourself. Any explicit support for sparse binding/residency would rather require another, higher-level library on top of VMA.</li>
 <li>Data transfer - issuing commands that transfer data between buffers or images, any usage of <code>VkCommandList</code> or <code>VkQueue</code> and related synchronization is responsibility of the user.</li>
 <li>Allocations for imported/exported external memory. They tend to require explicit memory type index and dedicated allocation anyway, so they don't interact with main features of this library. Such special purpose allocations should be made manually, using <code>vkCreateBuffer()</code> and <code>vkAllocateMemory()</code>.</li>
 <li>Support for any programming languages other than C/C++. Bindings to other languages are welcomed as external projects. </li>
