@@ -2199,9 +2199,9 @@ static void BenchmarkAlgorithmsCase(FILE* file,
 
     if(!empty)
     {
-        // Make allocations up to half of pool size.
+        // Make allocations up to 1/3 of pool size.
         VkDeviceSize totalSize = 0;
-        while(totalSize < poolCreateInfo.blockSize / 2)
+        while(totalSize < poolCreateInfo.blockSize / 3)
         {
             memReq.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
             res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
@@ -2221,7 +2221,7 @@ static void BenchmarkAlgorithmsCase(FILE* file,
     }
 
     // BENCHMARK
-    const size_t allocCount = maxBufCapacity / 2;
+    const size_t allocCount = maxBufCapacity / 3;
     std::vector<VmaAllocation> testAllocations;
     testAllocations.reserve(allocCount);
     duration allocTotalDuration = duration::zero();
@@ -2367,7 +2367,7 @@ static void BenchmarkAlgorithms(FILE* file)
                     BenchmarkAlgorithmsCase(
                         file,
                         algorithm,
-                        emptyIndex ? 0 : 1, // empty
+                        (emptyIndex == 0), // empty
                         strategy,
                         freeOrder); // freeOrder
                 }
