@@ -1714,7 +1714,14 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             PostMessage(hWnd, WM_CLOSE, 0, 0);
             break;
         case 'T':
-            Test();
+            try
+            {
+                Test();
+            }
+            catch(const std::exception& ex)
+            {
+                printf("ERROR: %s\n", ex.what());
+            }
             break;
         }
         return 0;

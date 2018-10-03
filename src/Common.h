@@ -16,6 +16,7 @@
 #include <utility>
 #include <chrono>
 #include <string>
+#include <exception>
 
 #include <cassert>
 #include <cstdlib>
@@ -25,7 +26,21 @@
 typedef std::chrono::high_resolution_clock::time_point time_point;
 typedef std::chrono::high_resolution_clock::duration duration;
 
-#define ERR_GUARD_VULKAN(Expr) do { VkResult res__ = (Expr); if (res__ < 0) assert(0); } while(0)
+#ifdef _DEBUG
+    #define TEST(expr) do { \
+            if(!(expr)) { \
+                assert(0 && #expr); \
+            } \
+        } while(0)
+#else
+    #define TEST(expr) do { \
+            if(!(expr)) { \
+                throw std::runtime_error("TEST FAILED: " #expr); \
+            } \
+        } while(0)
+#endif
+
+#define ERR_GUARD_VULKAN(expr) TEST((expr) >= 0)
 
 extern VkPhysicalDevice g_hPhysicalDevice;
 extern VkDevice g_hDevice;
