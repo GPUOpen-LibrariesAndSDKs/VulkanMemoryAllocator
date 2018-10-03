@@ -139,7 +139,7 @@ struct PoolTestResult
 
 static const uint32_t IMAGE_BYTES_PER_PIXEL = 1;
 
-static uint32_t g_FrameIndex = 0;
+uint32_t g_FrameIndex = 0;
 
 struct BufferInfo
 {
@@ -635,7 +635,7 @@ VkResult MainTest(Result& outResult, const Config& config)
     return res;
 }
 
-static void SaveAllocatorStatsToFile(const wchar_t* filePath)
+void SaveAllocatorStatsToFile(const wchar_t* filePath)
 {
     char* stats;
     vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
