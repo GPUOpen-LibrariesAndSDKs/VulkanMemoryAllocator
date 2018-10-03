@@ -128,7 +128,7 @@ void SparseBindingImage::Init(RandomNumberGenerator& rand)
     // But it doesn't help. Looks like a bug in Vulkan validation layers.
     uint32_t sparseMemReqCount = 0;
     vkGetImageSparseMemoryRequirements(g_hDevice, m_Image, &sparseMemReqCount, nullptr);
-    assert(sparseMemReqCount <= 8);
+    TEST(sparseMemReqCount <= 8);
     VkSparseImageMemoryRequirements sparseMemReq[8];
     vkGetImageSparseMemoryRequirements(g_hDevice, m_Image, &sparseMemReqCount, sparseMemReq);
 
