@@ -21,7 +21,7 @@ void SaveAllocatorStatsToFile(const wchar_t* filePath);
 class BaseImage
 {
 public:
-    virtual VkResult Init(RandomNumberGenerator& rand) = 0;
+    virtual void Init(RandomNumberGenerator& rand) = 0;
     virtual ~BaseImage();
 
 protected:
@@ -33,7 +33,7 @@ protected:
 class TraditionalImage : public BaseImage
 {
 public:
-    virtual VkResult Init(RandomNumberGenerator& rand);
+    virtual void Init(RandomNumberGenerator& rand);
     virtual ~TraditionalImage();
 
 private:
@@ -43,7 +43,7 @@ private:
 class SparseBindingImage : public BaseImage
 {
 public:
-    virtual VkResult Init(RandomNumberGenerator& rand);
+    virtual void Init(RandomNumberGenerator& rand);
     virtual ~SparseBindingImage();
 
 private:
@@ -73,7 +73,7 @@ void BaseImage::FillImageCreateInfo(VkImageCreateInfo& outInfo, RandomNumberGene
     outInfo.extent.height = rand.Generate() % (imageSizeMax - imageSizeMin) + imageSizeMin;
     outInfo.extent.depth = 1;
     outInfo.mipLevels = 1; // TODO ?
-    outInfo.arrayLayers = 1; // TODO ?
+    outInfo.arrayLayers = 1;
     outInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     outInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     outInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -85,7 +85,7 @@ void BaseImage::FillImageCreateInfo(VkImageCreateInfo& outInfo, RandomNumberGene
 ////////////////////////////////////////////////////////////////////////////////
 // class TraditionalImage
 
-VkResult TraditionalImage::Init(RandomNumberGenerator& rand)
+void TraditionalImage::Init(RandomNumberGenerator& rand)
 {
     VkImageCreateInfo imageCreateInfo;
     FillImageCreateInfo(imageCreateInfo, rand);
@@ -95,10 +95,8 @@ VkResult TraditionalImage::Init(RandomNumberGenerator& rand)
     // Default BEST_FIT is clearly better.
     //allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT;
     
-    const VkResult res = vmaCreateImage(g_hAllocator, &imageCreateInfo, &allocCreateInfo,
-        &m_Image, &m_Allocation, nullptr);
-    
-    return res;
+    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageCreateInfo, &allocCreateInfo,
+        &m_Image, &m_Allocation, nullptr) );
 }
 
 TraditionalImage::~TraditionalImage()
@@ -112,7 +110,7 @@ TraditionalImage::~TraditionalImage()
 ////////////////////////////////////////////////////////////////////////////////
 // class SparseBindingImage
 
-VkResult SparseBindingImage::Init(RandomNumberGenerator& rand)
+void SparseBindingImage::Init(RandomNumberGenerator& rand)
 {
     assert(g_SparseBindingEnabled && g_hSparseBindingQueue);
 
@@ -120,11 +118,7 @@ VkResult SparseBindingImage::Init(RandomNumberGenerator& rand)
     VkImageCreateInfo imageCreateInfo;
     FillImageCreateInfo(imageCreateInfo, rand);
     imageCreateInfo.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
-    VkResult res = vkCreateImage(g_hDevice, &imageCreateInfo, nullptr, &m_Image);
-    if(res != VK_SUCCESS)
-    {
-        return res;
-    }
+    ERR_GUARD_VULKAN( vkCreateImage(g_hDevice, &imageCreateInfo, nullptr, &m_Image) );
 
     // Get memory requirements.
     VkMemoryRequirements imageMemReq;
@@ -152,20 +146,16 @@ VkResult SparseBindingImage::Init(RandomNumberGenerator& rand)
     m_Allocations.resize(pageCount);
     std::fill(m_Allocations.begin(), m_Allocations.end(), nullptr);
     std::vector<VkSparseMemoryBind> binds{pageCount};
-    VmaAllocationInfo allocInfo;
+    std::vector<VmaAllocationInfo> allocInfo{pageCount};
+    ERR_GUARD_VULKAN( vmaAllocateMemoryPages(g_hAllocator, &pageMemReq, &allocCreateInfo, pageCount, m_Allocations.data(), allocInfo.data()) );
+
     for(uint32_t i = 0; i < pageCount; ++i)
     {
-        res = vmaAllocateMemory(g_hAllocator, &pageMemReq, &allocCreateInfo, &m_Allocations[i], &allocInfo);
-        if(res != VK_SUCCESS)
-        {
-            return res;
-        }
-
         binds[i] = {};
         binds[i].resourceOffset = pageSize * i;
         binds[i].size = pageSize;
-        binds[i].memory = allocInfo.deviceMemory;
-        binds[i].memoryOffset = allocInfo.offset;
+        binds[i].memory = allocInfo[i].deviceMemory;
+        binds[i].memoryOffset = allocInfo[i].offset;
     }
 
     VkSparseImageOpaqueMemoryBindInfo imageBindInfo;
@@ -180,16 +170,11 @@ VkResult SparseBindingImage::Init(RandomNumberGenerator& rand)
     ERR_GUARD_VULKAN( vkResetFences(g_hDevice, 1, &g_ImmediateFence) );
     ERR_GUARD_VULKAN( vkQueueBindSparse(g_hSparseBindingQueue, 1, &bindSparseInfo, g_ImmediateFence) );
     ERR_GUARD_VULKAN( vkWaitForFences(g_hDevice, 1, &g_ImmediateFence, VK_TRUE, UINT64_MAX) );
-
-    return VK_SUCCESS;
 }
 
 SparseBindingImage::~SparseBindingImage()
 {
-    for(size_t i = m_Allocations.size(); i--; )
-    {
-        vmaFreeMemory(g_hAllocator, m_Allocations[i]);
-    }
+    vmaFreeMemoryPages(g_hAllocator, m_Allocations.size(), m_Allocations.data());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -223,11 +208,9 @@ void TestSparseBinding()
         ImageInfo imageInfo;
         //imageInfo.image = std::make_unique<TraditionalImage>();
         imageInfo.image = std::make_unique<SparseBindingImage>();
-        if(imageInfo.image->Init(rand) == VK_SUCCESS)
-        {
-            imageInfo.endFrame = g_FrameIndex + rand.Generate() % (imageLifeFramesMax - imageLifeFramesMin) + imageLifeFramesMin;
-            images.push_back(std::move(imageInfo));
-        }
+        imageInfo.image->Init(rand);
+        imageInfo.endFrame = g_FrameIndex + rand.Generate() % (imageLifeFramesMax - imageLifeFramesMin) + imageLifeFramesMin;
+        images.push_back(std::move(imageInfo));
 
         // Delete all images that expired.
         for(size_t i = images.size(); i--; )

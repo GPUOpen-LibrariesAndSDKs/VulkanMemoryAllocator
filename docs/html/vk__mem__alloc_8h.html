@@ -302,6 +302,9 @@ Functions</h2></td></tr>
 <tr class="memitem:abf28077dbf82d0908b8acbe8ee8dd9b8"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8">vmaAllocateMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkMemoryRequirements *pVkMemoryRequirements, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:abf28077dbf82d0908b8acbe8ee8dd9b8"><td class="mdescLeft">&#160;</td><td class="mdescRight">General purpose memory allocation.  <a href="#abf28077dbf82d0908b8acbe8ee8dd9b8">More...</a><br /></td></tr>
 <tr class="separator:abf28077dbf82d0908b8acbe8ee8dd9b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad37e82e492b3de38fc3f4cffd9ad0ae1"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ad37e82e492b3de38fc3f4cffd9ad0ae1">vmaAllocateMemoryPages</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkMemoryRequirements *pVkMemoryRequirements, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, size_t allocationCount, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
+<tr class="memdesc:ad37e82e492b3de38fc3f4cffd9ad0ae1"><td class="mdescLeft">&#160;</td><td class="mdescRight">General purpose memory allocation for multiple allocation objects at once.  <a href="#ad37e82e492b3de38fc3f4cffd9ad0ae1">More...</a><br /></td></tr>
+<tr class="separator:ad37e82e492b3de38fc3f4cffd9ad0ae1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fdf64415b6c3d83c454f28d2c53df7b"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkBuffer buffer, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="separator:a7fdf64415b6c3d83c454f28d2c53df7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0faa3f9e5fb233d29d1e00390650febb"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb">vmaAllocateMemoryForImage</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkImage image, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
@@ -310,6 +313,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a11f0fbc034fa81a4efedd73d61ce7568"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vmaFreeMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
 <tr class="memdesc:a11f0fbc034fa81a4efedd73d61ce7568"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory previously allocated using <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a>.  <a href="#a11f0fbc034fa81a4efedd73d61ce7568">More...</a><br /></td></tr>
 <tr class="separator:a11f0fbc034fa81a4efedd73d61ce7568"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab9e709de044c5d8476bea77a4e755840"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ab9e709de044c5d8476bea77a4e755840">vmaFreeMemoryPages</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, size_t allocationCount, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations)</td></tr>
+<tr class="memdesc:ab9e709de044c5d8476bea77a4e755840"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory and destroys multiple allocations.  <a href="#ab9e709de044c5d8476bea77a4e755840">More...</a><br /></td></tr>
+<tr class="separator:ab9e709de044c5d8476bea77a4e755840"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">vmaGetAllocationInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current information about specified allocation and atomically marks it as used in current frame.  <a href="#a86dd08aba8633bfa4ad0df2e76481d8b">More...</a><br /></td></tr>
 <tr class="separator:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1022,7 +1028,7 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<p>You should free the memory using <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a>.</p>
+<p>You should free the memory using <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a> or <a class="el" href="vk__mem__alloc_8h.html#ab9e709de044c5d8476bea77a4e755840" title="Frees memory and destroys multiple allocations. ">vmaFreeMemoryPages()</a>.</p>
 <p>It is recommended to use <a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a>, <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a> instead whenever possible. </p>
 
 </div>
@@ -1126,6 +1132,76 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Function similar to <a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>. </p>
+
+</div>
+</div>
+<a id="ad37e82e492b3de38fc3f4cffd9ad0ae1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad37e82e492b3de38fc3f4cffd9ad0ae1">&#9670;&nbsp;</a></span>vmaAllocateMemoryPages()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaAllocateMemoryPages </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const VkMemoryRequirements *&#160;</td>
+          <td class="paramname"><em>pVkMemoryRequirements</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *&#160;</td>
+          <td class="paramname"><em>pCreateInfo</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>allocationCount</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *&#160;</td>
+          <td class="paramname"><em>pAllocations</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *&#160;</td>
+          <td class="paramname"><em>pAllocationInfo</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>General purpose memory allocation for multiple allocation objects at once. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td>Memory requirements for each allocation. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Creation parameters for each alloction. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">allocationCount</td><td>Number of allocations to make. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocations</td><td>Pointer to array that will be filled with handles to created allocations. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAlocationInfo</td><td>Optional. Pointer to array that will be filled with parameters of created allocations.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>You should free the memory using <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a> or <a class="el" href="vk__mem__alloc_8h.html#ab9e709de044c5d8476bea77a4e755840" title="Frees memory and destroys multiple allocations. ">vmaFreeMemoryPages()</a>.</p>
+<p>Word "pages" is just a suggestion to use this function to allocate pieces of memory needed for sparse binding. It is just a general purpose allocation function able to make multiple allocations at once. It may be internally optimized to be more efficient than calling <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a> <code>allocationCount</code> times.</p>
+<p>All allocations are made using same parameters. All of them are created out of the same memory pool and type. If any allocation fails, all allocations already made within this function call are also freed, so that when returned result is not <code>VK_SUCCESS</code>, <code>pAllocation</code> array is always entirely filled with <code>VK_NULL_HANDLE</code>.</p>
+<p>TODO Also write tests for it.</p>
+<p>TODO also write test for allocation that will partially fail. </p>
 
 </div>
 </div>
@@ -2016,6 +2092,46 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Frees memory previously allocated using <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a>. </p>
+<p>Passing <code>VK_NULL_HANDLE</code> as <code>allocation</code> is valid. Such function call is just skipped. </p>
+
+</div>
+</div>
+<a id="ab9e709de044c5d8476bea77a4e755840"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab9e709de044c5d8476bea77a4e755840">&#9670;&nbsp;</a></span>vmaFreeMemoryPages()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaFreeMemoryPages </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>allocationCount</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *&#160;</td>
+          <td class="paramname"><em>pAllocations</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Frees memory and destroys multiple allocations. </p>
+<p>Word "pages" is just a suggestion to use this function to free pieces of memory used for sparse binding. It is just a general purpose function to free memory and destroy allocations made using e.g. <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#ad37e82e492b3de38fc3f4cffd9ad0ae1" title="General purpose memory allocation for multiple allocation objects at once. ">vmaAllocateMemoryPages()</a> and other functions. It may be internally optimized to be more efficient than calling <a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage(). ">vmaFreeMemory()</a> <code>allocationCount</code> times.</p>
+<p>Allocations in <code>pAllocations</code> array can come from any memory pools and types. Passing <code>VK_NULL_HANDLE</code> as elements of <code>pAllocations</code> array is valid. Such entries are just skipped.</p>
+<p>TODO Also write tests for it. </p>
 
 </div>
 </div>

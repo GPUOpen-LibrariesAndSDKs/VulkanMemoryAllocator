@@ -18,8 +18,8 @@ enum CONFIG_TYPE {
     CONFIG_TYPE_COUNT
 };
 
-//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
-static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
+static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
+//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
 
