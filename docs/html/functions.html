@@ -65,7 +65,8 @@ $(function() {
 
 <h3><a id="index_a"></a>- a -</h3><ul>
 <li>allocationCount
-: <a class="el" href="struct_vma_pool_stats.html#ad1924eb54fffa45e9e0e65670c8fe5eb">VmaPoolStats</a>
+: <a class="el" href="struct_vma_defragmentation_info2.html#ae41a36871f23fdd34df9c72149204c57">VmaDefragmentationInfo2</a>
+, <a class="el" href="struct_vma_pool_stats.html#ad1924eb54fffa45e9e0e65670c8fe5eb">VmaPoolStats</a>
 , <a class="el" href="struct_vma_stat_info.html#a537741e4d5cdddc1c0ab95ec650afaff">VmaStatInfo</a>
 </li>
 <li>allocationSizeAvg
@@ -76,6 +77,9 @@ $(function() {
 </li>
 <li>allocationSizeMin
 : <a class="el" href="struct_vma_stat_info.html#ade8b40bd3139c04aabd2fc538a356fea">VmaStatInfo</a>
+</li>
+<li>allocationsLost
+: <a class="el" href="struct_vma_defragmentation_stats.html#a87f0adc9588757b1e3ac1815597ace03">VmaDefragmentationStats</a>
 </li>
 <li>allocationsMoved
 : <a class="el" href="struct_vma_defragmentation_stats.html#aefeabf130022008eadd75999478af3f9">VmaDefragmentationStats</a>
@@ -117,6 +121,7 @@ $(function() {
 <li>flags
 : <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b">VmaAllocationCreateInfo</a>
 , <a class="el" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">VmaAllocatorCreateInfo</a>
+, <a class="el" href="struct_vma_defragmentation_info2.html#a53e844ee5633e229cf6daf14b2d9fff9">VmaDefragmentationInfo2</a>
 , <a class="el" href="struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446">VmaPoolCreateInfo</a>
 , <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a">VmaRecordSettings</a>
 </li>
@@ -136,6 +141,18 @@ $(function() {
 </li>
 <li>maxBytesToMove
 : <a class="el" href="struct_vma_defragmentation_info.html#acb311c940a777270e67e1b81c5ab6a1d">VmaDefragmentationInfo</a>
+</li>
+<li>maxCpuAllocationsToMove
+: <a class="el" href="struct_vma_defragmentation_info2.html#a94c2c7223d52878445a8cccce396b671">VmaDefragmentationInfo2</a>
+</li>
+<li>maxCpuBytesToMove
+: <a class="el" href="struct_vma_defragmentation_info2.html#af78e1ea40c22d85137b65f6b384a4d0a">VmaDefragmentationInfo2</a>
+</li>
+<li>maxGpuAllocationsToMove
+: <a class="el" href="struct_vma_defragmentation_info2.html#a40d53d33e71ba0b66f844ed63c05a3f6">VmaDefragmentationInfo2</a>
+</li>
+<li>maxGpuBytesToMove
+: <a class="el" href="struct_vma_defragmentation_info2.html#a4ddbc898d0afe1518f863a3763628f08">VmaDefragmentationInfo2</a>
 </li>
 <li>memoryHeap
 : <a class="el" href="struct_vma_stats.html#a0e6611508c29a187f0fd14ff1a0329c0">VmaStats</a>
@@ -166,6 +183,12 @@ $(function() {
 <h3><a id="index_p"></a>- p -</h3><ul>
 <li>pAllocationCallbacks
 : <a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d">VmaAllocatorCreateInfo</a>
+</li>
+<li>pAllocations
+: <a class="el" href="struct_vma_defragmentation_info2.html#a8943f8d65969ce8e2189a1cdf3205e96">VmaDefragmentationInfo2</a>
+</li>
+<li>pAllocationsChanged
+: <a class="el" href="struct_vma_defragmentation_info2.html#a76d51a644dc7f5405d0cdd0025ecd0cc">VmaDefragmentationInfo2</a>
 </li>
 <li>pDeviceMemoryCallbacks
 : <a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e">VmaAllocatorCreateInfo</a>

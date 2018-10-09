@@ -1,6 +1,8 @@
 var searchData=
 [
   ['pallocationcallbacks',['pAllocationCallbacks',['../struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d',1,'VmaAllocatorCreateInfo']]],
+  ['pallocations',['pAllocations',['../struct_vma_defragmentation_info2.html#a8943f8d65969ce8e2189a1cdf3205e96',1,'VmaDefragmentationInfo2']]],
+  ['pallocationschanged',['pAllocationsChanged',['../struct_vma_defragmentation_info2.html#a76d51a644dc7f5405d0cdd0025ecd0cc',1,'VmaDefragmentationInfo2']]],
   ['pdevicememorycallbacks',['pDeviceMemoryCallbacks',['../struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e',1,'VmaAllocatorCreateInfo']]],
   ['pfilepath',['pFilePath',['../struct_vma_record_settings.html#a6cb1fdbf6bcb610b68f2010dd629e89d',1,'VmaRecordSettings']]],
   ['pfn_5fvmaallocatedevicememoryfunction',['PFN_vmaAllocateDeviceMemoryFunction',['../vk__mem__alloc_8h.html#ab6a6477cda1ce775b30bde96d766203b',1,'vk_mem_alloc.h']]],

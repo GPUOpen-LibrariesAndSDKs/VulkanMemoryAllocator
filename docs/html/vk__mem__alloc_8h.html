@@ -106,11 +106,14 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.  <a href="struct_vma_allocation_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for defragmentation.  <a href="struct_vma_defragmentation_info2.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info.html">VmaDefragmentationInfo</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="struct_vma_defragmentation_info.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deprecated. Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="struct_vma_defragmentation_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Statistics returned by function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="struct_vma_defragmentation_stats.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Statistics returned by function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="struct_vma_defragmentation_stats.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
@@ -183,11 +186,19 @@ Typedefs</h2></td></tr>
 <tr class="memitem:a795e6ff02a21d5486c0565f403dd9255"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a795e6ff02a21d5486c0565f403dd9255">VmaAllocationInfo</a></td></tr>
 <tr class="memdesc:a795e6ff02a21d5486c0565f403dd9255"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.  <a href="#a795e6ff02a21d5486c0565f403dd9255">More...</a><br /></td></tr>
 <tr class="separator:a795e6ff02a21d5486c0565f403dd9255"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a96df0eddab2e1735782fe4e7cd05ea7f"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50c">VmaDefragmentationFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a96df0eddab2e1735782fe4e7cd05ea7f">VmaDefragmentationFlagBits</a></td></tr>
+<tr class="memdesc:a96df0eddab2e1735782fe4e7cd05ea7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be used in <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a>.  <a href="#a96df0eddab2e1735782fe4e7cd05ea7f">More...</a><br /></td></tr>
+<tr class="separator:a96df0eddab2e1735782fe4e7cd05ea7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a88a77cef37e5d3c4fc9eb328885d048d"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a></td></tr>
+<tr class="separator:a88a77cef37e5d3c4fc9eb328885d048d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abac0e85abaa6ea1ffd63bde29c5c3a29"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#abac0e85abaa6ea1ffd63bde29c5c3a29">VmaDefragmentationInfo2</a></td></tr>
+<tr class="memdesc:abac0e85abaa6ea1ffd63bde29c5c3a29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for defragmentation.  <a href="#abac0e85abaa6ea1ffd63bde29c5c3a29">More...</a><br /></td></tr>
+<tr class="separator:abac0e85abaa6ea1ffd63bde29c5c3a29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae67f8573a0cf20f16f0a1eecbca566a0"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_defragmentation_info.html">VmaDefragmentationInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae67f8573a0cf20f16f0a1eecbca566a0">VmaDefragmentationInfo</a></td></tr>
-<tr class="memdesc:ae67f8573a0cf20f16f0a1eecbca566a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="#ae67f8573a0cf20f16f0a1eecbca566a0">More...</a><br /></td></tr>
+<tr class="memdesc:ae67f8573a0cf20f16f0a1eecbca566a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deprecated. Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="#ae67f8573a0cf20f16f0a1eecbca566a0">More...</a><br /></td></tr>
 <tr class="separator:ae67f8573a0cf20f16f0a1eecbca566a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0f9b06441c840fee560de4a2967f8c9"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ab0f9b06441c840fee560de4a2967f8c9">VmaDefragmentationStats</a></td></tr>
-<tr class="memdesc:ab0f9b06441c840fee560de4a2967f8c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Statistics returned by function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="#ab0f9b06441c840fee560de4a2967f8c9">More...</a><br /></td></tr>
+<tr class="memdesc:ab0f9b06441c840fee560de4a2967f8c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Statistics returned by function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>.  <a href="#ab0f9b06441c840fee560de4a2967f8c9">More...</a><br /></td></tr>
 <tr class="separator:ab0f9b06441c840fee560de4a2967f8c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
@@ -248,6 +259,17 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a9a7c45f9c863695d98c83fa5ac940fe7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446" title="Use combination of VmaPoolCreateFlagBits. ">VmaPoolCreateInfo::flags</a>.  <a href="vk__mem__alloc_8h.html#a9a7c45f9c863695d98c83fa5ac940fe7">More...</a><br /></td></tr>
 <tr class="separator:a9a7c45f9c863695d98c83fa5ac940fe7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6552a65b71d16f378c6994b3ceaef50c"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50c">VmaDefragmentationFlagBits</a> { <br />
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50ca4e406da317f64208d0b26eb82c8d8071">VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT</a> = 0x00000001, 
+<a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50ca72611a502fd73f59c478475a3e18ca7f">VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT</a> = 0x000010000, 
+<a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50cacf7eb65ad6d2423ebe2ca3f56bb77a46">VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT</a> = 0x00002000, 
+<a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50cad5069876a2b8b45065b91e43ef906c1d">VMA_DEFRAGMENTATION_ALGORITHM_MASK</a>, 
+<br />
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50cab87ec33154803bfeb5ac2b379f1d6a97">VMA_DEFRAGMENTATION_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+<br />
+ }</td></tr>
+<tr class="memdesc:a6552a65b71d16f378c6994b3ceaef50c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be used in <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a>.  <a href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50c">More...</a><br /></td></tr>
+<tr class="separator:a6552a65b71d16f378c6994b3ceaef50c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -337,8 +359,14 @@ Functions</h2></td></tr>
 <tr class="memitem:a49329a7f030dafcf82f7b73334c22e98"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a49329a7f030dafcf82f7b73334c22e98">vmaCheckCorruption</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryTypeBits)</td></tr>
 <tr class="memdesc:a49329a7f030dafcf82f7b73334c22e98"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions.  <a href="#a49329a7f030dafcf82f7b73334c22e98">More...</a><br /></td></tr>
 <tr class="separator:a49329a7f030dafcf82f7b73334c22e98"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a36ba776fd7fd5cb1e9359fdc0d8e6e8a"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a">vmaDefragmentationBegin</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const <a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a> *pInfo, <a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a> *pStats, <a class="el" href="struct_vma_defragmentation_context.html">VmaDefragmentationContext</a> *pContext)</td></tr>
+<tr class="memdesc:a36ba776fd7fd5cb1e9359fdc0d8e6e8a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Begins defragmentation process.  <a href="#a36ba776fd7fd5cb1e9359fdc0d8e6e8a">More...</a><br /></td></tr>
+<tr class="separator:a36ba776fd7fd5cb1e9359fdc0d8e6e8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8774e20e91e245aae959ba63efa15dd2"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2">vmaDefragmentationEnd</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_defragmentation_context.html">VmaDefragmentationContext</a> context)</td></tr>
+<tr class="memdesc:a8774e20e91e245aae959ba63efa15dd2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ends defragmentation process.  <a href="#a8774e20e91e245aae959ba63efa15dd2">More...</a><br /></td></tr>
+<tr class="separator:a8774e20e91e245aae959ba63efa15dd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6aced90fcc7b39882b6654a740a0b9bb"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb">vmaDefragment</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations, size_t allocationCount, VkBool32 *pAllocationsChanged, const <a class="el" href="struct_vma_defragmentation_info.html">VmaDefragmentationInfo</a> *pDefragmentationInfo, <a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a> *pDefragmentationStats)</td></tr>
-<tr class="memdesc:a6aced90fcc7b39882b6654a740a0b9bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compacts memory by moving allocations.  <a href="#a6aced90fcc7b39882b6654a740a0b9bb">More...</a><br /></td></tr>
+<tr class="memdesc:a6aced90fcc7b39882b6654a740a0b9bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deprecated. Compacts memory by moving allocations.  <a href="#a6aced90fcc7b39882b6654a740a0b9bb">More...</a><br /></td></tr>
 <tr class="separator:a6aced90fcc7b39882b6654a740a0b9bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6b0929b914b60cf2d45cac4bf3547470"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a6b0929b914b60cf2d45cac4bf3547470">vmaBindBufferMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkBuffer buffer)</td></tr>
 <tr class="memdesc:a6b0929b914b60cf2d45cac4bf3547470"><td class="mdescLeft">&#160;</td><td class="mdescRight">Binds buffer to allocation.  <a href="#a6b0929b914b60cf2d45cac4bf3547470">More...</a><br /></td></tr>
@@ -554,6 +582,36 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a96df0eddab2e1735782fe4e7cd05ea7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a96df0eddab2e1735782fe4e7cd05ea7f">&#9670;&nbsp;</a></span>VmaDefragmentationFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50c">VmaDefragmentationFlagBits</a>  <a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50c">VmaDefragmentationFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags to be used in <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a>. </p>
+
+</div>
+</div>
+<a id="a88a77cef37e5d3c4fc9eb328885d048d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a88a77cef37e5d3c4fc9eb328885d048d">&#9670;&nbsp;</a></span>VmaDefragmentationFlags</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef VkFlags <a class="el" href="vk__mem__alloc_8h.html#a88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ae67f8573a0cf20f16f0a1eecbca566a0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae67f8573a0cf20f16f0a1eecbca566a0">&#9670;&nbsp;</a></span>VmaDefragmentationInfo</h2>
 
@@ -566,7 +624,25 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a>. </p>
+<p>Deprecated. Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>. </p>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000001">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation. ">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a> instead. </dd></dl>
+
+</div>
+</div>
+<a id="abac0e85abaa6ea1ffd63bde29c5c3a29"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abac0e85abaa6ea1ffd63bde29c5c3a29">&#9670;&nbsp;</a></span>VmaDefragmentationInfo2</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef struct <a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a>  <a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Parameters for defragmentation. </p>
+<p>To be used with function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a>. </p>
 
 </div>
 </div>
@@ -582,7 +658,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Statistics returned by function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a>. </p>
+<p>Statistics returned by function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>. </p>
 
 </div>
 </div>
@@ -867,6 +943,33 @@ Functions</h2></td></tr>
 </blockquote>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c"></a>VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
+<a id="a6552a65b71d16f378c6994b3ceaef50c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6552a65b71d16f378c6994b3ceaef50c">&#9670;&nbsp;</a></span>VmaDefragmentationFlagBits</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50c">VmaDefragmentationFlagBits</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flags to be used in <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a>. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a6552a65b71d16f378c6994b3ceaef50ca4e406da317f64208d0b26eb82c8d8071"></a>VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT&#160;</td><td class="fielddoc"><p>Add this flag to enable allocations created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag to become lost during defragmentation process if the algorithm decides it is beneficial. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a6552a65b71d16f378c6994b3ceaef50ca72611a502fd73f59c478475a3e18ca7f"></a>VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT&#160;</td><td class="fielddoc"><p>Add this flag to change defragmentation algorithm to fast rather than default (balanced). This algorithm will favor speed over quality of defragmentation. Defragmentation will be done as fast and move as little allocations and bytes as possible while still providing some benefits. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a6552a65b71d16f378c6994b3ceaef50cacf7eb65ad6d2423ebe2ca3f56bb77a46"></a>VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT&#160;</td><td class="fielddoc"><p>Add this flag to change defragmentation algorithm to optimal rather than default (balanced). This algorithm will favor quality of defragmentation over speed. Allocations will be as perfectly compacted as possible. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a6552a65b71d16f378c6994b3ceaef50cad5069876a2b8b45065b91e43ef906c1d"></a>VMA_DEFRAGMENTATION_ALGORITHM_MASK&#160;</td><td class="fielddoc"><p>A bit mask to extract only <code>ALGORITHM</code> bits from entire set of flags. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a6552a65b71d16f378c6994b3ceaef50cab87ec33154803bfeb5ac2b379f1d6a97"></a>VMA_DEFRAGMENTATION_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -1639,7 +1742,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Compacts memory by moving allocations. </p>
+<p>Deprecated. Compacts memory by moving allocations. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">pAllocations</td><td>Array of allocations that can be moved during this compation. </td></tr>
@@ -1651,6 +1754,7 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><code>VK_SUCCESS</code> if completed, <code>VK_INCOMPLETE</code> if succeeded but didn't make all possible optimizations because limits specified in <code>pDefragmentationInfo</code> have been reached, negative error code in case of error.</dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000002">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation. ">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a> instead.</dd></dl>
 <p>This function works by moving allocations to different places (different <code>VkDeviceMemory</code> objects and/or different offsets) in order to optimize memory usage. Only allocations that are in <code>pAllocations</code> array can be moved. All other allocations are considered nonmovable in this call. Basic rules:</p>
 <ul>
 <li>Only allocations made in memory types that have <code>VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT</code> and <code>VK_MEMORY_PROPERTY_HOST_COHERENT_BIT</code> flags can be compacted. You may pass other allocations but it makes no sense - these will never be moved.</li>
@@ -1662,6 +1766,97 @@ Functions</h2></td></tr>
 <p>The function also frees empty <code>VkDeviceMemory</code> blocks.</p>
 <p>Warning: This function may be time-consuming, so you shouldn't call it too often (like after every resource creation/destruction). You can call it on special occasions (like when reloading a game level or when you just destroyed a lot of objects). Calling it every frame may be OK, but you should measure that on your platform.</p>
 <p>For more information, see <a class="el" href="defragmentation.html">Defragmentation</a> chapter. </p>
+
+</div>
+</div>
+<a id="a36ba776fd7fd5cb1e9359fdc0d8e6e8a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a36ba776fd7fd5cb1e9359fdc0d8e6e8a">&#9670;&nbsp;</a></span>vmaDefragmentationBegin()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaDefragmentationBegin </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a> *&#160;</td>
+          <td class="paramname"><em>pInfo</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_defragmentation_stats.html">VmaDefragmentationStats</a> *&#160;</td>
+          <td class="paramname"><em>pStats</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_defragmentation_context.html">VmaDefragmentationContext</a> *&#160;</td>
+          <td class="paramname"><em>pContext</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Begins defragmentation process. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">allocator</td><td>Allocator object. </td></tr>
+    <tr><td class="paramname">pInfo</td><td>Structure filled with parameters of defragmentation. </td></tr>
+    <tr><td class="paramname">pStats[out]</td><td>Optional. Statistics of defragmentation. You can pass null if you are not interested in this information. </td></tr>
+    <tr><td class="paramname">pContext[out]</td><td>Context object that must be passed to <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a> to finish defragmentation. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd><code>VK_SUCCESS</code> and <code>*pContext == null</code> if defragmentation finished within this function call. <code>VK_NOT_READY</code> and <code>*pContext != null</code> if defragmentation has been started and you need to call <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a> to finish it. Negative value in case of error.</dd></dl>
+<p>Use this function instead of old, deprecated <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a>.</p>
+<p>It is important to note that between the call to <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a> and <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a>:</p>
+<ul>
+<li>You should not use any of allocations passed as <code>pInfo-&gt;pAllocations</code>, including calling <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>, <a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a" title="Returns VK_TRUE if allocation is not lost and atomically marks it as used in current frame...">vmaTouchAllocation()</a>, or accessing their data.</li>
+<li>Some mutexes protecting internal data structures may be locked, so trying to make or free any allocations, bind buffers or images, or map memory in between may cause stall (when done on another thread) or deadlock (when done on the same thread), unless you are 100% sure that separate memory pools are involved.</li>
+<li>Information returned via <code>pStats</code> and <code>pInfo-&gt;pAllocationsChanged</code> are undefined. They become valid after call to <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a>.</li>
+<li>If <code>pInfo-&gt;commandBuffer != VK_NULL_HANDLE</code>, you must submit that command buffer and make sure it finished execution before calling <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a>. </li>
+</ul>
+
+</div>
+</div>
+<a id="a8774e20e91e245aae959ba63efa15dd2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8774e20e91e245aae959ba63efa15dd2">&#9670;&nbsp;</a></span>vmaDefragmentationEnd()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaDefragmentationEnd </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_defragmentation_context.html">VmaDefragmentationContext</a>&#160;</td>
+          <td class="paramname"><em>context</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Ends defragmentation process. </p>
+<p>Use this function to finish defragmentation started by <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process. ">vmaDefragmentationBegin()</a>. It is safe to pass <code>context == null</code>. The function then does nothing. </p>
 
 </div>
 </div>

@@ -1490,7 +1490,7 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 /** \struct VmaAllocator
 \brief Represents main object of this library initialized.
 
-Fill structure VmaAllocatorCreateInfo and call function vmaCreateAllocator() to create it.
+Fill structure #VmaAllocatorCreateInfo and call function vmaCreateAllocator() to create it.
 Call function vmaDestroyAllocator() to destroy it.
 
 It is recommended to create just one object of this type per `VkDevice` object,
@@ -2521,7 +2521,91 @@ Possible return values:
 */
 VkResult vmaCheckCorruption(VmaAllocator allocator, uint32_t memoryTypeBits);
 
-/** \brief Optional configuration parameters to be passed to function vmaDefragment(). */
+/** \struct VmaDefragmentationContext
+\brief Represents Opaque object that represents started defragmentation process.
+
+Fill structure #VmaDefragmentationInfo2 and call function vmaDefragmentationBegin() to create it.
+Call function vmaDefragmentationEnd() to destroy it.
+*/
+VK_DEFINE_HANDLE(VmaDefragmentationContext)
+
+/// Flags to be used in vmaDefragmentationBegin().
+typedef enum VmaDefragmentationFlagBits {
+    /** Add this flag to enable allocations created with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT
+    flag to become lost during defragmentation process if the algorithm decides it is beneficial.
+    */
+    VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT = 0x00000001,
+
+    /** Add this flag to change defragmentation algorithm to fast rather than default (balanced).
+    This algorithm will favor speed over quality of defragmentation.
+    Defragmentation will be done as fast and move as little allocations and bytes as possible while
+    still providing some benefits.
+    */
+    VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT = 0x000010000,
+    /** Add this flag to change defragmentation algorithm to optimal rather than default (balanced).
+    This algorithm will favor quality of defragmentation over speed.
+    Allocations will be as perfectly compacted as possible.
+    */
+    VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT = 0x00002000,
+    /** \brief A bit mask to extract only `ALGORITHM` bits from entire set of flags.
+    */
+    VMA_DEFRAGMENTATION_ALGORITHM_MASK =
+        VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT |
+        VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT,
+
+    VMA_DEFRAGMENTATION_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaDefragmentationFlagBits;
+typedef VkFlags VmaDefragmentationFlags;
+
+/** \brief Parameters for defragmentation.
+
+To be used with function vmaDefragmentationBegin().
+*/
+typedef struct VmaDefragmentationInfo2 {
+    /** \brief Flags for defragmentation. Use #VmaDefragmentationFlagBits enum.
+    */
+    VmaDefragmentationFlags flags;
+    /** \brief Number of allocations in `pAllocations` array.
+    */
+    size_t allocationCount;
+    /** \brief Pointer to array of allocations that can be defragmented.
+
+    The array should have `allocationCount` elements.
+    All other allocations are considered non-moveable during this defragmentation.
+    */
+    VmaAllocation* pAllocations;
+    /** \brief Optional, output. Pointer to array that will be filled with information whether the allocation at certain index has been changed (moved or lost) during defragmentation.
+
+    The array should have `allocationCount` elements.
+    You can pass null if you are not interested in this information.
+    */
+    VkBool32* pAllocationsChanged;
+    /** \brief Maximum total numbers of bytes that can be copied while moving allocations to different places using transfers on CPU side, like `memcpy()`, `memmove()`.
+    
+    `VK_WHOLE_SIZE` means no limit.
+    */
+    VkDeviceSize maxCpuBytesToMove;
+    /** \brief Maximum number of allocations that can be moved to a different place using transfers on CPU side, like `memcpy()`, `memmove()`.
+
+    `UINT32_MAX` means no limit.
+    */
+    uint32_t maxCpuAllocationsToMove;
+    /** \brief Maximum total numbers of bytes that can be copied while moving allocations to different places using transfers on GPU side, posted to `commandBuffer`.
+    
+    `VK_WHOLE_SIZE` means no limit.
+    */
+    VkDeviceSize maxGpuBytesToMove;
+    /** \brief Maximum number of allocations that can be moved to a different place using transfers on GPU side, posted to `commandBuffer`.
+
+    `UINT32_MAX` means no limit.
+    */
+    uint32_t maxGpuAllocationsToMove;
+} VmaDefragmentationInfo2;
+
+/** \brief Deprecated. Optional configuration parameters to be passed to function vmaDefragment().
+
+\deprecated This is a part of the old interface. It is recommended to use structure #VmaDefragmentationInfo2 and function vmaDefragmentationBegin() instead.
+*/
 typedef struct VmaDefragmentationInfo {
     /** \brief Maximum total numbers of bytes that can be copied while moving allocations to different places.
     
@@ -2545,9 +2629,51 @@ typedef struct VmaDefragmentationStats {
     uint32_t allocationsMoved;
     /// Number of empty `VkDeviceMemory` objects that have been released to the system.
     uint32_t deviceMemoryBlocksFreed;
+    /// Number of allocations that became lost in the process of defragmentation.
+    uint32_t allocationsLost;
 } VmaDefragmentationStats;
 
-/** \brief Compacts memory by moving allocations.
+/** \brief Begins defragmentation process.
+
+@param allocator Allocator object.
+@param pInfo Structure filled with parameters of defragmentation.
+@param pStats[out] Optional. Statistics of defragmentation. You can pass null if you are not interested in this information.
+@param pContext[out] Context object that must be passed to vmaDefragmentationEnd() to finish defragmentation.
+@return `VK_SUCCESS` and `*pContext == null` if defragmentation finished within this function call. `VK_NOT_READY` and `*pContext != null` if defragmentation has been started and you need to call vmaDefragmentationEnd() to finish it. Negative value in case of error.
+
+Use this function instead of old, deprecated vmaDefragment().
+
+It is important to note that between the call to vmaDefragmentationBegin() and
+vmaDefragmentationEnd():
+
+- You should not use any of allocations passed as `pInfo->pAllocations`,
+  including calling vmaGetAllocationInfo(), vmaTouchAllocation(), or accessing
+  their data.
+- Some mutexes protecting internal data structures may be locked, so trying to
+  make or free any allocations, bind buffers or images, or map memory in between
+  may cause stall (when done on another thread) or deadlock (when done on the
+  same thread), unless you are 100% sure that separate memory pools are involved.
+- Information returned via `pStats` and `pInfo->pAllocationsChanged` are undefined.
+  They become valid after call to vmaDefragmentationEnd().
+- If `pInfo->commandBuffer != VK_NULL_HANDLE`, you must submit that command buffer
+  and make sure it finished execution before calling vmaDefragmentationEnd().
+*/
+VkResult vmaDefragmentationBegin(
+    VmaAllocator allocator,
+    const VmaDefragmentationInfo2* pInfo,
+    VmaDefragmentationStats* pStats,
+    VmaDefragmentationContext *pContext);
+
+/** \brief Ends defragmentation process.
+
+Use this function to finish defragmentation started by vmaDefragmentationBegin().
+It is safe to pass `context == null`. The function then does nothing.
+*/
+VkResult vmaDefragmentationEnd(
+    VmaAllocator allocator,
+    VmaDefragmentationContext context);
+
+/** \brief Deprecated. Compacts memory by moving allocations.
 
 @param pAllocations Array of allocations that can be moved during this compation.
 @param allocationCount Number of elements in pAllocations and pAllocationsChanged arrays.
@@ -2555,6 +2681,8 @@ typedef struct VmaDefragmentationStats {
 @param pDefragmentationInfo Configuration parameters. Optional - pass null to use default values.
 @param[out] pDefragmentationStats Statistics returned by the function. Optional - pass null if you don't need this information.
 @return `VK_SUCCESS` if completed, `VK_INCOMPLETE` if succeeded but didn't make all possible optimizations because limits specified in `pDefragmentationInfo` have been reached, negative error code in case of error.
+
+\deprecated This is a part of the old interface. It is recommended to use structure #VmaDefragmentationInfo2 and function vmaDefragmentationBegin() instead.
 
 This function works by moving allocations to different places (different
 `VkDeviceMemory` objects and/or different offsets) in order to optimize memory
@@ -5531,6 +5659,15 @@ public:
         uint32_t maxAllocationsToMove);
 };
 
+struct VmaDefragmentationContext_T
+{
+public:
+    VmaDefragmentationContext_T();
+    ~VmaDefragmentationContext_T();
+
+private:
+};
+
 #if VMA_RECORDING_ENABLED
 
 class VmaRecorder
@@ -5740,12 +5877,12 @@ public:
     void PrintDetailedMap(class VmaJsonWriter& json);
 #endif
 
-    VkResult Defragment(
-        VmaAllocation* pAllocations,
-        size_t allocationCount,
-        VkBool32* pAllocationsChanged,
-        const VmaDefragmentationInfo* pDefragmentationInfo,
-        VmaDefragmentationStats* pDefragmentationStats);
+    VkResult DefragmentationBegin(
+        const VmaDefragmentationInfo2& info,
+        VmaDefragmentationStats* pStats,
+        VmaDefragmentationContext* pContext);
+    VkResult DefragmentationEnd(
+        VmaDefragmentationContext context);
 
     void GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationInfo* pAllocationInfo);
     bool TouchAllocation(VmaAllocation hAllocation);
@@ -11309,6 +11446,17 @@ bool VmaDefragmentator::MoveMakesSense(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// VmaDefragmentationContext
+
+VmaDefragmentationContext_T::VmaDefragmentationContext_T()
+{
+}
+
+VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
+{
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // VmaRecorder
 
 #if VMA_RECORDING_ENABLED
@@ -12507,20 +12655,18 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
 
 static const uint32_t VMA_VENDOR_ID_AMD = 4098;
 
-VkResult VmaAllocator_T::Defragment(
-    VmaAllocation* pAllocations,
-    size_t allocationCount,
-    VkBool32* pAllocationsChanged,
-    const VmaDefragmentationInfo* pDefragmentationInfo,
-    VmaDefragmentationStats* pDefragmentationStats)
+VkResult VmaAllocator_T::DefragmentationBegin(
+    const VmaDefragmentationInfo2& info,
+    VmaDefragmentationStats* pStats,
+    VmaDefragmentationContext* pContext)
 {
-    if(pAllocationsChanged != VMA_NULL)
+    if(info.pAllocationsChanged != VMA_NULL)
     {
-        memset(pAllocationsChanged, 0, sizeof(*pAllocationsChanged));
+        memset(info.pAllocationsChanged, 0, info.allocationCount * sizeof(VkBool32));
     }
-    if(pDefragmentationStats != VMA_NULL)
+    if(pStats != VMA_NULL)
     {
-        memset(pDefragmentationStats, 0, sizeof(*pDefragmentationStats));
+        memset(pStats, 0, sizeof(VmaDefragmentationStats));
     }
 
     const uint32_t currentFrameIndex = m_CurrentFrameIndex.load();
@@ -12530,9 +12676,9 @@ VkResult VmaAllocator_T::Defragment(
     const size_t poolCount = m_Pools.size();
 
     // Dispatch pAllocations among defragmentators. Create them in BlockVectors when necessary.
-    for(size_t allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
+    for(size_t allocIndex = 0; allocIndex < info.allocationCount; ++allocIndex)
     {
-        VmaAllocation hAlloc = pAllocations[allocIndex];
+        VmaAllocation hAlloc = info.pAllocations[allocIndex];
         VMA_ASSERT(hAlloc);
         const uint32_t memTypeIndex = hAlloc->GetMemoryTypeIndex();
         // DedicatedAlloc cannot be defragmented.
@@ -12565,8 +12711,8 @@ VkResult VmaAllocator_T::Defragment(
             {
                 VmaDefragmentator* const pDefragmentator =
                     pAllocBlockVector->EnsureDefragmentator(this, currentFrameIndex);
-                VkBool32* const pChanged = (pAllocationsChanged != VMA_NULL) ?
-                    &pAllocationsChanged[allocIndex] : VMA_NULL;
+                VkBool32* const pChanged = (info.pAllocationsChanged != VMA_NULL) ?
+                    &info.pAllocationsChanged[allocIndex] : VMA_NULL;
                 pDefragmentator->AddAllocation(hAlloc, pChanged);
             }
         }
@@ -12576,13 +12722,8 @@ VkResult VmaAllocator_T::Defragment(
 
     // ======== Main processing.
 
-    VkDeviceSize maxBytesToMove = SIZE_MAX;
-    uint32_t maxAllocationsToMove = UINT32_MAX;
-    if(pDefragmentationInfo != VMA_NULL)
-    {
-        maxBytesToMove = pDefragmentationInfo->maxBytesToMove;
-        maxAllocationsToMove = pDefragmentationInfo->maxAllocationsToMove;
-    }
+    VkDeviceSize maxBytesToMove = info.maxCpuBytesToMove;
+    uint32_t maxAllocationsToMove = info.maxCpuAllocationsToMove;
 
     // Process standard memory.
     for(uint32_t memTypeIndex = 0;
@@ -12593,7 +12734,7 @@ VkResult VmaAllocator_T::Defragment(
         if((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
         {
             result = m_pBlockVectors[memTypeIndex]->Defragment(
-                pDefragmentationStats,
+                pStats,
                 maxBytesToMove,
                 maxAllocationsToMove);
         }
@@ -12603,7 +12744,7 @@ VkResult VmaAllocator_T::Defragment(
     for(size_t poolIndex = 0; (poolIndex < poolCount) && (result == VK_SUCCESS); ++poolIndex)
     {
         result = m_Pools[poolIndex]->m_BlockVector.Defragment(
-            pDefragmentationStats,
+            pStats,
             maxBytesToMove,
             maxAllocationsToMove);
     }
@@ -12626,6 +12767,13 @@ VkResult VmaAllocator_T::Defragment(
     }
 
     return result;
+}
+
+VkResult VmaAllocator_T::DefragmentationEnd(
+    VmaDefragmentationContext context)
+{
+    vma_delete(this, context);
+    return VK_SUCCESS;
 }
 
 void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationInfo* pAllocationInfo)
@@ -14041,13 +14189,66 @@ VkResult vmaDefragment(
     const VmaDefragmentationInfo *pDefragmentationInfo,
     VmaDefragmentationStats* pDefragmentationStats)
 {
-    VMA_ASSERT(allocator && pAllocations);
+    // Deprecated interface, reimplemented using new one.
 
-    VMA_DEBUG_LOG("vmaDefragment");
+    VmaDefragmentationInfo2 info2 = {};
+    info2.allocationCount = allocationCount;
+    info2.pAllocations = pAllocations;
+    info2.pAllocationsChanged = pAllocationsChanged;
+    if(pDefragmentationInfo != VMA_NULL)
+    {
+        info2.maxCpuAllocationsToMove = pDefragmentationInfo->maxAllocationsToMove;
+        info2.maxCpuBytesToMove = pDefragmentationInfo->maxBytesToMove;
+    }
+    else
+    {
+        info2.maxCpuAllocationsToMove = UINT32_MAX;
+        info2.maxCpuBytesToMove = VK_WHOLE_SIZE;
+    }
+    // info2.flags, maxGpuAllocationsToMove, maxGpuBytesToMove, commandBuffer deliberately left zero.
+
+    VmaDefragmentationContext ctx;
+    VkResult res = vmaDefragmentationBegin(allocator, &info2, pDefragmentationStats, &ctx);
+    if(res == VK_NOT_READY)
+    {
+        res = vmaDefragmentationEnd( allocator, ctx);
+    }
+    return res;
+}
+
+VkResult vmaDefragmentationBegin(
+    VmaAllocator allocator,
+    const VmaDefragmentationInfo2* pInfo,
+    VmaDefragmentationStats* pStats,
+    VmaDefragmentationContext *pContext)
+{
+    VMA_ASSERT(allocator && pInfo && pContext);
+
+    VMA_DEBUG_LOG("vmaDefragmentationBegin");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return allocator->Defragment(pAllocations, allocationCount, pAllocationsChanged, pDefragmentationInfo, pDefragmentationStats);
+    return allocator->DefragmentationBegin(*pInfo, pStats, pContext);
+}
+
+VkResult vmaDefragmentationEnd(
+    VmaAllocator allocator,
+    VmaDefragmentationContext context)
+{
+    VMA_ASSERT(allocator);
+
+    VMA_DEBUG_LOG("vmaDefragmentationEnd");
+
+    if(context != VK_NULL_HANDLE)
+    {
+        VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+        return allocator->DefragmentationEnd(context);
+    }
+    else
+    {
+        return VK_SUCCESS;
+    }
 }
 
 VkResult vmaBindBufferMemory(

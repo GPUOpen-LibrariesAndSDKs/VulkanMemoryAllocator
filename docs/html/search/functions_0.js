@@ -15,6 +15,8 @@ var searchData=
   ['vmacreatelostallocation',['vmaCreateLostAllocation',['../vk__mem__alloc_8h.html#ae5c9657d9e94756269145b01c05d16f1',1,'vk_mem_alloc.h']]],
   ['vmacreatepool',['vmaCreatePool',['../vk__mem__alloc_8h.html#a5c8770ded7c59c8caac6de0c2cb00b50',1,'vk_mem_alloc.h']]],
   ['vmadefragment',['vmaDefragment',['../vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb',1,'vk_mem_alloc.h']]],
+  ['vmadefragmentationbegin',['vmaDefragmentationBegin',['../vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a',1,'vk_mem_alloc.h']]],
+  ['vmadefragmentationend',['vmaDefragmentationEnd',['../vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2',1,'vk_mem_alloc.h']]],
   ['vmadestroyallocator',['vmaDestroyAllocator',['../vk__mem__alloc_8h.html#aa8d164061c88f22fb1fd3c8f3534bc1d',1,'vk_mem_alloc.h']]],
   ['vmadestroybuffer',['vmaDestroyBuffer',['../vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77',1,'vk_mem_alloc.h']]],
   ['vmadestroyimage',['vmaDestroyImage',['../vk__mem__alloc_8h.html#ae50d2cb3b4a3bfd4dd40987234e50e7e',1,'vk_mem_alloc.h']]],

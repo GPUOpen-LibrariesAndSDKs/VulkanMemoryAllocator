@@ -87,7 +87,7 @@ Additional considerations</h1>
 <ul>
 <li>Replaying file that was recorded on a different GPU (with different parameters like <code>bufferImageGranularity</code>, <code>nonCoherentAtomSize</code>, and especially different set of memory heaps and types) may give different performance and memory usage results, as well as issue some warnings and errors.</li>
 <li>Current implementation of recording in VMA, as well as VmaReplay application, is coded and tested only on Windows. Inclusion of recording code is driven by <code>VMA_RECORDING_ENABLED</code> macro. Support for other platforms should be easy to add. Contributions are welcomed.</li>
-<li>Currently calls to <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Compacts memory by moving allocations. ">vmaDefragment()</a> function are not recorded. </li>
+<li>Currently calls to <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations. ">vmaDefragment()</a> function are not recorded. </li>
 </ul>
 </div></div><!-- contents -->
 <!-- start footer part -->
