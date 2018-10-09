@@ -12516,7 +12516,7 @@ VkResult VmaAllocator_T::Defragment(
 {
     if(pAllocationsChanged != VMA_NULL)
     {
-        memset(pAllocationsChanged, 0, sizeof(*pAllocationsChanged));
+        memset(pAllocationsChanged, 0, allocationCount * sizeof(VkBool32));
     }
     if(pDefragmentationStats != VMA_NULL)
     {
