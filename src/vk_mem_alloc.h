@@ -2567,7 +2567,7 @@ typedef struct VmaDefragmentationInfo2 {
     VmaDefragmentationFlags flags;
     /** \brief Number of allocations in `pAllocations` array.
     */
-    size_t allocationCount;
+    uint32_t allocationCount;
     /** \brief Pointer to array of allocations that can be defragmented.
 
     The array should have `allocationCount` elements.
@@ -12749,7 +12749,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
             maxAllocationsToMove);
     }
 
-    // ========  Destroy defragmentators.
+    // ========  Destroy defragmentators (regardless of result).
 
     // Process custom pools.
     for(size_t poolIndex = poolCount; poolIndex--; )
@@ -14192,7 +14192,7 @@ VkResult vmaDefragment(
     // Deprecated interface, reimplemented using new one.
 
     VmaDefragmentationInfo2 info2 = {};
-    info2.allocationCount = allocationCount;
+    info2.allocationCount = (uint32_t)allocationCount;
     info2.pAllocations = pAllocations;
     info2.pAllocationsChanged = pAllocationsChanged;
     if(pDefragmentationInfo != VMA_NULL)
