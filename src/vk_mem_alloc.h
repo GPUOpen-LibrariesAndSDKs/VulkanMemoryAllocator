@@ -5435,8 +5435,11 @@ private:
     uint32_t m_Id;
     VkDeviceMemory m_hMemory;
 
-    // Protects access to m_hMemory so it's not used by multiple threads simultaneously, e.g. vkMapMemory, vkBindBufferMemory.
-    // Also protects m_MapCount, m_pMappedData.
+    /*
+    Protects access to m_hMemory so it's not used by multiple threads simultaneously, e.g. vkMapMemory, vkBindBufferMemory.
+    Also protects m_MapCount, m_pMappedData.
+    Allocations, deallocations, any change in m_pMetadata is protected by parent's VmaBlockVector::m_Mutex.
+    */
     VMA_MUTEX m_Mutex;
     uint32_t m_MapCount;
     void* m_pMappedData;
@@ -5538,7 +5541,7 @@ private:
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
     bool m_HasEmptyBlock;
-    VMA_MUTEX m_Mutex;
+    VMA_RW_MUTEX m_Mutex;
     // Incrementally sorted by sumFreeSize, ascending.
     VmaVector< VmaDeviceMemoryBlock*, VmaStlAllocator<VmaDeviceMemoryBlock*> > m_Blocks;
     /* There can be at most one allocation that is completely empty - a
@@ -5880,7 +5883,7 @@ public:
     VkAllocationCallbacks m_AllocationCallbacks;
     VmaDeviceMemoryCallbacks m_DeviceMemoryCallbacks;
     
-    // Number of bytes free out of limit, or VK_WHOLE_SIZE if not limit for that heap.
+    // Number of bytes free out of limit, or VK_WHOLE_SIZE if no limit for that heap.
     VkDeviceSize m_HeapSizeLimit[VK_MAX_MEMORY_HEAPS];
     VMA_MUTEX m_HeapSizeLimitMutex;
 
@@ -5893,7 +5896,7 @@ public:
     // Each vector is sorted by memory (handle value).
     typedef VmaVector< VmaAllocation, VmaStlAllocator<VmaAllocation> > AllocationVectorType;
     AllocationVectorType* m_pDedicatedAllocations[VK_MAX_MEMORY_TYPES];
-    VMA_MUTEX m_DedicatedAllocationsMutex[VK_MAX_MEMORY_TYPES];
+    VMA_RW_MUTEX m_DedicatedAllocationsMutex[VK_MAX_MEMORY_TYPES];
 
     VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo);
     VkResult Init(const VmaAllocatorCreateInfo* pCreateInfo);
@@ -10419,7 +10422,7 @@ VkResult VmaBlockVector::CreateMinBlocks()
 
 void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
 {
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     const size_t blockCount = m_Blocks.size();
 
@@ -10501,7 +10504,7 @@ VkResult VmaBlockVector::Allocate(
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     /*
     Under certain condition, this whole section can be skipped for optimization, so
@@ -10831,7 +10834,7 @@ void VmaBlockVector::Free(
 
     // Scope for lock.
     {
-        VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+        VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
 
         VmaDeviceMemoryBlock* pBlock = hAllocation->GetBlock();
 
@@ -11047,7 +11050,7 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
 
 void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 {
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     json.BeginObject();
 
@@ -11135,7 +11138,7 @@ VkResult VmaBlockVector::Defragment(
         return VK_SUCCESS;
     }
 
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     // Defragment.
     VkResult result = m_pDefragmentator->Defragment(maxBytesToMove, maxAllocationsToMove);
@@ -11195,7 +11198,7 @@ void VmaBlockVector::MakePoolAllocationsLost(
     uint32_t currentFrameIndex,
     size_t* pLostAllocationCount)
 {
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
     size_t lostAllocationCount = 0;
     for(uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
     {
@@ -11216,7 +11219,7 @@ VkResult VmaBlockVector::CheckCorruption()
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
 
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
     for(uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
     {
         VmaDeviceMemoryBlock* const pBlock = m_Blocks[blockIndex];
@@ -11235,7 +11238,7 @@ void VmaBlockVector::AddStats(VmaStats* pStats)
     const uint32_t memTypeIndex = m_MemoryTypeIndex;
     const uint32_t memHeapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(memTypeIndex);
 
-    VmaMutexLock lock(m_Mutex, m_hAllocator->m_UseMutex);
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     for(uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
     {
@@ -12529,7 +12532,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
 
     // Register it in m_pDedicatedAllocations.
     {
-        VmaMutexLock lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+        VmaMutexLockWrite lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
         AllocationVectorType* pDedicatedAllocations = m_pDedicatedAllocations[memTypeIndex];
         VMA_ASSERT(pDedicatedAllocations);
         VmaVectorInsertSorted<VmaPointerLess>(*pDedicatedAllocations, *pAllocation);
@@ -12807,7 +12810,7 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         const uint32_t memHeapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-        VmaMutexLock dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+        VmaMutexLockRead dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
         AllocationVectorType* const pDedicatedAllocVector = m_pDedicatedAllocations[memTypeIndex];
         VMA_ASSERT(pDedicatedAllocVector);
         for(size_t allocIndex = 0, allocCount = pDedicatedAllocVector->size(); allocIndex < allocCount; ++allocIndex)
@@ -12895,7 +12898,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
 
     VkResult result = VK_SUCCESS;
 
-    // ======== Main processing.
+    // ======== Main processing - call Defragment on block vectors.
 
     VkDeviceSize maxBytesToMove = info.maxCpuBytesToMove;
     uint32_t maxAllocationsToMove = info.maxCpuAllocationsToMove;
@@ -13435,7 +13438,7 @@ void VmaAllocator_T::FreeDedicatedMemory(VmaAllocation allocation)
 
     const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
     {
-        VmaMutexLock lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+        VmaMutexLockWrite lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
         AllocationVectorType* const pDedicatedAllocations = m_pDedicatedAllocations[memTypeIndex];
         VMA_ASSERT(pDedicatedAllocations);
         bool success = VmaVectorRemoveSorted<VmaPointerLess>(*pDedicatedAllocations, allocation);
@@ -13487,7 +13490,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
     bool dedicatedAllocationsStarted = false;
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        VmaMutexLock dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
+        VmaMutexLockRead dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
         AllocationVectorType* const pDedicatedAllocVector = m_pDedicatedAllocations[memTypeIndex];
         VMA_ASSERT(pDedicatedAllocVector);
         if(pDedicatedAllocVector->empty() == false)
