@@ -5519,12 +5519,11 @@ public:
         VmaAllocator hAllocator,
         uint32_t currentFrameIndex);
 
+    // If m_pDefragmentator is not null, uses it to defragment and destroys it.
     VkResult Defragment(
         VmaDefragmentationStats* pDefragmentationStats,
         VkDeviceSize& maxBytesToMove,
         uint32_t& maxAllocationsToMove);
-
-    void DestroyDefragmentator();
 
 private:
     friend class VmaDefragmentationAlgorithm;
@@ -11157,41 +11156,39 @@ VkResult VmaBlockVector::Defragment(
     }
     
     // Free empty blocks.
-    m_HasEmptyBlock = false;
-    for(size_t blockIndex = m_Blocks.size(); blockIndex--; )
+    if(result >= 0)
     {
-        VmaDeviceMemoryBlock* pBlock = m_Blocks[blockIndex];
-        if(pBlock->m_pMetadata->IsEmpty())
+        m_HasEmptyBlock = false;
+        for(size_t blockIndex = m_Blocks.size(); blockIndex--; )
         {
-            if(m_Blocks.size() > m_MinBlockCount)
+            VmaDeviceMemoryBlock* pBlock = m_Blocks[blockIndex];
+            if(pBlock->m_pMetadata->IsEmpty())
             {
-                if(pDefragmentationStats != VMA_NULL)
+                if(m_Blocks.size() > m_MinBlockCount)
                 {
-                    ++pDefragmentationStats->deviceMemoryBlocksFreed;
-                    pDefragmentationStats->bytesFreed += pBlock->m_pMetadata->GetSize();
-                }
+                    if(pDefragmentationStats != VMA_NULL)
+                    {
+                        ++pDefragmentationStats->deviceMemoryBlocksFreed;
+                        pDefragmentationStats->bytesFreed += pBlock->m_pMetadata->GetSize();
+                    }
 
-                VmaVectorRemove(m_Blocks, blockIndex);
-                pBlock->Destroy(m_hAllocator);
-                vma_delete(m_hAllocator, pBlock);
-            }
-            else
-            {
-                m_HasEmptyBlock = true;
+                    VmaVectorRemove(m_Blocks, blockIndex);
+                    pBlock->Destroy(m_hAllocator);
+                    vma_delete(m_hAllocator, pBlock);
+                }
+                else
+                {
+                    m_HasEmptyBlock = true;
+                }
             }
         }
     }
 
-    return result;
-}
+    // Destroy defragmentator.
+    vma_delete(m_hAllocator, m_pDefragmentator);
+    m_pDefragmentator = VMA_NULL;
 
-void VmaBlockVector::DestroyDefragmentator()
-{
-    if(m_pDefragmentator != VMA_NULL)
-    {
-        vma_delete(m_hAllocator, m_pDefragmentator);
-        m_pDefragmentator = VMA_NULL;
-    }
+    return result;
 }
 
 void VmaBlockVector::MakePoolAllocationsLost(
@@ -12898,7 +12895,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
 
     VkResult result = VK_SUCCESS;
 
-    // ======== Main processing - call Defragment on block vectors.
+    // Main processing: Call Defragment on block vectors.
 
     VkDeviceSize maxBytesToMove = info.maxCpuBytesToMove;
     uint32_t maxAllocationsToMove = info.maxCpuAllocationsToMove;
@@ -12925,23 +12922,6 @@ VkResult VmaAllocator_T::DefragmentationBegin(
             pStats,
             maxBytesToMove,
             maxAllocationsToMove);
-    }
-
-    // ========  Destroy defragmentators (regardless of result).
-
-    // Process custom pools.
-    for(size_t poolIndex = poolCount; poolIndex--; )
-    {
-        m_Pools[poolIndex]->m_BlockVector.DestroyDefragmentator();
-    }
-
-    // Process standard memory.
-    for(uint32_t memTypeIndex = GetMemoryTypeCount(); memTypeIndex--; )
-    {
-        if((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
-        {
-            m_pBlockVectors[memTypeIndex]->DestroyDefragmentator();
-        }
     }
 
     return result;
