@@ -2652,7 +2652,7 @@ vmaDefragmentationEnd():
 - Some mutexes protecting internal data structures may be locked, so trying to
   make or free any allocations, bind buffers or images, or map memory in between
   may cause stall (when done on another thread) or deadlock (when done on the
-  same thread), unless you are 100% sure that separate memory pools are involved.
+  same thread).
 - Information returned via `pStats` and `pInfo->pAllocationsChanged` are undefined.
   They become valid after call to vmaDefragmentationEnd().
 - If `pInfo->commandBuffer != VK_NULL_HANDLE`, you must submit that command buffer
@@ -2883,6 +2883,13 @@ the containers.
    #define VMA_USE_STL_LIST 1
 #endif
 
+#ifndef VMA_USE_STL_SHARED_MUTEX
+    // Minimum Visual Studio 2015 Update 2
+    #if defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 190023918
+        #define VMA_USE_STL_SHARED_MUTEX 1
+    #endif
+#endif
+
 #if VMA_USE_STL_VECTOR
    #include <vector>
 #endif
@@ -2901,7 +2908,7 @@ remove them if not needed.
 */
 #include <cassert> // for assert
 #include <algorithm> // for min, max
-#include <mutex> // for std::mutex
+#include <mutex>
 #include <atomic> // for std::atomic
 
 #ifndef VMA_NULL
@@ -3016,8 +3023,6 @@ void *aligned_alloc(size_t alignment, size_t size)
     class VmaMutex
     {
     public:
-        VmaMutex() { }
-        ~VmaMutex() { }
         void Lock() { m_Mutex.lock(); }
         void Unlock() { m_Mutex.unlock(); }
     private:
@@ -3025,6 +3030,52 @@ void *aligned_alloc(size_t alignment, size_t size)
     };
     #define VMA_MUTEX VmaMutex
 #endif
+
+// Read-write mutex, where "read" is shared access, "write" is exclusive access.
+#ifndef VMA_RW_MUTEX
+    #if VMA_USE_STL_SHARED_MUTEX
+        // Use std::shared_mutex from C++17.
+        #include <shared_mutex>
+        class VmaRWMutex
+        {
+        public:
+            void LockRead() { m_Mutex.lock_shared(); }
+            void UnlockRead() { m_Mutex.unlock_shared(); }
+            void LockWrite() { m_Mutex.lock(); }
+            void UnlockWrite() { m_Mutex.unlock(); }
+        private:
+            std::shared_mutex m_Mutex;
+        };
+        #define VMA_RW_MUTEX VmaRWMutex
+    #elif defined(_WIN32)
+        // Use SRWLOCK from WinAPI.
+        class VmaRWMutex
+        {
+        public:
+            VmaRWMutex() { InitializeSRWLock(&m_Lock); }
+            void LockRead() { AcquireSRWLockShared(&m_Lock); }
+            void UnlockRead() { ReleaseSRWLockShared(&m_Lock); }
+            void LockWrite() { AcquireSRWLockExclusive(&m_Lock); }
+            void UnlockWrite() { ReleaseSRWLockExclusive(&m_Lock); }
+        private:
+            SRWLOCK m_Lock;
+        };
+        #define VMA_RW_MUTEX VmaRWMutex
+    #else
+        // Less efficient fallback: Use normal mutex.
+        class VmaRWMutex
+        {
+        public:
+            void LockRead() { m_Mutex.Lock(); }
+            void UnlockRead() { m_Mutex.Unlock(); }
+            void LockWrite() { m_Mutex.Lock(); }
+            void UnlockWrite() { m_Mutex.Unlock(); }
+        private:
+            VMA_MUTEX m_Mutex;
+        };
+        #define VMA_RW_MUTEX VmaRWMutex
+    #endif // #if VMA_USE_STL_SHARED_MUTEX
+#endif // #ifndef VMA_RW_MUTEX
 
 /*
 If providing your own implementation, you need to implement a subset of std::atomic:
@@ -3384,23 +3435,37 @@ struct VmaMutexLock
 public:
     VmaMutexLock(VMA_MUTEX& mutex, bool useMutex) :
         m_pMutex(useMutex ? &mutex : VMA_NULL)
-    {
-        if(m_pMutex)
-        {
-            m_pMutex->Lock();
-        }
-    }
-    
+    { if(m_pMutex) { m_pMutex->Lock(); } }
     ~VmaMutexLock()
-    {
-        if(m_pMutex)
-        {
-            m_pMutex->Unlock();
-        }
-    }
-
+    { if(m_pMutex) { m_pMutex->Unlock(); } }
 private:
     VMA_MUTEX* m_pMutex;
+};
+
+// Helper RAII class to lock a RW mutex in constructor and unlock it in destructor (at the end of scope), for reading.
+struct VmaMutexLockRead
+{
+    VMA_CLASS_NO_COPY(VmaMutexLockRead)
+public:
+    VmaMutexLockRead(VMA_RW_MUTEX& mutex, bool useMutex) :
+        m_pMutex(useMutex ? &mutex : VMA_NULL)
+    { if(m_pMutex) { m_pMutex->LockRead(); } }
+    ~VmaMutexLockRead() { if(m_pMutex) { m_pMutex->UnlockRead(); } }
+private:
+    VMA_RW_MUTEX* m_pMutex;
+};
+
+// Helper RAII class to lock a RW mutex in constructor and unlock it in destructor (at the end of scope), for writing.
+struct VmaMutexLockWrite
+{
+    VMA_CLASS_NO_COPY(VmaMutexLockWrite)
+public:
+    VmaMutexLockWrite(VMA_RW_MUTEX& mutex, bool useMutex) :
+        m_pMutex(useMutex ? &mutex : VMA_NULL)
+    { if(m_pMutex) { m_pMutex->LockWrite(); } }
+    ~VmaMutexLockWrite() { if(m_pMutex) { m_pMutex->UnlockWrite(); } }
+private:
+    VMA_RW_MUTEX* m_pMutex;
 };
 
 #if VMA_DEBUG_GLOBAL_MUTEX
@@ -5959,7 +6024,7 @@ private:
     VkPhysicalDevice m_PhysicalDevice;
     VMA_ATOMIC_UINT32 m_CurrentFrameIndex;
     
-    VMA_MUTEX m_PoolsMutex;
+    VMA_RW_MUTEX m_PoolsMutex;
     // Protected by m_PoolsMutex. Sorted by pointer value.
     VmaVector<VmaPool, VmaStlAllocator<VmaPool> > m_Pools;
     uint32_t m_NextPoolId;
@@ -12731,7 +12796,7 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
 
     // Process custom pools.
     {
-        VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
         for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
         {
             m_Pools[poolIndex]->m_BlockVector.AddStats(pStats);
@@ -12781,7 +12846,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
 
     const uint32_t currentFrameIndex = m_CurrentFrameIndex.load();
 
-    VmaMutexLock poolsLock(m_PoolsMutex, m_UseMutex);
+    VmaMutexLockRead poolsLock(m_PoolsMutex, m_UseMutex);
 
     const size_t poolCount = m_Pools.size();
 
@@ -13039,7 +13104,7 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
 
     // Add to m_Pools.
     {
-        VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        VmaMutexLockWrite lock(m_PoolsMutex, m_UseMutex);
         (*pPool)->SetId(m_NextPoolId++);
         VmaVectorInsertSorted<VmaPointerLess>(m_Pools, *pPool);
     }
@@ -13051,7 +13116,7 @@ void VmaAllocator_T::DestroyPool(VmaPool pool)
 {
     // Remove from m_Pools.
     {
-        VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        VmaMutexLockWrite lock(m_PoolsMutex, m_UseMutex);
         bool success = VmaVectorRemoveSorted<VmaPointerLess>(m_Pools, pool);
         VMA_ASSERT(success && "Pool not found in Allocator.");
     }
@@ -13110,7 +13175,7 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
 
     // Process custom pools.
     {
-        VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
         for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
         {
             if(((1u << m_Pools[poolIndex]->m_BlockVector.GetMemoryTypeIndex()) & memoryTypeBits) != 0)
@@ -13484,7 +13549,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 
     // Custom pools
     {
-        VmaMutexLock lock(m_PoolsMutex, m_UseMutex);
+        VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
         const size_t poolCount = m_Pools.size();
         if(poolCount > 0)
         {
