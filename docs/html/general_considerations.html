@@ -113,6 +113,7 @@ Features not supported</h1>
 <li>Support for sparse binding and sparse residency. You can still use these features (when supported by the device) with VMA. You just need to do it yourself. Any explicit support for sparse binding/residency would rather require another, higher-level library on top of VMA.</li>
 <li>Data transfer - issuing commands that transfer data between buffers or images, any usage of <code>VkCommandList</code> or <code>VkQueue</code> and related synchronization is responsibility of the user.</li>
 <li>Allocations for imported/exported external memory. They tend to require explicit memory type index and dedicated allocation anyway, so they don't interact with main features of this library. Such special purpose allocations should be made manually, using <code>vkCreateBuffer()</code> and <code>vkAllocateMemory()</code>.</li>
+<li>Handling CPU memory allocation failures. When dynamically creating small C++ objects in CPU memory (not Vulkan memory), allocation failures are not checked and handled gracefully, because that would complicate code significantly and is usually not needed in desktop PC applications anyway.</li>
 <li>Support for any programming languages other than C/C++. Bindings to other languages are welcomed as external projects. </li>
 </ul>
 </div></div><!-- contents -->

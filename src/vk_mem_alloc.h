@@ -1452,6 +1452,10 @@ Features deliberately excluded from the scope of this library:
   explicit memory type index and dedicated allocation anyway, so they don't
   interact with main features of this library. Such special purpose allocations
   should be made manually, using `vkCreateBuffer()` and `vkAllocateMemory()`.
+- Handling CPU memory allocation failures. When dynamically creating small C++
+  objects in CPU memory (not Vulkan memory), allocation failures are not checked
+  and handled gracefully, because that would complicate code significantly and
+  is usually not needed in desktop PC applications anyway.
 - Support for any programming languages other than C/C++.
   Bindings to other languages are welcomed as external projects.
 
