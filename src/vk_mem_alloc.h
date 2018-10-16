@@ -714,7 +714,7 @@ allocations.
 To mitigate this problem, you can use vmaDefragment(). Given set of allocations,
 this function can move them to compact used memory, ensure more continuous free
 space and possibly also free some `VkDeviceMemory`. Currently it can work only on
-allocations made from memory type that is `HOST_VISIBLE` and `HOST_COHERENT`. Allocations are
+allocations made from memory type that is `HOST_VISIBLE`. Allocations are
 modified to point to the new `VkDeviceMemory` and offset. Data in this memory is
 also `memmove`-ed to the new place. However, if you have images or buffers bound
 to these allocations (and you certainly do), you need to destroy, recreate, and
@@ -11534,6 +11534,7 @@ VkResult VmaDefragmentator::Defragment(
     }
 
     const size_t blockCount = m_pBlockVector->m_Blocks.size();
+    const bool isNonCoherent = m_hAllocator->IsMemoryTypeNonCoherent(m_pBlockVector->GetMemoryTypeIndex());
 
     enum BLOCK_FLAG
     {
@@ -11582,6 +11583,9 @@ VkResult VmaDefragmentator::Defragment(
     // Go over all moves. Do actual data transfer.
     if(res >= 0)
     {
+        const VkDeviceSize nonCoherentAtomSize = m_hAllocator->m_PhysicalDeviceProperties.limits.nonCoherentAtomSize;
+        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+
         for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
         {
             const Move& move = moves[moveIndex];
@@ -11591,16 +11595,40 @@ VkResult VmaDefragmentator::Defragment(
 
             VMA_ASSERT(srcBlockInfo.pMappedData && dstBlockInfo.pMappedData);
 
+            // Invalidate source.
+            if(isNonCoherent)
+            {
+                VmaDeviceMemoryBlock* const pSrcBlock = m_pBlockVector->m_Blocks[move.srcBlockIndex];
+                memRange.memory = pSrcBlock->GetDeviceMemory();
+                memRange.offset = VmaAlignDown(move.srcOffset, nonCoherentAtomSize);
+                memRange.size = VMA_MIN(
+                    VmaAlignUp(move.size + (move.srcOffset - memRange.offset), nonCoherentAtomSize),
+                    pSrcBlock->m_pMetadata->GetSize() - memRange.offset);
+                (*m_hAllocator->GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hAllocator->m_hDevice, 1, &memRange);
+            }
+
             // THE PLACE WHERE ACTUAL DATA COPY HAPPENS.
             memcpy(
                 reinterpret_cast<char*>(dstBlockInfo.pMappedData) + move.dstOffset,
                 reinterpret_cast<char*>(srcBlockInfo.pMappedData) + move.srcOffset,
                 static_cast<size_t>(move.size));
 
-            if(VMA_DEBUG_MARGIN > 0)
+            if(m_pBlockVector->IsCorruptionDetectionEnabled())
             {
                 VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset - VMA_DEBUG_MARGIN);
                 VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset + move.size);
+            }
+
+            // Flush destination.
+            if(isNonCoherent)
+            {
+                VmaDeviceMemoryBlock* const pDstBlock = m_pBlockVector->m_Blocks[move.dstBlockIndex];
+                memRange.memory = pDstBlock->GetDeviceMemory();
+                memRange.offset = VmaAlignDown(move.dstOffset, nonCoherentAtomSize);
+                memRange.size = VMA_MIN(
+                    VmaAlignUp(move.size + (move.dstOffset - memRange.offset), nonCoherentAtomSize),
+                    pDstBlock->m_pMetadata->GetSize() - memRange.offset);
+                (*m_hAllocator->GetVulkanFunctions().vkFlushMappedMemoryRanges)(m_hAllocator->m_hDevice, 1, &memRange);
             }
         }
     }
@@ -12849,6 +12877,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
     VmaMutexLockRead poolsLock(m_PoolsMutex, m_UseMutex);
 
     const size_t poolCount = m_Pools.size();
+    const VkMemoryPropertyFlags requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
     // Dispatch pAllocations among defragmentators. Create them in BlockVectors when necessary.
     for(size_t allocIndex = 0; allocIndex < info.allocationCount; ++allocIndex)
@@ -12857,9 +12886,8 @@ VkResult VmaAllocator_T::DefragmentationBegin(
         VMA_ASSERT(hAlloc);
         const uint32_t memTypeIndex = hAlloc->GetMemoryTypeIndex();
         // DedicatedAlloc cannot be defragmented.
-        const VkMemoryPropertyFlags requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         if((hAlloc->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK) &&
-            // Only HOST_VISIBLE and HOST_COHERENT memory types can be defragmented.
+            // Only HOST_VISIBLE memory types can be defragmented.
             ((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & requiredMemFlags) == requiredMemFlags) &&
             // Lost allocation cannot be defragmented.
             (hAlloc->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST))
@@ -12906,7 +12934,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
         ++memTypeIndex)
     {
         // Only HOST_VISIBLE memory types can be defragmented.
-        if((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
+        if((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & requiredMemFlags) == requiredMemFlags)
         {
             result = m_pBlockVectors[memTypeIndex]->Defragment(
                 pStats,
