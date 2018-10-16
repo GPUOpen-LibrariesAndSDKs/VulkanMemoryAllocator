@@ -1447,7 +1447,7 @@ Features deliberately excluded from the scope of this library:
   yourself. Any explicit support for sparse binding/residency would rather
   require another, higher-level library on top of VMA.
 - Data transfer - issuing commands that transfer data between buffers or images, any usage of
-  `VkCommandList` or `VkQueue` and related synchronization is responsibility of the user.
+  `VkCommandBuffer` or `VkQueue` and related synchronization is responsibility of the user.
 - Allocations for imported/exported external memory. They tend to require
   explicit memory type index and dedicated allocation anyway, so they don't
   interact with main features of this library. Such special purpose allocations
@@ -2600,6 +2600,15 @@ typedef struct VmaDefragmentationInfo2 {
     `UINT32_MAX` means no limit.
     */
     uint32_t maxGpuAllocationsToMove;
+    /** \brief Optional. Command buffer where GPU copy commands will be posted.
+
+    If not null, it must be a valid command buffer handle that supports Transfer queue type.
+    It must be in the recording state and outside of a render pass instance.
+    You need to submit it and make sure it finished execution before calling vmaDefragmentationEnd().
+
+    Passing null means that only CPU defragmentation will be performed.
+    */
+    VkCommandBuffer commandBuffer;
 } VmaDefragmentationInfo2;
 
 /** \brief Deprecated. Optional configuration parameters to be passed to function vmaDefragment().
@@ -5453,7 +5462,16 @@ struct VmaPointerLess
     }
 };
 
-class VmaDefragmentator;
+struct VmaDefragmentationMove
+{
+    size_t srcBlockIndex;
+    size_t dstBlockIndex;
+    VkDeviceSize srcOffset;
+    VkDeviceSize dstOffset;
+    VkDeviceSize size;
+};
+
+class VmaDefragmentationAlgorithm;
 
 /*
 Sequence of VmaDeviceMemoryBlock. Represents memory blocks allocated for a specific
@@ -5465,6 +5483,9 @@ struct VmaBlockVector
 {
     VMA_CLASS_NO_COPY(VmaBlockVector)
 public:
+    // Used temporarily during defragmentation.
+    VmaDefragmentationAlgorithm* m_pDefragmentationAlgorithm;
+
     VmaBlockVector(
         VmaAllocator hAllocator,
         uint32_t memoryTypeIndex,
@@ -5515,11 +5536,7 @@ public:
         size_t* pLostAllocationCount);
     VkResult CheckCorruption();
 
-    VmaDefragmentator* EnsureDefragmentator(
-        VmaAllocator hAllocator,
-        uint32_t currentFrameIndex);
-
-    // If m_pDefragmentator is not null, uses it to defragment and destroys it.
+    // If m_pDefragmentationAlgorithm is not null, uses it to defragment and destroys it.
     VkResult Defragment(
         VmaDefragmentationStats* pDefragmentationStats,
         VkDeviceSize& maxBytesToMove,
@@ -5527,7 +5544,6 @@ public:
 
 private:
     friend class VmaDefragmentationAlgorithm;
-    friend class VmaDefragmentator;
 
     const VmaAllocator m_hAllocator;
     const uint32_t m_MemoryTypeIndex;
@@ -5539,14 +5555,13 @@ private:
     const bool m_IsCustomPool;
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
+    /* There can be at most one allocation that is completely empty - a
+    hysteresis to avoid pessimistic case of alternating creation and destruction
+    of a VkDeviceMemory. */
     bool m_HasEmptyBlock;
     VMA_RW_MUTEX m_Mutex;
     // Incrementally sorted by sumFreeSize, ascending.
     VmaVector< VmaDeviceMemoryBlock*, VmaStlAllocator<VmaDeviceMemoryBlock*> > m_Blocks;
-    /* There can be at most one allocation that is completely empty - a
-    hysteresis to avoid pessimistic case of alternating creation and destruction
-    of a VkDeviceMemory. */
-    VmaDefragmentator* m_pDefragmentator;
     uint32_t m_NextBlockId;
 
     VkDeviceSize CalcMaxBlockSize() const;
@@ -5597,19 +5612,17 @@ private:
     uint32_t m_Id;
 };
 
+/*
+Performs defragmentation:
+
+- Updates `pBlockVector->m_pMetadata`.
+- Updates allocations by calling ChangeBlockAllocation().
+- Does not move actual data, only returns requested moves as `moves`.
+*/
 class VmaDefragmentationAlgorithm
 {
     VMA_CLASS_NO_COPY(VmaDefragmentationAlgorithm)
 public:
-    struct Move
-    {
-        size_t srcBlockIndex;
-        size_t dstBlockIndex;
-        VkDeviceSize srcOffset;
-        VkDeviceSize dstOffset;
-        VkDeviceSize size;
-    };
-
     VmaDefragmentationAlgorithm(
         VmaAllocator hAllocator,
         VmaBlockVector* pBlockVector,
@@ -5619,7 +5632,7 @@ public:
     void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
 
     VkResult Defragment(
-        VmaVector< Move, VmaStlAllocator<Move> >& moves,
+        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
         uint32_t maxAllocationsToMove);
 
@@ -5723,7 +5736,7 @@ private:
     BlockInfoVector m_Blocks;
 
     VkResult DefragmentRound(
-        VmaVector< Move, VmaStlAllocator<Move> >& moves,
+        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
         uint32_t maxAllocationsToMove);
 
@@ -5731,33 +5744,6 @@ private:
         size_t dstBlockIndex, VkDeviceSize dstOffset,
         size_t srcBlockIndex, VkDeviceSize srcOffset);
 
-};
-
-class VmaDefragmentator
-{
-    VMA_CLASS_NO_COPY(VmaDefragmentator)
-private:
-    const VmaAllocator m_hAllocator;
-    VmaBlockVector* const m_pBlockVector;
-    uint32_t m_CurrentFrameIndex;
-    VmaDefragmentationAlgorithm* m_pAlgorithm;
-
-public:
-    VmaDefragmentator(
-        VmaAllocator hAllocator,
-        VmaBlockVector* pBlockVector,
-        uint32_t currentFrameIndex);
-
-    ~VmaDefragmentator();
-
-    VkDeviceSize GetBytesMoved() const { return m_pAlgorithm->GetBytesMoved(); }
-    uint32_t GetAllocationsMoved() const { return m_pAlgorithm->GetAllocationsMoved(); }
-
-    void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
-
-    VkResult Defragment(
-        VkDeviceSize maxBytesToMove,
-        uint32_t maxAllocationsToMove);
 };
 
 struct VmaDefragmentationContext_T
@@ -10378,6 +10364,7 @@ VmaBlockVector::VmaBlockVector(
     bool isCustomPool,
     bool explicitBlockSize,
     uint32_t algorithm) :
+    m_pDefragmentationAlgorithm(VMA_NULL),
     m_hAllocator(hAllocator),
     m_MemoryTypeIndex(memoryTypeIndex),
     m_PreferredBlockSize(preferredBlockSize),
@@ -10390,14 +10377,13 @@ VmaBlockVector::VmaBlockVector(
     m_Algorithm(algorithm),
     m_HasEmptyBlock(false),
     m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
-    m_pDefragmentator(VMA_NULL),
     m_NextBlockId(0)
 {
 }
 
 VmaBlockVector::~VmaBlockVector()
 {
-    VMA_ASSERT(m_pDefragmentator == VMA_NULL);
+    VMA_ASSERT(m_pDefragmentationAlgorithm == VMA_NULL);
 
     for(size_t i = m_Blocks.size(); i--; )
     {
@@ -11112,27 +11098,12 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 
 #endif // #if VMA_STATS_STRING_ENABLED
 
-VmaDefragmentator* VmaBlockVector::EnsureDefragmentator(
-    VmaAllocator hAllocator,
-    uint32_t currentFrameIndex)
-{
-    if(m_pDefragmentator == VMA_NULL)
-    {
-        m_pDefragmentator = vma_new(m_hAllocator, VmaDefragmentator)(
-            hAllocator,
-            this,
-            currentFrameIndex);
-    }
-
-    return m_pDefragmentator;
-}
-
 VkResult VmaBlockVector::Defragment(
     VmaDefragmentationStats* pDefragmentationStats,
     VkDeviceSize& maxBytesToMove,
     uint32_t& maxAllocationsToMove)
 {
-    if(m_pDefragmentator == VMA_NULL)
+    if(!m_pDefragmentationAlgorithm)
     {
         return VK_SUCCESS;
     }
@@ -11140,13 +11111,134 @@ VkResult VmaBlockVector::Defragment(
     VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     // Defragment.
-    VkResult result = m_pDefragmentator->Defragment(maxBytesToMove, maxAllocationsToMove);
+    VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> > moves = 
+        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >(VmaStlAllocator<VmaDefragmentationMove>(m_hAllocator->GetAllocationCallbacks()));
+    VkResult res = m_pDefragmentationAlgorithm->Defragment(moves, maxBytesToMove, maxAllocationsToMove);
+    if(res < 0)
+    {
+        return res;
+    }
+
+    if(res >= VK_SUCCESS)
+    {
+        const size_t blockCount = m_Blocks.size();
+        const bool isNonCoherent = m_hAllocator->IsMemoryTypeNonCoherent(m_MemoryTypeIndex);
+
+        enum BLOCK_FLAG
+        {
+            BLOCK_FLAG_USED = 0x00000001,
+            BLOCK_FLAG_MAPPED_FOR_DEFRAGMENTATION = 0x00000002,
+        };
+
+        struct BlockInfo
+        {
+            uint32_t flags;
+            void* pMappedData;
+        };
+        VmaVector< BlockInfo, VmaStlAllocator<BlockInfo> >
+            blockInfo(blockCount, VmaStlAllocator<BlockInfo>(m_hAllocator->GetAllocationCallbacks()));
+        memset(blockInfo.data(), 0, blockCount * sizeof(BlockInfo));
+
+        // Go over all moves. Mark blocks that are used with BLOCK_FLAG_USED.
+        const size_t moveCount = moves.size();
+        for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
+        {
+            const VmaDefragmentationMove& move = moves[moveIndex];
+            blockInfo[move.srcBlockIndex].flags |= BLOCK_FLAG_USED;
+            blockInfo[move.dstBlockIndex].flags |= BLOCK_FLAG_USED;
+        }
+
+        // Go over all blocks. Get mapped pointer or map if necessary.
+        for(size_t blockIndex = 0; (res >= 0) && (blockIndex < blockCount); ++blockIndex)
+        {
+            BlockInfo& currBlockInfo = blockInfo[blockIndex];
+            VmaDeviceMemoryBlock* pBlock = m_Blocks[blockIndex];
+            if((currBlockInfo.flags & BLOCK_FLAG_USED) != 0)
+            {
+                currBlockInfo.pMappedData = pBlock->GetMappedData();
+                // It is not originally mapped - map it.
+                if(currBlockInfo.pMappedData == VMA_NULL)
+                {
+                    res = pBlock->Map(m_hAllocator, 1, &currBlockInfo.pMappedData);
+                    if(res == VK_SUCCESS)
+                    {
+                        currBlockInfo.flags |= BLOCK_FLAG_MAPPED_FOR_DEFRAGMENTATION;
+                    }
+                }
+            }
+        }
+
+        // Go over all moves. Do actual data transfer.
+        if(res >= 0)
+        {
+            const VkDeviceSize nonCoherentAtomSize = m_hAllocator->m_PhysicalDeviceProperties.limits.nonCoherentAtomSize;
+            VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+
+            for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
+            {
+                const VmaDefragmentationMove& move = moves[moveIndex];
+
+                const BlockInfo& srcBlockInfo = blockInfo[move.srcBlockIndex];
+                const BlockInfo& dstBlockInfo = blockInfo[move.dstBlockIndex];
+
+                VMA_ASSERT(srcBlockInfo.pMappedData && dstBlockInfo.pMappedData);
+
+                // Invalidate source.
+                if(isNonCoherent)
+                {
+                    VmaDeviceMemoryBlock* const pSrcBlock = m_Blocks[move.srcBlockIndex];
+                    memRange.memory = pSrcBlock->GetDeviceMemory();
+                    memRange.offset = VmaAlignDown(move.srcOffset, nonCoherentAtomSize);
+                    memRange.size = VMA_MIN(
+                        VmaAlignUp(move.size + (move.srcOffset - memRange.offset), nonCoherentAtomSize),
+                        pSrcBlock->m_pMetadata->GetSize() - memRange.offset);
+                    (*m_hAllocator->GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hAllocator->m_hDevice, 1, &memRange);
+                }
+
+                // THE PLACE WHERE ACTUAL DATA COPY HAPPENS.
+                memcpy(
+                    reinterpret_cast<char*>(dstBlockInfo.pMappedData) + move.dstOffset,
+                    reinterpret_cast<char*>(srcBlockInfo.pMappedData) + move.srcOffset,
+                    static_cast<size_t>(move.size));
+
+                if(IsCorruptionDetectionEnabled())
+                {
+                    VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset - VMA_DEBUG_MARGIN);
+                    VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset + move.size);
+                }
+
+                // Flush destination.
+                if(isNonCoherent)
+                {
+                    VmaDeviceMemoryBlock* const pDstBlock = m_Blocks[move.dstBlockIndex];
+                    memRange.memory = pDstBlock->GetDeviceMemory();
+                    memRange.offset = VmaAlignDown(move.dstOffset, nonCoherentAtomSize);
+                    memRange.size = VMA_MIN(
+                        VmaAlignUp(move.size + (move.dstOffset - memRange.offset), nonCoherentAtomSize),
+                        pDstBlock->m_pMetadata->GetSize() - memRange.offset);
+                    (*m_hAllocator->GetVulkanFunctions().vkFlushMappedMemoryRanges)(m_hAllocator->m_hDevice, 1, &memRange);
+                }
+            }
+        }
+
+        // Go over all blocks in reverse order. Unmap those that were mapped just for defragmentation.
+        // Regardless of res >= 0.
+        for(size_t blockIndex = blockCount; blockIndex--; )
+        {
+            const BlockInfo& currBlockInfo = blockInfo[blockIndex];
+            if((currBlockInfo.flags & BLOCK_FLAG_MAPPED_FOR_DEFRAGMENTATION) != 0)
+            {
+                VmaDeviceMemoryBlock* pBlock = m_Blocks[blockIndex];
+                pBlock->Unmap(m_hAllocator, 1);
+            }
+        }
+    }
 
     // Accumulate statistics.
     if(pDefragmentationStats != VMA_NULL)
     {
-        const VkDeviceSize bytesMoved = m_pDefragmentator->GetBytesMoved();
-        const uint32_t allocationsMoved = m_pDefragmentator->GetAllocationsMoved();
+        const VkDeviceSize bytesMoved = m_pDefragmentationAlgorithm->GetBytesMoved();
+        const uint32_t allocationsMoved = m_pDefragmentationAlgorithm->GetAllocationsMoved();
         pDefragmentationStats->bytesMoved += bytesMoved;
         pDefragmentationStats->allocationsMoved += allocationsMoved;
         VMA_ASSERT(bytesMoved <= maxBytesToMove);
@@ -11156,7 +11248,7 @@ VkResult VmaBlockVector::Defragment(
     }
     
     // Free empty blocks.
-    if(result >= 0)
+    if(res >= 0)
     {
         m_HasEmptyBlock = false;
         for(size_t blockIndex = m_Blocks.size(); blockIndex--; )
@@ -11184,11 +11276,11 @@ VkResult VmaBlockVector::Defragment(
         }
     }
 
-    // Destroy defragmentator.
-    vma_delete(m_hAllocator, m_pDefragmentator);
-    m_pDefragmentator = VMA_NULL;
+    // Destroy defragmentation algorithm object.
+    vma_delete(m_hAllocator, m_pDefragmentationAlgorithm);
+    m_pDefragmentationAlgorithm = VMA_NULL;
 
-    return result;
+    return res;
 }
 
 void VmaBlockVector::MakePoolAllocationsLost(
@@ -11284,7 +11376,7 @@ void VmaDefragmentationAlgorithm::AddAllocation(VmaAllocation hAlloc, VkBool32* 
 }
 
 VkResult VmaDefragmentationAlgorithm::DefragmentRound(
-    VmaVector< Move, VmaStlAllocator<Move> >& moves,
+    VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
     uint32_t maxAllocationsToMove)
 {
@@ -11357,7 +11449,7 @@ VkResult VmaDefragmentationAlgorithm::DefragmentRound(
                     return VK_INCOMPLETE;
                 }
 
-                Move move;
+                VmaDefragmentationMove move;
                 move.srcBlockIndex = pSrcBlockInfo->m_OriginalBlockIndex;
                 move.dstBlockIndex = pDstBlockInfo->m_OriginalBlockIndex;
                 move.srcOffset = srcOffset;
@@ -11411,7 +11503,7 @@ VkResult VmaDefragmentationAlgorithm::DefragmentRound(
 }
 
 VkResult VmaDefragmentationAlgorithm::Defragment(
-    VmaVector< Move, VmaStlAllocator<Move> >& moves,
+    VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
     uint32_t maxAllocationsToMove)
 {
@@ -11491,161 +11583,6 @@ bool VmaDefragmentationAlgorithm::MoveMakesSense(
         return true;
     }
     return false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// VmaDefragmentator members definition
-
-VmaDefragmentator::VmaDefragmentator(
-    VmaAllocator hAllocator,
-    VmaBlockVector* pBlockVector,
-    uint32_t currentFrameIndex) :
-    m_hAllocator(hAllocator),
-    m_pBlockVector(pBlockVector),
-    m_CurrentFrameIndex(currentFrameIndex),
-    m_pAlgorithm(vma_new(hAllocator, VmaDefragmentationAlgorithm)(
-        hAllocator, pBlockVector, currentFrameIndex))
-{
-    VMA_ASSERT(pBlockVector->GetAlgorithm() == 0);
-}
-
-VmaDefragmentator::~VmaDefragmentator()
-{
-    vma_delete(m_hAllocator, m_pAlgorithm);
-}
-
-void VmaDefragmentator::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
-{
-    m_pAlgorithm->AddAllocation(hAlloc, pChanged);
-}
-
-VkResult VmaDefragmentator::Defragment(
-    VkDeviceSize maxBytesToMove,
-    uint32_t maxAllocationsToMove)
-{
-    typedef VmaDefragmentationAlgorithm::Move Move;
-    
-    VmaVector< Move, VmaStlAllocator<Move> > moves = 
-        VmaVector< Move, VmaStlAllocator<Move> >(VmaStlAllocator<Move>(m_hAllocator->GetAllocationCallbacks()));
-    VkResult res = m_pAlgorithm->Defragment(moves, maxBytesToMove, maxAllocationsToMove);
-    if(res < 0)
-    {
-        return res;
-    }
-
-    const size_t blockCount = m_pBlockVector->m_Blocks.size();
-    const bool isNonCoherent = m_hAllocator->IsMemoryTypeNonCoherent(m_pBlockVector->GetMemoryTypeIndex());
-
-    enum BLOCK_FLAG
-    {
-        BLOCK_FLAG_USED = 0x00000001,
-        BLOCK_FLAG_MAPPED_FOR_DEFRAGMENTATION = 0x00000002,
-    };
-
-    struct BlockInfo
-    {
-        uint32_t flags;
-        void* pMappedData;
-    };
-    VmaVector< BlockInfo, VmaStlAllocator<BlockInfo> >
-        blockInfo(blockCount, VmaStlAllocator<BlockInfo>(m_hAllocator->GetAllocationCallbacks()));
-    memset(blockInfo.data(), 0, blockCount * sizeof(BlockInfo));
-
-    // Go over all moves. Mark blocks that are used with BLOCK_FLAG_USED.
-    const size_t moveCount = moves.size();
-    for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
-    {
-        const Move& move = moves[moveIndex];
-        blockInfo[move.srcBlockIndex].flags |= BLOCK_FLAG_USED;
-        blockInfo[move.dstBlockIndex].flags |= BLOCK_FLAG_USED;
-    }
-
-    // Go over all blocks. Get mapped pointer or map if necessary.
-    for(size_t blockIndex = 0; (res >= 0) && (blockIndex < blockCount); ++blockIndex)
-    {
-        BlockInfo& currBlockInfo = blockInfo[blockIndex];
-        VmaDeviceMemoryBlock* pBlock = m_pBlockVector->m_Blocks[blockIndex];
-        if((currBlockInfo.flags & BLOCK_FLAG_USED) != 0)
-        {
-            currBlockInfo.pMappedData = pBlock->GetMappedData();
-            // It is not originally mapped - map it.
-            if(currBlockInfo.pMappedData == VMA_NULL)
-            {
-                res = pBlock->Map(m_hAllocator, 1, &currBlockInfo.pMappedData);
-                if(res == VK_SUCCESS)
-                {
-                    currBlockInfo.flags |= BLOCK_FLAG_MAPPED_FOR_DEFRAGMENTATION;
-                }
-            }
-        }
-    }
-
-    // Go over all moves. Do actual data transfer.
-    if(res >= 0)
-    {
-        const VkDeviceSize nonCoherentAtomSize = m_hAllocator->m_PhysicalDeviceProperties.limits.nonCoherentAtomSize;
-        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-
-        for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
-        {
-            const Move& move = moves[moveIndex];
-
-            const BlockInfo& srcBlockInfo = blockInfo[move.srcBlockIndex];
-            const BlockInfo& dstBlockInfo = blockInfo[move.dstBlockIndex];
-
-            VMA_ASSERT(srcBlockInfo.pMappedData && dstBlockInfo.pMappedData);
-
-            // Invalidate source.
-            if(isNonCoherent)
-            {
-                VmaDeviceMemoryBlock* const pSrcBlock = m_pBlockVector->m_Blocks[move.srcBlockIndex];
-                memRange.memory = pSrcBlock->GetDeviceMemory();
-                memRange.offset = VmaAlignDown(move.srcOffset, nonCoherentAtomSize);
-                memRange.size = VMA_MIN(
-                    VmaAlignUp(move.size + (move.srcOffset - memRange.offset), nonCoherentAtomSize),
-                    pSrcBlock->m_pMetadata->GetSize() - memRange.offset);
-                (*m_hAllocator->GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hAllocator->m_hDevice, 1, &memRange);
-            }
-
-            // THE PLACE WHERE ACTUAL DATA COPY HAPPENS.
-            memcpy(
-                reinterpret_cast<char*>(dstBlockInfo.pMappedData) + move.dstOffset,
-                reinterpret_cast<char*>(srcBlockInfo.pMappedData) + move.srcOffset,
-                static_cast<size_t>(move.size));
-
-            if(m_pBlockVector->IsCorruptionDetectionEnabled())
-            {
-                VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset - VMA_DEBUG_MARGIN);
-                VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset + move.size);
-            }
-
-            // Flush destination.
-            if(isNonCoherent)
-            {
-                VmaDeviceMemoryBlock* const pDstBlock = m_pBlockVector->m_Blocks[move.dstBlockIndex];
-                memRange.memory = pDstBlock->GetDeviceMemory();
-                memRange.offset = VmaAlignDown(move.dstOffset, nonCoherentAtomSize);
-                memRange.size = VMA_MIN(
-                    VmaAlignUp(move.size + (move.dstOffset - memRange.offset), nonCoherentAtomSize),
-                    pDstBlock->m_pMetadata->GetSize() - memRange.offset);
-                (*m_hAllocator->GetVulkanFunctions().vkFlushMappedMemoryRanges)(m_hAllocator->m_hDevice, 1, &memRange);
-            }
-        }
-    }
-
-    // Go over all blocks in reverse order. Unmap those that were mapped just for defragmentation.
-    // Regardless of res >= 0.
-    for(size_t blockIndex = blockCount; blockIndex--; )
-    {
-        const BlockInfo& currBlockInfo = blockInfo[blockIndex];
-        if((currBlockInfo.flags & BLOCK_FLAG_MAPPED_FOR_DEFRAGMENTATION) != 0)
-        {
-            VmaDeviceMemoryBlock* pBlock = m_pBlockVector->m_Blocks[blockIndex];
-            pBlock->Unmap(m_hAllocator, 1);
-        }
-    }
-
-    return res;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -12879,7 +12816,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
     const size_t poolCount = m_Pools.size();
     const VkMemoryPropertyFlags requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
-    // Dispatch pAllocations among defragmentators. Create them in BlockVectors when necessary.
+    // Dispatch pAllocations among defragmentators. Create them when necessary.
     for(size_t allocIndex = 0; allocIndex < info.allocationCount; ++allocIndex)
     {
         VmaAllocation hAlloc = info.pAllocations[allocIndex];
@@ -12892,31 +12829,34 @@ VkResult VmaAllocator_T::DefragmentationBegin(
             // Lost allocation cannot be defragmented.
             (hAlloc->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST))
         {
-            VmaBlockVector* pAllocBlockVector = VMA_NULL;
+            VmaBlockVector* pBlockVector = VMA_NULL;
 
             const VmaPool hAllocPool = hAlloc->GetPool();
             // This allocation belongs to custom pool.
             if(hAllocPool != VK_NULL_HANDLE)
             {
-                // Pools with linear or buddy algorithm are not defragmented.
+                // Pools with algorithm other than default are not defragmented.
                 if(hAllocPool->m_BlockVector.GetAlgorithm() == 0)
                 {
-                    pAllocBlockVector = &hAllocPool->m_BlockVector;
+                    pBlockVector = &hAllocPool->m_BlockVector;
                 }
             }
             // This allocation belongs to general pool.
             else
             {
-                pAllocBlockVector = m_pBlockVectors[memTypeIndex];
+                pBlockVector = m_pBlockVectors[memTypeIndex];
             }
 
-            if(pAllocBlockVector != VMA_NULL)
+            if(pBlockVector != VMA_NULL)
             {
-                VmaDefragmentator* const pDefragmentator =
-                    pAllocBlockVector->EnsureDefragmentator(this, currentFrameIndex);
+                if(!pBlockVector->m_pDefragmentationAlgorithm)
+                {
+                    pBlockVector->m_pDefragmentationAlgorithm = vma_new(this, VmaDefragmentationAlgorithm)(
+                        this, pBlockVector, currentFrameIndex);
+                }
                 VkBool32* const pChanged = (info.pAllocationsChanged != VMA_NULL) ?
                     &info.pAllocationsChanged[allocIndex] : VMA_NULL;
-                pDefragmentator->AddAllocation(hAlloc, pChanged);
+                pBlockVector->m_pDefragmentationAlgorithm->AddAllocation(hAlloc, pChanged);
             }
         }
     }
