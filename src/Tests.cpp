@@ -1460,7 +1460,9 @@ static void TestDefragmentationGpu()
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.size = bufSize;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -1495,20 +1497,22 @@ static void TestDefragmentationGpu()
     // Defragment using GPU only.
     {
         const size_t allocCount = allocations.size();
+
         std::vector<VmaAllocation> allocationPtrs(allocCount);
         std::vector<VkBool32> allocationChanged(allocCount);
         for(size_t i = 0; i < allocCount; ++i)
         {
             allocationPtrs[i] = allocations[i].m_Allocation;
-            allocationChanged[i] = VK_FALSE;
         }
+        memset(allocationChanged.data(), 0, allocCount * sizeof(VkBool32));
 
         BeginSingleTimeCommands();
 
         VmaDefragmentationInfo2 defragInfo = {};
         defragInfo.allocationCount = (uint32_t)allocCount;
         defragInfo.pAllocations = allocationPtrs.data();
-        defragInfo.maxGpuBytesToMove = 0;//VK_WHOLE_SIZE;
+        defragInfo.pAllocationsChanged = allocationChanged.data();
+        defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
         defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
         defragInfo.commandBuffer = g_hTemporaryCommandBuffer;
 
@@ -1529,9 +1533,9 @@ static void TestDefragmentationGpu()
             }
         }
 
-        //TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
-        //TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
-        //TEST(stats.allocationsLost == 0);
+        TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
+        TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
+        TEST(stats.allocationsLost == 0);
     }
 
     ValidateGpuData(allocations.data(), allocations.size());
@@ -4686,8 +4690,6 @@ void Test()
         // ########################################
         
         TestDefragmentationGpu();
-        TestDefragmentationSimple();
-        TestDefragmentationFull();
         return;
     }
 
