@@ -649,16 +649,46 @@ static void SaveAllocatorStatsToFile(const wchar_t* filePath)
 
 struct AllocInfo
 {
-    VmaAllocation m_Allocation;
-    VkBuffer m_Buffer;
-    VkImage m_Image;
-    uint32_t m_StartValue;
+    VmaAllocation m_Allocation = VK_NULL_HANDLE;
+    VkBuffer m_Buffer = VK_NULL_HANDLE;
+    VkImage m_Image = VK_NULL_HANDLE;
+    uint32_t m_StartValue = 0;
     union
     {
         VkBufferCreateInfo m_BufferInfo;
         VkImageCreateInfo m_ImageInfo;
     };
+
+    void CreateBuffer(
+        const VkBufferCreateInfo& bufCreateInfo,
+        const VmaAllocationCreateInfo& allocCreateInfo);
+    void Destroy();
 };
+
+void AllocInfo::CreateBuffer(
+    const VkBufferCreateInfo& bufCreateInfo,
+    const VmaAllocationCreateInfo& allocCreateInfo)
+{
+    m_BufferInfo = bufCreateInfo;
+    VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &m_Buffer, &m_Allocation, nullptr);
+    TEST(res == VK_SUCCESS);
+}
+
+void AllocInfo::Destroy()
+{
+    if(m_Image)
+    {
+        vkDestroyImage(g_hDevice, m_Image, nullptr);
+    }
+    if(m_Buffer)
+    {
+        vkDestroyBuffer(g_hDevice, m_Buffer, nullptr);
+    }
+    if(m_Allocation)
+    {
+        vmaFreeMemory(g_hAllocator, m_Allocation);
+    }
+}
 
 class StagingBufferCollection
 {
@@ -997,7 +1027,7 @@ static void CreateBuffer(
     }
 }
 
-static void CreateAllocation(AllocInfo& outAllocation, VmaAllocator allocator)
+static void CreateAllocation(AllocInfo& outAllocation)
 {
     outAllocation.m_Allocation = nullptr;
     outAllocation.m_Buffer = nullptr;
@@ -1021,7 +1051,7 @@ static void CreateAllocation(AllocInfo& outAllocation, VmaAllocator allocator)
         bufferInfo.size = bufferSize;
         bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-        VkResult res = vmaCreateBuffer(allocator, &bufferInfo, &vmaMemReq, &outAllocation.m_Buffer, &outAllocation.m_Allocation, &allocInfo);
+        VkResult res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &vmaMemReq, &outAllocation.m_Buffer, &outAllocation.m_Allocation, &allocInfo);
         outAllocation.m_BufferInfo = bufferInfo;
         TEST(res == VK_SUCCESS);
     }
@@ -1047,7 +1077,7 @@ static void CreateAllocation(AllocInfo& outAllocation, VmaAllocator allocator)
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
         imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-        VkResult res = vmaCreateImage(allocator, &imageInfo, &vmaMemReq, &outAllocation.m_Image, &outAllocation.m_Allocation, &allocInfo);
+        VkResult res = vmaCreateImage(g_hAllocator, &imageInfo, &vmaMemReq, &outAllocation.m_Image, &outAllocation.m_Allocation, &allocInfo);
         outAllocation.m_ImageInfo = imageInfo;
         TEST(res == VK_SUCCESS);
     }
@@ -1055,7 +1085,7 @@ static void CreateAllocation(AllocInfo& outAllocation, VmaAllocator allocator)
     uint32_t* data = (uint32_t*)allocInfo.pMappedData;
     if(allocInfo.pMappedData == nullptr)
     {
-        VkResult res = vmaMapMemory(allocator, outAllocation.m_Allocation, (void**)&data);
+        VkResult res = vmaMapMemory(g_hAllocator, outAllocation.m_Allocation, (void**)&data);
         TEST(res == VK_SUCCESS);
     }
 
@@ -1065,7 +1095,7 @@ static void CreateAllocation(AllocInfo& outAllocation, VmaAllocator allocator)
         data[i] = value++;
 
     if(allocInfo.pMappedData == nullptr)
-        vmaUnmapMemory(allocator, outAllocation.m_Allocation);
+        vmaUnmapMemory(g_hAllocator, outAllocation.m_Allocation);
 }
 
 static void DestroyAllocation(const AllocInfo& allocation)
@@ -1339,7 +1369,7 @@ void TestDefragmentationFull()
     for(size_t i = 0; i < 400; ++i)
     {
         AllocInfo allocation;
-        CreateAllocation(allocation, g_hAllocator);
+        CreateAllocation(allocation);
         allocations.push_back(allocation);
     }
 
@@ -1413,6 +1443,106 @@ void TestDefragmentationFull()
 
     // Destroy all remaining allocations.
     DestroyAllAllocations(allocations);
+}
+
+static void TestDefragmentationGpu()
+{
+    wprintf(L"Test defragmentation GPU\n");
+
+    std::vector<AllocInfo> allocations;
+
+    // Create that many allocations to surely fill 3 new blocks of 256 MB.
+    const VkDeviceSize bufSize = 10ull * 1024 * 1024;
+    const VkDeviceSize totalSize = 3ull * 256 * 1024 * 1024;
+    const size_t bufCount = (size_t)(totalSize / bufSize);
+    const size_t percentToLeave = 20;
+    RandomNumberGenerator rand = { 234522 };
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = bufSize;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+    allocCreateInfo.pUserData = "TestDefragmentationGpu";
+
+    // Create all intended buffers.
+    for(size_t i = 0; i < bufCount; ++i)
+    {
+        AllocInfo alloc;
+        alloc.CreateBuffer(bufCreateInfo, allocCreateInfo);
+        alloc.m_StartValue = rand.Generate();
+        allocations.push_back(alloc);
+    }
+
+    // Destroy some percentage of them.
+    {
+        const size_t buffersToDestroy = round_div<size_t>(bufCount * (100 - percentToLeave), 100);
+        for(size_t i = 0; i < buffersToDestroy; ++i)
+        {
+            const size_t index = rand.Generate() % allocations.size();
+            allocations[index].Destroy();
+            allocations.erase(allocations.begin() + index);
+        }
+    }
+
+    // Fill them with meaningful data.
+    UploadGpuData(allocations.data(), allocations.size());
+
+    SaveAllocatorStatsToFile(L"GPU_defragmentation_A_before.json");
+
+    // Defragment using GPU only.
+    {
+        const size_t allocCount = allocations.size();
+        std::vector<VmaAllocation> allocationPtrs(allocCount);
+        std::vector<VkBool32> allocationChanged(allocCount);
+        for(size_t i = 0; i < allocCount; ++i)
+        {
+            allocationPtrs[i] = allocations[i].m_Allocation;
+            allocationChanged[i] = VK_FALSE;
+        }
+
+        BeginSingleTimeCommands();
+
+        VmaDefragmentationInfo2 defragInfo = {};
+        defragInfo.allocationCount = (uint32_t)allocCount;
+        defragInfo.pAllocations = allocationPtrs.data();
+        defragInfo.maxGpuBytesToMove = 0;//VK_WHOLE_SIZE;
+        defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
+        defragInfo.commandBuffer = g_hTemporaryCommandBuffer;
+
+        VmaDefragmentationStats stats = {};
+        VmaDefragmentationContext ctx = VK_NULL_HANDLE;
+        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &stats, &ctx);
+        TEST(res >= VK_SUCCESS);
+
+        EndSingleTimeCommands();
+
+        vmaDefragmentationEnd(g_hAllocator, ctx);
+
+        for(size_t i = 0; i < allocCount; ++i)
+        {
+            if(allocationChanged[i])
+            {
+                RecreateAllocationResource(allocations[i]);
+            }
+        }
+
+        //TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
+        //TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
+        //TEST(stats.allocationsLost == 0);
+    }
+
+    ValidateGpuData(allocations.data(), allocations.size());
+
+    SaveAllocatorStatsToFile(L"GPU_defragmentation_B_after.json");
+
+    // Destroy all remaining buffers.
+    for(size_t i = allocations.size(); i--; )
+    {
+        allocations[i].Destroy();
+    }
 }
 
 static void TestUserData()
@@ -4555,8 +4685,9 @@ void Test()
         // ########################################
         // ########################################
         
-        //TestDefragmentationSimple();
-        //TestDefragmentationFull();
+        TestDefragmentationGpu();
+        TestDefragmentationSimple();
+        TestDefragmentationFull();
         return;
     }
 
@@ -4591,6 +4722,7 @@ void Test()
 
     TestDefragmentationSimple();
     TestDefragmentationFull();
+    TestDefragmentationGpu();
 
     // # Detailed tests
     FILE* file;
