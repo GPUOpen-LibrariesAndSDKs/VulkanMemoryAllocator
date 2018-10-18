@@ -2659,9 +2659,10 @@ Warning! Between the call to vmaDefragmentationBegin() and vmaDefragmentationEnd
   including calling vmaGetAllocationInfo(), vmaTouchAllocation(), or accessing
   their data.
 - Some mutexes protecting internal data structures may be locked, so trying to
-  make or free any allocations, bind buffers or images, or map memory in between
-  may cause stall (when done on another thread) or deadlock (when done on the
-  same thread).
+  make or free any allocations, bind buffers or images, map memory, or launch
+  another simultaneous defragmentation in between may cause stall (when done on
+  another thread) or deadlock (when done on the same thread), unless you are
+  100% sure that defragmented allocations are from different pool.
 - Information returned via `pStats` and `pInfo->pAllocationsChanged` are undefined.
   They become valid after call to vmaDefragmentationEnd().
 - If `pInfo->commandBuffer != VK_NULL_HANDLE`, you must submit that command buffer
@@ -5533,18 +5534,16 @@ public:
         size_t* pLostAllocationCount);
     VkResult CheckCorruption();
 
-    // Saves results in pDefragCtx->res.
+    // Saves results in pCtx->res.
     void Defragment(
-        class VmaBlockVectorDefragmentationContext* pDefragCtx,
-        VmaDefragmentationStats* pDefragmentationStats,
+        class VmaBlockVectorDefragmentationContext* pCtx,
+        VmaDefragmentationStats* pStats,
         VkDeviceSize& maxCpuBytesToMove, uint32_t& maxCpuAllocationsToMove,
         VkDeviceSize& maxGpuBytesToMove, uint32_t& maxGpuAllocationsToMove,
         VkCommandBuffer commandBuffer);
-    /*
-    Used during defragmentation. pDefragmentationStats is optional. It's in/out
-    - updated with new data.
-    */
-    void FreeEmptyBlocks(VmaDefragmentationStats* pDefragmentationStats);
+    void DefragmentationEnd(
+        class VmaBlockVectorDefragmentationContext* pCtx,
+        VmaDefragmentationStats* pStats);
 
 private:
     friend class VmaDefragmentationAlgorithm;
@@ -5592,15 +5591,21 @@ private:
 
     VkResult CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIndex);
 
-    // Saves result to pDefragCtx->res.
+    // Saves result to pCtx->res.
     void ApplyDefragmentationMovesCpu(
         class VmaBlockVectorDefragmentationContext* pDefragCtx,
         const VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves);
-    // Saves result to pDefragCtx->res.
+    // Saves result to pCtx->res.
     void ApplyDefragmentationMovesGpu(
         class VmaBlockVectorDefragmentationContext* pDefragCtx,
         const VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkCommandBuffer commandBuffer);
+
+    /*
+    Used during defragmentation. pDefragmentationStats is optional. It's in/out
+    - updated with new data.
+    */
+    void FreeEmptyBlocks(VmaDefragmentationStats* pDefragmentationStats);
 };
 
 struct VmaPool_T
@@ -5783,14 +5788,14 @@ class VmaBlockVectorDefragmentationContext
     VMA_CLASS_NO_COPY(VmaBlockVectorDefragmentationContext)
 public:
     VkResult res;
+    bool mutexLocked;
     VmaVector< VmaBlockDefragmentationContext, VmaStlAllocator<VmaBlockDefragmentationContext> > blockContexts;
 
     VmaBlockVectorDefragmentationContext(
         VmaAllocator hAllocator,
         VmaPool hCustomPool, // Optional.
         VmaBlockVector* pBlockVector,
-        uint32_t currFrameIndex,
-        VmaDefragmentationStats* pStats);
+        uint32_t currFrameIndex);
     ~VmaBlockVectorDefragmentationContext();
 
     VmaPool GetCustomPool() const { return m_hCustomPool; }
@@ -5803,8 +5808,6 @@ private:
     const VmaPool m_hCustomPool;
     // Redundant, for convenience not to fetch from m_hCustomPool->m_BlockVector or m_hAllocator->m_pBlockVectors.
     VmaBlockVector* const m_pBlockVector;
-    // Pointer to in/out stats, common for whole defragmentation context.
-    VmaDefragmentationStats* const m_pStats;
     // Owner of this object.
     VmaDefragmentationAlgorithm* m_pAlgorithm;
 };
@@ -11225,7 +11228,7 @@ void VmaBlockVector::ApplyDefragmentationMovesCpu(
     }
 
     // Go over all blocks in reverse order. Unmap those that were mapped just for defragmentation.
-    // Regardless of pDefragCtx->res == VK_SUCCESS.
+    // Regardless of pCtx->res == VK_SUCCESS.
     for(size_t blockIndex = blockCount; blockIndex--; )
     {
         const BlockInfo& currBlockInfo = blockInfo[blockIndex];
@@ -11409,13 +11412,13 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 #endif // #if VMA_STATS_STRING_ENABLED
 
 void VmaBlockVector::Defragment(
-    class VmaBlockVectorDefragmentationContext* pDefragCtx,
-    VmaDefragmentationStats* pDefragmentationStats,
+    class VmaBlockVectorDefragmentationContext* pCtx,
+    VmaDefragmentationStats* pStats,
     VkDeviceSize& maxCpuBytesToMove, uint32_t& maxCpuAllocationsToMove,
     VkDeviceSize& maxGpuBytesToMove, uint32_t& maxGpuAllocationsToMove,
     VkCommandBuffer commandBuffer)
 {
-    pDefragCtx->res = VK_SUCCESS;
+    pCtx->res = VK_SUCCESS;
     
     const VkMemoryPropertyFlags memPropFlags =
         m_hAllocator->m_MemProps.memoryTypes[m_MemoryTypeIndex].propertyFlags;
@@ -11439,22 +11442,26 @@ void VmaBlockVector::Defragment(
                 m_hAllocator->IsIntegratedGpu();
         }
 
-        VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
+        if(m_hAllocator->m_UseMutex)
+        {
+            m_Mutex.LockWrite();
+            pCtx->mutexLocked = true;
+        }
 
         // Defragment.
         const VkDeviceSize maxBytesToMove = defragmentOnGpu ? maxGpuBytesToMove : maxCpuBytesToMove;
         const uint32_t maxAllocationsToMove = defragmentOnGpu ? maxGpuAllocationsToMove : maxCpuAllocationsToMove;
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> > moves = 
             VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >(VmaStlAllocator<VmaDefragmentationMove>(m_hAllocator->GetAllocationCallbacks()));
-        pDefragCtx->res = pDefragCtx->GetAlgorithm()->Defragment(moves, maxBytesToMove, maxAllocationsToMove);
+        pCtx->res = pCtx->GetAlgorithm()->Defragment(moves, maxBytesToMove, maxAllocationsToMove);
 
         // Accumulate statistics.
-        if(pDefragmentationStats != VMA_NULL)
+        if(pStats != VMA_NULL)
         {
-            const VkDeviceSize bytesMoved = pDefragCtx->GetAlgorithm()->GetBytesMoved();
-            const uint32_t allocationsMoved = pDefragCtx->GetAlgorithm()->GetAllocationsMoved();
-            pDefragmentationStats->bytesMoved += bytesMoved;
-            pDefragmentationStats->allocationsMoved += allocationsMoved;
+            const VkDeviceSize bytesMoved = pCtx->GetAlgorithm()->GetBytesMoved();
+            const uint32_t allocationsMoved = pCtx->GetAlgorithm()->GetAllocationsMoved();
+            pStats->bytesMoved += bytesMoved;
+            pStats->allocationsMoved += allocationsMoved;
             VMA_ASSERT(bytesMoved <= maxBytesToMove);
             VMA_ASSERT(allocationsMoved <= maxAllocationsToMove);
             if(defragmentOnGpu)
@@ -11469,22 +11476,44 @@ void VmaBlockVector::Defragment(
             }
         }
     
-        if(pDefragCtx->res >= VK_SUCCESS)
+        if(pCtx->res >= VK_SUCCESS)
         {
             if(defragmentOnGpu)
             {
-                ApplyDefragmentationMovesGpu(pDefragCtx, moves, commandBuffer);
+                ApplyDefragmentationMovesGpu(pCtx, moves, commandBuffer);
             }
             else
             {
-                ApplyDefragmentationMovesCpu(pDefragCtx, moves);
+                ApplyDefragmentationMovesCpu(pCtx, moves);
             }
         }
+    }
+}
 
-        if(pDefragCtx->res == VK_SUCCESS)
+void VmaBlockVector::DefragmentationEnd(
+    class VmaBlockVectorDefragmentationContext* pCtx,
+    VmaDefragmentationStats* pStats)
+{
+    // Destroy buffers.
+    for(size_t blockIndex = pCtx->blockContexts.size(); blockIndex--; )
+    {
+        VmaBlockDefragmentationContext& blockCtx = pCtx->blockContexts[blockIndex];
+        if(blockCtx.hBuffer)
         {
-            FreeEmptyBlocks(pDefragmentationStats);
+            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
+                m_hAllocator->m_hDevice, blockCtx.hBuffer, m_hAllocator->GetAllocationCallbacks());
         }
+    }
+
+    if(pCtx->res >= VK_SUCCESS)
+    {
+        FreeEmptyBlocks(pStats);
+    }
+
+    if(pCtx->mutexLocked)
+    {
+        VMA_ASSERT(m_hAllocator->m_UseMutex);
+        m_Mutex.UnlockWrite();
     }
 }
 
@@ -11797,14 +11826,13 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     VmaAllocator hAllocator,
     VmaPool hCustomPool,
     VmaBlockVector* pBlockVector,
-    uint32_t currFrameIndex,
-    VmaDefragmentationStats* pStats) :
+    uint32_t currFrameIndex) :
     res(VK_SUCCESS),
+    mutexLocked(false),
     blockContexts(VmaStlAllocator<VmaBlockDefragmentationContext>(hAllocator->GetAllocationCallbacks())),
     m_hAllocator(hAllocator),
     m_hCustomPool(hCustomPool),
     m_pBlockVector(pBlockVector),
-    m_pStats(pStats),
     m_pAlgorithm(VMA_NULL)
 {
     m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm)(
@@ -11813,22 +11841,6 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
 
 VmaBlockVectorDefragmentationContext::~VmaBlockVectorDefragmentationContext()
 {
-    // Destroy buffers.
-    for(size_t blockIndex = blockContexts.size(); blockIndex--; )
-    {
-        VmaBlockDefragmentationContext& blockCtx = blockContexts[blockIndex];
-        if(blockCtx.hBuffer)
-        {
-            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
-                m_hAllocator->m_hDevice, blockCtx.hBuffer, m_hAllocator->GetAllocationCallbacks());
-        }
-    }
-
-    if(res >= VK_SUCCESS)
-    {
-        m_pBlockVector->FreeEmptyBlocks(m_pStats);
-    }
-
     vma_delete(m_hAllocator, m_pAlgorithm);
 }
 
@@ -11851,11 +11863,18 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
 {
     for(size_t i = m_CustomPoolContexts.size(); i--; )
     {
-        vma_delete(m_hAllocator, m_CustomPoolContexts[i]);
+        VmaBlockVectorDefragmentationContext* pBlockVectorCtx = m_CustomPoolContexts[i];
+        pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats);
+        vma_delete(m_hAllocator, pBlockVectorCtx);
     }
     for(size_t i = m_hAllocator->m_MemProps.memoryTypeCount; i--; )
     {
-        vma_delete(m_hAllocator, m_DefaultPoolContexts[i]);
+        VmaBlockVectorDefragmentationContext* pBlockVectorCtx = m_DefaultPoolContexts[i];
+        if(pBlockVectorCtx)
+        {
+            pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats);
+            vma_delete(m_hAllocator, pBlockVectorCtx);
+        }
     }
 }
 
@@ -11897,8 +11916,7 @@ void VmaDefragmentationContext_T::AddAllocations(
                             m_hAllocator,
                             hAllocPool,
                             &hAllocPool->m_BlockVector,
-                            m_CurrFrameIndex,
-                            m_pStats);
+                            m_CurrFrameIndex);
                         m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
                     }
                 }
@@ -11914,8 +11932,7 @@ void VmaDefragmentationContext_T::AddAllocations(
                         m_hAllocator,
                         VMA_NULL, // hCustomPool
                         m_hAllocator->m_pBlockVectors[memTypeIndex],
-                        m_CurrFrameIndex,
-                        m_pStats);
+                        m_CurrFrameIndex);
                     m_DefaultPoolContexts[memTypeIndex] = pBlockVectorDefragCtx;
                 }
             }
