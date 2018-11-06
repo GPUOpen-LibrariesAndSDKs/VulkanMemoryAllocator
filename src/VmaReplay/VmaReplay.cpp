@@ -41,6 +41,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION,
     CMD_LINE_OPT_MEM_STATS,
     CMD_LINE_OPT_DUMP_STATS_AFTER_LINE,
+    CMD_LINE_OPT_DEFRAGMENT_AFTER_LINE,
     CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE,
 };
 
@@ -138,7 +139,9 @@ struct StatsAfterLineEntry
     bool operator==(const StatsAfterLineEntry& rhs) const { return line == rhs.line; }
 };
 static std::vector<StatsAfterLineEntry> g_DumpStatsAfterLine;
+static std::vector<size_t> g_DefragmentAfterLine;
 static size_t g_DumpStatsAfterLineNextIndex = 0;
+static size_t g_DefragmentAfterLineNextIndex = 0;
 
 static bool ValidateFileVersion()
 {
@@ -921,6 +924,7 @@ public:
     void ApplyConfig(ConfigurationParser& configParser);
     void ExecuteLine(size_t lineNumber, const StrRange& line);
     void DumpStats(const char* fileNameFormat, size_t lineNumber, bool detailed);
+    void Defragment();
 
     void PrintStats();
 
@@ -1017,6 +1021,9 @@ private:
     void ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+
+    void PrintStats(const VmaStats& stats, const char* suffix);
+    void PrintStatInfo(const VmaStatInfo& info);
 };
 
 Player::Player()
@@ -1625,6 +1632,92 @@ void Player::RegisterDebugCallbacks()
     assert(res == VK_SUCCESS);
 }
 
+void Player::Defragment()
+{
+    VmaStats stats;
+    vmaCalculateStats(m_Allocator, &stats);
+    PrintStats(stats, "before defragmentation");
+
+    const size_t allocCount = m_Allocations.size();
+    std::vector<VmaAllocation> allocations(allocCount);
+    size_t notNullAllocCount = 0;
+    for(const auto& it : m_Allocations)
+    {
+        if(it.second.allocation != VK_NULL_HANDLE)
+        {
+            allocations[notNullAllocCount] = it.second.allocation;
+            ++notNullAllocCount;
+        }
+    }
+    if(notNullAllocCount == 0)
+    {
+        printf("    Nothing to defragment.\n");
+        return;
+    }
+
+    allocations.resize(notNullAllocCount);
+    std::vector<VkBool32> allocationsChanged(notNullAllocCount);
+
+    VmaDefragmentationInfo2 defragInfo = {};
+    defragInfo.allocationCount = (uint32_t)notNullAllocCount;
+    defragInfo.pAllocations = allocations.data();
+    defragInfo.pAllocationsChanged = allocationsChanged.data();
+    defragInfo.maxCpuAllocationsToMove = UINT32_MAX;
+    defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
+    defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
+    defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
+    defragInfo.flags = VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT;
+
+    VmaDefragmentationStats defragStats = {};
+
+    VmaDefragmentationContext defragCtx = VK_NULL_HANDLE;
+    VkResult res = vmaDefragmentationBegin(m_Allocator, &defragInfo, &defragStats, &defragCtx);
+    if(res >= VK_SUCCESS)
+    {
+        // TODO use commandBuffer for GPU defrag.
+        vmaDefragmentationEnd(m_Allocator, defragCtx);
+
+        // If anything changed.
+        if(defragStats.allocationsLost > 0 || defragStats.allocationsMoved > 0)
+        {
+            // Go over allocation that changed and destroy their buffers and images.
+            size_t i = 0;
+            for(auto& it : m_Allocations)
+            {
+                if(allocationsChanged[i] != VK_FALSE)
+                {
+                    if(it.second.buffer != VK_NULL_HANDLE)
+                    {
+                        vkDestroyBuffer(m_Device, it.second.buffer, nullptr);
+                        it.second.buffer = VK_NULL_HANDLE;
+                    }
+                    if(it.second.image != VK_NULL_HANDLE)
+                    {
+                        vkDestroyImage(m_Device, it.second.image, nullptr);
+                        it.second.image = VK_NULL_HANDLE;
+                    }
+                }
+                ++i;
+            }
+        }
+
+        // Print statistics
+        printf("    VmaDefragmentationStats:\n");
+        printf("        bytesMoved: %llu\n", defragStats.bytesMoved);
+        printf("        bytesFreed: %llu\n", defragStats.bytesFreed);
+        printf("        allocationsMoved: %u\n", defragStats.allocationsMoved);
+        printf("        deviceMemoryBlocksMoved: %u\n", defragStats.deviceMemoryBlocksFreed);
+        printf("        allocationsLost: %u\n", defragStats.allocationsLost);
+
+        vmaCalculateStats(m_Allocator, &stats);
+        PrintStats(stats, "after defragmentation");
+    }
+    else
+    {
+        printf("vmaDefragmentationBegin failed (%d).\n", res);
+    }
+}
+
 void Player::PrintStats()
 {
     if(g_Verbosity == VERBOSITY::MINIMUM)
@@ -1996,6 +2089,9 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
 
+            // Forcing VK_SHARING_MODE_EXCLUSIVE because we use only one queue anyway.
+            bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
             if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 11)
             {
                 PrepareUserData(
@@ -2060,6 +2156,42 @@ void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
+void Player::PrintStats(const VmaStats& stats, const char* suffix)
+{
+    printf("    VmaStats %s:\n", suffix);
+    printf("        total:\n");
+    PrintStatInfo(stats.total);
+
+    if(g_Verbosity == VERBOSITY::MAXIMUM)
+    {
+        for(uint32_t i = 0; i < m_MemProps->memoryHeapCount; ++i)
+        {
+            printf("        memoryHeap[%u]:\n", i);
+            PrintStatInfo(stats.memoryHeap[i]);
+        }
+        for(uint32_t i = 0; i < m_MemProps->memoryTypeCount; ++i)
+        {
+            printf("        memoryType[%u]:\n", i);
+            PrintStatInfo(stats.memoryType[i]);
+        }
+    }
+}
+
+void Player::PrintStatInfo(const VmaStatInfo& info)
+{
+    printf("            blockCount: %u\n", info.blockCount);
+    printf("            allocationCount: %u\n", info.allocationCount);
+    printf("            unusedRangeCount: %u\n", info.unusedRangeCount);
+    printf("            usedBytes: %llu\n", info.usedBytes);
+    printf("            unusedBytes: %llu\n", info.unusedBytes);
+    printf("            allocationSizeMin: %llu\n", info.allocationSizeMin);
+    printf("            allocationSizeAvg: %llu\n", info.allocationSizeAvg);
+    printf("            allocationSizeMax: %llu\n", info.allocationSizeMax);
+    printf("            unusedRangeSizeMin: %llu\n", info.unusedRangeSizeMin);
+    printf("            unusedRangeSizeAvg: %llu\n", info.unusedRangeSizeAvg);
+    printf("            unusedRangeSizeMax: %llu\n", info.unusedRangeSizeMax);
+}
+
 void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
 {
     m_Stats.RegisterFunctionCall(VMA_FUNCTION::CreateImage);
@@ -2093,6 +2225,9 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
             StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 19), origPtr))
         {
             FindPool(lineNumber, origPool, allocCreateInfo.pool);
+
+            // Forcing VK_SHARING_MODE_EXCLUSIVE because we use only one queue anyway.
+            imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
             if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 20)
             {
@@ -2620,6 +2755,8 @@ static void PrintCommandLineSyntax()
         "        File is written to current directory with name: VmaReplay_Line####.json.\n"
         "        This parameter can be repeated.\n"
         "    --DumpDetailedStatsAfterLine <Line> - Like command above, but includes detailed map.\n"
+        "    --DefragmentAfterLine <Line> - Defragment memory after specified source file line and print statistics.\n"
+        "        It also prints detailed statistics to files VmaReplay_Line####_Defragment*.json\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
@@ -2638,6 +2775,7 @@ static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes,
 
     const bool useLineRanges = !g_LineRanges.IsEmpty();
     const bool useDumpStatsAfterLine = !g_DumpStatsAfterLine.empty();
+    const bool useDefragmentAfterLine = !g_DefragmentAfterLine.empty();
 
     LineSplit lineSplit(data, numBytes);
     StrRange line;
@@ -2732,6 +2870,25 @@ static int ProcessFile(size_t iterationIndex, const char* data, size_t numBytes,
                 player.DumpStats("VmaReplay_Line%04zu.json", requestedLine, detailed);
                 
                 ++g_DumpStatsAfterLineNextIndex;
+            }
+
+            while(useDefragmentAfterLine &&
+                g_DefragmentAfterLineNextIndex < g_DefragmentAfterLine.size() &&
+                currLineNumber >= g_DefragmentAfterLine[g_DefragmentAfterLineNextIndex])
+            {
+                const size_t requestedLine = g_DefragmentAfterLine[g_DefragmentAfterLineNextIndex];
+                if(g_Verbosity >= VERBOSITY::DEFAULT)
+                {
+                    printf("Defragmenting after line %zu actual line %zu...\n",
+                        requestedLine,
+                        currLineNumber);
+                }
+
+                player.DumpStats("VmaReplay_Line%04zu_Defragment_1Before.json", requestedLine, true);
+                player.Defragment();
+                player.DumpStats("VmaReplay_Line%04zu_Defragment_2After.json", requestedLine, true);
+                
+                ++g_DefragmentAfterLineNextIndex;
             }
         }
 
@@ -2831,6 +2988,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION, VALIDATION_LAYER_NAME, true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_MEM_STATS, "MemStats", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_STATS_AFTER_LINE, "DumpStatsAfterLine", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_DEFRAGMENT_AFTER_LINE, "DefragmentAfterLine", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE, "DumpDetailedStatsAfterLine", true);
 
     CmdLineParser::RESULT res;
@@ -2940,6 +3098,20 @@ static int main2(int argc, char** argv)
                     }
                 }
                 break;
+            case CMD_LINE_OPT_DEFRAGMENT_AFTER_LINE:
+                {
+                    size_t line;
+                    if(StrRangeToUint(StrRange(cmdLineParser.GetParameter()), line))
+                    {
+                        g_DefragmentAfterLine.push_back(line);
+                    }
+                    else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
             default:
                 assert(0);
             }
@@ -2977,6 +3149,12 @@ static int main2(int argc, char** argv)
     g_DumpStatsAfterLine.erase(
         std::unique(g_DumpStatsAfterLine.begin(), g_DumpStatsAfterLine.end()),
         g_DumpStatsAfterLine.end());
+
+    // Sort g_DefragmentAfterLine and make unique.
+    std::sort(g_DefragmentAfterLine.begin(), g_DefragmentAfterLine.end());
+    g_DefragmentAfterLine.erase(
+        std::unique(g_DefragmentAfterLine.begin(), g_DefragmentAfterLine.end()),
+        g_DefragmentAfterLine.end());
 
     return ProcessFile();
 }
