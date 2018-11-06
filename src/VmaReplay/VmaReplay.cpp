@@ -936,9 +936,14 @@ private:
 
     VkInstance m_VulkanInstance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
-    uint32_t m_GraphicsQueueFamilyIndex = UINT_MAX;
+    uint32_t m_GraphicsQueueFamilyIndex = UINT32_MAX;
+    uint32_t m_TransferQueueFamilyIndex = UINT32_MAX;
     VkDevice m_Device = VK_NULL_HANDLE;
+    VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
+    VkQueue m_TransferQueue = VK_NULL_HANDLE;
     VmaAllocator m_Allocator = VK_NULL_HANDLE;
+    VkCommandPool m_CommandPool = VK_NULL_HANDLE;
+    VkCommandBuffer m_CommandBuffer = VK_NULL_HANDLE;
     bool m_DedicatedAllocationEnabled = false;
     const VkPhysicalDeviceProperties* m_DevProps = nullptr;
     const VkPhysicalDeviceMemoryProperties* m_MemProps = nullptr;
@@ -1420,17 +1425,29 @@ int Player::InitVulkan()
         vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, queueFamilies.data());
         for(uint32_t i = 0; i < queueFamilyCount; ++i)
         {
-            if(queueFamilies[i].queueCount > 0 &&
-                (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+            if(queueFamilies[i].queueCount > 0)
             {
-                m_GraphicsQueueFamilyIndex = i;
-                break;
+                if(m_GraphicsQueueFamilyIndex == UINT32_MAX &&
+                    (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+                {
+                    m_GraphicsQueueFamilyIndex = i;
+                }
+                if(m_TransferQueueFamilyIndex == UINT32_MAX &&
+                    (queueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT) != 0)
+                {
+                    m_TransferQueueFamilyIndex = i;
+                }
             }
         }
     }
     if(m_GraphicsQueueFamilyIndex == UINT_MAX)
     {
         printf("ERROR: Couldn't find graphics queue.\n");
+        return RESULT_ERROR_VULKAN;
+    }
+    if(m_TransferQueueFamilyIndex == UINT_MAX)
+    {
+        printf("ERROR: Couldn't find transfer queue.\n");
         return RESULT_ERROR_VULKAN;
     }
 
@@ -1441,10 +1458,19 @@ int Player::InitVulkan()
 
     const float queuePriority = 1.f;
 
-    VkDeviceQueueCreateInfo deviceQueueCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-    deviceQueueCreateInfo.queueFamilyIndex = m_GraphicsQueueFamilyIndex;
-    deviceQueueCreateInfo.queueCount = 1;
-    deviceQueueCreateInfo.pQueuePriorities = &queuePriority;
+    VkDeviceQueueCreateInfo deviceQueueCreateInfo[2] = {};
+    deviceQueueCreateInfo[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    deviceQueueCreateInfo[0].queueFamilyIndex = m_GraphicsQueueFamilyIndex;
+    deviceQueueCreateInfo[0].queueCount = 1;
+    deviceQueueCreateInfo[0].pQueuePriorities = &queuePriority;
+
+    if(m_TransferQueueFamilyIndex != m_GraphicsQueueFamilyIndex)
+    {
+        deviceQueueCreateInfo[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        deviceQueueCreateInfo[1].queueFamilyIndex = m_TransferQueueFamilyIndex;
+        deviceQueueCreateInfo[1].queueCount = 1;
+        deviceQueueCreateInfo[1].pQueuePriorities = &queuePriority;
+    }
 
     // Enable something what may interact with memory/buffer/image support.
     VkPhysicalDeviceFeatures enabledFeatures;
@@ -1510,8 +1536,8 @@ int Player::InitVulkan()
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
     deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledDeviceExtensions.size();
     deviceCreateInfo.ppEnabledExtensionNames = !enabledDeviceExtensions.empty() ? enabledDeviceExtensions.data() : nullptr;
-    deviceCreateInfo.queueCreateInfoCount = 1;
-    deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
+    deviceCreateInfo.queueCreateInfoCount = m_TransferQueueFamilyIndex != m_GraphicsQueueFamilyIndex ? 2 : 1;
+    deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfo;
     deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
 
     res = vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
@@ -1520,6 +1546,10 @@ int Player::InitVulkan()
         printf("ERROR: vkCreateDevice failed (%d)\n", res);
         return RESULT_ERROR_VULKAN;
     }
+
+    // Fetch queues
+    vkGetDeviceQueue(m_Device, m_GraphicsQueueFamilyIndex, 0, &m_GraphicsQueue);
+    vkGetDeviceQueue(m_Device, m_TransferQueueFamilyIndex, 0, &m_TransferQueue);
 
     // Create memory allocator
 
@@ -1542,6 +1572,32 @@ int Player::InitVulkan()
 
     vmaGetPhysicalDeviceProperties(m_Allocator, &m_DevProps);
     vmaGetMemoryProperties(m_Allocator, &m_MemProps);
+
+    // Create command pool
+
+    VkCommandPoolCreateInfo cmdPoolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+    cmdPoolCreateInfo.queueFamilyIndex = m_TransferQueueFamilyIndex;
+    cmdPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+
+    res = vkCreateCommandPool(m_Device, &cmdPoolCreateInfo, nullptr, &m_CommandPool);
+    if(res != VK_SUCCESS)
+    {
+        printf("ERROR: vkCreateCommandPool failed (%d)\n", res);
+        return RESULT_ERROR_VULKAN;
+    }
+
+    // Create command buffer
+
+    VkCommandBufferAllocateInfo cmdBufAllocInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+    cmdBufAllocInfo.commandBufferCount = 1;
+    cmdBufAllocInfo.commandPool = m_CommandPool;
+    cmdBufAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    res = vkAllocateCommandBuffers(m_Device, &cmdBufAllocInfo, &m_CommandBuffer);
+    if(res != VK_SUCCESS)
+    {
+        printf("ERROR: vkAllocateCommandBuffers failed (%d)\n", res);
+        return RESULT_ERROR_VULKAN;
+    }
 
     return 0;
 }
@@ -1579,6 +1635,18 @@ void Player::FinalizeVulkan()
     }
 
     vkDeviceWaitIdle(m_Device);
+
+    if(m_CommandBuffer != VK_NULL_HANDLE)
+    {
+        vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &m_CommandBuffer);
+        m_CommandBuffer = VK_NULL_HANDLE;
+    }
+
+    if(m_CommandPool != VK_NULL_HANDLE)
+    {
+        vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
+        m_CommandPool = VK_NULL_HANDLE;
+    }
 
     if(m_Allocator != VK_NULL_HANDLE)
     {
@@ -1658,6 +1726,21 @@ void Player::Defragment()
     allocations.resize(notNullAllocCount);
     std::vector<VkBool32> allocationsChanged(notNullAllocCount);
 
+    VmaDefragmentationStats defragStats = {};
+
+    VkCommandBufferBeginInfo cmdBufBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkResult res = vkBeginCommandBuffer(m_CommandBuffer, &cmdBufBeginInfo);
+    if(res != VK_SUCCESS)
+    {
+        printf("ERROR: vkBeginCommandBuffer failed (%d)\n", res);
+        return;
+    }
+
+    g_MemoryAliasingWarningEnabled = false;
+
+    const time_point timeBeg = std::chrono::high_resolution_clock::now();
+
     VmaDefragmentationInfo2 defragInfo = {};
     defragInfo.allocationCount = (uint32_t)notNullAllocCount;
     defragInfo.pAllocations = allocations.data();
@@ -1667,15 +1750,32 @@ void Player::Defragment()
     defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
     defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
     defragInfo.flags = VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT;
-
-    VmaDefragmentationStats defragStats = {};
+    defragInfo.commandBuffer = m_CommandBuffer;
 
     VmaDefragmentationContext defragCtx = VK_NULL_HANDLE;
-    VkResult res = vmaDefragmentationBegin(m_Allocator, &defragInfo, &defragStats, &defragCtx);
+    res = vmaDefragmentationBegin(m_Allocator, &defragInfo, &defragStats, &defragCtx);
+    
+    const time_point timeAfterDefragBegin = std::chrono::high_resolution_clock::now();
+
+    vkEndCommandBuffer(m_CommandBuffer);
+
     if(res >= VK_SUCCESS)
     {
-        // TODO use commandBuffer for GPU defrag.
+        VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &m_CommandBuffer;
+        vkQueueSubmit(m_TransferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(m_TransferQueue);
+
+        const time_point timeAfterGpu = std::chrono::high_resolution_clock::now();
+
         vmaDefragmentationEnd(m_Allocator, defragCtx);
+
+        const time_point timeAfterDefragEnd = std::chrono::high_resolution_clock::now();
+
+        const duration defragDurationBegin = timeAfterDefragBegin - timeBeg;
+        const duration defragDurationGpu   = timeAfterGpu - timeAfterDefragBegin;
+        const duration defragDurationEnd   = timeAfterDefragEnd - timeAfterGpu;
 
         // If anything changed.
         if(defragStats.allocationsLost > 0 || defragStats.allocationsMoved > 0)
@@ -1702,6 +1802,17 @@ void Player::Defragment()
         }
 
         // Print statistics
+        std::string defragDurationBeginStr;
+        std::string defragDurationGpuStr;
+        std::string defragDurationEndStr;
+        SecondsToFriendlyStr(ToFloatSeconds(defragDurationBegin), defragDurationBeginStr);
+        SecondsToFriendlyStr(ToFloatSeconds(defragDurationGpu), defragDurationGpuStr);
+        SecondsToFriendlyStr(ToFloatSeconds(defragDurationEnd), defragDurationEndStr);
+
+        printf("    Defragmentation took:\n");
+        printf("        vmaDefragmentationBegin: %s\n", defragDurationBeginStr.c_str());
+        printf("        GPU: %s\n", defragDurationGpuStr.c_str());
+        printf("        vmaDefragmentationEnd: %s\n", defragDurationEndStr.c_str());
         printf("    VmaDefragmentationStats:\n");
         printf("        bytesMoved: %llu\n", defragStats.bytesMoved);
         printf("        bytesFreed: %llu\n", defragStats.bytesFreed);
@@ -1716,6 +1827,10 @@ void Player::Defragment()
     {
         printf("vmaDefragmentationBegin failed (%d).\n", res);
     }
+
+    vkResetCommandPool(m_Device, m_CommandPool, 0);
+
+    g_MemoryAliasingWarningEnabled = true;
 }
 
 void Player::PrintStats()
