@@ -1421,6 +1421,7 @@ to just ignore them.
 - *Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.*
   - It happens when you use lost allocations, and a new image or buffer is
     created in place of an existing object that bacame lost.
+  - It may happen also when you use [defragmentation](@ref defragmentation).
 
 \section general_considerations_allocation_algorithm Allocation algorithm
 
