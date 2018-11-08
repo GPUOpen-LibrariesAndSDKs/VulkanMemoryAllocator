@@ -1448,6 +1448,7 @@ void TestDefragmentationFull()
 static void TestDefragmentationGpu()
 {
     wprintf(L"Test defragmentation GPU\n");
+    g_MemoryAliasingWarningEnabled = false;
 
     std::vector<AllocInfo> allocations;
 
@@ -1547,6 +1548,8 @@ static void TestDefragmentationGpu()
     {
         allocations[i].Destroy();
     }
+
+    g_MemoryAliasingWarningEnabled = true;
 }
 
 static void TestUserData()
@@ -4690,6 +4693,8 @@ void Test()
         // ########################################
         
         TestDefragmentationGpu();
+        TestDefragmentationSimple();
+        TestDefragmentationFull();
         return;
     }
 
