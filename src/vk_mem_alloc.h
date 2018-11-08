@@ -1448,7 +1448,8 @@ Features deliberately excluded from the scope of this library:
 
 - Support for sparse binding and sparse residency. You can still use these
   features (when supported by the device) with VMA. You just need to do it
-  yourself. Any explicit support for sparse binding/residency would rather
+  yourself. Allocate memory pages with vmaAllocateMemory().
+  Any explicit support for sparse binding/residency would rather
   require another, higher-level library on top of VMA.
 - Data transfer - issuing commands that transfer data between buffers or images, any usage of
   `VkCommandList` or `VkQueue` and related synchronization is responsibility of the user.
@@ -1456,10 +1457,18 @@ Features deliberately excluded from the scope of this library:
   explicit memory type index and dedicated allocation anyway, so they don't
   interact with main features of this library. Such special purpose allocations
   should be made manually, using `vkCreateBuffer()` and `vkAllocateMemory()`.
+- Recreation of buffers and images. Although the library has functions for
+  buffer and image creation (vmaCreateBuffer(), vmaCreateImage()), you need to
+  recreate these objects yourself after defragmentation. That's because the big
+  structures `VkBufferCreateInfo`, `VkImageCreateInfo` are not stored in
+  #VmaAllocation object.
 - Handling CPU memory allocation failures. When dynamically creating small C++
   objects in CPU memory (not Vulkan memory), allocation failures are not checked
   and handled gracefully, because that would complicate code significantly and
   is usually not needed in desktop PC applications anyway.
+- Code free of any compiler warnings. Maintaining the library to compile and
+  work correctly on so many different platforms is hard enough. Being free of 
+  any warnings, on any version of any compiler, is simply not feasible.
 - Support for any programming languages other than C/C++.
   Bindings to other languages are welcomed as external projects.
 
