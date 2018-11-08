@@ -12301,6 +12301,10 @@ VkResult VmaAllocator_T::AllocateMemory(
 {
     VMA_ASSERT(VmaIsPow2(vkMemReq.alignment));
 
+    if(vkMemReq.size == 0)
+    {
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
     if((createInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0 &&
         (createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
     {
@@ -14095,6 +14099,11 @@ VkResult vmaCreateBuffer(
     VmaAllocationInfo* pAllocationInfo)
 {
     VMA_ASSERT(allocator && pBufferCreateInfo && pAllocationCreateInfo && pBuffer && pAllocation);
+
+    if(pBufferCreateInfo->size == 0)
+    {
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
     
     VMA_DEBUG_LOG("vmaCreateBuffer");
     
@@ -14233,6 +14242,15 @@ VkResult vmaCreateImage(
     VmaAllocationInfo* pAllocationInfo)
 {
     VMA_ASSERT(allocator && pImageCreateInfo && pAllocationCreateInfo && pImage && pAllocation);
+
+    if(pImageCreateInfo->extent.width == 0 ||
+        pImageCreateInfo->extent.height == 0 ||
+        pImageCreateInfo->extent.depth == 0 ||
+        pImageCreateInfo->mipLevels == 0 ||
+        pImageCreateInfo->arrayLayers == 0)
+    {
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
 
     VMA_DEBUG_LOG("vmaCreateImage");
 

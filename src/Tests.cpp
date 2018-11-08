@@ -1195,6 +1195,56 @@ static void TestUserData()
     }
 }
 
+static void TestInvalidAllocations()
+{
+    VkResult res;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    // Try to allocate 0 bytes.
+    {
+        VkMemoryRequirements memReq = {};
+        memReq.size = 0; // !!!
+        memReq.alignment = 4;
+        memReq.memoryTypeBits = UINT32_MAX;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && alloc == VK_NULL_HANDLE);
+    }
+
+    // Try to create buffer with size = 0.
+    {
+        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        bufCreateInfo.size = 0; // !!!
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
+        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && buf == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
+    }
+
+    // Try to create image with one dimension = 0.
+    {
+        VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+        imageCreateInfo.extent.width = 128;
+        imageCreateInfo.extent.height = 0; // !!!
+        imageCreateInfo.extent.depth = 1;
+        imageCreateInfo.mipLevels = 1;
+        imageCreateInfo.arrayLayers = 1;
+        imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+        imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+        VkImage image = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        res = vmaCreateImage(g_hAllocator, &imageCreateInfo, &allocCreateInfo, &image, &alloc, nullptr);
+        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && image == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
+    }
+}
+
 static void TestMemoryRequirements()
 {
     VkResult res;
@@ -1299,6 +1349,8 @@ static void TestBasics()
     }
 
     TestUserData();
+
+    TestInvalidAllocations();
 }
 
 void TestHeapSizeLimit()
