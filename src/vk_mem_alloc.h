@@ -2798,7 +2798,19 @@ remove them if not needed.
    #define VMA_NULL   nullptr
 #endif
 
-#if defined(__APPLE__) || defined(__ANDROID__)
+#if defined(__ANDROID_API__) && (__ANDROID_API__ < 16)
+#include <cstdlib>
+void *aligned_alloc(size_t alignment, size_t size)
+{
+    // alignment must be >= sizeof(void*)
+    if(alignment < sizeof(void*))
+    {
+        alignment = sizeof(void*);
+    }
+
+    return memalign(alignment, size);
+}
+#elif defined(__APPLE__) || defined(__ANDROID__)
 #include <cstdlib>
 void *aligned_alloc(size_t alignment, size_t size)
 {
