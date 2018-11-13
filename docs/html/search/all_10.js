@@ -107,6 +107,7 @@ var searchData=
   ['vmarecordflagbits',['VmaRecordFlagBits',['../vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2',1,'VmaRecordFlagBits():&#160;vk_mem_alloc.h'],['../vk__mem__alloc_8h.html#ade20b626a6635ce1bf30ea53dea774e4',1,'VmaRecordFlagBits():&#160;vk_mem_alloc.h']]],
   ['vmarecordflags',['VmaRecordFlags',['../vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828',1,'vk_mem_alloc.h']]],
   ['vmarecordsettings',['VmaRecordSettings',['../struct_vma_record_settings.html',1,'VmaRecordSettings'],['../vk__mem__alloc_8h.html#a0ab61e87ff6365f1d59915eadc37a9f0',1,'VmaRecordSettings():&#160;vk_mem_alloc.h']]],
+  ['vmaresizeallocation',['vmaResizeAllocation',['../vk__mem__alloc_8h.html#a0ff488958ca72b28e545880463cb8696',1,'vk_mem_alloc.h']]],
   ['vmasetallocationuserdata',['vmaSetAllocationUserData',['../vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f',1,'vk_mem_alloc.h']]],
   ['vmasetcurrentframeindex',['vmaSetCurrentFrameIndex',['../vk__mem__alloc_8h.html#ade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
   ['vmastatinfo',['VmaStatInfo',['../struct_vma_stat_info.html',1,'VmaStatInfo'],['../vk__mem__alloc_8h.html#a810b009a788ee8aac72a25b42ffbe31c',1,'VmaStatInfo():&#160;vk_mem_alloc.h']]],
