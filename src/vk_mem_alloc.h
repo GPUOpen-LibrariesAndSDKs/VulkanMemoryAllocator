@@ -1951,6 +1951,9 @@ typedef enum VmaAllocationCreateFlagBits {
     VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT = 0x00020000,
     /** Allocation strategy that chooses first suitable free range for the
     allocation.
+
+    "First" doesn't necessarily means the one with smallest offset in memory,
+    but rather the one that is easiest and fastest to find.
     */
     VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT = 0x00040000,
 
