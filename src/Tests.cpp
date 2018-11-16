@@ -1445,34 +1445,61 @@ void TestDefragmentationFull()
     DestroyAllAllocations(allocations);
 }
 
-static void TestDefragmentationGpu()
+static void TestDefragmentationGpu(uint32_t flags)
 {
-    wprintf(L"Test defragmentation GPU\n");
+    const wchar_t* flagsName = L"0";
+    switch(flags)
+    {
+    case VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT:
+        flagsName = L"FAST";
+        break;
+    case VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT:
+        flagsName = L"OPTIMAL";
+        break;
+    }
+
+    wprintf(L"Test defragmentation GPU (%s)\n", flagsName);
     g_MemoryAliasingWarningEnabled = false;
 
     std::vector<AllocInfo> allocations;
 
     // Create that many allocations to surely fill 3 new blocks of 256 MB.
-    const VkDeviceSize bufSize = 10ull * 1024 * 1024;
+    const VkDeviceSize bufSizeMin = 5ull * 1024 * 1024;
+    const VkDeviceSize bufSizeMax = 10ull * 1024 * 1024;
     const VkDeviceSize totalSize = 3ull * 256 * 1024 * 1024;
-    const size_t bufCount = (size_t)(totalSize / bufSize);
-    const size_t percentToLeave = 20;
+    const size_t bufCount = (size_t)(totalSize / bufSizeMin);
+    const size_t percentToLeave = 30;
+    const size_t percentNonMovable = 3;
     RandomNumberGenerator rand = { 234522 };
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufCreateInfo.size = bufSize;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-    allocCreateInfo.pUserData = "TestDefragmentationGpu";
+    allocCreateInfo.flags = 0;
 
     // Create all intended buffers.
     for(size_t i = 0; i < bufCount; ++i)
     {
+        bufCreateInfo.size = align_up(rand.Generate() % (bufSizeMax - bufSizeMin) + bufSizeMin, 32ull);
+
+        if(rand.Generate() % 100 < percentNonMovable)
+        {
+            bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            allocCreateInfo.pUserData = (void*)(uintptr_t)2;
+        }
+        else
+        {
+            // Different usage just to see different color in output from VmaDumpVis.
+            bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            // And in JSON dump.
+            allocCreateInfo.pUserData = (void*)(uintptr_t)1;
+        }
+
         AllocInfo alloc;
         alloc.CreateBuffer(bufCreateInfo, allocCreateInfo);
         alloc.m_StartValue = rand.Generate();
@@ -1493,24 +1520,37 @@ static void TestDefragmentationGpu()
     // Fill them with meaningful data.
     UploadGpuData(allocations.data(), allocations.size());
 
-    SaveAllocatorStatsToFile(L"GPU_defragmentation_A_before.json");
+    wchar_t fileName[MAX_PATH];
+    swprintf_s(fileName, L"GPU_defragmentation_%s_A_before.json", flagsName);
+    SaveAllocatorStatsToFile(fileName);
 
     // Defragment using GPU only.
     {
         const size_t allocCount = allocations.size();
 
-        std::vector<VmaAllocation> allocationPtrs(allocCount);
-        std::vector<VkBool32> allocationChanged(allocCount);
+        std::vector<VmaAllocation> allocationPtrs;
+        std::vector<VkBool32> allocationChanged;
+        std::vector<size_t> allocationOriginalIndex;
+
         for(size_t i = 0; i < allocCount; ++i)
         {
-            allocationPtrs[i] = allocations[i].m_Allocation;
+            VmaAllocationInfo allocInfo = {};
+            vmaGetAllocationInfo(g_hAllocator, allocations[i].m_Allocation, &allocInfo);
+            if((uintptr_t)allocInfo.pUserData == 1) // Movable
+            {
+                allocationPtrs.push_back(allocations[i].m_Allocation);
+                allocationChanged.push_back(VK_FALSE);
+                allocationOriginalIndex.push_back(i);
+            }
         }
-        memset(allocationChanged.data(), 0, allocCount * sizeof(VkBool32));
+
+        const size_t movableAllocCount = allocationPtrs.size();
 
         BeginSingleTimeCommands();
 
         VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.allocationCount = (uint32_t)allocCount;
+        defragInfo.flags = flags;
+        defragInfo.allocationCount = (uint32_t)movableAllocCount;
         defragInfo.pAllocations = allocationPtrs.data();
         defragInfo.pAllocationsChanged = allocationChanged.data();
         defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
@@ -1526,11 +1566,12 @@ static void TestDefragmentationGpu()
 
         vmaDefragmentationEnd(g_hAllocator, ctx);
 
-        for(size_t i = 0; i < allocCount; ++i)
+        for(size_t i = 0; i < movableAllocCount; ++i)
         {
             if(allocationChanged[i])
             {
-                RecreateAllocationResource(allocations[i]);
+                const size_t origAllocIndex = allocationOriginalIndex[i];
+                RecreateAllocationResource(allocations[origAllocIndex]);
             }
         }
 
@@ -1541,7 +1582,8 @@ static void TestDefragmentationGpu()
 
     ValidateGpuData(allocations.data(), allocations.size());
 
-    SaveAllocatorStatsToFile(L"GPU_defragmentation_B_after.json");
+    swprintf_s(fileName, L"GPU_defragmentation_%s_B_after.json", flagsName);
+    SaveAllocatorStatsToFile(fileName);
 
     // Destroy all remaining buffers.
     for(size_t i = allocations.size(); i--; )
@@ -4897,7 +4939,9 @@ void Test()
         // ########################################
         // ########################################
         
-        TestDefragmentationGpu();
+        TestDefragmentationGpu(0);
+        TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
+        TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);
         TestDefragmentationSimple();
         TestDefragmentationFull();
         return;
@@ -4935,7 +4979,9 @@ void Test()
 
     TestDefragmentationSimple();
     TestDefragmentationFull();
-    TestDefragmentationGpu();
+    TestDefragmentationGpu(0);
+    TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
+    TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);
 
     // # Detailed tests
     FILE* file;
