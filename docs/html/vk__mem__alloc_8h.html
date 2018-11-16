@@ -332,6 +332,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a11f0fbc034fa81a4efedd73d61ce7568"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a11f0fbc034fa81a4efedd73d61ce7568">vmaFreeMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
 <tr class="memdesc:a11f0fbc034fa81a4efedd73d61ce7568"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory previously allocated using <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="vk__mem__alloc_8h.html#a0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer(). ">vmaAllocateMemoryForImage()</a>.  <a href="#a11f0fbc034fa81a4efedd73d61ce7568">More...</a><br /></td></tr>
 <tr class="separator:a11f0fbc034fa81a4efedd73d61ce7568"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ff488958ca72b28e545880463cb8696"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0ff488958ca72b28e545880463cb8696">vmaResizeAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize newSize)</td></tr>
+<tr class="memdesc:a0ff488958ca72b28e545880463cb8696"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tries to resize an allocation in place, if there is enough free memory after it.  <a href="#a0ff488958ca72b28e545880463cb8696">More...</a><br /></td></tr>
+<tr class="separator:a0ff488958ca72b28e545880463cb8696"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">vmaGetAllocationInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current information about specified allocation and atomically marks it as used in current frame.  <a href="#a86dd08aba8633bfa4ad0df2e76481d8b">More...</a><br /></td></tr>
 <tr class="separator:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -898,7 +901,8 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ad242a04f802e25fef0b880afe8bb0a62"></a>VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that chooses biggest possible free range for the allocation. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a33eb2052674f3ad92386c714a65fb777"></a>VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that chooses first suitable free range for the allocation. </p>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a33eb2052674f3ad92386c714a65fb777"></a>VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that chooses first suitable free range for the allocation.</p>
+<p>"First" doesn't necessarily means the one with smallest offset in memory, but rather the one that is easiest and fastest to find. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a8af1210cf591784afa026d94998f735d"></a>VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT&#160;</td><td class="fielddoc"><p>Allocation strategy that tries to minimize memory usage. </p>
 </td></tr>
@@ -2558,6 +2562,50 @@ Functions</h2></td></tr>
 <p>It is also safe to call this function on allocation created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it...">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag. Its memory stays mapped all the time. You must still call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory(). ">vmaUnmapMemory()</a> same number of times as you called <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it. ">vmaMapMemory()</a>. You must not call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory(). ">vmaUnmapMemory()</a> additional time to free the "0-th" mapping made automatically due to <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it...">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag.</p>
 <p>This function fails when used on allocation made in memory type that is not <code>HOST_VISIBLE</code>.</p>
 <p>This function always fails when called for allocation that was created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag. Such allocations cannot be mapped. </p>
+
+</div>
+</div>
+<a id="a0ff488958ca72b28e545880463cb8696"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ff488958ca72b28e545880463cb8696">&#9670;&nbsp;</a></span>vmaResizeAllocation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaResizeAllocation </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>newSize</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Tries to resize an allocation in place, if there is enough free memory after it. </p>
+<p>Tries to change allocation's size without moving or reallocating it. You can both shrink and grow allocation size. When growing, it succeeds only when the allocation belongs to a memory block with enough free space after it.</p>
+<p>Returns <code>VK_SUCCESS</code> if allocation's size has been successfully changed. Returns <code>VK_ERROR_OUT_OF_POOL_MEMORY</code> if allocation's size could not be changed.</p>
+<p>After successful call to this function, <a class="el" href="struct_vma_allocation_info.html#aac76d113a6a5ccbb09fea00fb25fd18f" title="Size of this allocation, in bytes. ">VmaAllocationInfo::size</a> of this allocation changes. All other parameters stay the same: memory pool and type, alignment, offset, mapped pointer.</p>
+<ul>
+<li>Calling this function on allocation that is in lost state fails with result <code>VK_ERROR_VALIDATION_FAILED_EXT</code>.</li>
+<li>Calling this function with <code>newSize</code> same as current allocation size does nothing and returns <code>VK_SUCCESS</code>.</li>
+<li>Resizing dedicated allocations, as well as allocations created in pools that use linear or buddy algorithm, is not supported. The function returns <code>VK_ERROR_FEATURE_NOT_PRESENT</code> in such cases. Support may be added in the future. </li>
+</ul>
 
 </div>
 </div>

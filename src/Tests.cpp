@@ -1629,6 +1629,56 @@ static void TestUserData()
     }
 }
 
+static void TestInvalidAllocations()
+{
+    VkResult res;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    // Try to allocate 0 bytes.
+    {
+        VkMemoryRequirements memReq = {};
+        memReq.size = 0; // !!!
+        memReq.alignment = 4;
+        memReq.memoryTypeBits = UINT32_MAX;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
+        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && alloc == VK_NULL_HANDLE);
+    }
+
+    // Try to create buffer with size = 0.
+    {
+        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        bufCreateInfo.size = 0; // !!!
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
+        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && buf == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
+    }
+
+    // Try to create image with one dimension = 0.
+    {
+        VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+        imageCreateInfo.extent.width = 128;
+        imageCreateInfo.extent.height = 0; // !!!
+        imageCreateInfo.extent.depth = 1;
+        imageCreateInfo.mipLevels = 1;
+        imageCreateInfo.arrayLayers = 1;
+        imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+        imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+        VkImage image = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        res = vmaCreateImage(g_hAllocator, &imageCreateInfo, &allocCreateInfo, &image, &alloc, nullptr);
+        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && image == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
+    }
+}
+
 static void TestMemoryRequirements()
 {
     VkResult res;
@@ -1733,6 +1783,8 @@ static void TestBasics()
     }
 
     TestUserData();
+
+    TestInvalidAllocations();
 }
 
 void TestHeapSizeLimit()
@@ -3091,6 +3143,159 @@ static void TestPool_SameSize()
     }
 
     vmaDestroyPool(g_hAllocator, pool);
+}
+
+static void TestResize()
+{
+    wprintf(L"Testing vmaResizeAllocation...\n");
+
+    const VkDeviceSize KILOBYTE = 1024ull;
+    const VkDeviceSize MEGABYTE = KILOBYTE * 1024;
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 2 * MEGABYTE;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    
+    uint32_t memTypeIndex = UINT32_MAX;
+    TEST( vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &memTypeIndex) == VK_SUCCESS );
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.flags = VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT;
+    poolCreateInfo.blockSize = 8 * MEGABYTE;
+    poolCreateInfo.minBlockCount = 1;
+    poolCreateInfo.maxBlockCount = 1;
+    poolCreateInfo.memoryTypeIndex = memTypeIndex;
+
+    VmaPool pool;
+    TEST( vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS );
+
+    allocCreateInfo.pool = pool;
+
+    // Fill 8 MB pool with 4 * 2 MB allocations.
+    VmaAllocation allocs[4] = {};
+
+    VkMemoryRequirements memReq = {};
+    memReq.memoryTypeBits = UINT32_MAX;
+    memReq.alignment = 4;
+    memReq.size = bufCreateInfo.size;
+
+    VmaAllocationInfo allocInfo = {};
+
+    for(uint32_t i = 0; i < 4; ++i)
+    {
+        TEST( vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &allocs[i], nullptr) == VK_SUCCESS );
+    }
+
+    // Now it's: a0 2MB, a1 2MB, a2 2MB, a3 2MB
+
+    // Case: Resize to the same size always succeeds.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[0], 2 * MEGABYTE) == VK_SUCCESS);
+        vmaGetAllocationInfo(g_hAllocator, allocs[3], &allocInfo);
+        TEST(allocInfo.size == 2ull * 1024 * 1024);
+    }
+
+    // Case: Shrink allocation at the end.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[3], 1 * MEGABYTE) == VK_SUCCESS );
+        vmaGetAllocationInfo(g_hAllocator, allocs[3], &allocInfo);
+        TEST(allocInfo.size == 1ull * 1024 * 1024);
+    }
+    
+    // Now it's: a0 2MB, a1 2MB, a2 2MB, a3 1MB, free 1MB
+
+    // Case: Shrink allocation before free space.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[3], 512 * KILOBYTE) == VK_SUCCESS );
+        vmaGetAllocationInfo(g_hAllocator, allocs[3], &allocInfo);
+        TEST(allocInfo.size == 512 * KILOBYTE);
+    }
+
+    // Now it's: a0 2MB, a1 2MB, a2 2MB, a3 0.5MB, free 1.5MB
+
+    // Case: Shrink allocation before next allocation.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[0], 1 * MEGABYTE) == VK_SUCCESS );
+        vmaGetAllocationInfo(g_hAllocator, allocs[0], &allocInfo);
+        TEST(allocInfo.size == 1 * MEGABYTE);
+    }
+
+    // Now it's: a0 1MB, free 1 MB, a1 2MB, a2 2MB, a3 0.5MB, free 1.5MB
+
+    // Case: Grow allocation while there is even more space available.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[3], 1 * MEGABYTE) == VK_SUCCESS );
+        vmaGetAllocationInfo(g_hAllocator, allocs[3], &allocInfo);
+        TEST(allocInfo.size == 1 * MEGABYTE);
+    }
+
+    // Now it's: a0 1MB, free 1 MB, a1 2MB, a2 2MB, a3 1MB, free 1MB
+
+    // Case: Grow allocation while there is exact amount of free space available.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[0], 2 * MEGABYTE) == VK_SUCCESS );
+        vmaGetAllocationInfo(g_hAllocator, allocs[0], &allocInfo);
+        TEST(allocInfo.size == 2 * MEGABYTE);
+    }
+
+    // Now it's: a0 2MB, a1 2MB, a2 2MB, a3 1MB, free 1MB
+
+    // Case: Fail to grow when there is not enough free space due to next allocation.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[0], 3 * MEGABYTE) == VK_ERROR_OUT_OF_POOL_MEMORY );
+        vmaGetAllocationInfo(g_hAllocator, allocs[0], &allocInfo);
+        TEST(allocInfo.size == 2 * MEGABYTE);
+    }
+
+    // Case: Fail to grow when there is not enough free space due to end of memory block.
+    {
+        TEST( vmaResizeAllocation(g_hAllocator, allocs[3], 3 * MEGABYTE) == VK_ERROR_OUT_OF_POOL_MEMORY );
+        vmaGetAllocationInfo(g_hAllocator, allocs[3], &allocInfo);
+        TEST(allocInfo.size == 1 * MEGABYTE);
+    }
+
+    for(uint32_t i = 4; i--; )
+    {
+        vmaFreeMemory(g_hAllocator, allocs[i]);
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+
+    // Test dedicated allocation
+    {
+        VmaAllocationCreateInfo dedicatedAllocCreateInfo = {};
+        dedicatedAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+        dedicatedAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        VmaAllocation dedicatedAlloc = VK_NULL_HANDLE;
+        TEST( vmaAllocateMemory(g_hAllocator, &memReq, &dedicatedAllocCreateInfo, &dedicatedAlloc, nullptr) == VK_SUCCESS );
+
+        // Case: Resize to the same size always succeeds.
+        {
+            TEST( vmaResizeAllocation(g_hAllocator, dedicatedAlloc, 2 * MEGABYTE) == VK_SUCCESS);
+            vmaGetAllocationInfo(g_hAllocator, dedicatedAlloc, &allocInfo);
+            TEST(allocInfo.size == 2ull * 1024 * 1024);
+        }
+
+        // Case: Shrinking fails.
+        {
+            TEST( vmaResizeAllocation(g_hAllocator, dedicatedAlloc, 1 * MEGABYTE) < VK_SUCCESS);
+            vmaGetAllocationInfo(g_hAllocator, dedicatedAlloc, &allocInfo);
+            TEST(allocInfo.size == 2ull * 1024 * 1024);
+        }
+
+        // Case: Growing fails.
+        {
+            TEST( vmaResizeAllocation(g_hAllocator, dedicatedAlloc, 3 * MEGABYTE) < VK_SUCCESS);
+            vmaGetAllocationInfo(g_hAllocator, dedicatedAlloc, &allocInfo);
+            TEST(allocInfo.size == 2ull * 1024 * 1024);
+        }
+
+        vmaFreeMemory(g_hAllocator, dedicatedAlloc);
+    }
 }
 
 static bool ValidatePattern(const void* pMemory, size_t size, uint8_t pattern)
@@ -4707,6 +4912,7 @@ void Test()
 #else
     TestPool_SameSize();
     TestHeapSizeLimit();
+    TestResize();
 #endif
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
     TestAllocationsInitialization();

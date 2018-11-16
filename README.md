@@ -20,7 +20,7 @@ Easy to integrate Vulkan memory allocation library.
 Memory allocation and resource (buffer and image) creation in Vulkan is difficult (comparing to older graphics API-s, like D3D11 or OpenGL) for several reasons:
 
 - It requires a lot of boilerplate code, just like everything else in Vulkan, because it is a low-level and high-performance API.
-- There is additional level of indirection: `VkDeviceMemory` is allocated separately from creating `VkBuffer`/`VkImage` and they must be bound together. The binding cannot be changed later - resource must be recreated.
+- There is additional level of indirection: `VkDeviceMemory` is allocated separately from creating `VkBuffer`/`VkImage` and they must be bound together.
 - Driver must be queried for supported memory heaps and memory types. Different IHVs provide different types of it.
 - It is recommended practice to allocate bigger chunks of memory and assign parts of them to particular resources.
 
@@ -41,7 +41,7 @@ Additional features:
 - Configuration: Fill optional members of CreateInfo structure to provide custom CPU memory allocator, pointers to Vulkan functions and other parameters.
 - Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library, from assert, mutex, and atomic, to vector and linked list. 
 - Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and you get access to mapped pointer.
-- Support for non-coherent memory. Functions that flush/invalidate memory. nonCoherentAtomSize is respected automatically.
+- Support for non-coherent memory. Functions that flush/invalidate memory. `nonCoherentAtomSize` is respected automatically.
 - Custom memory pools: Create a pool with desired parameters (e.g. fixed or limited maximum size) and allocate memory out of it.
 - Linear allocator: Create a pool with linear algorithm and use it for much faster allocations and deallocations in free-at-once, stack, double stack, or ring buffer fashion.
 - Support for VK_KHR_dedicated_allocation extension: Just enable it and it will be used automatically by the library.
@@ -60,7 +60,7 @@ Additional features:
 - Public interface in C, in same convention as Vulkan API. Implementation in C++.
 - Error handling implemented by returning `VkResult` error codes - same way as in Vulkan.
 - Interface documented using Doxygen-style comments.
-- Platform-independent, but developed and tested on Windows using Visual Studio. Continuous integration setup for Windows and Linux. Tested also on Android and MacOS.
+- Platform-independent, but developed and tested on Windows using Visual Studio. Continuous integration setup for Windows and Linux. Tested also on Android, MacOS, and other platforms.
 
 # Example
 
@@ -94,11 +94,15 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 # Software using this library
 
 - **[Filament](https://github.com/google/filament)** - physically based rendering engine for Android, Windows, Linux and macOS, from Google. Apache License 2.0.
+- **[Skia](https://github.com/google/skia)** - complete 2D graphic library for drawing Text, Geometries, and Images, from Google.
+- **[PowerVR SDK](https://github.com/powervr-graphics/Native_SDK)** - C++ cross-platform 3D graphics SDK, from Imagination. License: MIT.
 - **[Anvil](https://github.com/GPUOpen-LibrariesAndSDKs/Anvil)** - cross-platform framework for Vulkan. License: MIT.
 - **[vkDOOM3](https://github.com/DustinHLand/vkDOOM3)** - Vulkan port of GPL DOOM 3 BFG Edition. License: GNU GPL.
 - **[Lightweight Java Game Library (LWJGL)](https://www.lwjgl.org/)** - includes binding of the library for Java. License: BSD.
 - **[The Forge](https://github.com/ConfettiFX/The-Forge)** - cross-platform rendering framework. Apache License 2.0.
 - **[VK9](https://github.com/disks86/VK9)** - Direct3D 9 compatibility layer using Vulkan. Zlib lincese.
+
+[Many other projects on GitHub](https://github.com/search?q=AMD_VULKAN_MEMORY_ALLOCATOR_H&type=Code) and some game development studios that use Vulkan in their games.
 
 # See also
 

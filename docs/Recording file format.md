@@ -23,7 +23,7 @@ Formats with only minor version incremented are backward compatible.
 VmaReplay application supports all older versions.
 Current version is:
 
-    1,3
+    1,4
 
 # Configuration
 
@@ -204,6 +204,11 @@ No parameters.
 
 - pool : pointer
 
+**vmaResizeAllocation** (min format version: 1.4)
+
+- allocation : pointer
+- newSize : uint64
+
 # Data types
 
 **bool**
@@ -228,7 +233,7 @@ It should not contain end-of-line characters - results are then undefined.
 # Example file
 
     Vulkan Memory Allocator,Calls recording
-    1,3
+    1,4
     Config,Begin
     PhysicalDevice,apiVersion,4198477
     PhysicalDevice,driverVersion,8388653
