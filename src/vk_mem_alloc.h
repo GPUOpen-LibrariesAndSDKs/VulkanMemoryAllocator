@@ -2585,12 +2585,12 @@ typedef enum VmaDefragmentationFlagBits {
     Defragmentation will be done as fast and move as little allocations and bytes as possible while
     still providing some benefits.
     */
-    VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT = 0x00001000,
+    VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT = 0x00000001,
     /** Add this flag to change defragmentation algorithm to optimal rather than default (balanced).
     This algorithm will favor quality of defragmentation over speed.
     Allocations will be as perfectly compacted as possible.
     */
-    VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT = 0x00002000,
+    VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT = 0x00000002,
     /** \brief A bit mask to extract only `ALGORITHM` bits from entire set of flags.
     */
     VMA_DEFRAGMENTATION_ALGORITHM_MASK =

@@ -42,6 +42,7 @@ enum CMD_LINE_OPT
     CMD_LINE_OPT_MEM_STATS,
     CMD_LINE_OPT_DUMP_STATS_AFTER_LINE,
     CMD_LINE_OPT_DEFRAGMENT_AFTER_LINE,
+    CMD_LINE_OPT_DEFRAGMENTATION_FLAGS,
     CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE,
 };
 
@@ -142,6 +143,7 @@ struct StatsAfterLineEntry
 };
 static std::vector<StatsAfterLineEntry> g_DumpStatsAfterLine;
 static std::vector<size_t> g_DefragmentAfterLine;
+static uint32_t g_DefragmentationFlags = 0;
 static size_t g_DumpStatsAfterLineNextIndex = 0;
 static size_t g_DefragmentAfterLineNextIndex = 0;
 
@@ -1754,7 +1756,7 @@ void Player::Defragment()
     defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
     defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
     defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
-    defragInfo.flags = 0;
+    defragInfo.flags = g_DefragmentationFlags;
     defragInfo.commandBuffer = m_CommandBuffer;
 
     VmaDefragmentationContext defragCtx = VK_NULL_HANDLE;
@@ -2916,6 +2918,8 @@ static void PrintCommandLineSyntax()
         "    --DumpDetailedStatsAfterLine <Line> - Like command above, but includes detailed map.\n"
         "    --DefragmentAfterLine <Line> - Defragment memory after specified source file line and print statistics.\n"
         "        It also prints detailed statistics to files VmaReplay_Line####_Defragment*.json\n"
+        "    --DefragmentatationFlags <Flags> - Flags to be applied when using DefragmentAfterLine.\n"
+        "        E.g. 1 for FAST algorithm, 2 for OPTIMAL algorithm.\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
         "    --PhysicalDevice <Index> - Choice of Vulkan physical device. Default: 0.\n"
@@ -3148,6 +3152,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_MEM_STATS, "MemStats", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_STATS_AFTER_LINE, "DumpStatsAfterLine", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_DEFRAGMENT_AFTER_LINE, "DefragmentAfterLine", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_DEFRAGMENTATION_FLAGS, "DefragmentationFlags", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_DETAILED_STATS_AFTER_LINE, "DumpDetailedStatsAfterLine", true);
 
     CmdLineParser::RESULT res;
@@ -3265,6 +3270,15 @@ static int main2(int argc, char** argv)
                         g_DefragmentAfterLine.push_back(line);
                     }
                     else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
+            case CMD_LINE_OPT_DEFRAGMENTATION_FLAGS:
+                {
+                    if(!StrRangeToUint(StrRange(cmdLineParser.GetParameter()), g_DefragmentationFlags))
                     {
                         PrintCommandLineSyntax();
                         return RESULT_ERROR_COMMAND_LINE;
