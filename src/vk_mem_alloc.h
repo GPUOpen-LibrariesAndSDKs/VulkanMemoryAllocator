@@ -2580,11 +2580,6 @@ VK_DEFINE_HANDLE(VmaDefragmentationContext)
 
 /// Flags to be used in vmaDefragmentationBegin().
 typedef enum VmaDefragmentationFlagBits {
-    /** Add this flag to enable allocations created with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT
-    flag to become lost during defragmentation process if the algorithm decides it is beneficial.
-    */
-    VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT = 0x00000001,
-
     /** Add this flag to change defragmentation algorithm to fast rather than default (balanced).
     This algorithm will favor speed over quality of defragmentation.
     Defragmentation will be done as fast and move as little allocations and bytes as possible while

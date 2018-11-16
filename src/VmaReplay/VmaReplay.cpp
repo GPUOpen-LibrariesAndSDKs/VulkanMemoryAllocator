@@ -1754,7 +1754,7 @@ void Player::Defragment()
     defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
     defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
     defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
-    defragInfo.flags = VMA_DEFRAGMENTATION_CAN_MAKE_LOST_BIT;
+    defragInfo.flags = 0;
     defragInfo.commandBuffer = m_CommandBuffer;
 
     VmaDefragmentationContext defragCtx = VK_NULL_HANDLE;
