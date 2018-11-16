@@ -2585,7 +2585,7 @@ typedef enum VmaDefragmentationFlagBits {
     Defragmentation will be done as fast and move as little allocations and bytes as possible while
     still providing some benefits.
     */
-    VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT = 0x000010000,
+    VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT = 0x00001000,
     /** Add this flag to change defragmentation algorithm to optimal rather than default (balanced).
     This algorithm will favor quality of defragmentation over speed.
     Allocations will be as perfectly compacted as possible.
@@ -3239,6 +3239,8 @@ static const uint8_t VMA_ALLOCATION_FILL_PATTERN_DESTROYED = 0xEF;
 /*******************************************************************************
 END OF CONFIGURATION
 */
+
+static const uint32_t VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET = 0x10000000u;
 
 static VkAllocationCallbacks VmaEmptyAllocationCallbacks = {
     VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL };
@@ -4973,7 +4975,8 @@ public:
         bool upperAddress,
         VmaSuballocationType allocType,
         bool canMakeOtherLost,
-        uint32_t strategy, // Always one of VMA_ALLOCATION_CREATE_STRATEGY_* flags.
+        // Always one of VMA_ALLOCATION_CREATE_STRATEGY_* or VMA_ALLOCATION_INTERNAL_STRATEGY_* flags.
+        uint32_t strategy,
         VmaAllocationRequest* pAllocationRequest) = 0;
 
     virtual bool MakeRequestedAllocationsLost(
@@ -5707,7 +5710,8 @@ public:
     VmaDefragmentationAlgorithm(
         VmaAllocator hAllocator,
         VmaBlockVector* pBlockVector,
-        uint32_t currentFrameIndex);
+        uint32_t currentFrameIndex,
+        uint32_t algorithmFlags); // Zero or one of VMA_DEFRAGMENTATION_*_ALGORITHM_BIT.
     virtual ~VmaDefragmentationAlgorithm();
 
     void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
@@ -5724,6 +5728,7 @@ private:
     VmaAllocator const m_hAllocator;
     VmaBlockVector* const m_pBlockVector;
     const uint32_t m_CurrentFrameIndex;
+    const uint32_t m_AlgorithmFlags;
 
     VkDeviceSize m_BytesMoved;
     uint32_t m_AllocationsMoved;
@@ -5745,6 +5750,14 @@ private:
         bool operator()(const AllocationInfo& lhs, const AllocationInfo& rhs) const
         {
             return lhs.m_hAllocation->GetSize() > rhs.m_hAllocation->GetSize();
+        }
+    };
+
+    struct AllocationInfoOffsetGreater
+    {
+        bool operator()(const AllocationInfo& lhs, const AllocationInfo& rhs) const
+        {
+            return lhs.m_hAllocation->GetOffset() > rhs.m_hAllocation->GetOffset();
         }
     };
 
@@ -5776,6 +5789,11 @@ private:
         void SortAllocationsBySizeDescecnding()
         {
             VMA_SORT(m_Allocations.begin(), m_Allocations.end(), AllocationInfoSizeGreater());
+        }
+
+        void SortAllocationsByOffsetDescending()
+        {
+            VMA_SORT(m_Allocations.begin(), m_Allocations.end(), AllocationInfoOffsetGreater());
         }
     };
 
@@ -5821,6 +5839,8 @@ private:
         VkDeviceSize maxBytesToMove,
         uint32_t maxAllocationsToMove);
 
+    size_t CalcBlocksWithNonMovableCount() const;
+
     static bool MoveMakesSense(
         size_t dstBlockIndex, VkDeviceSize dstOffset,
         size_t srcBlockIndex, VkDeviceSize srcOffset);
@@ -5857,7 +5877,8 @@ public:
         VmaAllocator hAllocator,
         VmaPool hCustomPool, // Optional.
         VmaBlockVector* pBlockVector,
-        uint32_t currFrameIndex);
+        uint32_t currFrameIndex,
+        uint32_t algorithmFlags); // Zero or one of VMA_DEFRAGMENTATION_*_ALGORITHM_BIT.
     ~VmaBlockVectorDefragmentationContext();
 
     VmaPool GetCustomPool() const { return m_hCustomPool; }
@@ -5882,6 +5903,7 @@ public:
     VmaDefragmentationContext_T(
         VmaAllocator hAllocator,
         uint32_t currFrameIndex,
+        uint32_t algorithmFlags,
         VmaDefragmentationStats* pStats);
     ~VmaDefragmentationContext_T();
 
@@ -5904,6 +5926,7 @@ public:
 private:
     const VmaAllocator m_hAllocator;
     const uint32_t m_CurrFrameIndex;
+    const uint32_t m_AlgorithmFlags;
     VmaDefragmentationStats* const m_pStats;
     // Owner of these objects.
     VmaBlockVectorDefragmentationContext* m_DefaultPoolContexts[VK_MAX_MEMORY_TYPES];
@@ -7335,6 +7358,31 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
                     &pAllocationRequest->sumItemSize))
                 {
                     pAllocationRequest->item = m_FreeSuballocationsBySize[index];
+                    return true;
+                }
+            }
+        }
+        else if(strategy == VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET)
+        {
+            for(VmaSuballocationList::iterator it = m_Suballocations.begin();
+                it != m_Suballocations.end();
+                ++it)
+            {
+                if(it->type == VMA_SUBALLOCATION_TYPE_FREE && CheckAllocation(
+                    currentFrameIndex,
+                    frameInUseCount,
+                    bufferImageGranularity,
+                    allocSize,
+                    allocAlignment,
+                    allocType,
+                    it,
+                    false, // canMakeOtherLost
+                    &pAllocationRequest->offset,
+                    &pAllocationRequest->itemsToMakeLostCount,
+                    &pAllocationRequest->sumFreeSize,
+                    &pAllocationRequest->sumItemSize))
+                {
+                    pAllocationRequest->item = it;
                     return true;
                 }
             }
@@ -11785,10 +11833,12 @@ void VmaBlockVector::AddStats(VmaStats* pStats)
 VmaDefragmentationAlgorithm::VmaDefragmentationAlgorithm(
     VmaAllocator hAllocator,
     VmaBlockVector* pBlockVector,
-    uint32_t currentFrameIndex) :
+    uint32_t currentFrameIndex,
+    uint32_t algorithmFlags) :
     m_hAllocator(hAllocator),
     m_pBlockVector(pBlockVector),
     m_CurrentFrameIndex(currentFrameIndex),
+    m_AlgorithmFlags(algorithmFlags),
     m_BytesMoved(0),
     m_AllocationsMoved(0),
     m_Allocations(VmaStlAllocator<AllocationInfo>(hAllocator->GetAllocationCallbacks())),
@@ -11822,19 +11872,43 @@ VkResult VmaDefragmentationAlgorithm::DefragmentRound(
         return VK_SUCCESS;
     }
 
+    uint32_t strategy = UINT32_MAX;
+    switch(m_AlgorithmFlags)
+    {
+    case VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT:
+        strategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
+        break;
+    case VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT:
+        strategy = VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET;
+        break;
+    default:
+        strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
+    }
+
+    size_t srcBlockMinIndex = 0;
+    // When FAST_ALGORITHM, move allocations from only last out of blocks that contain non-movable allocations.
+    if(m_AlgorithmFlags & VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT)
+    {
+        const size_t blocksWithNonMovableCount = CalcBlocksWithNonMovableCount();
+        if(blocksWithNonMovableCount > 0)
+        {
+            srcBlockMinIndex = blocksWithNonMovableCount - 1;
+        }
+    }
+
     size_t srcBlockIndex = m_Blocks.size() - 1;
     size_t srcAllocIndex = SIZE_MAX;
     for(;;)
     {
         // 1. Find next allocation to move.
         // 1.1. Start from last to first m_Blocks - they are sorted from most "destination" to most "source".
-        // 1.2. Then start from last to first m_Allocations - they are sorted from largest to smallest.
+        // 1.2. Then start from last to first m_Allocations.
         while(srcAllocIndex >= m_Blocks[srcBlockIndex]->m_Allocations.size())
         {
             if(m_Blocks[srcBlockIndex]->m_Allocations.empty())
             {
                 // Finished: no more allocations to process.
-                if(srcBlockIndex == 0)
+                if(srcBlockIndex == srcBlockMinIndex)
                 {
                     return VK_SUCCESS;
                 }
@@ -11872,7 +11946,7 @@ VkResult VmaDefragmentationAlgorithm::DefragmentRound(
                 false, // upperAddress
                 suballocType,
                 false, // canMakeOtherLost
-                VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT,
+                strategy,
                 &dstAllocRequest) &&
             MoveMakesSense(
                 dstBlockIndex, dstAllocRequest.offset, srcBlockIndex, srcOffset))
@@ -11939,6 +12013,19 @@ VkResult VmaDefragmentationAlgorithm::DefragmentRound(
     }
 }
 
+size_t VmaDefragmentationAlgorithm::CalcBlocksWithNonMovableCount() const
+{
+    size_t result = 0;
+    for(size_t i = 0; i < m_Blocks.size(); ++i)
+    {
+        if(m_Blocks[i]->m_HasNonMovableAllocations)
+        {
+            ++result;
+        }
+    }
+    return result;
+}
+
 VkResult VmaDefragmentationAlgorithm::Defragment(
     VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
@@ -11987,15 +12074,23 @@ VkResult VmaDefragmentationAlgorithm::Defragment(
     {
         BlockInfo* pBlockInfo = m_Blocks[blockIndex];
         pBlockInfo->CalcHasNonMovableAllocations();
-        pBlockInfo->SortAllocationsBySizeDescecnding();
+        if((m_AlgorithmFlags & VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT) != 0)
+        {
+            pBlockInfo->SortAllocationsByOffsetDescending();
+        }
+        else
+        {
+            pBlockInfo->SortAllocationsBySizeDescecnding();
+        }
     }
 
     // Sort m_Blocks this time by the main criterium, from most "destination" to most "source" blocks.
     VMA_SORT(m_Blocks.begin(), m_Blocks.end(), BlockInfoCompareMoveDestination());
 
     // Execute defragmentation rounds (the main part).
+    const uint32_t roundCount = (m_AlgorithmFlags & VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT) ? 1 : 2;
     VkResult result = VK_SUCCESS;
-    for(size_t round = 0; (round < 2) && (result == VK_SUCCESS); ++round)
+    for(uint32_t round = 0; (round < roundCount) && (result == VK_SUCCESS); ++round)
     {
         result = DefragmentRound(moves, maxBytesToMove, maxAllocationsToMove);
     }
@@ -12029,7 +12124,8 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     VmaAllocator hAllocator,
     VmaPool hCustomPool,
     VmaBlockVector* pBlockVector,
-    uint32_t currFrameIndex) :
+    uint32_t currFrameIndex,
+    uint32_t algorithmFlags) :
     res(VK_SUCCESS),
     mutexLocked(false),
     blockContexts(VmaStlAllocator<VmaBlockDefragmentationContext>(hAllocator->GetAllocationCallbacks())),
@@ -12039,7 +12135,7 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     m_pAlgorithm(VMA_NULL)
 {
     m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm)(
-        m_hAllocator, m_pBlockVector, currFrameIndex);
+        m_hAllocator, m_pBlockVector, currFrameIndex, algorithmFlags);
 }
 
 VmaBlockVectorDefragmentationContext::~VmaBlockVectorDefragmentationContext()
@@ -12053,9 +12149,11 @@ VmaBlockVectorDefragmentationContext::~VmaBlockVectorDefragmentationContext()
 VmaDefragmentationContext_T::VmaDefragmentationContext_T(
     VmaAllocator hAllocator,
     uint32_t currFrameIndex,
+    uint32_t algorithmFlags,
     VmaDefragmentationStats* pStats) :
     m_hAllocator(hAllocator),
     m_CurrFrameIndex(currFrameIndex),
+    m_AlgorithmFlags(algorithmFlags),
     m_pStats(pStats),
     m_CustomPoolContexts(VmaStlAllocator<VmaBlockVectorDefragmentationContext*>(hAllocator->GetAllocationCallbacks()))
 {
@@ -12119,7 +12217,8 @@ void VmaDefragmentationContext_T::AddAllocations(
                             m_hAllocator,
                             hAllocPool,
                             &hAllocPool->m_BlockVector,
-                            m_CurrFrameIndex);
+                            m_CurrFrameIndex,
+                            m_AlgorithmFlags);
                         m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
                     }
                 }
@@ -12135,7 +12234,8 @@ void VmaDefragmentationContext_T::AddAllocations(
                         m_hAllocator,
                         VMA_NULL, // hCustomPool
                         m_hAllocator->m_pBlockVectors[memTypeIndex],
-                        m_CurrFrameIndex);
+                        m_CurrFrameIndex,
+                        m_AlgorithmFlags);
                     m_DefaultPoolContexts[memTypeIndex] = pBlockVectorDefragCtx;
                 }
             }
@@ -13476,8 +13576,9 @@ VkResult VmaAllocator_T::DefragmentationBegin(
         memset(info.pAllocationsChanged, 0, info.allocationCount * sizeof(VkBool32));
     }
 
+    const uint32_t algorithmFlags = info.flags & VMA_DEFRAGMENTATION_ALGORITHM_MASK;
     *pContext = vma_new(this, VmaDefragmentationContext_T)(
-        this, m_CurrentFrameIndex.load(), pStats);
+        this, m_CurrentFrameIndex.load(), algorithmFlags, pStats);
 
     (*pContext)->AddAllocations(
         info.allocationCount, info.pAllocations, info.pAllocationsChanged);
