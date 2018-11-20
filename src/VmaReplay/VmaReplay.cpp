@@ -1824,7 +1824,7 @@ void Player::Defragment()
         printf("        bytesMoved: %llu\n", defragStats.bytesMoved);
         printf("        bytesFreed: %llu\n", defragStats.bytesFreed);
         printf("        allocationsMoved: %u\n", defragStats.allocationsMoved);
-        printf("        deviceMemoryBlocksMoved: %u\n", defragStats.deviceMemoryBlocksFreed);
+        printf("        deviceMemoryBlocksFreed: %u\n", defragStats.deviceMemoryBlocksFreed);
         printf("        allocationsLost: %u\n", defragStats.allocationsLost);
 
         vmaCalculateStats(m_Allocator, &stats);
