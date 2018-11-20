@@ -1688,7 +1688,8 @@ typedef struct VmaAllocatorCreateInfo
     smaller amount of memory, because graphics driver doesn't necessary fail new
     allocations with `VK_ERROR_OUT_OF_DEVICE_MEMORY` result when memory capacity is
     exceeded. It may return success and just silently migrate some device memory
-    blocks to system RAM.
+    blocks to system RAM. This driver behavior can also be controlled using
+    VK_AMD_memory_overallocation_behavior extension.
     */
     const VkDeviceSize* pHeapSizeLimit;
     /** \brief Pointers to Vulkan functions. Can be null if you leave define `VMA_STATIC_VULKAN_FUNCTIONS 1`.

@@ -216,7 +216,7 @@ Public Attributes</h2></td></tr>
 <li>If user tries to allocate more memory from that heap using this allocator, the allocation fails with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>.</li>
 <li>If the limit is smaller than heap size reported in <code>VkMemoryHeap::size</code>, the value of this limit will be reported instead when using <a class="el" href="vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>.</li>
 </ul>
-<p>Warning! Using this feature may not be equivalent to installing a GPU with smaller amount of memory, because graphics driver doesn't necessary fail new allocations with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> result when memory capacity is exceeded. It may return success and just silently migrate some device memory blocks to system RAM. </p>
+<p>Warning! Using this feature may not be equivalent to installing a GPU with smaller amount of memory, because graphics driver doesn't necessary fail new allocations with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> result when memory capacity is exceeded. It may return success and just silently migrate some device memory blocks to system RAM. This driver behavior can also be controlled using VK_AMD_memory_overallocation_behavior extension. </p>
 
 </div>
 </div>
