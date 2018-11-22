@@ -1361,6 +1361,93 @@ void TestDefragmentationSimple()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+void TestDefragmentationWholePool()
+{
+    wprintf(L"Test defragmentation whole pool\n");
+
+    RandomNumberGenerator rand(668);
+
+    const VkDeviceSize BUF_SIZE = 0x10000;
+    const VkDeviceSize BLOCK_SIZE = BUF_SIZE * 8;
+    
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = BUF_SIZE;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo exampleAllocCreateInfo = {};
+    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    uint32_t memTypeIndex = UINT32_MAX;
+    vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.blockSize = BLOCK_SIZE;
+    poolCreateInfo.memoryTypeIndex = memTypeIndex;
+
+    VmaDefragmentationStats defragStats[2];
+    for(size_t caseIndex = 0; caseIndex < 2; ++caseIndex)
+    {
+        VmaPool pool;
+        ERR_GUARD_VULKAN( vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) );
+
+        std::vector<AllocInfo> allocations;
+
+        // Buffers of fixed size.
+        // Fill 2 blocks. Remove odd buffers. Defragment all of them.
+        for(size_t i = 0; i < BLOCK_SIZE / BUF_SIZE * 2; ++i)
+        {
+            AllocInfo allocInfo;
+            CreateBuffer(pool, bufCreateInfo, false, allocInfo);
+            allocations.push_back(allocInfo);
+        }
+
+        for(size_t i = 1; i < allocations.size(); ++i)
+        {
+            DestroyAllocation(allocations[i]);
+            allocations.erase(allocations.begin() + i);
+        }
+
+        VmaDefragmentationInfo2 defragInfo = {};
+        defragInfo.maxCpuAllocationsToMove = UINT32_MAX;
+        defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
+        std::vector<VmaAllocation> allocationsToDefrag;
+        if(caseIndex == 0)
+        {
+            defragInfo.poolCount = 1;
+            defragInfo.pPools = &pool;
+        }
+        else
+        {
+            const size_t allocCount = allocations.size();
+            allocationsToDefrag.resize(allocCount);
+            std::transform(
+                allocations.begin(), allocations.end(),
+                allocationsToDefrag.begin(),
+                [](const AllocInfo& allocInfo) { return allocInfo.m_Allocation; });
+            defragInfo.allocationCount = (uint32_t)allocCount;
+            defragInfo.pAllocations = allocationsToDefrag.data();
+        }
+
+        VmaDefragmentationContext defragCtx = VK_NULL_HANDLE;
+        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &defragStats[caseIndex], &defragCtx);
+        TEST(res >= VK_SUCCESS);
+        vmaDefragmentationEnd(g_hAllocator, defragCtx);
+
+        TEST(defragStats[caseIndex].allocationsMoved > 0 && defragStats[caseIndex].bytesMoved > 0);
+
+        ValidateAllocationsData(allocations.data(), allocations.size());
+
+        DestroyAllAllocations(allocations);
+
+        vmaDestroyPool(g_hAllocator, pool);
+    }
+
+    TEST(defragStats[0].bytesMoved == defragStats[1].bytesMoved);
+    TEST(defragStats[0].allocationsMoved == defragStats[1].allocationsMoved);
+    TEST(defragStats[0].bytesFreed == defragStats[1].bytesFreed);
+    TEST(defragStats[0].deviceMemoryBlocksFreed == defragStats[1].deviceMemoryBlocksFreed);
+}
+
 void TestDefragmentationFull()
 {
     std::vector<AllocInfo> allocations;
@@ -1577,7 +1664,6 @@ static void TestDefragmentationGpu(uint32_t flags)
 
         TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
         TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
-        TEST(stats.allocationsLost == 0);
     }
 
     ValidateGpuData(allocations.data(), allocations.size());
@@ -4933,17 +5019,18 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(true)
+    if(false)
     {
         // # Temporarily insert custom tests here
         // ########################################
         // ########################################
         
-        TestDefragmentationGpu(0);
-        TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
-        TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);
-        TestDefragmentationSimple();
-        TestDefragmentationFull();
+        TestDefragmentationWholePool();
+        //TestDefragmentationSimple();
+        //TestDefragmentationFull();
+        //TestDefragmentationGpu(0);
+        //TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
+        //TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);
         return;
     }
 
@@ -4979,6 +5066,7 @@ void Test()
 
     TestDefragmentationSimple();
     TestDefragmentationFull();
+    TestDefragmentationWholePool();
     TestDefragmentationGpu(0);
     TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
     TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);

@@ -2615,7 +2615,10 @@ typedef struct VmaDefragmentationInfo2 {
     /** \brief Pointer to array of allocations that can be defragmented.
 
     The array should have `allocationCount` elements.
-    All other allocations are considered non-moveable during this defragmentation.
+    The array should not contain nulls.
+    Elements in the array should be unique - same allocation cannot occur twice.
+    It is safe to pass allocations that are in the lost state - they are ignored.
+    All allocations not present in this array are considered non-moveable during this defragmentation.
     */
     VmaAllocation* pAllocations;
     /** \brief Optional, output. Pointer to array that will be filled with information whether the allocation at certain index has been changed (moved or lost) during defragmentation.
@@ -2624,6 +2627,25 @@ typedef struct VmaDefragmentationInfo2 {
     You can pass null if you are not interested in this information.
     */
     VkBool32* pAllocationsChanged;
+    /** \brief Numer of pools in `pPools` array.
+    */
+    uint32_t poolCount;
+    /** \brief Either null or pointer to array of pools to be defragmented.
+
+    All the allocations in the specified pools can be moved during defragmentation
+    and there is no way to check if they were really moved as in `pAllocationsChanged`,
+    so you must query all the allocations in all these pools for new `VkDeviceMemory`
+    and offset using vmaGetAllocationInfo() if you might need to recreate buffers
+    and images bound to them.
+
+    The array should have `poolCount` elements.
+    The array should not contain nulls.
+    Elements in the array should be unique - same pool cannot occur twice.
+
+    Using this array is equivalent to specifying all allocations from the pools in `pAllocations`.
+    It might be more efficient.
+    */
+    VmaPool* pPools;
     /** \brief Maximum total numbers of bytes that can be copied while moving allocations to different places using transfers on CPU side, like `memcpy()`, `memmove()`.
     
     `VK_WHOLE_SIZE` means no limit.
@@ -2682,8 +2704,6 @@ typedef struct VmaDefragmentationStats {
     uint32_t allocationsMoved;
     /// Number of empty `VkDeviceMemory` objects that have been released to the system.
     uint32_t deviceMemoryBlocksFreed;
-    /// Number of allocations that became lost in the process of defragmentation.
-    uint32_t allocationsLost;
 } VmaDefragmentationStats;
 
 /** \brief Begins defragmentation process.
@@ -2698,14 +2718,15 @@ Use this function instead of old, deprecated vmaDefragment().
 
 Warning! Between the call to vmaDefragmentationBegin() and vmaDefragmentationEnd():
 
-- You should not use any of allocations passed as `pInfo->pAllocations`,
-  including calling vmaGetAllocationInfo(), vmaTouchAllocation(), or accessing
+- You should not use any of allocations passed as `pInfo->pAllocations` or
+  any allocations that belong to pools passed as `pInfo->pPools`,
+  including calling vmaGetAllocationInfo(), vmaTouchAllocation(), or access
   their data.
 - Some mutexes protecting internal data structures may be locked, so trying to
   make or free any allocations, bind buffers or images, map memory, or launch
   another simultaneous defragmentation in between may cause stall (when done on
   another thread) or deadlock (when done on the same thread), unless you are
-  100% sure that defragmented allocations are from different pool.
+  100% sure that defragmented allocations are in different pool.
 - Information returned via `pStats` and `pInfo->pAllocationsChanged` are undefined.
   They become valid after call to vmaDefragmentationEnd().
 - If `pInfo->commandBuffer != VK_NULL_HANDLE`, you must submit that command buffer
@@ -5085,6 +5106,8 @@ public:
     virtual bool ResizeAllocation(const VmaAllocation alloc, VkDeviceSize newSize);
 
 private:
+    friend class VmaDefragmentationAlgorithm;
+
     uint32_t m_FreeCount;
     VkDeviceSize m_SumFreeSize;
     VmaSuballocationList m_Suballocations;
@@ -5610,6 +5633,10 @@ public:
         class VmaBlockVectorDefragmentationContext* pCtx,
         VmaDefragmentationStats* pStats);
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // To be used only while the m_Mutex is locked. Used during defragmentation.
+    size_t CalcAllocationCount();
+
 private:
     friend class VmaDefragmentationAlgorithm;
 
@@ -5715,6 +5742,7 @@ public:
     virtual ~VmaDefragmentationAlgorithm();
 
     void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
+    void AddAll() { m_AllAllocations = true; }
 
     VkResult Defragment(
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
@@ -5730,6 +5758,9 @@ private:
     const uint32_t m_CurrentFrameIndex;
     const uint32_t m_AlgorithmFlags;
 
+    uint32_t m_AllocationCount;
+    bool m_AllAllocations;
+
     VkDeviceSize m_BytesMoved;
     uint32_t m_AllocationsMoved;
 
@@ -5741,6 +5772,11 @@ private:
         AllocationInfo() :
             m_hAllocation(VK_NULL_HANDLE),
             m_pChanged(VMA_NULL)
+        {
+        }
+        AllocationInfo(VmaAllocation hAlloc, VkBool32* pChanged) :
+            m_hAllocation(hAlloc),
+            m_pChanged(pChanged)
         {
         }
     };
@@ -5760,9 +5796,6 @@ private:
             return lhs.m_hAllocation->GetOffset() > rhs.m_hAllocation->GetOffset();
         }
     };
-
-    // Used between AddAllocation and Defragment.
-    VmaVector< AllocationInfo, VmaStlAllocator<AllocationInfo> > m_Allocations;
 
     struct BlockInfo
     {
@@ -5885,14 +5918,30 @@ public:
     VmaBlockVector* GetBlockVector() const { return m_pBlockVector; }
     VmaDefragmentationAlgorithm* GetAlgorithm() const { return m_pAlgorithm; }
 
+    void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
+    void AddAll() { m_AllAllocations = true; }
+
+    void Begin();
+
 private:
     const VmaAllocator m_hAllocator;
     // Null if not from custom pool.
     const VmaPool m_hCustomPool;
     // Redundant, for convenience not to fetch from m_hCustomPool->m_BlockVector or m_hAllocator->m_pBlockVectors.
     VmaBlockVector* const m_pBlockVector;
+    const uint32_t m_CurrFrameIndex;
+    const uint32_t m_AlgorithmFlags;
     // Owner of this object.
     VmaDefragmentationAlgorithm* m_pAlgorithm;
+
+    struct AllocInfo
+    {
+        VmaAllocation hAlloc;
+        VkBool32* pChanged;
+    };
+    // Used between constructor and Begin.
+    VmaVector< AllocInfo, VmaStlAllocator<AllocInfo> > m_Allocations;
+    bool m_AllAllocations;
 };
 
 struct VmaDefragmentationContext_T
@@ -5907,6 +5956,7 @@ public:
         VmaDefragmentationStats* pStats);
     ~VmaDefragmentationContext_T();
 
+    void AddPools(uint32_t poolCount, VmaPool* pPools);
     void AddAllocations(
         uint32_t allocationCount,
         VmaAllocation* pAllocations,
@@ -11699,7 +11749,10 @@ void VmaBlockVector::Defragment(
             pCtx->mutexLocked = true;
         }
 
+        pCtx->Begin();
+
         // Defragment.
+
         const VkDeviceSize maxBytesToMove = defragmentOnGpu ? maxGpuBytesToMove : maxCpuBytesToMove;
         const uint32_t maxAllocationsToMove = defragmentOnGpu ? maxGpuAllocationsToMove : maxCpuAllocationsToMove;
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> > moves = 
@@ -11766,6 +11819,16 @@ void VmaBlockVector::DefragmentationEnd(
         VMA_ASSERT(m_hAllocator->m_UseMutex);
         m_Mutex.UnlockWrite();
     }
+}
+
+size_t VmaBlockVector::CalcAllocationCount()
+{
+    size_t result = 0;
+    for(size_t i = 0; i < m_Blocks.size(); ++i)
+    {
+        result += m_Blocks[i]->m_pMetadata->GetAllocationCount();
+    }
+    return result;
 }
 
 void VmaBlockVector::MakePoolAllocationsLost(
@@ -11839,11 +11902,24 @@ VmaDefragmentationAlgorithm::VmaDefragmentationAlgorithm(
     m_pBlockVector(pBlockVector),
     m_CurrentFrameIndex(currentFrameIndex),
     m_AlgorithmFlags(algorithmFlags),
+    m_AllAllocations(false),
+    m_AllocationCount(0),
     m_BytesMoved(0),
     m_AllocationsMoved(0),
-    m_Allocations(VmaStlAllocator<AllocationInfo>(hAllocator->GetAllocationCallbacks())),
     m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks()))
 {
+    // Create block info for each block.
+    const size_t blockCount = m_pBlockVector->m_Blocks.size();
+    for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+    {
+        BlockInfo* pBlockInfo = vma_new(m_hAllocator, BlockInfo)(m_hAllocator->GetAllocationCallbacks());
+        pBlockInfo->m_OriginalBlockIndex = blockIndex;
+        pBlockInfo->m_pBlock = m_pBlockVector->m_Blocks[blockIndex];
+        m_Blocks.push_back(pBlockInfo);
+    }
+
+    // Sort them by m_pBlock pointer value.
+    VMA_SORT(m_Blocks.begin(), m_Blocks.end(), BlockPointerLess());
 }
 
 VmaDefragmentationAlgorithm::~VmaDefragmentationAlgorithm()
@@ -11856,10 +11932,23 @@ VmaDefragmentationAlgorithm::~VmaDefragmentationAlgorithm()
 
 void VmaDefragmentationAlgorithm::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
 {
-    AllocationInfo allocInfo;
-    allocInfo.m_hAllocation = hAlloc;
-    allocInfo.m_pChanged = pChanged;
-    m_Allocations.push_back(allocInfo);
+    // Now as we are inside VmaBlockVector::m_Mutex, we can make final check if this allocation was not lost.
+    if(hAlloc->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
+    {
+        VmaDeviceMemoryBlock* pBlock = hAlloc->GetBlock();
+        BlockInfoVector::iterator it = VmaBinaryFindFirstNotLess(m_Blocks.begin(), m_Blocks.end(), pBlock, BlockPointerLess());
+        if(it != m_Blocks.end() && (*it)->m_pBlock == pBlock)
+        {
+            AllocationInfo allocInfo = AllocationInfo(hAlloc, pChanged);
+            (*it)->m_Allocations.push_back(allocInfo);
+        }
+        else
+        {
+            VMA_ASSERT(0);
+        }
+
+        ++m_AllocationCount;
+    }
 }
 
 VkResult VmaDefragmentationAlgorithm::DefragmentRound(
@@ -12031,48 +12120,31 @@ VkResult VmaDefragmentationAlgorithm::Defragment(
     VkDeviceSize maxBytesToMove,
     uint32_t maxAllocationsToMove)
 {
-    if(m_Allocations.empty())
+    if(!m_AllAllocations && m_AllocationCount == 0)
     {
         return VK_SUCCESS;
     }
 
-    // Create block info for each block.
-    const size_t blockCount = m_pBlockVector->m_Blocks.size();
-    for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
-    {
-        BlockInfo* pBlockInfo = vma_new(m_hAllocator, BlockInfo)(m_hAllocator->GetAllocationCallbacks());
-        pBlockInfo->m_OriginalBlockIndex = blockIndex;
-        pBlockInfo->m_pBlock = m_pBlockVector->m_Blocks[blockIndex];
-        m_Blocks.push_back(pBlockInfo);
-    }
-
-    // Sort them by m_pBlock pointer value.
-    VMA_SORT(m_Blocks.begin(), m_Blocks.end(), BlockPointerLess());
-
-    // Move allocation infos from m_Allocations to appropriate m_Blocks[memTypeIndex].m_Allocations.
-    for(size_t blockIndex = 0, allocCount = m_Allocations.size(); blockIndex < allocCount; ++blockIndex)
-    {
-        AllocationInfo& allocInfo = m_Allocations[blockIndex];
-        // Now as we are inside VmaBlockVector::m_Mutex, we can make final check if this allocation was not lost.
-        if(allocInfo.m_hAllocation->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
-        {
-            VmaDeviceMemoryBlock* pBlock = allocInfo.m_hAllocation->GetBlock();
-            BlockInfoVector::iterator it = VmaBinaryFindFirstNotLess(m_Blocks.begin(), m_Blocks.end(), pBlock, BlockPointerLess());
-            if(it != m_Blocks.end() && (*it)->m_pBlock == pBlock)
-            {
-                (*it)->m_Allocations.push_back(allocInfo);
-            }
-            else
-            {
-                VMA_ASSERT(0);
-            }
-        }
-    }
-    m_Allocations.clear();
-
+    const size_t blockCount = m_Blocks.size();
     for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
     {
         BlockInfo* pBlockInfo = m_Blocks[blockIndex];
+
+        if(m_AllAllocations)
+        {
+            VmaBlockMetadata_Generic* pMetadata = (VmaBlockMetadata_Generic*)pBlockInfo->m_pBlock->m_pMetadata;
+            for(VmaSuballocationList::const_iterator it = pMetadata->m_Suballocations.begin();
+                it != pMetadata->m_Suballocations.end();
+                ++it)
+            {
+                if(it->type != VMA_SUBALLOCATION_TYPE_FREE)
+                {
+                    AllocationInfo allocInfo = AllocationInfo(it->hAllocation, VMA_NULL);
+                    pBlockInfo->m_Allocations.push_back(allocInfo);
+                }
+            }
+        }
+
         pBlockInfo->CalcHasNonMovableAllocations();
         if((m_AlgorithmFlags & VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT) != 0)
         {
@@ -12132,15 +12204,44 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     m_hAllocator(hAllocator),
     m_hCustomPool(hCustomPool),
     m_pBlockVector(pBlockVector),
-    m_pAlgorithm(VMA_NULL)
+    m_CurrFrameIndex(currFrameIndex),
+    m_AlgorithmFlags(algorithmFlags),
+    m_pAlgorithm(VMA_NULL),
+    m_Allocations(VmaStlAllocator<AllocInfo>(hAllocator->GetAllocationCallbacks())),
+    m_AllAllocations(false)
 {
-    m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm)(
-        m_hAllocator, m_pBlockVector, currFrameIndex, algorithmFlags);
 }
 
 VmaBlockVectorDefragmentationContext::~VmaBlockVectorDefragmentationContext()
 {
     vma_delete(m_hAllocator, m_pAlgorithm);
+}
+
+void VmaBlockVectorDefragmentationContext::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
+{
+    AllocInfo info = { hAlloc, pChanged };
+    m_Allocations.push_back(info);
+}
+
+void VmaBlockVectorDefragmentationContext::Begin()
+{
+    const bool allAllocations = m_AllAllocations ||
+        m_Allocations.size() == m_pBlockVector->CalcAllocationCount();
+
+    m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm)(
+        m_hAllocator, m_pBlockVector, m_CurrFrameIndex, m_AlgorithmFlags);
+
+    if(allAllocations)
+    {
+        m_pAlgorithm->AddAll();
+    }
+    else
+    {
+        for(size_t i = 0, count = m_Allocations.size(); i < count; ++i)
+        {
+            m_pAlgorithm->AddAllocation(m_Allocations[i].hAlloc, m_Allocations[i].pChanged);
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -12179,13 +12280,49 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
     }
 }
 
+void VmaDefragmentationContext_T::AddPools(uint32_t poolCount, VmaPool* pPools)
+{
+    for(uint32_t poolIndex = 0; poolIndex < poolCount; ++poolIndex)
+    {
+        VmaPool pool = pPools[poolIndex];
+        VMA_ASSERT(pool);
+        // Pools with algorithm other than default are not defragmented.
+        if(pool->m_BlockVector.GetAlgorithm() == 0)
+        {
+            VmaBlockVectorDefragmentationContext* pBlockVectorDefragCtx = VMA_NULL;
+            
+            for(size_t i = m_CustomPoolContexts.size(); i--; )
+            {
+                if(m_CustomPoolContexts[i]->GetCustomPool() == pool)
+                {
+                    pBlockVectorDefragCtx = m_CustomPoolContexts[i];
+                    break;
+                }
+            }
+            
+            if(!pBlockVectorDefragCtx)
+            {
+                pBlockVectorDefragCtx = vma_new(m_hAllocator, VmaBlockVectorDefragmentationContext)(
+                    m_hAllocator,
+                    pool,
+                    &pool->m_BlockVector,
+                    m_CurrFrameIndex,
+                    m_AlgorithmFlags);
+                m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
+            }
+
+            pBlockVectorDefragCtx->AddAll();
+        }
+    }
+}
+
 void VmaDefragmentationContext_T::AddAllocations(
     uint32_t allocationCount,
     VmaAllocation* pAllocations,
     VkBool32* pAllocationsChanged)
 {
     // Dispatch pAllocations among defragmentators. Create them when necessary.
-    for(size_t allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
+    for(uint32_t allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
     {
         const VmaAllocation hAlloc = pAllocations[allocIndex];
         VMA_ASSERT(hAlloc);
@@ -12244,7 +12381,7 @@ void VmaDefragmentationContext_T::AddAllocations(
             {
                 VkBool32* const pChanged = (pAllocationsChanged != VMA_NULL) ?
                     &pAllocationsChanged[allocIndex] : VMA_NULL;
-                pBlockVectorDefragCtx->GetAlgorithm()->AddAllocation(hAlloc, pChanged);
+                pBlockVectorDefragCtx->AddAllocation(hAlloc, pChanged);
             }
         }
     }
@@ -13580,6 +13717,7 @@ VkResult VmaAllocator_T::DefragmentationBegin(
     *pContext = vma_new(this, VmaDefragmentationContext_T)(
         this, m_CurrentFrameIndex.load(), algorithmFlags, pStats);
 
+    (*pContext)->AddPools(info.poolCount, info.pPools);
     (*pContext)->AddAllocations(
         info.allocationCount, info.pAllocations, info.pAllocationsChanged);
 
