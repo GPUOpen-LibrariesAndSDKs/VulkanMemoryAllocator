@@ -1785,7 +1785,7 @@ void Player::Defragment()
         const duration defragDurationEnd   = timeAfterDefragEnd - timeAfterGpu;
 
         // If anything changed.
-        if(defragStats.allocationsLost > 0 || defragStats.allocationsMoved > 0)
+        if(defragStats.allocationsMoved > 0)
         {
             // Go over allocation that changed and destroy their buffers and images.
             size_t i = 0;
@@ -1825,7 +1825,6 @@ void Player::Defragment()
         printf("        bytesFreed: %llu\n", defragStats.bytesFreed);
         printf("        allocationsMoved: %u\n", defragStats.allocationsMoved);
         printf("        deviceMemoryBlocksFreed: %u\n", defragStats.deviceMemoryBlocksFreed);
-        printf("        allocationsLost: %u\n", defragStats.allocationsLost);
 
         vmaCalculateStats(m_Allocator, &stats);
         PrintStats(stats, "after defragmentation");
