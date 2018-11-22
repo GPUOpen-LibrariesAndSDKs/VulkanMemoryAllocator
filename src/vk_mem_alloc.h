@@ -5089,7 +5089,7 @@ public:
     virtual bool ResizeAllocation(const VmaAllocation alloc, VkDeviceSize newSize);
 
 private:
-    friend class VmaDefragmentationAlgorithm;
+    friend class VmaDefragmentationAlgorithm_Generic;
 
     uint32_t m_FreeCount;
     VkDeviceSize m_SumFreeSize;
@@ -5621,7 +5621,7 @@ public:
     size_t CalcAllocationCount();
 
 private:
-    friend class VmaDefragmentationAlgorithm;
+    friend class VmaDefragmentationAlgorithm_Generic;
 
     const VmaAllocator m_hAllocator;
     const uint32_t m_MemoryTypeIndex;
@@ -5720,30 +5720,31 @@ public:
     VmaDefragmentationAlgorithm(
         VmaAllocator hAllocator,
         VmaBlockVector* pBlockVector,
-        uint32_t currentFrameIndex);
-    virtual ~VmaDefragmentationAlgorithm();
+        uint32_t currentFrameIndex) :
+        m_hAllocator(hAllocator),
+        m_pBlockVector(pBlockVector),
+        m_CurrentFrameIndex(currentFrameIndex)
+    {
+    }
+    virtual ~VmaDefragmentationAlgorithm()
+    {
+    }
 
-    void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
-    void AddAll() { m_AllAllocations = true; }
+    virtual void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged) = 0;
+    virtual void AddAll() = 0;
 
-    VkResult Defragment(
+    virtual VkResult Defragment(
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
-        uint32_t maxAllocationsToMove);
+        uint32_t maxAllocationsToMove) = 0;
 
-    VkDeviceSize GetBytesMoved() const { return m_BytesMoved; }
-    uint32_t GetAllocationsMoved() const { return m_AllocationsMoved; }
+    virtual VkDeviceSize GetBytesMoved() const = 0;
+    virtual uint32_t GetAllocationsMoved() const = 0;
 
-private:
+protected:
     VmaAllocator const m_hAllocator;
     VmaBlockVector* const m_pBlockVector;
     const uint32_t m_CurrentFrameIndex;
-
-    uint32_t m_AllocationCount;
-    bool m_AllAllocations;
-
-    VkDeviceSize m_BytesMoved;
-    uint32_t m_AllocationsMoved;
 
     struct AllocationInfo
     {
@@ -5761,6 +5762,35 @@ private:
         {
         }
     };
+};
+
+class VmaDefragmentationAlgorithm_Generic : public VmaDefragmentationAlgorithm
+{
+    VMA_CLASS_NO_COPY(VmaDefragmentationAlgorithm_Generic)
+public:
+    VmaDefragmentationAlgorithm_Generic(
+        VmaAllocator hAllocator,
+        VmaBlockVector* pBlockVector,
+        uint32_t currentFrameIndex);
+    virtual ~VmaDefragmentationAlgorithm_Generic();
+
+    virtual void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
+    virtual void AddAll() { m_AllAllocations = true; }
+
+    virtual VkResult Defragment(
+        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
+        VkDeviceSize maxBytesToMove,
+        uint32_t maxAllocationsToMove);
+
+    virtual VkDeviceSize GetBytesMoved() const { return m_BytesMoved; }
+    virtual uint32_t GetAllocationsMoved() const { return m_AllocationsMoved; }
+
+private:
+    uint32_t m_AllocationCount;
+    bool m_AllAllocations;
+
+    VkDeviceSize m_BytesMoved;
+    uint32_t m_AllocationsMoved;
 
     struct AllocationInfoSizeGreater
     {
@@ -11872,15 +11902,13 @@ void VmaBlockVector::AddStats(VmaStats* pStats)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// VmaDefragmentationAlgorithm members definition
+// VmaDefragmentationAlgorithm_Generic members definition
 
-VmaDefragmentationAlgorithm::VmaDefragmentationAlgorithm(
+VmaDefragmentationAlgorithm_Generic::VmaDefragmentationAlgorithm_Generic(
     VmaAllocator hAllocator,
     VmaBlockVector* pBlockVector,
     uint32_t currentFrameIndex) :
-    m_hAllocator(hAllocator),
-    m_pBlockVector(pBlockVector),
-    m_CurrentFrameIndex(currentFrameIndex),
+    VmaDefragmentationAlgorithm(hAllocator, pBlockVector, currentFrameIndex),
     m_AllAllocations(false),
     m_AllocationCount(0),
     m_BytesMoved(0),
@@ -11901,7 +11929,7 @@ VmaDefragmentationAlgorithm::VmaDefragmentationAlgorithm(
     VMA_SORT(m_Blocks.begin(), m_Blocks.end(), BlockPointerLess());
 }
 
-VmaDefragmentationAlgorithm::~VmaDefragmentationAlgorithm()
+VmaDefragmentationAlgorithm_Generic::~VmaDefragmentationAlgorithm_Generic()
 {
     for(size_t i = m_Blocks.size(); i--; )
     {
@@ -11909,7 +11937,7 @@ VmaDefragmentationAlgorithm::~VmaDefragmentationAlgorithm()
     }
 }
 
-void VmaDefragmentationAlgorithm::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
+void VmaDefragmentationAlgorithm_Generic::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
 {
     // Now as we are inside VmaBlockVector::m_Mutex, we can make final check if this allocation was not lost.
     if(hAlloc->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
@@ -11930,7 +11958,7 @@ void VmaDefragmentationAlgorithm::AddAllocation(VmaAllocation hAlloc, VkBool32* 
     }
 }
 
-VkResult VmaDefragmentationAlgorithm::DefragmentRound(
+VkResult VmaDefragmentationAlgorithm_Generic::DefragmentRound(
     VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
     uint32_t maxAllocationsToMove)
@@ -12078,7 +12106,7 @@ VkResult VmaDefragmentationAlgorithm::DefragmentRound(
     }
 }
 
-size_t VmaDefragmentationAlgorithm::CalcBlocksWithNonMovableCount() const
+size_t VmaDefragmentationAlgorithm_Generic::CalcBlocksWithNonMovableCount() const
 {
     size_t result = 0;
     for(size_t i = 0; i < m_Blocks.size(); ++i)
@@ -12091,7 +12119,7 @@ size_t VmaDefragmentationAlgorithm::CalcBlocksWithNonMovableCount() const
     return result;
 }
 
-VkResult VmaDefragmentationAlgorithm::Defragment(
+VkResult VmaDefragmentationAlgorithm_Generic::Defragment(
     VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
     uint32_t maxAllocationsToMove)
@@ -12146,7 +12174,7 @@ VkResult VmaDefragmentationAlgorithm::Defragment(
     return result;
 }
 
-bool VmaDefragmentationAlgorithm::MoveMakesSense(
+bool VmaDefragmentationAlgorithm_Generic::MoveMakesSense(
         size_t dstBlockIndex, VkDeviceSize dstOffset,
         size_t srcBlockIndex, VkDeviceSize srcOffset)
 {
@@ -12204,7 +12232,7 @@ void VmaBlockVectorDefragmentationContext::Begin()
     const bool allAllocations = m_AllAllocations ||
         m_Allocations.size() == m_pBlockVector->CalcAllocationCount();
 
-    m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm)(
+    m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm_Generic)(
         m_hAllocator, m_pBlockVector, m_CurrFrameIndex);
 
     if(allAllocations)
