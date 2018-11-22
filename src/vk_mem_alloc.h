@@ -15213,6 +15213,8 @@ VkResult vmaDefragmentationBegin(
     VmaDefragmentationContext *pContext)
 {
     VMA_ASSERT(allocator && pInfo && pContext);
+    VMA_ASSERT(pInfo->allocationCount == 0 || pInfo->pAllocations != VMA_NULL);
+    VMA_ASSERT(pInfo->poolCount == 0 || pInfo->pPools != VMA_NULL);
 
     VMA_DEBUG_LOG("vmaDefragmentationBegin");
 
