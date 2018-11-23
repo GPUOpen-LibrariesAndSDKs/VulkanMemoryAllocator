@@ -4742,6 +4742,7 @@ public:
         VkDeviceSize offset); 
 
     void ChangeSize(VkDeviceSize newSize);
+    void ChangeOffset(VkDeviceSize newOffset);
 
     // pMappedData not null means allocation is created with MAPPED flag.
     void InitDedicatedAllocation(
@@ -5088,8 +5089,16 @@ public:
 
     virtual bool ResizeAllocation(const VmaAllocation alloc, VkDeviceSize newSize);
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // For defragmentation
+    
+    bool IsBufferImageGranularityConflictPossible(
+        VkDeviceSize bufferImageGranularity,
+        VmaSuballocationType& inOutPrevSuballocType) const;
+
 private:
     friend class VmaDefragmentationAlgorithm_Generic;
+    friend class VmaDefragmentationAlgorithm_Fast;
 
     uint32_t m_FreeCount;
     VkDeviceSize m_SumFreeSize;
@@ -5618,7 +5627,11 @@ public:
 
     ////////////////////////////////////////////////////////////////////////////////
     // To be used only while the m_Mutex is locked. Used during defragmentation.
-    size_t CalcAllocationCount();
+
+    size_t GetBlockCount() const { return m_Blocks.size(); }
+    VmaDeviceMemoryBlock* GetBlock(size_t index) const { return m_Blocks[index]; }
+    size_t CalcAllocationCount() const;
+    bool IsBufferImageGranularityConflictPossible() const;
 
 private:
     friend class VmaDefragmentationAlgorithm_Generic;
@@ -5888,6 +5901,45 @@ private:
     static bool MoveMakesSense(
         size_t dstBlockIndex, VkDeviceSize dstOffset,
         size_t srcBlockIndex, VkDeviceSize srcOffset);
+};
+
+class VmaDefragmentationAlgorithm_Fast : public VmaDefragmentationAlgorithm
+{
+    VMA_CLASS_NO_COPY(VmaDefragmentationAlgorithm_Fast)
+public:
+    VmaDefragmentationAlgorithm_Fast(
+        VmaAllocator hAllocator,
+        VmaBlockVector* pBlockVector,
+        uint32_t currentFrameIndex);
+    virtual ~VmaDefragmentationAlgorithm_Fast();
+
+    virtual void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged) { ++m_AllocationCount; }
+    virtual void AddAll() { m_AllAllocations = true; }
+
+    virtual VkResult Defragment(
+        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
+        VkDeviceSize maxBytesToMove,
+        uint32_t maxAllocationsToMove);
+
+    virtual VkDeviceSize GetBytesMoved() const { return m_BytesMoved; }
+    virtual uint32_t GetAllocationsMoved() const { return m_AllocationsMoved; }
+
+private:
+    struct BlockInfo
+    {
+        size_t origBlockIndex;
+    };
+
+    uint32_t m_AllocationCount;
+    bool m_AllAllocations;
+
+    VkDeviceSize m_BytesMoved;
+    uint32_t m_AllocationsMoved;
+
+    VmaVector< BlockInfo, VmaStlAllocator<BlockInfo> > m_BlockInfos;
+
+    void PreprocessMetadata();
+    void PostprocessMetadata();
 };
 
 struct VmaBlockDefragmentationContext
@@ -6743,6 +6795,12 @@ void VmaAllocation_T::ChangeSize(VkDeviceSize newSize)
 {
     VMA_ASSERT(newSize > 0);
     m_Size = newSize;
+}
+
+void VmaAllocation_T::ChangeOffset(VkDeviceSize newOffset)
+{
+    VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK);
+    m_BlockAllocation.m_Offset = newOffset;
 }
 
 VkDeviceSize VmaAllocation_T::GetOffset() const
@@ -8235,6 +8293,36 @@ void VmaBlockMetadata_Generic::UnregisterFreeSuballocation(VmaSuballocationList:
     }
 
     //VMA_HEAVY_ASSERT(ValidateFreeSuballocationList());
+}
+
+bool VmaBlockMetadata_Generic::IsBufferImageGranularityConflictPossible(
+    VkDeviceSize bufferImageGranularity,
+    VmaSuballocationType& inOutPrevSuballocType) const
+{
+    if(bufferImageGranularity == 1 || IsEmpty())
+    {
+        return false;
+    }
+
+    VkDeviceSize minAlignment = VK_WHOLE_SIZE;
+    bool typeConflictFound = false;
+    for(VmaSuballocationList::const_iterator it = m_Suballocations.cbegin();
+        it != m_Suballocations.cend();
+        ++it)
+    {
+        const VmaSuballocationType suballocType = it->type;
+        if(suballocType != VMA_SUBALLOCATION_TYPE_FREE)
+        {
+            minAlignment = VMA_MIN(minAlignment, it->hAllocation->GetAlignment());
+            if(VmaIsBufferImageGranularityConflict(inOutPrevSuballocType, suballocType))
+            {
+                typeConflictFound = true;
+            }
+            inOutPrevSuballocType = suballocType;
+        }
+    }
+
+    return !typeConflictFound || minAlignment >= bufferImageGranularity;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -11832,7 +11920,7 @@ void VmaBlockVector::DefragmentationEnd(
     }
 }
 
-size_t VmaBlockVector::CalcAllocationCount()
+size_t VmaBlockVector::CalcAllocationCount() const
 {
     size_t result = 0;
     for(size_t i = 0; i < m_Blocks.size(); ++i)
@@ -11840,6 +11928,26 @@ size_t VmaBlockVector::CalcAllocationCount()
         result += m_Blocks[i]->m_pMetadata->GetAllocationCount();
     }
     return result;
+}
+
+bool VmaBlockVector::IsBufferImageGranularityConflictPossible() const
+{
+    if(m_BufferImageGranularity == 1)
+    {
+        return false;
+    }
+    VmaSuballocationType lastSuballocType = VMA_SUBALLOCATION_TYPE_FREE;
+    for(size_t i = 0, count = m_Blocks.size(); i < count; ++i)
+    {
+        VmaDeviceMemoryBlock* const pBlock = m_Blocks[i];
+        VMA_ASSERT(m_Algorithm == 0);
+        VmaBlockMetadata_Generic* const pMetadata = (VmaBlockMetadata_Generic*)pBlock->m_pMetadata;
+        if(pMetadata->IsBufferImageGranularityConflictPossible(m_BufferImageGranularity, lastSuballocType))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void VmaBlockVector::MakePoolAllocationsLost(
@@ -12194,6 +12302,275 @@ bool VmaDefragmentationAlgorithm_Generic::MoveMakesSense(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// VmaDefragmentationAlgorithm_Fast
+
+VmaDefragmentationAlgorithm_Fast::VmaDefragmentationAlgorithm_Fast(
+    VmaAllocator hAllocator,
+    VmaBlockVector* pBlockVector,
+    uint32_t currentFrameIndex) :
+    VmaDefragmentationAlgorithm(hAllocator, pBlockVector, currentFrameIndex),
+    m_AllocationCount(0),
+    m_AllAllocations(false),
+    m_BytesMoved(0),
+    m_AllocationsMoved(0),
+    m_BlockInfos(VmaStlAllocator<BlockInfo>(hAllocator->GetAllocationCallbacks()))
+{
+    VMA_ASSERT(VMA_DEBUG_MARGIN == 0);
+
+}
+
+VmaDefragmentationAlgorithm_Fast::~VmaDefragmentationAlgorithm_Fast()
+{
+}
+
+VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
+    VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
+    VkDeviceSize maxBytesToMove,
+    uint32_t maxAllocationsToMove)
+{
+    VMA_ASSERT(m_AllAllocations || m_pBlockVector->CalcAllocationCount() == m_AllocationCount);
+
+    const size_t blockCount = m_pBlockVector->GetBlockCount();
+    if(blockCount == 0 || maxBytesToMove == 0 || maxAllocationsToMove == 0)
+    {
+        return VK_SUCCESS;
+    }
+
+    PreprocessMetadata();
+
+    // Sort blocks in order from most destination.
+
+    m_BlockInfos.resize(blockCount);
+    for(size_t i = 0; i < blockCount; ++i)
+    {
+        m_BlockInfos[i].origBlockIndex = i;
+    }
+
+    VMA_SORT(m_BlockInfos.begin(), m_BlockInfos.end(), [this](const BlockInfo& lhs, const BlockInfo& rhs) -> bool {
+        return m_pBlockVector->GetBlock(lhs.origBlockIndex)->m_pMetadata->GetSumFreeSize() <
+            m_pBlockVector->GetBlock(rhs.origBlockIndex)->m_pMetadata->GetSumFreeSize();
+    });
+
+    // THE MAIN ALGORITHM
+
+    size_t dstBlockInfoIndex = 0;
+    size_t dstOrigBlockIndex = m_BlockInfos[dstBlockInfoIndex].origBlockIndex;
+    VmaDeviceMemoryBlock* pDstBlock = m_pBlockVector->GetBlock(dstOrigBlockIndex);
+    VmaBlockMetadata_Generic* pDstMetadata = (VmaBlockMetadata_Generic*)pDstBlock->m_pMetadata;
+    VkDeviceSize dstBlockSize = pDstMetadata->GetSize();
+    VkDeviceSize dstOffset = 0;
+
+    bool end = false;
+    for(size_t srcBlockInfoIndex = 0; !end && srcBlockInfoIndex < blockCount; ++srcBlockInfoIndex)
+    {
+        const size_t srcOrigBlockIndex = m_BlockInfos[srcBlockInfoIndex].origBlockIndex;
+        VmaDeviceMemoryBlock* const pSrcBlock = m_pBlockVector->GetBlock(srcOrigBlockIndex);
+        VmaBlockMetadata_Generic* const pSrcMetadata = (VmaBlockMetadata_Generic*)pSrcBlock->m_pMetadata;
+        for(VmaSuballocationList::iterator srcSuballocIt = pSrcMetadata->m_Suballocations.begin();
+            !end && srcSuballocIt != pSrcMetadata->m_Suballocations.end(); )
+        {
+            VmaAllocation_T* const pAlloc = srcSuballocIt->hAllocation;
+            const VkDeviceSize srcAllocSize = srcSuballocIt->size;
+            if(m_AllocationsMoved == maxAllocationsToMove ||
+                m_BytesMoved + srcAllocSize > maxBytesToMove)
+            {
+                end = true;
+                break;
+            }
+            const VkDeviceSize srcAllocOffset = srcSuballocIt->offset;
+            VkDeviceSize dstAllocOffset = VmaAlignUp(dstOffset, pAlloc->GetAlignment());
+
+            // If the allocation doesn't fit before the end of dstBlock, forward to next block.
+            while(dstBlockInfoIndex < srcBlockInfoIndex &&
+                dstAllocOffset + srcAllocSize > dstBlockSize)
+            {
+                ++dstBlockInfoIndex;
+                dstOrigBlockIndex = m_BlockInfos[dstBlockInfoIndex].origBlockIndex;
+                pDstBlock = m_pBlockVector->GetBlock(dstOrigBlockIndex);
+                pDstMetadata = (VmaBlockMetadata_Generic*)pDstBlock->m_pMetadata;
+                dstBlockSize = pDstMetadata->GetSize();
+                dstOffset = 0;
+                dstAllocOffset = 0;
+            }
+
+            // Same block
+            if(dstBlockInfoIndex == srcBlockInfoIndex)
+            {
+                // Destination and source place overlap.
+                if(dstAllocOffset + srcAllocSize > srcAllocOffset)
+                {
+                    // Just step over this allocation.
+                    // TODO: Support memmove() here.
+                    dstOffset = srcAllocOffset + srcAllocSize;
+                    ++srcSuballocIt;
+                }
+                // MOVE OPTION 1: Move the allocation inside the same block by decreasing offset.
+                else
+                {
+                    VMA_ASSERT(dstAllocOffset < srcAllocOffset);
+                    srcSuballocIt->offset = dstAllocOffset;
+                    srcSuballocIt->hAllocation->ChangeOffset(dstAllocOffset);
+                    dstOffset = dstAllocOffset + srcAllocSize;
+                    m_BytesMoved += srcAllocSize;
+                    ++m_AllocationsMoved;
+                    ++srcSuballocIt;
+                    VmaDefragmentationMove move = {
+                        srcOrigBlockIndex, dstOrigBlockIndex,
+                        srcAllocOffset, dstAllocOffset,
+                        srcAllocSize };
+                    moves.push_back(move);
+                }
+            }
+            // Different block
+            else
+            {
+                // MOVE OPTION 2: Move the allocation to a different block.
+
+                VMA_ASSERT(dstBlockInfoIndex < srcBlockInfoIndex);
+                VMA_ASSERT(dstAllocOffset + srcAllocSize <= dstBlockSize);
+
+                VmaSuballocation suballoc = *srcSuballocIt;
+                suballoc.offset = dstAllocOffset;
+                suballoc.hAllocation->ChangeBlockAllocation(m_hAllocator, pDstBlock, dstAllocOffset);
+                dstOffset = dstAllocOffset + srcAllocSize;
+                m_BytesMoved += srcAllocSize;
+                ++m_AllocationsMoved;
+
+                VmaSuballocationList::iterator nextSuballocIt = srcSuballocIt;
+                ++nextSuballocIt;
+                pSrcMetadata->m_Suballocations.erase(srcSuballocIt);
+                srcSuballocIt = nextSuballocIt;
+
+                pDstMetadata->m_Suballocations.push_back(suballoc);
+
+                VmaDefragmentationMove move = {
+                    srcOrigBlockIndex, dstOrigBlockIndex,
+                    srcAllocOffset, dstAllocOffset,
+                    srcAllocSize };
+                moves.push_back(move);
+            }
+        }
+    }
+
+    m_BlockInfos.clear();
+    
+    PostprocessMetadata();
+
+    return VK_SUCCESS;
+}
+
+void VmaDefragmentationAlgorithm_Fast::PreprocessMetadata()
+{
+    const size_t blockCount = m_pBlockVector->GetBlockCount();
+    for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+    {
+        VmaBlockMetadata_Generic* const pMetadata =
+            (VmaBlockMetadata_Generic*)m_pBlockVector->GetBlock(blockIndex)->m_pMetadata;
+        pMetadata->m_FreeCount = 0;
+        pMetadata->m_SumFreeSize = pMetadata->GetSize();
+        pMetadata->m_FreeSuballocationsBySize.clear();
+        for(VmaSuballocationList::iterator it = pMetadata->m_Suballocations.begin();
+            it != pMetadata->m_Suballocations.end(); )
+        {
+            if(it->type == VMA_SUBALLOCATION_TYPE_FREE)
+            {
+                VmaSuballocationList::iterator nextIt = it;
+                ++nextIt;
+                pMetadata->m_Suballocations.erase(it);
+                it = nextIt;
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+}
+
+void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
+{
+    const size_t blockCount = m_pBlockVector->GetBlockCount();
+    for(size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+    {
+        VmaBlockMetadata_Generic* const pMetadata =
+            (VmaBlockMetadata_Generic*)m_pBlockVector->GetBlock(blockIndex)->m_pMetadata;
+        const VkDeviceSize blockSize = pMetadata->GetSize();
+        
+        // No allocations in this block - entire area is free.
+        if(pMetadata->m_Suballocations.empty())
+        {
+            pMetadata->m_FreeCount = 1;
+            //pMetadata->m_SumFreeSize is already set to blockSize.
+            VmaSuballocation suballoc = {
+                0, // offset
+                blockSize, // size
+                VMA_NULL, // hAllocation
+                VMA_SUBALLOCATION_TYPE_FREE };
+            pMetadata->m_Suballocations.push_back(suballoc);
+            pMetadata->RegisterFreeSuballocation(pMetadata->m_Suballocations.begin());
+        }
+        // There are some allocations in this block.
+        else
+        {
+            VkDeviceSize offset = 0;
+            VmaSuballocationList::iterator it;
+            for(it = pMetadata->m_Suballocations.begin();
+                it != pMetadata->m_Suballocations.end();
+                ++it)
+            {
+                VMA_ASSERT(it->type != VMA_SUBALLOCATION_TYPE_FREE);
+                VMA_ASSERT(it->offset >= offset);
+
+                // Need to insert preceding free space.
+                if(it->offset > offset)
+                {
+                    ++pMetadata->m_FreeCount;
+                    const VkDeviceSize freeSize = it->offset - offset;
+                    VmaSuballocation suballoc = {
+                        offset, // offset
+                        freeSize, // size
+                        VMA_NULL, // hAllocation
+                        VMA_SUBALLOCATION_TYPE_FREE };
+                    VmaSuballocationList::iterator precedingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
+                    if(freeSize >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
+                    {
+                        pMetadata->m_FreeSuballocationsBySize.push_back(precedingFreeIt);
+                    }
+                }
+
+                pMetadata->m_SumFreeSize -= it->size;
+                offset = it->offset + it->size;
+            }
+
+            // Need to insert trailing free space.
+            if(offset < blockSize)
+            {
+                ++pMetadata->m_FreeCount;
+                const VkDeviceSize freeSize = blockSize - offset;
+                VmaSuballocation suballoc = {
+                    offset, // offset
+                    freeSize, // size
+                    VMA_NULL, // hAllocation
+                    VMA_SUBALLOCATION_TYPE_FREE };
+                VMA_ASSERT(it == pMetadata->m_Suballocations.end());
+                VmaSuballocationList::iterator trailingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
+                if(freeSize > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
+                {
+                    pMetadata->m_FreeSuballocationsBySize.push_back(trailingFreeIt);
+                }
+            }
+
+            VMA_SORT(
+                pMetadata->m_FreeSuballocationsBySize.begin(),
+                pMetadata->m_FreeSuballocationsBySize.end(),
+                VmaSuballocationItemSizeLess());
+        }
+
+        VMA_HEAVY_ASSERT(pMetadata->Validate());
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // VmaBlockVectorDefragmentationContext
 
 VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
@@ -12232,8 +12609,28 @@ void VmaBlockVectorDefragmentationContext::Begin()
     const bool allAllocations = m_AllAllocations ||
         m_Allocations.size() == m_pBlockVector->CalcAllocationCount();
 
-    m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm_Generic)(
-        m_hAllocator, m_pBlockVector, m_CurrFrameIndex);
+    /********************************
+    HERE IS THE CHOICE OF DEFRAGMENTATION ALGORITHM.
+    ********************************/
+
+    /*
+    Fast algorithm is supported only when certain criteria are met:
+    - VMA_DEBUG_MARGIN is 0.
+    - All allocations in this block vector are moveable.
+    - There is no possibility of image/buffer granularity conflict.
+    */
+    if(VMA_DEBUG_MARGIN == 0 &&
+        allAllocations &&
+        !m_pBlockVector->IsBufferImageGranularityConflictPossible())
+    {
+        m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm_Fast)(
+            m_hAllocator, m_pBlockVector, m_CurrFrameIndex);
+    }
+    else
+    {
+        m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm_Generic)(
+            m_hAllocator, m_pBlockVector, m_CurrFrameIndex);
+    }
 
     if(allAllocations)
     {

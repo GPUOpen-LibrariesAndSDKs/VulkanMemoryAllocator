@@ -1532,20 +1532,9 @@ void TestDefragmentationFull()
     DestroyAllAllocations(allocations);
 }
 
-static void TestDefragmentationGpu(uint32_t flags)
+static void TestDefragmentationGpu()
 {
-    const wchar_t* flagsName = L"0";
-    switch(flags)
-    {
-    case VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT:
-        flagsName = L"FAST";
-        break;
-    case VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT:
-        flagsName = L"OPTIMAL";
-        break;
-    }
-
-    wprintf(L"Test defragmentation GPU (%s)\n", flagsName);
+    wprintf(L"Test defragmentation GPU\n");
     g_MemoryAliasingWarningEnabled = false;
 
     std::vector<AllocInfo> allocations;
@@ -1608,7 +1597,7 @@ static void TestDefragmentationGpu(uint32_t flags)
     UploadGpuData(allocations.data(), allocations.size());
 
     wchar_t fileName[MAX_PATH];
-    swprintf_s(fileName, L"GPU_defragmentation_%s_A_before.json", flagsName);
+    swprintf_s(fileName, L"GPU_defragmentation_A_before.json");
     SaveAllocatorStatsToFile(fileName);
 
     // Defragment using GPU only.
@@ -1636,7 +1625,7 @@ static void TestDefragmentationGpu(uint32_t flags)
         BeginSingleTimeCommands();
 
         VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.flags = flags;
+        defragInfo.flags = 0;
         defragInfo.allocationCount = (uint32_t)movableAllocCount;
         defragInfo.pAllocations = allocationPtrs.data();
         defragInfo.pAllocationsChanged = allocationChanged.data();
@@ -1668,7 +1657,7 @@ static void TestDefragmentationGpu(uint32_t flags)
 
     ValidateGpuData(allocations.data(), allocations.size());
 
-    swprintf_s(fileName, L"GPU_defragmentation_%s_B_after.json", flagsName);
+    swprintf_s(fileName, L"GPU_defragmentation_B_after.json");
     SaveAllocatorStatsToFile(fileName);
 
     // Destroy all remaining buffers.
@@ -5019,18 +5008,16 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(false)
+    if(true)
     {
         // # Temporarily insert custom tests here
         // ########################################
         // ########################################
         
+        TestDefragmentationSimple();
+        TestDefragmentationFull();
+        TestDefragmentationGpu();
         TestDefragmentationWholePool();
-        //TestDefragmentationSimple();
-        //TestDefragmentationFull();
-        //TestDefragmentationGpu(0);
-        //TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
-        //TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);
         return;
     }
 
@@ -5067,9 +5054,7 @@ void Test()
     TestDefragmentationSimple();
     TestDefragmentationFull();
     TestDefragmentationWholePool();
-    TestDefragmentationGpu(0);
-    TestDefragmentationGpu(VMA_DEFRAGMENTATION_FAST_ALGORITHM_BIT);
-    TestDefragmentationGpu(VMA_DEFRAGMENTATION_OPTIMAL_ALGORITHM_BIT);
+    TestDefragmentationGpu();
 
     // # Detailed tests
     FILE* file;
