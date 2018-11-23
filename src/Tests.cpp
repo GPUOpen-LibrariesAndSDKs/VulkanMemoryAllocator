@@ -1375,6 +1375,30 @@ void TestDefragmentationSimple()
         }
     }
 
+    /*
+    Allocation that must be move to an overlapping place using memmove().
+    Create 2 buffers, second slightly bigger than the first. Delete first. Then defragment.
+    */
+    {
+        AllocInfo allocInfo[2];
+
+        bufCreateInfo.size = BUF_SIZE;
+        CreateBuffer(pool, bufCreateInfo, false, allocInfo[0]);
+        const VkDeviceSize biggerBufSize = BUF_SIZE + BUF_SIZE / 256;
+        bufCreateInfo.size = biggerBufSize;
+        CreateBuffer(pool, bufCreateInfo, false, allocInfo[1]);
+
+        DestroyAllocation(allocInfo[0]);
+
+        VmaDefragmentationStats defragStats;
+        Defragment(&allocInfo[1], 1, nullptr, &defragStats);
+        // If this fails, it means we couldn't do memmove with overlapping regions.
+        TEST(defragStats.allocationsMoved == 1 && defragStats.bytesMoved > 0);
+
+        ValidateAllocationsData(&allocInfo[1], 1);
+        DestroyAllocation(allocInfo[1]);
+    }
+
     vmaDestroyPool(g_hAllocator, pool);
 }
 

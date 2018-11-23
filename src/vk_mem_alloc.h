@@ -5784,7 +5784,8 @@ public:
     VmaDefragmentationAlgorithm_Generic(
         VmaAllocator hAllocator,
         VmaBlockVector* pBlockVector,
-        uint32_t currentFrameIndex);
+        uint32_t currentFrameIndex,
+        bool overlappingMoveSupported);
     virtual ~VmaDefragmentationAlgorithm_Generic();
 
     virtual void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
@@ -5910,7 +5911,8 @@ public:
     VmaDefragmentationAlgorithm_Fast(
         VmaAllocator hAllocator,
         VmaBlockVector* pBlockVector,
-        uint32_t currentFrameIndex);
+        uint32_t currentFrameIndex,
+        bool overlappingMoveSupported);
     virtual ~VmaDefragmentationAlgorithm_Fast();
 
     virtual void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged) { ++m_AllocationCount; }
@@ -5929,6 +5931,8 @@ private:
     {
         size_t origBlockIndex;
     };
+
+    const bool m_OverlappingMoveSupported;
 
     uint32_t m_AllocationCount;
     bool m_AllAllocations;
@@ -5984,7 +5988,7 @@ public:
     void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
     void AddAll() { m_AllAllocations = true; }
 
-    void Begin();
+    void Begin(bool overlappingMoveSupported);
 
 private:
     const VmaAllocator m_hAllocator;
@@ -11602,7 +11606,7 @@ void VmaBlockVector::ApplyDefragmentationMovesCpu(
             }
 
             // THE PLACE WHERE ACTUAL DATA COPY HAPPENS.
-            memcpy(
+            memmove(
                 reinterpret_cast<char*>(dstBlockInfo.pMappedData) + move.dstOffset,
                 reinterpret_cast<char*>(srcBlockInfo.pMappedData) + move.srcOffset,
                 static_cast<size_t>(move.size));
@@ -11842,13 +11846,15 @@ void VmaBlockVector::Defragment(
                 m_hAllocator->IsIntegratedGpu();
         }
 
+        bool overlappingMoveSupported = !defragmentOnGpu;
+
         if(m_hAllocator->m_UseMutex)
         {
             m_Mutex.LockWrite();
             pCtx->mutexLocked = true;
         }
 
-        pCtx->Begin();
+        pCtx->Begin(overlappingMoveSupported);
 
         // Defragment.
 
@@ -12015,7 +12021,8 @@ void VmaBlockVector::AddStats(VmaStats* pStats)
 VmaDefragmentationAlgorithm_Generic::VmaDefragmentationAlgorithm_Generic(
     VmaAllocator hAllocator,
     VmaBlockVector* pBlockVector,
-    uint32_t currentFrameIndex) :
+    uint32_t currentFrameIndex,
+    bool overlappingMoveSupported) :
     VmaDefragmentationAlgorithm(hAllocator, pBlockVector, currentFrameIndex),
     m_AllAllocations(false),
     m_AllocationCount(0),
@@ -12307,8 +12314,10 @@ bool VmaDefragmentationAlgorithm_Generic::MoveMakesSense(
 VmaDefragmentationAlgorithm_Fast::VmaDefragmentationAlgorithm_Fast(
     VmaAllocator hAllocator,
     VmaBlockVector* pBlockVector,
-    uint32_t currentFrameIndex) :
+    uint32_t currentFrameIndex,
+    bool overlappingMoveSupported) :
     VmaDefragmentationAlgorithm(hAllocator, pBlockVector, currentFrameIndex),
+    m_OverlappingMoveSupported(overlappingMoveSupported),
     m_AllocationCount(0),
     m_AllAllocations(false),
     m_BytesMoved(0),
@@ -12396,18 +12405,26 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
             // Same block
             if(dstBlockInfoIndex == srcBlockInfoIndex)
             {
-                // Destination and source place overlap.
-                if(dstAllocOffset + srcAllocSize > srcAllocOffset)
+                VMA_ASSERT(dstAllocOffset <= srcAllocOffset);
+
+                const bool overlap = dstAllocOffset + srcAllocSize > srcAllocOffset;
+
+                bool skipOver = overlap;
+                if(overlap && m_OverlappingMoveSupported && dstAllocOffset < srcAllocOffset)
                 {
-                    // Just step over this allocation.
-                    // TODO: Support memmove() here.
+                    // If destination and source place overlap, skip if it would move it
+                    // by only < 1/64 of its size.
+                    skipOver = (srcAllocOffset - dstAllocOffset) * 64 < srcAllocSize;
+                }
+
+                if(skipOver)
+                {
                     dstOffset = srcAllocOffset + srcAllocSize;
                     ++srcSuballocIt;
                 }
                 // MOVE OPTION 1: Move the allocation inside the same block by decreasing offset.
                 else
                 {
-                    VMA_ASSERT(dstAllocOffset < srcAllocOffset);
                     srcSuballocIt->offset = dstAllocOffset;
                     srcSuballocIt->hAllocation->ChangeOffset(dstAllocOffset);
                     dstOffset = dstAllocOffset + srcAllocSize;
@@ -12604,7 +12621,7 @@ void VmaBlockVectorDefragmentationContext::AddAllocation(VmaAllocation hAlloc, V
     m_Allocations.push_back(info);
 }
 
-void VmaBlockVectorDefragmentationContext::Begin()
+void VmaBlockVectorDefragmentationContext::Begin(bool overlappingMoveSupported)
 {
     const bool allAllocations = m_AllAllocations ||
         m_Allocations.size() == m_pBlockVector->CalcAllocationCount();
@@ -12624,12 +12641,12 @@ void VmaBlockVectorDefragmentationContext::Begin()
         !m_pBlockVector->IsBufferImageGranularityConflictPossible())
     {
         m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm_Fast)(
-            m_hAllocator, m_pBlockVector, m_CurrFrameIndex);
+            m_hAllocator, m_pBlockVector, m_CurrFrameIndex, overlappingMoveSupported);
     }
     else
     {
         m_pAlgorithm = vma_new(m_hAllocator, VmaDefragmentationAlgorithm_Generic)(
-            m_hAllocator, m_pBlockVector, m_CurrFrameIndex);
+            m_hAllocator, m_pBlockVector, m_CurrFrameIndex, overlappingMoveSupported);
     }
 
     if(allAllocations)
