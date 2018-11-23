@@ -1240,6 +1240,23 @@ void TestDefragmentationSimple()
     VmaPool pool;
     ERR_GUARD_VULKAN( vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) );
 
+    // Defragmentation of empty pool.
+    {
+        VmaDefragmentationInfo2 defragInfo = {};
+        defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
+        defragInfo.maxCpuAllocationsToMove = UINT32_MAX;
+        defragInfo.poolCount = 1;
+        defragInfo.pPools = &pool;
+
+        VmaDefragmentationStats defragStats = {};
+        VmaDefragmentationContext defragCtx = nullptr;
+        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &defragStats, &defragCtx);
+        TEST(res >= VK_SUCCESS);
+        vmaDefragmentationEnd(g_hAllocator, defragCtx);
+        TEST(defragStats.allocationsMoved == 0 && defragStats.bytesFreed == 0 &&
+            defragStats.bytesMoved == 0 && defragStats.deviceMemoryBlocksFreed == 0);
+    }
+
     std::vector<AllocInfo> allocations;
 
     // persistentlyMappedOption = 0 - not persistently mapped.
