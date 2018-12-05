@@ -9,6 +9,10 @@
 
 static const char* CODE_DESCRIPTION = "Foo";
 
+extern VkCommandBuffer g_hTemporaryCommandBuffer;
+void BeginSingleTimeCommands();
+void EndSingleTimeCommands();
+
 enum CONFIG_TYPE {
     CONFIG_TYPE_MINIMUM,
     CONFIG_TYPE_SMALL,
@@ -655,6 +659,299 @@ struct AllocInfo
         VkImageCreateInfo m_ImageInfo;
     };
 };
+
+class StagingBufferCollection
+{
+public:
+    StagingBufferCollection() { }
+    ~StagingBufferCollection();
+    // Returns false if maximum total size of buffers would be exceeded.
+    bool AcquireBuffer(VkDeviceSize size, VkBuffer& outBuffer, void*& outMappedPtr);
+    void ReleaseAllBuffers();
+
+private:
+    static const VkDeviceSize MAX_TOTAL_SIZE = 256ull * 1024 * 1024;
+    struct BufInfo
+    {
+        VmaAllocation Allocation = VK_NULL_HANDLE;
+        VkBuffer Buffer = VK_NULL_HANDLE;
+        VkDeviceSize Size = VK_WHOLE_SIZE;
+        void* MappedPtr = nullptr;
+        bool Used = false;
+    };
+    std::vector<BufInfo> m_Bufs;
+    // Including both used and unused.
+    VkDeviceSize m_TotalSize = 0;
+};
+
+StagingBufferCollection::~StagingBufferCollection()
+{
+    for(size_t i = m_Bufs.size(); i--; )
+    {
+        vmaDestroyBuffer(g_hAllocator, m_Bufs[i].Buffer, m_Bufs[i].Allocation);
+    }
+}
+
+bool StagingBufferCollection::AcquireBuffer(VkDeviceSize size, VkBuffer& outBuffer, void*& outMappedPtr)
+{
+    assert(size <= MAX_TOTAL_SIZE);
+
+    // Try to find existing unused buffer with best size.
+    size_t bestIndex = SIZE_MAX;
+    for(size_t i = 0, count = m_Bufs.size(); i < count; ++i)
+    {
+        BufInfo& currBufInfo = m_Bufs[i];
+        if(!currBufInfo.Used && currBufInfo.Size >= size &&
+            (bestIndex == SIZE_MAX || currBufInfo.Size < m_Bufs[bestIndex].Size))
+        {
+            bestIndex = i;
+        }
+    }
+
+    if(bestIndex != SIZE_MAX)
+    {
+        m_Bufs[bestIndex].Used = true;
+        outBuffer = m_Bufs[bestIndex].Buffer;
+        outMappedPtr = m_Bufs[bestIndex].MappedPtr;
+        return true;
+    }
+    
+    // Allocate new buffer with requested size.
+    if(m_TotalSize + size <= MAX_TOTAL_SIZE)
+    {
+        BufInfo bufInfo;
+        bufInfo.Size = size;
+        bufInfo.Used = true;
+
+        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufCreateInfo.size = size;
+        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+        VmaAllocationInfo allocInfo;
+        VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, &allocInfo);
+        bufInfo.MappedPtr = allocInfo.pMappedData;
+        TEST(res == VK_SUCCESS && bufInfo.MappedPtr);
+
+        outBuffer = bufInfo.Buffer;
+        outMappedPtr = bufInfo.MappedPtr;
+
+        m_Bufs.push_back(std::move(bufInfo));
+
+        m_TotalSize += size;
+
+        return true;
+    }
+
+    // There are some unused but smaller buffers: Free them and try again.
+    bool hasUnused = false;
+    for(size_t i = 0, count = m_Bufs.size(); i < count; ++i)
+    {
+        if(!m_Bufs[i].Used)
+        {
+            hasUnused = true;
+            break;
+        }
+    }
+    if(hasUnused)
+    {
+        for(size_t i = m_Bufs.size(); i--; )
+        {
+            if(!m_Bufs[i].Used)
+            {
+                m_TotalSize -= m_Bufs[i].Size;
+                vmaDestroyBuffer(g_hAllocator, m_Bufs[i].Buffer, m_Bufs[i].Allocation);
+                m_Bufs.erase(m_Bufs.begin() + i);
+            }
+        }
+
+        return AcquireBuffer(size, outBuffer, outMappedPtr);
+   }
+
+    return false;
+}
+
+void StagingBufferCollection::ReleaseAllBuffers()
+{
+    for(size_t i = 0, count = m_Bufs.size(); i < count; ++i)
+    {
+        m_Bufs[i].Used = false;
+    }
+}
+
+static void UploadGpuData(const AllocInfo* allocInfo, size_t allocInfoCount)
+{
+    StagingBufferCollection stagingBufs;
+
+    bool cmdBufferStarted = false;
+    for(size_t allocInfoIndex = 0; allocInfoIndex < allocInfoCount; ++allocInfoIndex)
+    {
+        const AllocInfo& currAllocInfo = allocInfo[allocInfoIndex];
+        if(currAllocInfo.m_Buffer)
+        {
+            const VkDeviceSize size = currAllocInfo.m_BufferInfo.size;
+
+            VkBuffer stagingBuf = VK_NULL_HANDLE;
+            void* stagingBufMappedPtr = nullptr;
+            if(!stagingBufs.AcquireBuffer(size, stagingBuf, stagingBufMappedPtr))
+            {
+                TEST(cmdBufferStarted);
+                EndSingleTimeCommands();
+                stagingBufs.ReleaseAllBuffers();
+                cmdBufferStarted = false;
+
+                bool ok = stagingBufs.AcquireBuffer(size, stagingBuf, stagingBufMappedPtr);
+                TEST(ok);
+            }
+
+            // Fill staging buffer.
+            {
+                assert(size % sizeof(uint32_t) == 0);
+                uint32_t* stagingValPtr = (uint32_t*)stagingBufMappedPtr;
+                uint32_t val = currAllocInfo.m_StartValue;
+                for(size_t i = 0; i < size / sizeof(uint32_t); ++i)
+                {
+                    *stagingValPtr = val;
+                    ++stagingValPtr;
+                    ++val;
+                }
+            }
+
+            // Issue copy command from staging buffer to destination buffer.
+            if(!cmdBufferStarted)
+            {
+                cmdBufferStarted = true;
+                BeginSingleTimeCommands();
+            }
+
+            VkBufferCopy copy = {};
+            copy.srcOffset = 0;
+            copy.dstOffset = 0;
+            copy.size = size;
+            vkCmdCopyBuffer(g_hTemporaryCommandBuffer, stagingBuf, currAllocInfo.m_Buffer, 1, &copy);
+        }
+        else
+        {
+            TEST(0 && "Images not currently supported.");
+        }
+    }
+
+    if(cmdBufferStarted)
+    {
+        EndSingleTimeCommands();
+        stagingBufs.ReleaseAllBuffers();
+    }
+}
+
+static void ValidateGpuData(const AllocInfo* allocInfo, size_t allocInfoCount)
+{
+    StagingBufferCollection stagingBufs;
+
+    bool cmdBufferStarted = false;
+    size_t validateAllocIndexOffset = 0;
+    std::vector<void*> validateStagingBuffers;
+    for(size_t allocInfoIndex = 0; allocInfoIndex < allocInfoCount; ++allocInfoIndex)
+    {
+        const AllocInfo& currAllocInfo = allocInfo[allocInfoIndex];
+        if(currAllocInfo.m_Buffer)
+        {
+            const VkDeviceSize size = currAllocInfo.m_BufferInfo.size;
+
+            VkBuffer stagingBuf = VK_NULL_HANDLE;
+            void* stagingBufMappedPtr = nullptr;
+            if(!stagingBufs.AcquireBuffer(size, stagingBuf, stagingBufMappedPtr))
+            {
+                TEST(cmdBufferStarted);
+                EndSingleTimeCommands();
+                cmdBufferStarted = false;
+
+                for(size_t validateIndex = 0;
+                    validateIndex < validateStagingBuffers.size();
+                    ++validateIndex)
+                {
+                    const size_t validateAllocIndex = validateIndex + validateAllocIndexOffset;
+                    const VkDeviceSize validateSize = allocInfo[validateAllocIndex].m_BufferInfo.size;
+                    TEST(validateSize % sizeof(uint32_t) == 0);
+                    const uint32_t* stagingValPtr = (const uint32_t*)validateStagingBuffers[validateIndex];
+                    uint32_t val = allocInfo[validateAllocIndex].m_StartValue;
+                    bool valid = true;
+                    for(size_t i = 0; i < validateSize / sizeof(uint32_t); ++i)
+                    {
+                        if(*stagingValPtr != val)
+                        {
+                            valid = false;
+                            break;
+                        }
+                        ++stagingValPtr;
+                        ++val;
+                    }
+                    TEST(valid);
+                }
+
+                stagingBufs.ReleaseAllBuffers();
+
+                validateAllocIndexOffset = allocInfoIndex;
+                validateStagingBuffers.clear();
+
+                bool ok = stagingBufs.AcquireBuffer(size, stagingBuf, stagingBufMappedPtr);
+                TEST(ok);
+            }
+
+            // Issue copy command from staging buffer to destination buffer.
+            if(!cmdBufferStarted)
+            {
+                cmdBufferStarted = true;
+                BeginSingleTimeCommands();
+            }
+
+            VkBufferCopy copy = {};
+            copy.srcOffset = 0;
+            copy.dstOffset = 0;
+            copy.size = size;
+            vkCmdCopyBuffer(g_hTemporaryCommandBuffer, currAllocInfo.m_Buffer, stagingBuf, 1, &copy);
+
+            // Sava mapped pointer for later validation.
+            validateStagingBuffers.push_back(stagingBufMappedPtr);
+        }
+        else
+        {
+            TEST(0 && "Images not currently supported.");
+        }
+    }
+
+    if(cmdBufferStarted)
+    {
+        EndSingleTimeCommands();
+
+        for(size_t validateIndex = 0;
+            validateIndex < validateStagingBuffers.size();
+            ++validateIndex)
+        {
+            const size_t validateAllocIndex = validateIndex + validateAllocIndexOffset;
+            const VkDeviceSize validateSize = allocInfo[validateAllocIndex].m_BufferInfo.size;
+            TEST(validateSize % sizeof(uint32_t) == 0);
+            const uint32_t* stagingValPtr = (const uint32_t*)validateStagingBuffers[validateIndex];
+            uint32_t val = allocInfo[validateAllocIndex].m_StartValue;
+            bool valid = true;
+            for(size_t i = 0; i < validateSize / sizeof(uint32_t); ++i)
+            {
+                if(*stagingValPtr != val)
+                {
+                    valid = false;
+                    break;
+                }
+                ++stagingValPtr;
+                ++val;
+            }
+            TEST(valid);
+        }
+
+        stagingBufs.ReleaseAllBuffers();
+    }
+}
 
 static void GetMemReq(VmaAllocationCreateInfo& outMemReq)
 {
@@ -4515,6 +4812,41 @@ static void BasicTestAllocatePages()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+// Test the testing environment.
+static void TestGpuData()
+{
+    RandomNumberGenerator rand = { 53434 };
+
+    std::vector<AllocInfo> allocInfo;
+
+    for(size_t i = 0; i < 100; ++i)
+    {
+        AllocInfo info = {};
+
+        info.m_BufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        info.m_BufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        info.m_BufferInfo.size = 1024 * 1024 * (rand.Generate() % 9 + 1);
+
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        VkResult res = vmaCreateBuffer(g_hAllocator, &info.m_BufferInfo, &allocCreateInfo, &info.m_Buffer, &info.m_Allocation, nullptr);
+        TEST(res == VK_SUCCESS);
+
+        info.m_StartValue = rand.Generate();
+
+        allocInfo.push_back(std::move(info));
+    }
+
+    UploadGpuData(allocInfo.data(), allocInfo.size());
+
+    ValidateGpuData(allocInfo.data(), allocInfo.size());
+
+    DestroyAllAllocations(allocInfo);
+}
+
 void Test()
 {
     wprintf(L"TESTING:\n");
@@ -4532,6 +4864,7 @@ void Test()
     // # Simple tests
 
     TestBasics();
+    //TestGpuData(); // Not calling this because it's just testing the testing environment.
 #if VMA_DEBUG_MARGIN
     TestDebugMargin();
 #else

@@ -91,7 +91,7 @@ static VkDebugReportCallbackEXT g_hCallback;
 
 static VkQueue g_hGraphicsQueue;
 VkQueue g_hSparseBindingQueue;
-static VkCommandBuffer g_hTemporaryCommandBuffer;
+VkCommandBuffer g_hTemporaryCommandBuffer;
 
 static VkPipelineLayout g_hPipelineLayout;
 static VkRenderPass g_hRenderPass;
@@ -130,14 +130,14 @@ static void CustomCpuFree(void* pUserData, void* pMemory)
     _aligned_free(pMemory);
 }
 
-static void BeginSingleTimeCommands()
+void BeginSingleTimeCommands()
 {
     VkCommandBufferBeginInfo cmdBufBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     ERR_GUARD_VULKAN( vkBeginCommandBuffer(g_hTemporaryCommandBuffer, &cmdBufBeginInfo) );
 }
 
-static void EndSingleTimeCommands()
+void EndSingleTimeCommands()
 {
     ERR_GUARD_VULKAN( vkEndCommandBuffer(g_hTemporaryCommandBuffer) );
 
@@ -1779,16 +1779,6 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             try
             {
                 Test();
-            }
-            catch(const std::exception& ex)
-            {
-                printf("ERROR: %s\n", ex.what());
-            }
-            break;
-        case 'S':
-            try
-            {
-                TestSparseBinding();
             }
             catch(const std::exception& ex)
             {
