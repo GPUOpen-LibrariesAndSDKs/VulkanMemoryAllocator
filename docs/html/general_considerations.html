@@ -110,9 +110,12 @@ Allocation algorithm</h1>
 Features not supported</h1>
 <p>Features deliberately excluded from the scope of this library:</p>
 <ul>
-<li>Support for sparse binding and sparse residency. You can still use these features (when supported by the device) with VMA. You just need to do it yourself. Any explicit support for sparse binding/residency would rather require another, higher-level library on top of VMA.</li>
+<li>Support for sparse binding and sparse residency. You can still use these features (when supported by the device) with VMA. You just need to do it yourself. Allocate memory pages with <a class="el" href="vk__mem__alloc_8h.html#abf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation. ">vmaAllocateMemory()</a>. Any explicit support for sparse binding/residency would rather require another, higher-level library on top of VMA.</li>
 <li>Data transfer - issuing commands that transfer data between buffers or images, any usage of <code>VkCommandList</code> or <code>VkQueue</code> and related synchronization is responsibility of the user.</li>
 <li>Allocations for imported/exported external memory. They tend to require explicit memory type index and dedicated allocation anyway, so they don't interact with main features of this library. Such special purpose allocations should be made manually, using <code>vkCreateBuffer()</code> and <code>vkAllocateMemory()</code>.</li>
+<li>Recreation of buffers and images. Although the library has functions for buffer and image creation (<a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer(). ">vmaCreateImage()</a>), you need to recreate these objects yourself after defragmentation. That's because the big structures <code>VkBufferCreateInfo</code>, <code>VkImageCreateInfo</code> are not stored in <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation. ">VmaAllocation</a> object.</li>
+<li>Handling CPU memory allocation failures. When dynamically creating small C++ objects in CPU memory (not Vulkan memory), allocation failures are not checked and handled gracefully, because that would complicate code significantly and is usually not needed in desktop PC applications anyway.</li>
+<li>Code free of any compiler warnings. Maintaining the library to compile and work correctly on so many different platforms is hard enough. Being free of any warnings, on any version of any compiler, is simply not feasible.</li>
 <li>Support for any programming languages other than C/C++. Bindings to other languages are welcomed as external projects. </li>
 </ul>
 </div></div><!-- contents -->

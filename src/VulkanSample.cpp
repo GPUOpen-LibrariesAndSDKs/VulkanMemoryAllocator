@@ -1345,6 +1345,15 @@ static void InitializeApplication()
         allocatorInfo.pAllocationCallbacks = &cpuAllocationCallbacks;
     }
 
+    // Uncomment to enable recording to CSV file.
+    /*
+    {
+        VmaRecordSettings recordSettings = {};
+        recordSettings.pFilePath = "VulkanSample.csv";
+        allocatorInfo.pRecordSettings = &recordSettings;
+    }
+    */
+
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
 
     // Retrieve queues (don't need to be destroyed).

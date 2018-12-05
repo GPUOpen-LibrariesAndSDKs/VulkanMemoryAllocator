@@ -82,6 +82,7 @@ enum class VMA_FUNCTION
     TouchAllocation,
     GetAllocationInfo,
     MakePoolAllocationsLost,
+    ResizeAllocation,
     Count
 };
 static const char* VMA_FUNCTION_NAMES[] = {
@@ -104,6 +105,7 @@ static const char* VMA_FUNCTION_NAMES[] = {
     "vmaTouchAllocation",
     "vmaGetAllocationInfo",
     "vmaMakePoolAllocationsLost",
+    "vmaResizeAllocation",
 };
 static_assert(
     _countof(VMA_FUNCTION_NAMES) == (size_t)VMA_FUNCTION::Count,
@@ -143,7 +145,7 @@ static size_t g_DumpStatsAfterLineNextIndex = 0;
 static bool ValidateFileVersion()
 {
     if(GetVersionMajor(g_FileVersion) == 1 &&
-        GetVersionMinor(g_FileVersion) <= 3)
+        GetVersionMinor(g_FileVersion) <= 4)
     {
         return true;
     }
@@ -1015,6 +1017,7 @@ private:
     void ExecuteTouchAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 };
@@ -1156,6 +1159,8 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteGetAllocationInfo(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, "vmaMakePoolAllocationsLost"))
             ExecuteMakePoolAllocationsLost(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, "vmaResizeAllocation"))
+            ExecuteResizeAllocation(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -2594,6 +2599,45 @@ void Player::ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& c
             if(IssueWarning())
             {
                 printf("Line %zu: Invalid parameters for vmaMakePoolAllocationsLost.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::ResizeAllocation);
+
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, false))
+    {
+        uint64_t origPtr = 0;
+        uint64_t newSize = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), newSize))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Allocations.find(origPtr);
+                if(it != m_Allocations.end())
+                {
+                    vmaResizeAllocation(m_Allocator, it->second.allocation, newSize);
+                    UpdateMemStats();
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Allocation %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaResizeAllocation.\n", lineNumber);
             }
         }
     }

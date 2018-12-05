@@ -25,7 +25,7 @@ import json
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROGRAM_VERSION = 'VMA Dump Visualization 1.0.0'
+PROGRAM_VERSION = 'VMA Dump Visualization 2.0.0'
 IMG_SIZE_X = 800
 IMG_MARGIN = 8
 FONT_SIZE = 10
@@ -246,7 +246,7 @@ for iMemTypeIndex in sorted(data.keys()):
     index = 0
     for iPoolId, listPool in dictMemType['CustomPools'].items():
         for objBlock in listPool:
-            if 'Algorithm' in objBlock:
+            if 'Algorithm' in objBlock and objBlock['Algorithm']:
                 sAlgorithm = ' (Algorithm: %s)' % (objBlock['Algorithm']);
             else:
                 sAlgorithm = '';
