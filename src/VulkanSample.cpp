@@ -149,7 +149,7 @@ void EndSingleTimeCommands()
     ERR_GUARD_VULKAN( vkQueueWaitIdle(g_hGraphicsQueue) );
 }
 
-static void LoadShader(std::vector<char>& out, const char* fileName)
+void LoadShader(std::vector<char>& out, const char* fileName)
 {
     std::ifstream file(std::string(SHADER_PATH1) + fileName, std::ios::ate | std::ios::binary);
     if(file.is_open() == false)
@@ -1222,8 +1222,9 @@ static void InitializeApplication()
     {
         if(queueFamilies[i].queueCount > 0)
         {
+            const uint32_t flagsForGraphicsQueue = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
             if((g_GraphicsQueueFamilyIndex != 0) &&
-                ((queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0))
+                ((queueFamilies[i].queueFlags & flagsForGraphicsQueue) == flagsForGraphicsQueue))
             {
                 g_GraphicsQueueFamilyIndex = i;
             }
@@ -1779,6 +1780,23 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             try
             {
                 Test();
+            }
+            catch(const std::exception& ex)
+            {
+                printf("ERROR: %s\n", ex.what());
+            }
+            break;
+        case 'S':
+            try
+            {
+                if(g_SparseBindingEnabled)
+                {
+                    TestSparseBinding();
+                }
+                else
+                {
+                    printf("Sparse binding not supported.\n");
+                }
             }
             catch(const std::exception& ex)
             {
