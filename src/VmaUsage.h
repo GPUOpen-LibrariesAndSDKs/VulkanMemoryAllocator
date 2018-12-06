@@ -8,7 +8,8 @@
 #include <Windows.h>
 #define VK_USE_PLATFORM_WIN32_KHR
 
-#include <vulkan/vulkan.h>
+// Uncomment to test including `vulkan.h` on your own before including VMA.
+//#include <vulkan/vulkan.h>
 
 /*
 In every place where you want to use Vulkan Memory Allocator, define appropriate
