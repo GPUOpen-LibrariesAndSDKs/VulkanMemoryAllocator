@@ -216,7 +216,7 @@ void BaseImage::ValidateContent(RandomNumberGenerator& rand)
     }
     */
 
-    const uint32_t valueCount = 32;
+    const uint32_t valueCount = 128;
 
     VkBufferCreateInfo dstBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     dstBufCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -501,7 +501,7 @@ void TestSparseBinding()
     };
     std::vector<ImageInfo> images;
 
-    constexpr uint32_t frameCount = 2000;
+    constexpr uint32_t frameCount = 1000;
     constexpr uint32_t imageLifeFramesMin = 1;
     constexpr uint32_t imageLifeFramesMax = 400;
 
