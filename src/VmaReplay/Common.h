@@ -111,6 +111,7 @@ inline bool StrRangeToBool(const StrRange& s, bool& out)
 
     return true;
 }
+bool StrRangeToPtrList(const StrRange& s, std::vector<uint64_t>& out);
 
 class LineSplit
 {

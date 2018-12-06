@@ -5676,6 +5676,11 @@ public:
         const VkMemoryRequirements& vkMemReq,
         const VmaAllocationCreateInfo& createInfo,
         VmaAllocation allocation);
+    void RecordAllocateMemoryPages(uint32_t frameIndex,
+        const VkMemoryRequirements& vkMemReq,
+        const VmaAllocationCreateInfo& createInfo,
+        uint64_t allocationCount,
+        const VmaAllocation* pAllocations);
     void RecordAllocateMemoryForBuffer(uint32_t frameIndex,
         const VkMemoryRequirements& vkMemReq,
         bool requiresDedicatedAllocation,
@@ -5690,6 +5695,9 @@ public:
         VmaAllocation allocation);
     void RecordFreeMemory(uint32_t frameIndex,
         VmaAllocation allocation);
+    void RecordFreeMemoryPages(uint32_t frameIndex,
+        uint64_t allocationCount,
+        const VmaAllocation* pAllocations);
     void RecordResizeAllocation(
         uint32_t frameIndex,
         VmaAllocation allocation,
@@ -5752,6 +5760,7 @@ private:
     int64_t m_StartCounter;
 
     void GetBasicParams(CallParams& outParams);
+    void PrintPointerList(uint64_t count, const VmaAllocation* pItems);
     void Flush();
 };
 
@@ -11661,7 +11670,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,4");
+    fprintf(m_File, "%s\n", "1,5");
 
     return VK_SUCCESS;
 }
@@ -11747,6 +11756,32 @@ void VmaRecorder::RecordAllocateMemory(uint32_t frameIndex,
     Flush();
 }
 
+void VmaRecorder::RecordAllocateMemoryPages(uint32_t frameIndex,
+    const VkMemoryRequirements& vkMemReq,
+    const VmaAllocationCreateInfo& createInfo,
+    uint64_t allocationCount,
+    const VmaAllocation* pAllocations)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
+    fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemoryPages,%llu,%llu,%u,%u,%u,%u,%u,%u,%p,", callParams.threadId, callParams.time, frameIndex,
+        vkMemReq.size,
+        vkMemReq.alignment,
+        vkMemReq.memoryTypeBits,
+        createInfo.flags,
+        createInfo.usage,
+        createInfo.requiredFlags,
+        createInfo.preferredFlags,
+        createInfo.memoryTypeBits,
+        createInfo.pool);
+    PrintPointerList(allocationCount, pAllocations);
+    fprintf(m_File, ",%s\n", userDataStr.GetString());
+    Flush();
+}
+
 void VmaRecorder::RecordAllocateMemoryForBuffer(uint32_t frameIndex,
     const VkMemoryRequirements& vkMemReq,
     bool requiresDedicatedAllocation,
@@ -11814,6 +11849,20 @@ void VmaRecorder::RecordFreeMemory(uint32_t frameIndex,
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
     fprintf(m_File, "%u,%.3f,%u,vmaFreeMemory,%p\n", callParams.threadId, callParams.time, frameIndex,
         allocation);
+    Flush();
+}
+
+void VmaRecorder::RecordFreeMemoryPages(uint32_t frameIndex,
+    uint64_t allocationCount,
+    const VmaAllocation* pAllocations)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaFreeMemoryPages,", callParams.threadId, callParams.time, frameIndex);
+    PrintPointerList(allocationCount, pAllocations);
+    fprintf(m_File, "\n");
     Flush();
 }
 
@@ -12106,6 +12155,18 @@ void VmaRecorder::GetBasicParams(CallParams& outParams)
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     outParams.time = (double)(counter.QuadPart - m_StartCounter) / (double)m_Freq;
+}
+
+void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
+{
+    if(count)
+    {
+        fprintf(m_File, "%p", pItems[0]);
+        for(uint64_t i = 1; i < count; ++i)
+        {
+            fprintf(m_File, " %p", pItems[i]);
+        }
+    }
 }
 
 void VmaRecorder::Flush()
@@ -14220,14 +14281,12 @@ VkResult vmaAllocateMemoryPages(
 #if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
     {
-        // TODO: Extend recording format with this function.
-        /*
         allocator->GetRecorder()->RecordAllocateMemoryPages(
             allocator->GetCurrentFrameIndex(),
             *pVkMemoryRequirements,
             *pCreateInfo,
-            *pAllocation);
-        */
+            (uint64_t)allocationCount,
+            pAllocations);
     }
 #endif
         
@@ -14391,15 +14450,13 @@ void vmaFreeMemoryPages(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
 #if VMA_RECORDING_ENABLED
-    // TODO Add this to recording file format.
-    /*
     if(allocator->GetRecorder() != VMA_NULL)
     {
         allocator->GetRecorder()->RecordFreeMemoryPages(
             allocator->GetCurrentFrameIndex(),
-            allocation);
+            (uint64_t)allocationCount,
+            pAllocations);
     }
-    */
 #endif
     
     allocator->FreeMemory(allocationCount, pAllocations);

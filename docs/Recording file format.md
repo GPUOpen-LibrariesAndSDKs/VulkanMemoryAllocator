@@ -23,7 +23,7 @@ Formats with only minor version incremented are backward compatible.
 VmaReplay application supports all older versions.
 Current version is:
 
-    1,4
+    1,5
 
 # Configuration
 
@@ -152,6 +152,10 @@ No parameters.
 
 - allocation : pointer
 
+**vmaFreeMemoryPages** (min format version: 1.5)
+
+- allocations : list of pointers
+
 **vmaCreateLostAllocation** (min format version 1.2)
 
 - allocation (output) : pointer
@@ -168,6 +172,20 @@ No parameters.
 - allocationCreateInfo.memoryTypeBits : uint32
 - allocationCreateInfo.pool : pointer
 - allocation (output) : pointer
+- allocationCreateInfo.pUserData : string (may contain additional commas)
+
+**vmaAllocateMemoryPages** (min format version 1.5)
+
+- vkMemoryRequirements.size : uint64
+- vkMemoryRequirements.alignment : uint64
+- vkMemoryRequirements.memoryTypeBits : uint32
+- allocationCreateInfo.flags : uint32
+- allocationCreateInfo.usage : uint32
+- allocationCreateInfo.requiredFlags : uint32
+- allocationCreateInfo.preferredFlags : uint32
+- allocationCreateInfo.memoryTypeBits : uint32
+- allocationCreateInfo.pool : pointer
+- allocations (output) : list of pointers
 - allocationCreateInfo.pUserData : string (may contain additional commas)
 
 **vmaAllocateMemoryForBuffer, vmaAllocateMemoryForImage** (min format version 1.2)
@@ -230,10 +248,14 @@ If `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` was used with the allocatio
 It may contain additional commas.
 It should not contain end-of-line characters - results are then undefined.
 
+**list of (...)** (min format version: 1.5)
+
+An ordered sequence of values of some type, separated by single space.
+
 # Example file
 
     Vulkan Memory Allocator,Calls recording
-    1,4
+    1,5
     Config,Begin
     PhysicalDevice,apiVersion,4198477
     PhysicalDevice,driverVersion,8388653
