@@ -5935,6 +5935,111 @@ private:
         size_t origBlockIndex;
     };
 
+    class FreeSpaceDatabase
+    {
+    public:
+        FreeSpaceDatabase()
+        {
+            FreeSpace s = {};
+            s.blockInfoIndex = SIZE_MAX;
+            for(size_t i = 0; i < MAX_COUNT; ++i)
+            {
+                m_FreeSpaces[i] = s;
+            }
+        }
+
+        void Register(size_t blockInfoIndex, VkDeviceSize offset, VkDeviceSize size)
+        {
+            if(size < VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
+            {
+                return;
+            }
+
+            // Find first invalid or the smallest structure.
+            size_t bestIndex = SIZE_MAX;
+            for(size_t i = 0; i < MAX_COUNT; ++i)
+            {
+                // Empty structure.
+                if(m_FreeSpaces[i].blockInfoIndex == SIZE_MAX)
+                {
+                    bestIndex = i;
+                    break;
+                }
+                if(m_FreeSpaces[i].size < size &&
+                    (bestIndex == SIZE_MAX || m_FreeSpaces[bestIndex].size > m_FreeSpaces[i].size))
+                {
+                    bestIndex = i;
+                }
+            }
+
+            if(bestIndex != SIZE_MAX)
+            {
+                m_FreeSpaces[bestIndex].blockInfoIndex = blockInfoIndex;
+                m_FreeSpaces[bestIndex].offset = offset;
+                m_FreeSpaces[bestIndex].size = size;
+            }
+        }
+
+        bool Fetch(VkDeviceSize alignment, VkDeviceSize size,
+            size_t& outBlockInfoIndex, VkDeviceSize& outDstOffset)
+        {
+            size_t bestIndex = SIZE_MAX;
+            VkDeviceSize bestFreeSpaceAfter = 0;
+            for(size_t i = 0; i < MAX_COUNT; ++i)
+            {
+                // Structure is valid.
+                if(m_FreeSpaces[i].blockInfoIndex != SIZE_MAX)
+                {
+                    const VkDeviceSize dstOffset = VmaAlignUp(m_FreeSpaces[i].offset, alignment);
+                    // Allocation fits into this structure.
+                    if(dstOffset + size <= m_FreeSpaces[i].offset + m_FreeSpaces[i].size)
+                    {
+                        const VkDeviceSize freeSpaceAfter = (m_FreeSpaces[i].offset + m_FreeSpaces[i].size) -
+                            (dstOffset + size);
+                        if(bestIndex == SIZE_MAX || freeSpaceAfter > bestFreeSpaceAfter)
+                        {
+                            bestIndex = i;
+                            bestFreeSpaceAfter = freeSpaceAfter;
+                        }
+                    }
+                }
+            }
+            
+            if(bestIndex != SIZE_MAX)
+            {
+                outBlockInfoIndex = m_FreeSpaces[bestIndex].blockInfoIndex;
+                outDstOffset = VmaAlignUp(m_FreeSpaces[bestIndex].offset, alignment);
+
+                if(bestFreeSpaceAfter >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
+                {
+                    // Leave this structure for remaining empty space.
+                    const VkDeviceSize alignmentPlusSize = (outDstOffset - m_FreeSpaces[bestIndex].offset) + size;
+                    m_FreeSpaces[bestIndex].offset += alignmentPlusSize;
+                    m_FreeSpaces[bestIndex].size -= alignmentPlusSize;
+                }
+                else
+                {
+                    // This structure becomes invalid.
+                    m_FreeSpaces[bestIndex].blockInfoIndex = SIZE_MAX;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+    private:
+        static const size_t MAX_COUNT = 4;
+
+        struct FreeSpace
+        {
+            size_t blockInfoIndex; // SIZE_MAX means this structure is invalid.
+            VkDeviceSize offset;
+            VkDeviceSize size;
+        } m_FreeSpaces[MAX_COUNT];
+    };
+
     const bool m_OverlappingMoveSupported;
 
     uint32_t m_AllocationCount;
@@ -5947,6 +6052,7 @@ private:
 
     void PreprocessMetadata();
     void PostprocessMetadata();
+    void InsertSuballoc(VmaBlockMetadata_Generic* pMetadata, const VmaSuballocation& suballoc);
 };
 
 struct VmaBlockDefragmentationContext
@@ -12365,6 +12471,8 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
 
     // THE MAIN ALGORITHM
 
+    FreeSpaceDatabase freeSpaceDb;
+
     size_t dstBlockInfoIndex = 0;
     size_t dstOrigBlockIndex = m_BlockInfos[dstBlockInfoIndex].origBlockIndex;
     VmaDeviceMemoryBlock* pDstBlock = m_pBlockVector->GetBlock(dstOrigBlockIndex);
@@ -12382,6 +12490,7 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
             !end && srcSuballocIt != pSrcMetadata->m_Suballocations.end(); )
         {
             VmaAllocation_T* const pAlloc = srcSuballocIt->hAllocation;
+            const VkDeviceSize srcAllocAlignment = pAlloc->GetAlignment();
             const VkDeviceSize srcAllocSize = srcSuballocIt->size;
             if(m_AllocationsMoved == maxAllocationsToMove ||
                 m_BytesMoved + srcAllocSize > maxBytesToMove)
@@ -12390,84 +12499,157 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
                 break;
             }
             const VkDeviceSize srcAllocOffset = srcSuballocIt->offset;
-            VkDeviceSize dstAllocOffset = VmaAlignUp(dstOffset, pAlloc->GetAlignment());
 
-            // If the allocation doesn't fit before the end of dstBlock, forward to next block.
-            while(dstBlockInfoIndex < srcBlockInfoIndex &&
-                dstAllocOffset + srcAllocSize > dstBlockSize)
+            // Try to place it in one of free spaces from the database.
+            size_t freeSpaceInfoIndex;
+            VkDeviceSize dstAllocOffset;
+            if(freeSpaceDb.Fetch(srcAllocAlignment, srcAllocSize,
+                freeSpaceInfoIndex, dstAllocOffset))
             {
-                ++dstBlockInfoIndex;
-                dstOrigBlockIndex = m_BlockInfos[dstBlockInfoIndex].origBlockIndex;
-                pDstBlock = m_pBlockVector->GetBlock(dstOrigBlockIndex);
-                pDstMetadata = (VmaBlockMetadata_Generic*)pDstBlock->m_pMetadata;
-                dstBlockSize = pDstMetadata->GetSize();
-                dstOffset = 0;
-                dstAllocOffset = 0;
-            }
+                size_t freeSpaceOrigBlockIndex = m_BlockInfos[freeSpaceInfoIndex].origBlockIndex;
+                VmaDeviceMemoryBlock* pFreeSpaceBlock = m_pBlockVector->GetBlock(freeSpaceOrigBlockIndex);
+                VmaBlockMetadata_Generic* pFreeSpaceMetadata = (VmaBlockMetadata_Generic*)pFreeSpaceBlock->m_pMetadata;
+                VkDeviceSize freeSpaceBlockSize = pFreeSpaceMetadata->GetSize();
 
-            // Same block
-            if(dstBlockInfoIndex == srcBlockInfoIndex)
-            {
-                VMA_ASSERT(dstAllocOffset <= srcAllocOffset);
-
-                const bool overlap = dstAllocOffset + srcAllocSize > srcAllocOffset;
-
-                bool skipOver = overlap;
-                if(overlap && m_OverlappingMoveSupported && dstAllocOffset < srcAllocOffset)
+                // Same block
+                if(freeSpaceInfoIndex == srcBlockInfoIndex)
                 {
-                    // If destination and source place overlap, skip if it would move it
-                    // by only < 1/64 of its size.
-                    skipOver = (srcAllocOffset - dstAllocOffset) * 64 < srcAllocSize;
-                }
+                    VMA_ASSERT(dstAllocOffset <= srcAllocOffset);
 
-                if(skipOver)
-                {
-                    dstOffset = srcAllocOffset + srcAllocSize;
-                    ++srcSuballocIt;
+                    // MOVE OPTION 1: Move the allocation inside the same block by decreasing offset.
+
+                    VmaSuballocation suballoc = *srcSuballocIt;
+                    suballoc.offset = dstAllocOffset;
+                    suballoc.hAllocation->ChangeOffset(dstAllocOffset);
+                    m_BytesMoved += srcAllocSize;
+                    ++m_AllocationsMoved;
+                    
+                    VmaSuballocationList::iterator nextSuballocIt = srcSuballocIt;
+                    ++nextSuballocIt;
+                    pSrcMetadata->m_Suballocations.erase(srcSuballocIt);
+                    srcSuballocIt = nextSuballocIt;
+
+                    InsertSuballoc(pFreeSpaceMetadata, suballoc);
+
+                    VmaDefragmentationMove move = {
+                        srcOrigBlockIndex, freeSpaceOrigBlockIndex,
+                        srcAllocOffset, dstAllocOffset,
+                        srcAllocSize };
+                    moves.push_back(move);
                 }
-                // MOVE OPTION 1: Move the allocation inside the same block by decreasing offset.
+                // Different block
                 else
                 {
-                    srcSuballocIt->offset = dstAllocOffset;
-                    srcSuballocIt->hAllocation->ChangeOffset(dstAllocOffset);
+                    // MOVE OPTION 2: Move the allocation to a different block.
+
+                    VMA_ASSERT(freeSpaceInfoIndex < srcBlockInfoIndex);
+
+                    VmaSuballocation suballoc = *srcSuballocIt;
+                    suballoc.offset = dstAllocOffset;
+                    suballoc.hAllocation->ChangeBlockAllocation(m_hAllocator, pFreeSpaceBlock, dstAllocOffset);
+                    m_BytesMoved += srcAllocSize;
+                    ++m_AllocationsMoved;
+
+                    VmaSuballocationList::iterator nextSuballocIt = srcSuballocIt;
+                    ++nextSuballocIt;
+                    pSrcMetadata->m_Suballocations.erase(srcSuballocIt);
+                    srcSuballocIt = nextSuballocIt;
+
+                    InsertSuballoc(pFreeSpaceMetadata, suballoc);
+
+                    VmaDefragmentationMove move = {
+                        srcOrigBlockIndex, freeSpaceOrigBlockIndex,
+                        srcAllocOffset, dstAllocOffset,
+                        srcAllocSize };
+                    moves.push_back(move);
+                }
+            }
+            else
+            {
+                dstAllocOffset = VmaAlignUp(dstOffset, srcAllocAlignment);
+
+                // If the allocation doesn't fit before the end of dstBlock, forward to next block.
+                while(dstBlockInfoIndex < srcBlockInfoIndex &&
+                    dstAllocOffset + srcAllocSize > dstBlockSize)
+                {
+                    // But before that, register remaining free space at the end of dst block.
+                    freeSpaceDb.Register(dstBlockInfoIndex, dstOffset, dstBlockSize - dstOffset);
+
+                    ++dstBlockInfoIndex;
+                    dstOrigBlockIndex = m_BlockInfos[dstBlockInfoIndex].origBlockIndex;
+                    pDstBlock = m_pBlockVector->GetBlock(dstOrigBlockIndex);
+                    pDstMetadata = (VmaBlockMetadata_Generic*)pDstBlock->m_pMetadata;
+                    dstBlockSize = pDstMetadata->GetSize();
+                    dstOffset = 0;
+                    dstAllocOffset = 0;
+                }
+
+                // Same block
+                if(dstBlockInfoIndex == srcBlockInfoIndex)
+                {
+                    VMA_ASSERT(dstAllocOffset <= srcAllocOffset);
+
+                    const bool overlap = dstAllocOffset + srcAllocSize > srcAllocOffset;
+
+                    bool skipOver = overlap;
+                    if(overlap && m_OverlappingMoveSupported && dstAllocOffset < srcAllocOffset)
+                    {
+                        // If destination and source place overlap, skip if it would move it
+                        // by only < 1/64 of its size.
+                        skipOver = (srcAllocOffset - dstAllocOffset) * 64 < srcAllocSize;
+                    }
+
+                    if(skipOver)
+                    {
+                        freeSpaceDb.Register(dstBlockInfoIndex, dstOffset, srcAllocOffset - dstOffset);
+
+                        dstOffset = srcAllocOffset + srcAllocSize;
+                        ++srcSuballocIt;
+                    }
+                    // MOVE OPTION 1: Move the allocation inside the same block by decreasing offset.
+                    else
+                    {
+                        srcSuballocIt->offset = dstAllocOffset;
+                        srcSuballocIt->hAllocation->ChangeOffset(dstAllocOffset);
+                        dstOffset = dstAllocOffset + srcAllocSize;
+                        m_BytesMoved += srcAllocSize;
+                        ++m_AllocationsMoved;
+                        ++srcSuballocIt;
+                        VmaDefragmentationMove move = {
+                            srcOrigBlockIndex, dstOrigBlockIndex,
+                            srcAllocOffset, dstAllocOffset,
+                            srcAllocSize };
+                        moves.push_back(move);
+                    }
+                }
+                // Different block
+                else
+                {
+                    // MOVE OPTION 2: Move the allocation to a different block.
+
+                    VMA_ASSERT(dstBlockInfoIndex < srcBlockInfoIndex);
+                    VMA_ASSERT(dstAllocOffset + srcAllocSize <= dstBlockSize);
+
+                    VmaSuballocation suballoc = *srcSuballocIt;
+                    suballoc.offset = dstAllocOffset;
+                    suballoc.hAllocation->ChangeBlockAllocation(m_hAllocator, pDstBlock, dstAllocOffset);
                     dstOffset = dstAllocOffset + srcAllocSize;
                     m_BytesMoved += srcAllocSize;
                     ++m_AllocationsMoved;
-                    ++srcSuballocIt;
+
+                    VmaSuballocationList::iterator nextSuballocIt = srcSuballocIt;
+                    ++nextSuballocIt;
+                    pSrcMetadata->m_Suballocations.erase(srcSuballocIt);
+                    srcSuballocIt = nextSuballocIt;
+
+                    pDstMetadata->m_Suballocations.push_back(suballoc);
+
                     VmaDefragmentationMove move = {
                         srcOrigBlockIndex, dstOrigBlockIndex,
                         srcAllocOffset, dstAllocOffset,
                         srcAllocSize };
                     moves.push_back(move);
                 }
-            }
-            // Different block
-            else
-            {
-                // MOVE OPTION 2: Move the allocation to a different block.
-
-                VMA_ASSERT(dstBlockInfoIndex < srcBlockInfoIndex);
-                VMA_ASSERT(dstAllocOffset + srcAllocSize <= dstBlockSize);
-
-                VmaSuballocation suballoc = *srcSuballocIt;
-                suballoc.offset = dstAllocOffset;
-                suballoc.hAllocation->ChangeBlockAllocation(m_hAllocator, pDstBlock, dstAllocOffset);
-                dstOffset = dstAllocOffset + srcAllocSize;
-                m_BytesMoved += srcAllocSize;
-                ++m_AllocationsMoved;
-
-                VmaSuballocationList::iterator nextSuballocIt = srcSuballocIt;
-                ++nextSuballocIt;
-                pSrcMetadata->m_Suballocations.erase(srcSuballocIt);
-                srcSuballocIt = nextSuballocIt;
-
-                pDstMetadata->m_Suballocations.push_back(suballoc);
-
-                VmaDefragmentationMove move = {
-                    srcOrigBlockIndex, dstOrigBlockIndex,
-                    srcAllocOffset, dstAllocOffset,
-                    srcAllocSize };
-                moves.push_back(move);
             }
         }
     }
@@ -12588,6 +12770,20 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
 
         VMA_HEAVY_ASSERT(pMetadata->Validate());
     }
+}
+
+void VmaDefragmentationAlgorithm_Fast::InsertSuballoc(VmaBlockMetadata_Generic* pMetadata, const VmaSuballocation& suballoc)
+{
+    // TODO: Optimize somehow. Remember iterator instead of searching for it linearly.
+    VmaSuballocationList::iterator it = pMetadata->m_Suballocations.begin();
+    while(it != pMetadata->m_Suballocations.end())
+    {
+        if(it->offset < suballoc.offset)
+        {
+            ++it;
+        }
+    }
+    pMetadata->m_Suballocations.insert(it, suballoc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
