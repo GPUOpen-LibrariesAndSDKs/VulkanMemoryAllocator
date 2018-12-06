@@ -22,6 +22,19 @@ void LoadShader(std::vector<char>& out, const char* fileName);
 ////////////////////////////////////////////////////////////////////////////////
 // Class definitions
 
+static uint32_t CalculateMipMapCount(uint32_t width, uint32_t height, uint32_t depth)
+{
+    uint32_t mipMapCount = 1;
+    while(width > 1 || height > 1 || depth > 1)
+    {
+        ++mipMapCount;
+        width  /= 2;
+        height /= 2;
+        depth  /= 2;
+    }
+    return mipMapCount;
+}
+
 class BaseImage
 {
 public:
@@ -85,13 +98,16 @@ void BaseImage::FillImageCreateInfo(RandomNumberGenerator& rand)
     constexpr uint32_t imageSizeMin = 8;
     constexpr uint32_t imageSizeMax = 2048;
 
+    const bool useMipMaps = rand.Generate() % 2 != 0;
+
     ZeroMemory(&m_CreateInfo, sizeof(m_CreateInfo));
     m_CreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     m_CreateInfo.imageType = VK_IMAGE_TYPE_2D;
     m_CreateInfo.extent.width = rand.Generate() % (imageSizeMax - imageSizeMin) + imageSizeMin;
     m_CreateInfo.extent.height = rand.Generate() % (imageSizeMax - imageSizeMin) + imageSizeMin;
     m_CreateInfo.extent.depth = 1;
-    m_CreateInfo.mipLevels = 1; // TODO ?
+    m_CreateInfo.mipLevels = useMipMaps ?
+        CalculateMipMapCount(m_CreateInfo.extent.width, m_CreateInfo.extent.height, m_CreateInfo.extent.depth) : 1;
     m_CreateInfo.arrayLayers = 1;
     m_CreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     m_CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
