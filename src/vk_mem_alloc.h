@@ -8329,7 +8329,7 @@ bool VmaBlockMetadata_Generic::IsBufferImageGranularityConflictPossible(
         }
     }
 
-    return !typeConflictFound || minAlignment >= bufferImageGranularity;
+    return typeConflictFound || minAlignment >= bufferImageGranularity;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

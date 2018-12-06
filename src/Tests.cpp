@@ -1158,7 +1158,7 @@ static void RecreateAllocationResource(AllocInfo& allocation)
         // Just to silence validation layer warnings.
         VkMemoryRequirements vkMemReq;
         vkGetBufferMemoryRequirements(g_hDevice, allocation.m_Buffer, &vkMemReq);
-        TEST(vkMemReq.size == allocation.m_BufferInfo.size);
+        TEST(vkMemReq.size >= allocation.m_BufferInfo.size);
 
         res = vkBindBufferMemory(g_hDevice, allocation.m_Buffer, allocInfo.deviceMemory, allocInfo.offset);
         TEST(res == VK_SUCCESS);
