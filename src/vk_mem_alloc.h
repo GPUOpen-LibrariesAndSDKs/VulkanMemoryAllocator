@@ -65,6 +65,7 @@ Documentation of all members: vk_mem_alloc.h
   	- [Defragmenting CPU memory](@ref defragmentation_cpu)
   	- [Defragmenting GPU memory](@ref defragmentation_gpu)
   	- [Additional notes](@ref defragmentation_additional_notes)
+  	- [Writing custom allocation algorithm](@ref defragmentation_custom_algorithm)
   - \subpage lost_allocations
   - \subpage statistics
     - [Numeric statistics](@ref statistics_numeric_statistics)
@@ -903,7 +904,26 @@ Please don't expect memory to be fully compacted after defragmentation.
 Algorithms inside are based on some heuristics that try to maximize number of Vulkan
 memory blocks to make totally empty to release them, as well as to maximimze continuous
 empty space inside remaining blocks, while minimizing the number and size of allocations that
-needs to be moved. Some fragmentation may still remain after this call. This is normal.
+need to be moved. Some fragmentation may still remain - this is normal.
+
+\section defragmentation_custom_algorithm Writing custom defragmentation algorithm
+
+If you want to implement your own, custom defragmentation algorithm,
+there is infrastructure prepared for that,
+but it is not exposed through the library API - you need to hack its source code.
+Here are steps needed to do this:
+
+-# Main thing you need to do is to define your own class derived from base abstract
+   class `VmaDefragmentationAlgorithm` and implement your version of its pure virtual method.
+   See definition and comments of this class for details.
+-# Your code needs to interact with device memory block metadata.
+   If you need more access to its data than it's provided by its public interface,
+   declare your new class as a friend class e.g. in class `VmaBlockMetadata_Generic`.
+-# If you want to create a flag that would enable your algorithm or pass some additional
+   flags to configure it, define some enum with such flags and use them in
+   VmaDefragmentationInfo2::flags.
+-# Modify function `VmaBlockVectorDefragmentationContext::Begin` to create object
+   of your new class whenever needed.
 
 
 \page lost_allocations Lost allocations
@@ -5844,7 +5864,7 @@ private:
 Performs defragmentation:
 
 - Updates `pBlockVector->m_pMetadata`.
-- Updates allocations by calling ChangeBlockAllocation().
+- Updates allocations by calling ChangeBlockAllocation() or ChangeOffset().
 - Does not move actual data, only returns requested moves as `moves`.
 */
 class VmaDefragmentationAlgorithm
