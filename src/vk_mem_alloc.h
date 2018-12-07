@@ -62,6 +62,9 @@ Documentation of all members: vk_mem_alloc.h
       - [Ring buffer](@ref linear_algorithm_ring_buffer)
     - [Buddy allocation algorithm](@ref buddy_algorithm)
   - \subpage defragmentation
+  	- [Defragmenting CPU memory](@ref defragmentation_cpu)
+  	- [Defragmenting GPU memory](@ref defragmentation_gpu)
+  	- [Additional notes](@ref defragmentation_additional_notes)
   - \subpage lost_allocations
   - \subpage statistics
     - [Numeric statistics](@ref statistics_numeric_statistics)
@@ -712,46 +715,73 @@ Several limitations apply to pools that use buddy algorithm:
 \page defragmentation Defragmentation
 
 Interleaved allocations and deallocations of many objects of varying size can
-cause fragmentation, which can lead to a situation where the library is unable
+cause fragmentation over time, which can lead to a situation where the library is unable
 to find a continuous range of free memory for a new allocation despite there is
 enough free space, just scattered across many small free ranges between existing
 allocations.
 
-To mitigate this problem, you can use vmaDefragment(). Given set of allocations,
+To mitigate this problem, you can use defragmentation feature:
+structure #VmaDefragmentationInfo2, function vmaDefragmentationBegin(), vmaDefragmentationEnd().
+Given set of allocations, 
 this function can move them to compact used memory, ensure more continuous free
-space and possibly also free some `VkDeviceMemory`. Currently it can work only on
-allocations made from memory type that is `HOST_VISIBLE`. Allocations are
-modified to point to the new `VkDeviceMemory` and offset. Data in this memory is
-also `memmove`-ed to the new place. However, if you have images or buffers bound
-to these allocations (and you certainly do), you need to destroy, recreate, and
-bind them to the new place in memory.
+space and possibly also free some `VkDeviceMemory` blocks.
 
-After allocation has been moved, its VmaAllocationInfo::deviceMemory and/or
-VmaAllocationInfo::offset changes. You must query them again using
-vmaGetAllocationInfo() if you need them.
+What the defragmentation does is:
 
-If an allocation has been moved, data in memory is copied to new place
-automatically, but if it was bound to a buffer or an image, you must destroy
-that object yourself, create new one and bind it to the new memory pointed by
-the allocation. You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
-`vkCreateBuffer()`, `vkCreateImage()` for that purpose and NOT vmaDestroyBuffer(),
-vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage()! Example:
+- Updates #VmaAllocation objects to point to new `VkDeviceMemory` and offset.
+  After allocation has been moved, its VmaAllocationInfo::deviceMemory and/or
+  VmaAllocationInfo::offset changes. You must query them again using
+  vmaGetAllocationInfo() if you need them.
+- Moves actual data in memory.
+
+What it doesn't do, so you need to do it yourself:
+
+- Recreate buffers and images that were bound to allocations that were defragmented and
+  bind them with their new places in memory.
+  You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
+  `vkCreateBuffer()`, `vkCreateImage()` for that purpose and NOT vmaDestroyBuffer(),
+  vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage(), because you don't need to
+  destroy or create allocation objects!
+- Recreate views and update descriptors that point to these buffers and images.
+
+\section defragmentation_cpu Defragmenting CPU memory
+
+Following example demonstrates how you can run defragmentation on CPU.
+Only allocations created in memory types that are `HOST_VISIBLE` can be defragmented.
+Others are ignored.
+
+The way it works is:
+
+- It temporarily maps entire memory blocks when necessary.
+- It moves data using `memmove()` function.
 
 \code
-VkDevice device = ...;
-VmaAllocator allocator = ...;
-std::vector<VkBuffer> buffers = ...;
-std::vector<VmaAllocation> allocations = ...;
-const size_t allocCount = allocations.size();
+// Given following variables already initialized:
+VkDevice device;
+VmaAllocator allocator;
+std::vector<VkBuffer> buffers;
+std::vector<VmaAllocation> allocations;
 
+
+const uint32_t allocCount = (uint32_t)allocations.size();
 std::vector<VkBool32> allocationsChanged(allocCount);
-vmaDefragment(allocator, allocations.data(), allocCount, allocationsChanged.data(), nullptr, nullptr);
 
-for(size_t i = 0; i < allocCount; ++i)
+VmaDefragmentationInfo2 defragInfo = {};
+defragInfo.allocationCount = allocCount;
+defragInfo.pAllocations = allocations.data();
+defragInfo.pAllocationsChanged = allocationsChanged.data();
+defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE; // No limit.
+defragInfo.maxCpuAllocationsToMove = UINT32_MAX; // No limit.
+
+VmaDefragmentationContext defragCtx;
+vmaDefragmentationBegin(allocator, &defragInfo, nullptr, &defragCtx);
+vmaDefragmentationEnd(allocator, defragCtx);
+
+for(uint32_t i = 0; i < allocCount; ++i)
 {
     if(allocationsChanged[i])
     {
-        // Destroy buffers that is immutably bound to memory region which is no longer valid.
+        // Destroy buffer that is immutably bound to memory region which is no longer valid.
         vkDestroyBuffer(device, buffers[i], nullptr);
 
         // Create new buffer with same parameters.
@@ -760,7 +790,7 @@ for(size_t i = 0; i < allocCount; ++i)
             
         // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
             
-        // Bind new buffer with new memory region. Data contained in it is already there.
+        // Bind new buffer to new memory region. Data contained in it is already moved.
         VmaAllocationInfo allocInfo;
         vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
         vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
@@ -768,11 +798,95 @@ for(size_t i = 0; i < allocCount; ++i)
 }
 \endcode
 
-Please don't expect memory to be fully compacted after defragmentation.
-Algorithms inside are based on some heuristics that try to maximize number of Vulkan
-memory blocks to make totally empty to release them, as well as to maximimze continuous
-empty space inside remaining blocks, while minimizing the number and size of allocations that
-needs to be moved. Some fragmentation still remains after this call. This is normal.
+Filling VmaDefragmentationInfo2::pAllocationsChanged is optional.
+This output array tells whether particular allocation in VmaDefragmentationInfo2::pAllocations at the same index
+has been modified during defragmentation.
+You can pass null, but you then need to query every allocation passed to defragmentation
+for new parameters using vmaGetAllocationInfo() if you might need to recreate and rebind a buffer or image associated with it.
+
+If you use [Custom memory pools](@ref choosing_memory_type_custom_memory_pools),
+you can fill VmaDefragmentationInfo2::poolCount and VmaDefragmentationInfo2::pPools
+instead of VmaDefragmentationInfo2::allocationCount and VmaDefragmentationInfo2::pAllocations
+to defragment all allocations in given pools.
+You cannot use VmaDefragmentationInfo2::pAllocationsChanged in that case.
+You can also combine both methods.
+
+\section defragmentation_gpu Defragmenting GPU memory
+
+It is also possible to defragment allocations created in memory types that are not `HOST_VISIBLE`.
+To do that, you need to pass a command buffer that meets requirements as described in
+VmaDefragmentationInfo2::commandBuffer. The way it works is:
+
+- It creates temporary buffers and binds them to entire memory blocks when necessary.
+- It issues `vkCmdCopyBuffer()` to passed command buffer.
+
+Example:
+
+\code
+// Given following variables already initialized:
+VkDevice device;
+VmaAllocator allocator;
+VkCommandBuffer commandBuffer;
+std::vector<VkBuffer> buffers;
+std::vector<VmaAllocation> allocations;
+
+
+const uint32_t allocCount = (uint32_t)allocations.size();
+std::vector<VkBool32> allocationsChanged(allocCount);
+
+VkCommandBufferBeginInfo cmdBufBeginInfo = ...;
+vkBeginCommandBuffer(commandBuffer, &cmdBufBeginInfo);
+
+VmaDefragmentationInfo2 defragInfo = {};
+defragInfo.allocationCount = allocCount;
+defragInfo.pAllocations = allocations.data();
+defragInfo.pAllocationsChanged = allocationsChanged.data();
+defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE; // Notice it's "GPU" this time.
+defragInfo.maxGpuAllocationsToMove = UINT32_MAX; // Notice it's "GPU" this time.
+defragInfo.commandBuffer = commandBuffer;
+
+VmaDefragmentationContext defragCtx;
+vmaDefragmentationBegin(allocator, &defragInfo, nullptr, &defragCtx);
+
+vkEndCommandBuffer(commandBuffer);
+
+// Submit commandBuffer.
+// Wait for a fence that ensures commandBuffer execution finished.
+
+vmaDefragmentationEnd(allocator, defragCtx);
+
+for(uint32_t i = 0; i < allocCount; ++i)
+{
+    if(allocationsChanged[i])
+    {
+        // Destroy buffer that is immutably bound to memory region which is no longer valid.
+        vkDestroyBuffer(device, buffers[i], nullptr);
+
+        // Create new buffer with same parameters.
+        VkBufferCreateInfo bufferInfo = ...;
+        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
+            
+        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
+            
+        // Bind new buffer to new memory region. Data contained in it is already moved.
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
+        vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
+    }
+}
+\endcode
+
+You can combine these two methods by specifying non-zero `maxGpu*` as well as `maxCpu*` parameters.
+The library automatically chooses best method to defragment each memory pool.
+
+You may try not to block your entire program to wait until defragmentation finishes,
+but do it in the background, as long as you carefully fullfill requirements described
+in function vmaDefragmentationBegin().
+
+\section defragmentation_additional_notes Additional notes
+
+While using defragmentation, you may experience validation layer warnings, which you just need to ignore.
+See [Validation layer warnings](@ref general_considerations_validation_layer_warnings).
 
 If you defragment allocations bound to images, these images should be created with
 `VK_IMAGE_CREATE_ALIAS_BIT` flag, to make sure that new image created with same
@@ -785,7 +899,11 @@ memory region after defragmentation should be created with `VK_IMAGE_LAYOUT_PREI
 and then transitioned to their original layout from before defragmentation using
 an image memory barrier.
 
-For further details, see documentation of function vmaDefragment().
+Please don't expect memory to be fully compacted after defragmentation.
+Algorithms inside are based on some heuristics that try to maximize number of Vulkan
+memory blocks to make totally empty to release them, as well as to maximimze continuous
+empty space inside remaining blocks, while minimizing the number and size of allocations that
+needs to be moved. Some fragmentation may still remain after this call. This is normal.
 
 
 \page lost_allocations Lost allocations
@@ -2607,7 +2725,7 @@ typedef struct VmaDefragmentationInfo2 {
     All allocations not present in this array are considered non-moveable during this defragmentation.
     */
     VmaAllocation* pAllocations;
-    /** \brief Optional, output. Pointer to array that will be filled with information whether the allocation at certain index has been changed (moved or lost) during defragmentation.
+    /** \brief Optional, output. Pointer to array that will be filled with information whether the allocation at certain index has been changed during defragmentation.
 
     The array should have `allocationCount` elements.
     You can pass null if you are not interested in this information.
@@ -2712,10 +2830,10 @@ Warning! Between the call to vmaDefragmentationBegin() and vmaDefragmentationEnd
   make or free any allocations, bind buffers or images, map memory, or launch
   another simultaneous defragmentation in between may cause stall (when done on
   another thread) or deadlock (when done on the same thread), unless you are
-  100% sure that defragmented allocations are in different pool.
+  100% sure that defragmented allocations are in different pools.
 - Information returned via `pStats` and `pInfo->pAllocationsChanged` are undefined.
   They become valid after call to vmaDefragmentationEnd().
-- If `pInfo->commandBuffer != VK_NULL_HANDLE`, you must submit that command buffer
+- If `pInfo->commandBuffer` is not null, you must submit that command buffer
   and make sure it finished execution before calling vmaDefragmentationEnd().
 */
 VkResult vmaDefragmentationBegin(

@@ -13,6 +13,8 @@ var searchData=
   ['physicaldevice',['physicalDevice',['../struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156',1,'VmaAllocatorCreateInfo']]],
   ['pmappeddata',['pMappedData',['../struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2',1,'VmaAllocationInfo']]],
   ['pool',['pool',['../struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150',1,'VmaAllocationCreateInfo']]],
+  ['poolcount',['poolCount',['../struct_vma_defragmentation_info2.html#a7e70aa2a1081d849dcc7829b19d3ec9d',1,'VmaDefragmentationInfo2']]],
+  ['ppools',['pPools',['../struct_vma_defragmentation_info2.html#a0b3effd57f3fcdeb2ed62210b4ef20e1',1,'VmaDefragmentationInfo2']]],
   ['precordsettings',['pRecordSettings',['../struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee',1,'VmaAllocatorCreateInfo']]],
   ['preferredflags',['preferredFlags',['../struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d',1,'VmaAllocationCreateInfo']]],
   ['preferredlargeheapblocksize',['preferredLargeHeapBlockSize',['../struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a',1,'VmaAllocatorCreateInfo']]],
