@@ -1,3 +1,32 @@
+# 2.2.0 (TODO)
+
+Major release after many months of development in "master" branch and feature branches. Notable new features: defragmentation of GPU memory, buddy algorithm, convenience functions for sparse binding.
+
+Major changes:
+
+- New, more powerful defragmentation:
+  - Added structure `VmaDefragmentationInfo2`, functions `vmaDefragmentationBegin`, `vmaDefragmentationEnd`.
+  - Added support for defragmentation of GPU memory.
+  - Defragmentation of CPU memory now uses `memmove`, so it can move data to overlapping regions.
+  - Defragmentation of CPU memory is not available for memory types that are `HOST_VISIBLE` but not `HOST_COHERENT`.
+  - Major internal changes in defragmentation algorithm.
+  - VmaReplay: added parameters: `--DefragmentAfterLine`, `--DefragmentationFlags`.
+  - Old interface (structure `VmaDefragmentationInfo`, function `vmaDefragment`) is now deprecated.
+- Added buddy algorithm, available for custom pools - flag `VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT`.
+- Added convenience functions for multiple allocations and deallocations at once, intended for sparse binding resources - functions `vmaAllocateMemoryPages`, `vmaFreeMemoryPages`.
+- Added function that tries to resize existing allocation in place: `vmaResizeAllocation`.
+- Added flags for allocation strategy: `VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT`, `VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT`, `VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT`, and their aliases: `VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT`, `VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT`, `VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT`.
+
+Minor changes:
+
+- Changed behavior of allocation functions to return `VK_ERROR_VALIDATION_FAILED_EXT` when trying to allocate memory of size 0, create buffer with size 0, or image with one of the dimensions 0.
+- VmaReplay: Added support for Windows end of lines.
+- Updated recording CSV file format version to 1.5, to support new functions.
+- Internal optimization: using read-write mutex on some platforms.
+- Many additions and fixes in documentation.
+- Many compatibility fixes for various compilers.
+- Other internal bugfixes, optimizations, refactoring, added more internal validation.
+
 # 2.1.0 (2018-09-10)
 
 Minor bugfixes.

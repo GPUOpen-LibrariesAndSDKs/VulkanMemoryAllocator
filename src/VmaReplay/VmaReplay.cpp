@@ -3250,7 +3250,7 @@ static void PrintCommandLineSyntax()
         "    --DumpDetailedStatsAfterLine <Line> - Like command above, but includes detailed map.\n"
         "    --DefragmentAfterLine <Line> - Defragment memory after specified source file line and print statistics.\n"
         "        It also prints detailed statistics to files VmaReplay_Line####_Defragment*.json\n"
-        "    --DefragmentatationFlags <Flags> - Flags to be applied when using DefragmentAfterLine.\n"
+        "    --DefragmentationFlags <Flags> - Flags to be applied when using DefragmentAfterLine.\n"
         "        E.g. 1 for FAST algorithm, 2 for OPTIMAL algorithm.\n"
         "    --Lines <Ranges> - Replay only limited set of lines from file\n"
         "        Ranges is comma-separated list of ranges, e.g. \"-10,15,18-25,31-\".\n"
