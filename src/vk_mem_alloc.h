@@ -3718,6 +3718,32 @@ static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, Cm
     return beg + down;
 }
 
+/*
+Returns true if all pointers in the array are not-null and unique.
+Warning! O(n^2) complexity. Use only inside VMA_HEAVY_ASSERT.
+T must be pointer type, e.g. VmaAllocation, VmaPool.
+*/
+template<typename T>
+static bool VmaValidatePointerArray(uint32_t count, const T* arr)
+{
+    for(uint32_t i = 0; i < count; ++i)
+    {
+        const T iPtr = arr[i];
+        if(iPtr == VMA_NULL)
+        {
+            return false;
+        }
+        for(uint32_t j = i + 1; j < count; ++j)
+        {
+            if(iPtr == arr[j])
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Memory allocation
 
@@ -16022,8 +16048,17 @@ VkResult vmaDefragmentationBegin(
     VmaDefragmentationContext *pContext)
 {
     VMA_ASSERT(allocator && pInfo && pContext);
+
+    // Degenerate case: Nothing to defragment.
+    if(pInfo->allocationCount == 0 && pInfo->poolCount == 0)
+    {
+        return VK_SUCCESS;
+    }
+
     VMA_ASSERT(pInfo->allocationCount == 0 || pInfo->pAllocations != VMA_NULL);
     VMA_ASSERT(pInfo->poolCount == 0 || pInfo->pPools != VMA_NULL);
+    VMA_HEAVY_ASSERT(VmaValidatePointerArray(pInfo->allocationCount, pInfo->pAllocations));
+    VMA_HEAVY_ASSERT(VmaValidatePointerArray(pInfo->poolCount, pInfo->pPools));
 
     VMA_DEBUG_LOG("vmaDefragmentationBegin");
 
