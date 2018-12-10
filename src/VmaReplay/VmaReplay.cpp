@@ -85,6 +85,8 @@ enum class VMA_FUNCTION
     GetAllocationInfo,
     MakePoolAllocationsLost,
     ResizeAllocation,
+    DefragmentationBegin,
+    DefragmentationEnd,
     Count
 };
 static const char* VMA_FUNCTION_NAMES[] = {
@@ -108,6 +110,8 @@ static const char* VMA_FUNCTION_NAMES[] = {
     "vmaGetAllocationInfo",
     "vmaMakePoolAllocationsLost",
     "vmaResizeAllocation",
+    "vmaDefragmentationBegin",
+    "vmaDefragmentationEnd",
 };
 static_assert(
     _countof(VMA_FUNCTION_NAMES) == (size_t)VMA_FUNCTION::Count,
@@ -839,7 +843,7 @@ void ConfigurationParser::CompareMemProps(
 
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_validation";
 
-static bool g_MemoryAliasingWarningEnabled = true;
+static const bool g_MemoryAliasingWarningEnabled = false;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
     VkDebugReportFlagsEXT flags,
@@ -973,6 +977,7 @@ private:
     };
     std::unordered_map<uint64_t, Pool> m_Pools;
     std::unordered_map<uint64_t, Allocation> m_Allocations;
+    std::unordered_map<uint64_t, VmaDefragmentationContext> m_DefragmentationContexts;
 
     struct Thread
     {
@@ -1029,6 +1034,8 @@ private:
     void ExecuteGetAllocationInfo(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteDefragmentationBegin(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteDefragmentationEnd(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit, const char* functionName);
 
@@ -1175,6 +1182,10 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteMakePoolAllocationsLost(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::ResizeAllocation]))
             ExecuteResizeAllocation(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::DefragmentationBegin]))
+            ExecuteDefragmentationBegin(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::DefragmentationEnd]))
+            ExecuteDefragmentationEnd(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -1611,6 +1622,21 @@ int Player::InitVulkan()
 
 void Player::FinalizeVulkan()
 {
+    if(!m_DefragmentationContexts.empty())
+    {
+        printf("WARNING: Defragmentation contexts not destroyed: %zu.\n", m_DefragmentationContexts.size());
+
+        if(CLEANUP_LEAKED_OBJECTS)
+        {
+            for(const auto& it : m_DefragmentationContexts)
+            {
+                vmaDefragmentationEnd(m_Allocator, it.second);
+            }
+        }
+
+        m_DefragmentationContexts.clear();
+    }
+
     if(!m_Allocations.empty())
     {
         printf("WARNING: Allocations not destroyed: %zu.\n", m_Allocations.size());
@@ -1744,8 +1770,6 @@ void Player::Defragment()
         return;
     }
 
-    g_MemoryAliasingWarningEnabled = false;
-
     const time_point timeBeg = std::chrono::high_resolution_clock::now();
 
     VmaDefragmentationInfo2 defragInfo = {};
@@ -1835,8 +1859,6 @@ void Player::Defragment()
     }
 
     vkResetCommandPool(m_Device, m_CommandPool, 0);
-
-    g_MemoryAliasingWarningEnabled = true;
 }
 
 void Player::PrintStats()
@@ -2889,6 +2911,198 @@ void Player::ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit
             if(IssueWarning())
             {
                 printf("Line %zu: Invalid parameters for vmaResizeAllocation.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteDefragmentationBegin(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::DefragmentationBegin);
+
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 9, false))
+    {
+        VmaDefragmentationInfo2 defragInfo = {};
+        std::vector<uint64_t> allocationOrigPtrs;
+        std::vector<uint64_t> poolOrigPtrs;
+        uint64_t cmdBufOrigPtr = 0;
+        uint64_t defragCtxOrigPtr = 0;
+
+        if(StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX), defragInfo.flags) &&
+            StrRangeToPtrList(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), allocationOrigPtrs) &&
+            StrRangeToPtrList(csvSplit.GetRange(FIRST_PARAM_INDEX + 2), poolOrigPtrs) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 3), defragInfo.maxCpuBytesToMove) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 4), defragInfo.maxCpuAllocationsToMove) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), defragInfo.maxGpuBytesToMove) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), defragInfo.maxGpuAllocationsToMove) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 7), cmdBufOrigPtr) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 8), defragCtxOrigPtr))
+        {
+            const size_t allocationOrigPtrCount = allocationOrigPtrs.size();
+            std::vector<VmaAllocation> allocations;
+            allocations.reserve(allocationOrigPtrCount);
+            for(size_t i = 0; i < allocationOrigPtrCount; ++i)
+            {
+                const auto it = m_Allocations.find(allocationOrigPtrs[i]);
+                if(it != m_Allocations.end() && it->second.allocation)
+                {
+                    allocations.push_back(it->second.allocation);
+                }
+            }
+            if(!allocations.empty())
+            {
+                defragInfo.allocationCount = (uint32_t)allocations.size();
+                defragInfo.pAllocations = allocations.data();
+            }
+
+            const size_t poolOrigPtrCount = poolOrigPtrs.size();
+            std::vector<VmaPool> pools;
+            pools.reserve(poolOrigPtrCount);
+            for(size_t i = 0; i < poolOrigPtrCount; ++i)
+            {
+                const auto it = m_Pools.find(poolOrigPtrs[i]);
+                if(it != m_Pools.end() && it->second.pool)
+                {
+                    pools.push_back(it->second.pool);
+                }
+            }
+            if(!pools.empty())
+            {
+                defragInfo.poolCount = (uint32_t)pools.size();
+                defragInfo.pPools = pools.data();
+            }
+
+            if(allocations.size() != allocationOrigPtrCount ||
+                pools.size() != poolOrigPtrCount)
+            {
+                if(IssueWarning())
+                {
+                    printf("Line %zu: Passing %zu allocations and %zu pools to vmaDefragmentationBegin, while originally %zu allocations and %zu pools were passed.\n",
+                        lineNumber,
+                        allocations.size(), pools.size(),
+                        allocationOrigPtrCount, poolOrigPtrCount);
+                }
+            }
+
+            if(cmdBufOrigPtr)
+            {
+                VkCommandBufferBeginInfo cmdBufBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+                cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                VkResult res = vkBeginCommandBuffer(m_CommandBuffer, &cmdBufBeginInfo);
+                if(res == VK_SUCCESS)
+                {
+                    defragInfo.commandBuffer = m_CommandBuffer;
+                }
+                else
+                {
+                    printf("Line %zu: vkBeginCommandBuffer failed (%d)\n", lineNumber, res);
+                }
+            }
+
+            VmaDefragmentationContext defragCtx = nullptr;
+            VkResult res = vmaDefragmentationBegin(m_Allocator, &defragInfo, nullptr, &defragCtx);
+
+            if(defragInfo.commandBuffer)
+            {
+                vkEndCommandBuffer(m_CommandBuffer);
+
+                VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+                submitInfo.commandBufferCount = 1;
+                submitInfo.pCommandBuffers = &m_CommandBuffer;
+                vkQueueSubmit(m_TransferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+                vkQueueWaitIdle(m_TransferQueue);
+            }
+
+            if(res >= VK_SUCCESS)
+            {
+                if(defragCtx)
+                {
+                    if(defragCtxOrigPtr)
+                    {
+                        // We have defragmentation context, originally had defragmentation context: Store it.
+                        m_DefragmentationContexts[defragCtxOrigPtr] = defragCtx;
+                    }
+                    else
+                    {
+                        // We have defragmentation context, originally it was null: End immediately.
+                        vmaDefragmentationEnd(m_Allocator, defragCtx);
+                    }
+                }
+                else
+                {
+                    if(defragCtxOrigPtr)
+                    {
+                        // We have no defragmentation context, originally there was one: Store null.
+                        m_DefragmentationContexts[defragCtxOrigPtr] = nullptr;
+                    }
+                    else
+                    {
+                        // We have no defragmentation context, originally there wasn't as well - nothing to do.
+                    }
+                }
+            }
+            else
+            {
+                if(defragCtxOrigPtr)
+                {
+                    // Currently failed, originally succeeded.
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: vmaDefragmentationBegin failed (%d), while originally succeeded.\n", lineNumber, res);
+                    }
+                }
+                else
+                {
+                    // Currently failed, originally don't know.
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: vmaDefragmentationBegin failed (%d).\n", lineNumber, res);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaDefragmentationBegin.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteDefragmentationEnd(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::DefragmentationEnd);
+
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        uint64_t origPtr = 0;
+
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_DefragmentationContexts.find(origPtr);
+                if(it != m_DefragmentationContexts.end())
+                {
+                    vmaDefragmentationEnd(m_Allocator, it->second);
+                    m_DefragmentationContexts.erase(it);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Defragmentation context %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaDefragmentationEnd.\n", lineNumber);
             }
         }
     }

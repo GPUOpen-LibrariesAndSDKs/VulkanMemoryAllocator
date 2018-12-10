@@ -6370,6 +6370,11 @@ public:
         VmaAllocation allocation);
     void RecordMakePoolAllocationsLost(uint32_t frameIndex,
         VmaPool pool);
+    void RecordDefragmentationBegin(uint32_t frameIndex,
+        const VmaDefragmentationInfo2& info,
+        VmaDefragmentationContext ctx);
+    void RecordDefragmentationEnd(uint32_t frameIndex,
+        VmaDefragmentationContext ctx);
 
 private:
     struct CallParams
@@ -6397,7 +6402,21 @@ private:
     int64_t m_StartCounter;
 
     void GetBasicParams(CallParams& outParams);
-    void PrintPointerList(uint64_t count, const VmaAllocation* pItems);
+
+    // T must be a pointer type, e.g. VmaAllocation, VmaPool.
+    template<typename T>
+    void PrintPointerList(uint64_t count, const T* pItems)
+    {
+        if(count)
+        {
+            fprintf(m_File, "%p", pItems[0]);
+            for(uint64_t i = 1; i < count; ++i)
+            {
+                fprintf(m_File, " %p", pItems[i]);
+            }
+        }
+    }
+
     void Flush();
 };
 
@@ -13608,6 +13627,41 @@ void VmaRecorder::RecordMakePoolAllocationsLost(uint32_t frameIndex,
     Flush();
 }
 
+void VmaRecorder::RecordDefragmentationBegin(uint32_t frameIndex,
+    const VmaDefragmentationInfo2& info,
+    VmaDefragmentationContext ctx)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaDefragmentationBegin,%u,", callParams.threadId, callParams.time, frameIndex,
+        info.flags);
+    PrintPointerList(info.allocationCount, info.pAllocations);
+    fprintf(m_File, ",");
+    PrintPointerList(info.poolCount, info.pPools);
+    fprintf(m_File, ",%llu,%u,%llu,%u,%p,%p\n",
+        info.maxCpuBytesToMove,
+        info.maxCpuAllocationsToMove,
+        info.maxGpuBytesToMove,
+        info.maxGpuAllocationsToMove,
+        info.commandBuffer,
+        ctx);
+    Flush();
+}
+
+void VmaRecorder::RecordDefragmentationEnd(uint32_t frameIndex,
+    VmaDefragmentationContext ctx)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaDefragmentationEnd,%p\n", callParams.threadId, callParams.time, frameIndex,
+        ctx);
+    Flush();
+}
+
 VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData)
 {
     if(pUserData != VMA_NULL)
@@ -13681,18 +13735,6 @@ void VmaRecorder::GetBasicParams(CallParams& outParams)
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     outParams.time = (double)(counter.QuadPart - m_StartCounter) / (double)m_Freq;
-}
-
-void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
-{
-    if(count)
-    {
-        fprintf(m_File, "%p", pItems[0]);
-        for(uint64_t i = 1; i < count; ++i)
-        {
-            fprintf(m_File, " %p", pItems[i]);
-        }
-    }
 }
 
 void VmaRecorder::Flush()
@@ -15987,7 +16029,17 @@ VkResult vmaDefragmentationBegin(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return allocator->DefragmentationBegin(*pInfo, pStats, pContext);
+    VkResult res = allocator->DefragmentationBegin(*pInfo, pStats, pContext);
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        allocator->GetRecorder()->RecordDefragmentationBegin(
+            allocator->GetCurrentFrameIndex(), *pInfo, *pContext);
+    }
+#endif
+
+    return res;
 }
 
 VkResult vmaDefragmentationEnd(
@@ -16001,6 +16053,14 @@ VkResult vmaDefragmentationEnd(
     if(context != VK_NULL_HANDLE)
     {
         VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+#if VMA_RECORDING_ENABLED
+        if(allocator->GetRecorder() != VMA_NULL)
+        {
+            allocator->GetRecorder()->RecordDefragmentationEnd(
+                allocator->GetCurrentFrameIndex(), context);
+        }
+#endif
 
         return allocator->DefragmentationEnd(context);
     }

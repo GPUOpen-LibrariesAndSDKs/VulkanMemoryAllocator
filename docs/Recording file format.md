@@ -209,6 +209,22 @@ No parameters.
 - allocation : pointer
 - newSize : uint64
 
+**vmaDefragmentationBegin** (min format version: 1.5)
+
+- defragmentationInfo2.flags : uint32
+- defragmentationInfo2.pAllocations : list of pointers
+- defragmentationInfo2.pPools : list of pointers
+- defragmentationInfo2.maxCpuBytesToMove : uint64
+- defragmentationInfo2.maxCpuAllocationsToMove : uint32
+- defragmentationInfo2.maxGpuBytesToMove : uint64
+- defragmentationInfo2.maxGpuAllocationsToMove : uint32
+- defragmentationInfo2.commandBuffer : pointer
+- context (output) : pointer
+
+**vmaDefragmentationEnd** (min format version: 1.5)
+
+- context : pointer
+
 # Data types
 
 **bool**
