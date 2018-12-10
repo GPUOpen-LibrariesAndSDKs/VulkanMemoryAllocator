@@ -6397,6 +6397,7 @@ private:
     int64_t m_StartCounter;
 
     void GetBasicParams(CallParams& outParams);
+    void PrintPointerList(uint64_t count, const VmaAllocation* pItems);
     void Flush();
 };
 
@@ -13235,7 +13236,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,4");
+    fprintf(m_File, "%s\n", "1,5");
 
     return VK_SUCCESS;
 }
@@ -13680,6 +13681,18 @@ void VmaRecorder::GetBasicParams(CallParams& outParams)
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     outParams.time = (double)(counter.QuadPart - m_StartCounter) / (double)m_Freq;
+}
+
+void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
+{
+    if(count)
+    {
+        fprintf(m_File, "%p", pItems[0]);
+        for(uint64_t i = 1; i < count; ++i)
+        {
+            fprintf(m_File, " %p", pItems[i]);
+        }
+    }
 }
 
 void VmaRecorder::Flush()

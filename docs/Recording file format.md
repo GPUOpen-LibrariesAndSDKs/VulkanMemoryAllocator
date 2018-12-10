@@ -23,7 +23,7 @@ Formats with only minor version incremented are backward compatible.
 VmaReplay application supports all older versions.
 Current version is:
 
-    1,4
+    1,5
 
 # Configuration
 
@@ -230,10 +230,14 @@ If `VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT` was used with the allocatio
 It may contain additional commas.
 It should not contain end-of-line characters - results are then undefined.
 
+**list of (...)** (min format version: 1.5)
+
+An ordered sequence of values of some type, separated by single space.
+
 # Example file
 
     Vulkan Memory Allocator,Calls recording
-    1,4
+    1,5
     Config,Begin
     PhysicalDevice,apiVersion,4198477
     PhysicalDevice,driverVersion,8388653

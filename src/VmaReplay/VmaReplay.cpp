@@ -150,7 +150,7 @@ static size_t g_DefragmentAfterLineNextIndex = 0;
 static bool ValidateFileVersion()
 {
     if(GetVersionMajor(g_FileVersion) == 1 &&
-        GetVersionMinor(g_FileVersion) <= 4)
+        GetVersionMinor(g_FileVersion) <= 5)
     {
         return true;
     }
@@ -200,7 +200,7 @@ public:
     void RegisterCreateImage(uint32_t usage, uint32_t tiling);
     void RegisterCreateBuffer(uint32_t usage);
     void RegisterCreatePool();
-    void RegisterCreateAllocation();
+    void RegisterCreateAllocation(size_t allocCount = 1);
 
     void UpdateMemStats(const VmaStats& currStats);
 
@@ -369,9 +369,9 @@ void Statistics::RegisterCreatePool()
     ++m_PoolCreationCount;
 }
 
-void Statistics::RegisterCreateAllocation()
+void Statistics::RegisterCreateAllocation(size_t allocCount)
 {
-    ++m_AllocationCreationCount;
+    m_AllocationCreationCount += allocCount;
 }
 
 void Statistics::UpdateMemStats(const VmaStats& currStats)
@@ -966,10 +966,10 @@ private:
     };
     struct Allocation
     {
-        uint32_t allocationFlags;
-        VmaAllocation allocation;
-        VkBuffer buffer;
-        VkImage image;
+        uint32_t allocationFlags = 0;
+        VmaAllocation allocation = VK_NULL_HANDLE;
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkImage image = VK_NULL_HANDLE;
     };
     std::unordered_map<uint64_t, Pool> m_Pools;
     std::unordered_map<uint64_t, Allocation> m_Allocations;
@@ -1014,10 +1014,10 @@ private:
     void ExecuteDestroyPool(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteSetAllocationUserData(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit);
-    void ExecuteDestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyBuffer); DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteDestroyBuffer(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyBuffer); DestroyAllocation(lineNumber, csvSplit, "vmaDestroyBuffer"); }
     void ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit);
-    void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyImage); DestroyAllocation(lineNumber, csvSplit); }
-    void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::FreeMemory); DestroyAllocation(lineNumber, csvSplit); }
+    void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyImage); DestroyAllocation(lineNumber, csvSplit, "vmaDestroyImage"); }
+    void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::FreeMemory); DestroyAllocation(lineNumber, csvSplit, "vmaFreeMemory"); }
     void ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType);
@@ -1030,7 +1030,7 @@ private:
     void ExecuteMakePoolAllocationsLost(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit);
 
-    void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit);
+    void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit, const char* functionName);
 
     void PrintStats(const VmaStats& stats, const char* suffix);
     void PrintStatInfo(const VmaStatInfo& info);
@@ -1135,45 +1135,45 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
                 // Nothing.
             }
         }
-        else if(StrRangeEq(functionName, "vmaCreatePool"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::CreatePool]))
             ExecuteCreatePool(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaDestroyPool"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::DestroyPool]))
             ExecuteDestroyPool(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaSetAllocationUserData"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::SetAllocationUserData]))
             ExecuteSetAllocationUserData(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaCreateBuffer"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::CreateBuffer]))
             ExecuteCreateBuffer(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaDestroyBuffer"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::DestroyBuffer]))
             ExecuteDestroyBuffer(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaCreateImage"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::CreateImage]))
             ExecuteCreateImage(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaDestroyImage"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::DestroyImage]))
             ExecuteDestroyImage(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaFreeMemory"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::FreeMemory]))
             ExecuteFreeMemory(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaCreateLostAllocation"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::CreateLostAllocation]))
             ExecuteCreateLostAllocation(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaAllocateMemory"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemory]))
             ExecuteAllocateMemory(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaAllocateMemoryForBuffer"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemoryForBuffer]))
             ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::BUFFER);
-        else if(StrRangeEq(functionName, "vmaAllocateMemoryForImage"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemoryForImage]))
             ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::IMAGE);
-        else if(StrRangeEq(functionName, "vmaMapMemory"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::MapMemory]))
             ExecuteMapMemory(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaUnmapMemory"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::UnmapMemory]))
             ExecuteUnmapMemory(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaFlushAllocation"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::FlushAllocation]))
             ExecuteFlushAllocation(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaInvalidateAllocation"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::InvalidateAllocation]))
             ExecuteInvalidateAllocation(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaTouchAllocation"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::TouchAllocation]))
             ExecuteTouchAllocation(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaGetAllocationInfo"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::GetAllocationInfo]))
             ExecuteGetAllocationInfo(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaMakePoolAllocationsLost"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::MakePoolAllocationsLost]))
             ExecuteMakePoolAllocationsLost(lineNumber, csvSplit);
-        else if(StrRangeEq(functionName, "vmaResizeAllocation"))
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::ResizeAllocation]))
             ExecuteResizeAllocation(lineNumber, csvSplit);
         else
         {
@@ -2241,7 +2241,7 @@ void Player::ExecuteCreateBuffer(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
-void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
+void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit, const char* functionName)
 {
     if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
     {
@@ -2271,7 +2271,7 @@ void Player::DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit)
         {
             if(IssueWarning())
             {
-                printf("Line %zu: Invalid parameters for vmaDestroyBuffer.\n", lineNumber);
+                printf("Line %zu: Invalid parameters for %s.\n", lineNumber, functionName);
             }
         }
     }

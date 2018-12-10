@@ -1,5 +1,29 @@
 #include "Common.h"
 
+bool StrRangeToPtrList(const StrRange& s, std::vector<uint64_t>& out)
+{
+    out.clear();
+    StrRange currRange = { s.beg, nullptr };
+    while(currRange.beg < s.end)
+    {
+        currRange.end = currRange.beg;
+        while(currRange.end < s.end && *currRange.end != ' ')
+        {
+            ++currRange.end;
+        }
+
+        uint64_t ptr = 0;
+        if(!StrRangeToPtr(currRange, ptr))
+        {
+            return false;
+        }
+        out.push_back(ptr);
+
+        currRange.beg = currRange.end + 1;
+    }
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // LineSplit class
 
