@@ -22,6 +22,7 @@
 
 #ifdef _WIN32
 
+#include "SparseBindingTest.h"
 #include "Tests.h"
 #include "VmaUsage.h"
 #include "Common.h"
@@ -46,6 +47,7 @@ bool g_MemoryAliasingWarningEnabled = true;
 static bool g_EnableValidationLayer = true;
 static bool VK_KHR_get_memory_requirements2_enabled = false;
 static bool VK_KHR_dedicated_allocation_enabled = false;
+bool g_SparseBindingEnabled = false;
 
 static HINSTANCE g_hAppInstance;
 static HWND g_hWnd;
@@ -62,11 +64,13 @@ static std::vector<VkFramebuffer> g_Framebuffers;
 static VkCommandPool g_hCommandPool;
 static VkCommandBuffer g_MainCommandBuffers[COMMAND_BUFFER_COUNT];
 static VkFence g_MainCommandBufferExecutedFances[COMMAND_BUFFER_COUNT];
+VkFence g_ImmediateFence;
 static uint32_t g_NextCommandBufferIndex;
 static VkSemaphore g_hImageAvailableSemaphore;
 static VkSemaphore g_hRenderFinishedSemaphore;
 static uint32_t g_GraphicsQueueFamilyIndex = UINT_MAX;
 static uint32_t g_PresentQueueFamilyIndex = UINT_MAX;
+static uint32_t g_SparseBindingQueueFamilyIndex = UINT_MAX;
 static VkDescriptorSetLayout g_hDescriptorSetLayout;
 static VkDescriptorPool g_hDescriptorPool;
 static VkDescriptorSet g_hDescriptorSet; // Automatically destroyed with m_DescriptorPool.
@@ -86,6 +90,7 @@ static PFN_vkDestroyDebugReportCallbackEXT g_pvkDestroyDebugReportCallbackEXT;
 static VkDebugReportCallbackEXT g_hCallback;
 
 static VkQueue g_hGraphicsQueue;
+VkQueue g_hSparseBindingQueue;
 VkCommandBuffer g_hTemporaryCommandBuffer;
 
 static VkPipelineLayout g_hPipelineLayout;
@@ -144,7 +149,7 @@ void EndSingleTimeCommands()
     ERR_GUARD_VULKAN( vkQueueWaitIdle(g_hGraphicsQueue) );
 }
 
-static void LoadShader(std::vector<char>& out, const char* fileName)
+void LoadShader(std::vector<char>& out, const char* fileName)
 {
     std::ifstream file(std::string(SHADER_PATH1) + fileName, std::ios::ate | std::ios::binary);
     if(file.is_open() == false)
@@ -1196,8 +1201,10 @@ static void InitializeApplication()
     VkPhysicalDeviceProperties physicalDeviceProperties = {};
     vkGetPhysicalDeviceProperties(g_hPhysicalDevice, &physicalDeviceProperties);
 
-    //VkPhysicalDeviceFeatures physicalDeviceFreatures = {};
-    //vkGetPhysicalDeviceFeatures(g_PhysicalDevice, &physicalDeviceFreatures);
+    VkPhysicalDeviceFeatures physicalDeviceFeatures = {};
+    vkGetPhysicalDeviceFeatures(g_hPhysicalDevice, &physicalDeviceFeatures);
+
+    g_SparseBindingEnabled = physicalDeviceFeatures.sparseBinding != 0;
 
     // Find queue family index
 
@@ -1208,13 +1215,16 @@ static void InitializeApplication()
     vkGetPhysicalDeviceQueueFamilyProperties(g_hPhysicalDevice, &queueFamilyCount, queueFamilies.data());
     for(uint32_t i = 0;
         (i < queueFamilyCount) &&
-            (g_GraphicsQueueFamilyIndex == UINT_MAX || g_PresentQueueFamilyIndex == UINT_MAX);
+            (g_GraphicsQueueFamilyIndex == UINT_MAX ||
+                g_PresentQueueFamilyIndex == UINT_MAX ||
+                (g_SparseBindingEnabled && g_SparseBindingQueueFamilyIndex == UINT_MAX));
         ++i)
     {
         if(queueFamilies[i].queueCount > 0)
         {
+            const uint32_t flagsForGraphicsQueue = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
             if((g_GraphicsQueueFamilyIndex != 0) &&
-                ((queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0))
+                ((queueFamilies[i].queueFlags & flagsForGraphicsQueue) == flagsForGraphicsQueue))
             {
                 g_GraphicsQueueFamilyIndex = i;
             }
@@ -1225,26 +1235,56 @@ static void InitializeApplication()
             {
                 g_PresentQueueFamilyIndex = i;
             }
+
+            if(g_SparseBindingEnabled &&
+                g_SparseBindingQueueFamilyIndex == UINT32_MAX &&
+                (queueFamilies[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT) != 0)
+            {
+                g_SparseBindingQueueFamilyIndex = i;
+            }
         }
     }
     assert(g_GraphicsQueueFamilyIndex != UINT_MAX);
+
+    g_SparseBindingEnabled = g_SparseBindingEnabled && g_SparseBindingQueueFamilyIndex != UINT32_MAX;
 
     // Create logical device
 
     const float queuePriority = 1.f;
 
-    VkDeviceQueueCreateInfo deviceQueueCreateInfo[2] = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-    deviceQueueCreateInfo[0].queueFamilyIndex = g_GraphicsQueueFamilyIndex;
-    deviceQueueCreateInfo[0].queueCount = 1;
-    deviceQueueCreateInfo[0].pQueuePriorities = &queuePriority;
-    deviceQueueCreateInfo[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    deviceQueueCreateInfo[1].queueFamilyIndex = g_PresentQueueFamilyIndex;
-    deviceQueueCreateInfo[1].queueCount = 1;
-    deviceQueueCreateInfo[1].pQueuePriorities = &queuePriority;
+    VkDeviceQueueCreateInfo queueCreateInfo[3] = {};
+    uint32_t queueCount = 1;
+    queueCreateInfo[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo[0].queueFamilyIndex = g_GraphicsQueueFamilyIndex;
+    queueCreateInfo[0].queueCount = 1;
+    queueCreateInfo[0].pQueuePriorities = &queuePriority;
+    
+    if(g_PresentQueueFamilyIndex != g_GraphicsQueueFamilyIndex)
+    {
+
+        queueCreateInfo[queueCount].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo[queueCount].queueFamilyIndex = g_PresentQueueFamilyIndex;
+        queueCreateInfo[queueCount].queueCount = 1;
+        queueCreateInfo[queueCount].pQueuePriorities = &queuePriority;
+        ++queueCount;
+    }
+    
+    if(g_SparseBindingEnabled &&
+        g_SparseBindingQueueFamilyIndex != g_GraphicsQueueFamilyIndex &&
+        g_SparseBindingQueueFamilyIndex != g_PresentQueueFamilyIndex)
+    {
+
+        queueCreateInfo[queueCount].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo[queueCount].queueFamilyIndex = g_SparseBindingQueueFamilyIndex;
+        queueCreateInfo[queueCount].queueCount = 1;
+        queueCreateInfo[queueCount].pQueuePriorities = &queuePriority;
+        ++queueCount;
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
-    deviceFeatures.fillModeNonSolid = VK_TRUE;
+    //deviceFeatures.fillModeNonSolid = VK_TRUE;
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.sparseBinding = g_SparseBindingEnabled ? VK_TRUE : VK_FALSE;
 
     // Determine list of device extensions to enable.
     std::vector<const char*> enabledDeviceExtensions;
@@ -1279,8 +1319,8 @@ static void InitializeApplication()
     deviceCreateInfo.ppEnabledLayerNames = nullptr;
     deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledDeviceExtensions.size();
     deviceCreateInfo.ppEnabledExtensionNames = !enabledDeviceExtensions.empty() ? enabledDeviceExtensions.data() : nullptr;
-    deviceCreateInfo.queueCreateInfoCount = g_PresentQueueFamilyIndex != g_GraphicsQueueFamilyIndex ? 2 : 1;
-    deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfo;
+    deviceCreateInfo.queueCreateInfoCount = queueCount;
+    deviceCreateInfo.pQueueCreateInfos = queueCreateInfo;
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
     ERR_GUARD_VULKAN( vkCreateDevice(g_hPhysicalDevice, &deviceCreateInfo, nullptr, &g_hDevice) );
@@ -1317,12 +1357,18 @@ static void InitializeApplication()
 
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
 
-    // Retrieve queue (doesn't need to be destroyed)
+    // Retrieve queues (don't need to be destroyed).
 
     vkGetDeviceQueue(g_hDevice, g_GraphicsQueueFamilyIndex, 0, &g_hGraphicsQueue);
     vkGetDeviceQueue(g_hDevice, g_PresentQueueFamilyIndex, 0, &g_hPresentQueue);
     assert(g_hGraphicsQueue);
     assert(g_hPresentQueue);
+
+    if(g_SparseBindingEnabled)
+    {
+        vkGetDeviceQueue(g_hDevice, g_SparseBindingQueueFamilyIndex, 0, &g_hSparseBindingQueue);
+        assert(g_hSparseBindingQueue);
+    }
 
     // Create command pool
 
@@ -1343,6 +1389,8 @@ static void InitializeApplication()
     {
         ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, nullptr, &g_MainCommandBufferExecutedFances[i]) );
     }
+
+    ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, nullptr, &g_ImmediateFence) );
 
     commandBufferInfo.commandBufferCount = 1;
     ERR_GUARD_VULKAN( vkAllocateCommandBuffers(g_hDevice, &commandBufferInfo, &g_hTemporaryCommandBuffer) );
@@ -1467,6 +1515,12 @@ static void FinalizeApplication()
     {
         vkDestroySampler(g_hDevice, g_hSampler, nullptr);
         g_hSampler = VK_NULL_HANDLE;
+    }
+
+    if(g_ImmediateFence)
+    {
+        vkDestroyFence(g_hDevice, g_ImmediateFence, nullptr);
+        g_ImmediateFence = VK_NULL_HANDLE;
     }
 
     for(size_t i = COMMAND_BUFFER_COUNT; i--; )
@@ -1726,6 +1780,23 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             try
             {
                 Test();
+            }
+            catch(const std::exception& ex)
+            {
+                printf("ERROR: %s\n", ex.what());
+            }
+            break;
+        case 'S':
+            try
+            {
+                if(g_SparseBindingEnabled)
+                {
+                    TestSparseBinding();
+                }
+                else
+                {
+                    printf("Sparse binding not supported.\n");
+                }
             }
             catch(const std::exception& ex)
             {

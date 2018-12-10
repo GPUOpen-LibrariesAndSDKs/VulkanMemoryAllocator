@@ -73,8 +73,10 @@ enum class VMA_FUNCTION
     CreateImage,
     DestroyImage,
     FreeMemory,
+    FreeMemoryPages,
     CreateLostAllocation,
     AllocateMemory,
+    AllocateMemoryPages,
     AllocateMemoryForBuffer,
     AllocateMemoryForImage,
     MapMemory,
@@ -98,8 +100,10 @@ static const char* VMA_FUNCTION_NAMES[] = {
     "vmaCreateImage",
     "vmaDestroyImage",
     "vmaFreeMemory",
+    "vmaFreeMemoryPages",
     "vmaCreateLostAllocation",
     "vmaAllocateMemory",
+    "vmaAllocateMemoryPages",
     "vmaAllocateMemoryForBuffer",
     "vmaAllocateMemoryForImage",
     "vmaMapMemory",
@@ -1023,8 +1027,10 @@ private:
     void ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDestroyImage(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::DestroyImage); DestroyAllocation(lineNumber, csvSplit, "vmaDestroyImage"); }
     void ExecuteFreeMemory(size_t lineNumber, const CsvSplit& csvSplit) { m_Stats.RegisterFunctionCall(VMA_FUNCTION::FreeMemory); DestroyAllocation(lineNumber, csvSplit, "vmaFreeMemory"); }
+    void ExecuteFreeMemoryPages(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteAllocateMemoryPages(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteAllocateMemoryForBufferOrImage(size_t lineNumber, const CsvSplit& csvSplit, OBJECT_TYPE objType);
     void ExecuteMapMemory(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteUnmapMemory(size_t lineNumber, const CsvSplit& csvSplit);
@@ -1158,10 +1164,14 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteDestroyImage(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::FreeMemory]))
             ExecuteFreeMemory(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::FreeMemoryPages]))
+            ExecuteFreeMemoryPages(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::CreateLostAllocation]))
             ExecuteCreateLostAllocation(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemory]))
             ExecuteAllocateMemory(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemoryPages]))
+            ExecuteAllocateMemoryPages(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemoryForBuffer]))
             ExecuteAllocateMemoryForBufferOrImage(lineNumber, csvSplit, OBJECT_TYPE::BUFFER);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::AllocateMemoryForImage]))
@@ -2400,6 +2410,53 @@ void Player::ExecuteCreateImage(size_t lineNumber, const CsvSplit& csvSplit)
     }
 }
 
+void Player::ExecuteFreeMemoryPages(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::FreeMemoryPages);
+    
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 1, false))
+    {
+        std::vector<uint64_t> origAllocPtrs;
+        if(StrRangeToPtrList(csvSplit.GetRange(FIRST_PARAM_INDEX), origAllocPtrs))
+        {
+            const size_t allocCount = origAllocPtrs.size();
+            size_t notNullCount = 0;
+            for(size_t i = 0; i < allocCount; ++i)
+            {
+                const uint64_t origAllocPtr = origAllocPtrs[i];
+                if(origAllocPtr != 0)
+                {
+                    const auto it = m_Allocations.find(origAllocPtr);
+                    if(it != m_Allocations.end())
+                    {
+                        Destroy(it->second);
+                        m_Allocations.erase(it);
+                        ++notNullCount;
+                    }
+                    else
+                    {
+                        if(IssueWarning())
+                        {
+                            printf("Line %zu: Allocation %llX not found.\n", lineNumber, origAllocPtr);
+                        }
+                    }
+                }
+            }
+            if(notNullCount)
+            {
+                UpdateMemStats();
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaFreeMemoryPages.\n", lineNumber);
+            }
+        }
+    }
+}
+
 void Player::ExecuteCreateLostAllocation(size_t lineNumber, const CsvSplit& csvSplit)
 {
     m_Stats.RegisterFunctionCall(VMA_FUNCTION::CreateLostAllocation);
@@ -2474,6 +2531,68 @@ void Player::ExecuteAllocateMemory(size_t lineNumber, const CsvSplit& csvSplit)
             if(IssueWarning())
             {
                 printf("Line %zu: Invalid parameters for vmaAllocateMemory.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteAllocateMemoryPages(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::AllocateMemoryPages);
+
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 11, true))
+    {
+        VkMemoryRequirements memReq = {};
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        uint64_t origPool = 0;
+        std::vector<uint64_t> origPtrs;
+
+        if(StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX), memReq.size) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 1), memReq.alignment) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 2), memReq.memoryTypeBits) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 3), allocCreateInfo.flags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 4), (uint32_t&)allocCreateInfo.usage) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 5), allocCreateInfo.requiredFlags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 6), allocCreateInfo.preferredFlags) &&
+            StrRangeToUint(csvSplit.GetRange(FIRST_PARAM_INDEX + 7), allocCreateInfo.memoryTypeBits) &&
+            StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX + 8), origPool) &&
+            StrRangeToPtrList(csvSplit.GetRange(FIRST_PARAM_INDEX + 9), origPtrs))
+        {
+            const size_t allocCount = origPtrs.size();
+            if(allocCount > 0)
+            {
+                FindPool(lineNumber, origPool, allocCreateInfo.pool);
+
+                if(csvSplit.GetCount() > FIRST_PARAM_INDEX + 10)
+                {
+                    PrepareUserData(
+                        lineNumber,
+                        allocCreateInfo.flags,
+                        csvSplit.GetRange(FIRST_PARAM_INDEX + 10),
+                        csvSplit.GetLine(),
+                        allocCreateInfo.pUserData);
+                }
+
+                UpdateMemStats();
+                m_Stats.RegisterCreateAllocation(allocCount);
+
+                std::vector<VmaAllocation> allocations(allocCount);
+
+                VkResult res = vmaAllocateMemoryPages(m_Allocator, &memReq, &allocCreateInfo, allocCount, allocations.data(), nullptr);
+                for(size_t i = 0; i < allocCount; ++i)
+                {
+                    Allocation allocDesc = {};
+                    allocDesc.allocationFlags = allocCreateInfo.flags;
+                    allocDesc.allocation = allocations[i];
+                    AddAllocation(lineNumber, origPtrs[i], res, "vmaAllocateMemoryPages", std::move(allocDesc));
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaAllocateMemoryPages.\n", lineNumber);
             }
         }
     }

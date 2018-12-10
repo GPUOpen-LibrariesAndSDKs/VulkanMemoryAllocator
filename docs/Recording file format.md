@@ -152,6 +152,10 @@ No parameters.
 
 - allocation : pointer
 
+**vmaFreeMemoryPages** (min format version: 1.5)
+
+- allocations : list of pointers
+
 **vmaCreateLostAllocation** (min format version 1.2)
 
 - allocation (output) : pointer
@@ -168,6 +172,20 @@ No parameters.
 - allocationCreateInfo.memoryTypeBits : uint32
 - allocationCreateInfo.pool : pointer
 - allocation (output) : pointer
+- allocationCreateInfo.pUserData : string (may contain additional commas)
+
+**vmaAllocateMemoryPages** (min format version 1.5)
+
+- vkMemoryRequirements.size : uint64
+- vkMemoryRequirements.alignment : uint64
+- vkMemoryRequirements.memoryTypeBits : uint32
+- allocationCreateInfo.flags : uint32
+- allocationCreateInfo.usage : uint32
+- allocationCreateInfo.requiredFlags : uint32
+- allocationCreateInfo.preferredFlags : uint32
+- allocationCreateInfo.memoryTypeBits : uint32
+- allocationCreateInfo.pool : pointer
+- allocations (output) : list of pointers
 - allocationCreateInfo.pUserData : string (may contain additional commas)
 
 **vmaAllocateMemoryForBuffer, vmaAllocateMemoryForImage** (min format version 1.2)

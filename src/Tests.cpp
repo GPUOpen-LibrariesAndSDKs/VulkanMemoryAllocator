@@ -143,7 +143,7 @@ struct PoolTestResult
 
 static const uint32_t IMAGE_BYTES_PER_PIXEL = 1;
 
-static uint32_t g_FrameIndex = 0;
+uint32_t g_FrameIndex = 0;
 
 struct BufferInfo
 {
@@ -639,7 +639,7 @@ VkResult MainTest(Result& outResult, const Config& config)
     return res;
 }
 
-static void SaveAllocatorStatsToFile(const wchar_t* filePath)
+void SaveAllocatorStatsToFile(const wchar_t* filePath)
 {
     char* stats;
     vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
@@ -5010,6 +5010,103 @@ static void BasicTestBuddyAllocator()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void BasicTestAllocatePages()
+{
+    wprintf(L"Basic test allocate pages\n");
+
+    RandomNumberGenerator rand{765461};
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 1024; // Whatever.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    TEST(res == VK_SUCCESS);
+
+    // 1 block of 1 MB.
+    poolCreateInfo.blockSize = 1024 * 1024;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+    // Create pool.
+    VmaPool pool = nullptr;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    TEST(res == VK_SUCCESS);
+
+    // Make 100 allocations of 4 KB - they should fit into the pool.
+    VkMemoryRequirements memReq;
+    memReq.memoryTypeBits = UINT32_MAX;
+    memReq.alignment = 4 * 1024;
+    memReq.size = 4 * 1024;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    allocCreateInfo.pool = pool;
+
+    constexpr uint32_t allocCount = 100;
+
+    std::vector<VmaAllocation> alloc{allocCount};
+    std::vector<VmaAllocationInfo> allocInfo{allocCount};
+    res = vmaAllocateMemoryPages(g_hAllocator, &memReq, &allocCreateInfo, allocCount, alloc.data(), allocInfo.data());
+    TEST(res == VK_SUCCESS);
+    for(uint32_t i = 0; i < allocCount; ++i)
+    {
+        TEST(alloc[i] != VK_NULL_HANDLE &&
+            allocInfo[i].pMappedData != nullptr &&
+            allocInfo[i].deviceMemory == allocInfo[0].deviceMemory &&
+            allocInfo[i].memoryType == allocInfo[0].memoryType);
+    }
+
+    // Free the allocations.
+    vmaFreeMemoryPages(g_hAllocator, allocCount, alloc.data());
+    std::fill(alloc.begin(), alloc.end(), nullptr);
+    std::fill(allocInfo.begin(), allocInfo.end(), VmaAllocationInfo{});
+
+    // Try to make 100 allocations of 100 KB. This call should fail due to not enough memory.
+    // Also test optional allocationInfo = null.
+    memReq.size = 100 * 1024;
+    res = vmaAllocateMemoryPages(g_hAllocator, &memReq, &allocCreateInfo, allocCount, alloc.data(), nullptr);
+    TEST(res != VK_SUCCESS);
+    TEST(std::find_if(alloc.begin(), alloc.end(), [](VmaAllocation alloc){ return alloc != VK_NULL_HANDLE; }) == alloc.end());
+
+    // Make 100 allocations of 4 KB, but with required alignment of 128 KB. This should also fail.
+    memReq.size = 4 * 1024;
+    memReq.alignment = 128 * 1024;
+    res = vmaAllocateMemoryPages(g_hAllocator, &memReq, &allocCreateInfo, allocCount, alloc.data(), allocInfo.data());
+    TEST(res != VK_SUCCESS);
+
+    // Make 100 dedicated allocations of 4 KB.
+    memReq.alignment = 4 * 1024;
+    memReq.size = 4 * 1024;
+
+    VmaAllocationCreateInfo dedicatedAllocCreateInfo = {};
+    dedicatedAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    dedicatedAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    res = vmaAllocateMemoryPages(g_hAllocator, &memReq, &dedicatedAllocCreateInfo, allocCount, alloc.data(), allocInfo.data());
+    TEST(res == VK_SUCCESS);
+    for(uint32_t i = 0; i < allocCount; ++i)
+    {
+        TEST(alloc[i] != VK_NULL_HANDLE &&
+            allocInfo[i].pMappedData != nullptr &&
+            allocInfo[i].memoryType == allocInfo[0].memoryType &&
+            allocInfo[i].offset == 0);
+        if(i > 0)
+        {
+            TEST(allocInfo[i].deviceMemory != allocInfo[0].deviceMemory);
+        }
+    }
+
+    // Free the allocations.
+    vmaFreeMemoryPages(g_hAllocator, allocCount, alloc.data());
+    std::fill(alloc.begin(), alloc.end(), nullptr);
+    std::fill(allocInfo.begin(), allocInfo.end(), VmaAllocationInfo{});
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
 // Test the testing environment.
 static void TestGpuData()
 {
@@ -5083,6 +5180,7 @@ void Test()
     TestLinearAllocatorMultiBlock();
 
     BasicTestBuddyAllocator();
+    BasicTestAllocatePages();
 
     {
         FILE* file;
