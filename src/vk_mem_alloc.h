@@ -1587,13 +1587,8 @@ The library uses following algorithm for allocation, in order:
 
 Features deliberately excluded from the scope of this library:
 
-- Support for sparse binding and sparse residency. You can still use these
-  features (when supported by the device) with VMA. You just need to do it
-  yourself. Allocate memory pages with vmaAllocateMemory().
-  Any explicit support for sparse binding/residency would rather
-  require another, higher-level library on top of VMA.
-- Data transfer - issuing commands that transfer data between buffers or images, any usage of
-  `VkCommandBuffer` or `VkQueue` and related synchronization is responsibility of the user.
+- Data transfer. Uploading (straming) and downloading data of buffers and images
+  between CPU and GPU memory and related synchronization is responsibility of the user.
 - Allocations for imported/exported external memory. They tend to require
   explicit memory type index and dedicated allocation anyway, so they don't
   interact with main features of this library. Such special purpose allocations

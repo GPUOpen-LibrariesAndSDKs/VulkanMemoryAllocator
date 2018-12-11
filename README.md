@@ -42,6 +42,7 @@ Additional features:
 - Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library, from assert, mutex, and atomic, to vector and linked list. 
 - Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and you get access to mapped pointer.
 - Support for non-coherent memory. Functions that flush/invalidate memory. `nonCoherentAtomSize` is respected automatically.
+- Support for sparse binding and sparse residency: Convenience functions that allocate or free multiple memory pages at once.
 - Custom memory pools: Create a pool with desired parameters (e.g. fixed or limited maximum size) and allocate memory out of it.
 - Linear allocator: Create a pool with linear algorithm and use it for much faster allocations and deallocations in free-at-once, stack, double stack, or ring buffer fashion.
 - Support for VK_KHR_dedicated_allocation extension: Just enable it and it will be used automatically by the library.
