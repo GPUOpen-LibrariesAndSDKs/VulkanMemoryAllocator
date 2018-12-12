@@ -1471,8 +1471,9 @@ Features deliberately excluded from the scope of this library:
 - Code free of any compiler warnings. Maintaining the library to compile and
   work correctly on so many different platforms is hard enough. Being free of 
   any warnings, on any version of any compiler, is simply not feasible.
-- Support for any programming languages other than C/C++.
-  Bindings to other languages are welcomed as external projects.
+- This is a C++ library with C interface.
+  Bindings or ports to any other programming languages are welcomed as external projects and
+  are not going to be included into this repository.
 
 */
 
