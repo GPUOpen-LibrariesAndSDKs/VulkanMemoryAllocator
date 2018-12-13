@@ -2499,7 +2499,7 @@ VkResult vmaAllocateMemory(
 @param pCreateInfo Creation parameters for each alloction.
 @param allocationCount Number of allocations to make.
 @param[out] pAllocations Pointer to array that will be filled with handles to created allocations.
-@param[out] pAlocationInfo Optional. Pointer to array that will be filled with parameters of created allocations.
+@param[out] pAllocationInfo Optional. Pointer to array that will be filled with parameters of created allocations.
 
 You should free the memory using vmaFreeMemory() or vmaFreeMemoryPages().
 
@@ -2875,8 +2875,8 @@ typedef struct VmaDefragmentationStats {
 
 @param allocator Allocator object.
 @param pInfo Structure filled with parameters of defragmentation.
-@param pStats[out] Optional. Statistics of defragmentation. You can pass null if you are not interested in this information.
-@param pContext[out] Context object that must be passed to vmaDefragmentationEnd() to finish defragmentation.
+@param[out] pStats Optional. Statistics of defragmentation. You can pass null if you are not interested in this information.
+@param[out] pContext Context object that must be passed to vmaDefragmentationEnd() to finish defragmentation.
 @return `VK_SUCCESS` and `*pContext == null` if defragmentation finished within this function call. `VK_NOT_READY` and `*pContext != null` if defragmentation has been started and you need to call vmaDefragmentationEnd() to finish it. Negative value in case of error.
 
 Use this function instead of old, deprecated vmaDefragment().
@@ -6272,9 +6272,6 @@ private:
 
 struct VmaBlockDefragmentationContext
 {
-private:
-    VMA_CLASS_NO_COPY(VmaBlockDefragmentationContext)
-public:
     enum BLOCK_FLAG
     {
         BLOCK_FLAG_USED = 0x00000001,

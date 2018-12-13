@@ -13,6 +13,10 @@ extern VkCommandBuffer g_hTemporaryCommandBuffer;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
 
+#ifndef VMA_DEBUG_MARGIN
+    #define VMA_DEBUG_MARGIN 0
+#endif
+
 enum CONFIG_TYPE {
     CONFIG_TYPE_MINIMUM,
     CONFIG_TYPE_SMALL,
@@ -1379,6 +1383,7 @@ void TestDefragmentationSimple()
     Allocation that must be move to an overlapping place using memmove().
     Create 2 buffers, second slightly bigger than the first. Delete first. Then defragment.
     */
+    if(VMA_DEBUG_MARGIN == 0) // FAST algorithm works only when DEBUG_MARGIN disabled.
     {
         AllocInfo allocInfo[2];
 

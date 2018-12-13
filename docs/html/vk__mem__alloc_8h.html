@@ -1285,7 +1285,7 @@ Functions</h2></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Creation parameters for each alloction. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">allocationCount</td><td>Number of allocations to make. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocations</td><td>Pointer to array that will be filled with handles to created allocations. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAlocationInfo</td><td>Optional. Pointer to array that will be filled with parameters of created allocations.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Pointer to array that will be filled with parameters of created allocations.</td></tr>
   </table>
   </dd>
 </dl>
@@ -1873,10 +1873,10 @@ Functions</h2></td></tr>
 <p>Begins defragmentation process. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">allocator</td><td>Allocator object. </td></tr>
-    <tr><td class="paramname">pInfo</td><td>Structure filled with parameters of defragmentation. </td></tr>
-    <tr><td class="paramname">pStats[out]</td><td>Optional. Statistics of defragmentation. You can pass null if you are not interested in this information. </td></tr>
-    <tr><td class="paramname">pContext[out]</td><td>Context object that must be passed to <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a> to finish defragmentation. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pInfo</td><td>Structure filled with parameters of defragmentation. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pStats</td><td>Optional. Statistics of defragmentation. You can pass null if you are not interested in this information. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pContext</td><td>Context object that must be passed to <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process. ">vmaDefragmentationEnd()</a> to finish defragmentation. </td></tr>
   </table>
   </dd>
 </dl>
