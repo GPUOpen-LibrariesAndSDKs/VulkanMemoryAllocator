@@ -8,7 +8,7 @@ Major changes:
   - Added structure `VmaDefragmentationInfo2`, functions `vmaDefragmentationBegin`, `vmaDefragmentationEnd`.
   - Added support for defragmentation of GPU memory.
   - Defragmentation of CPU memory now uses `memmove`, so it can move data to overlapping regions.
-  - Defragmentation of CPU memory is not available for memory types that are `HOST_VISIBLE` but not `HOST_COHERENT`.
+  - Defragmentation of CPU memory is now available for memory types that are `HOST_VISIBLE` but not `HOST_COHERENT`.
   - Added structure member `VmaVulkanFunctions::vkCmdCopyBuffer`.
   - Major internal changes in defragmentation algorithm.
   - VmaReplay: added parameters: `--DefragmentAfterLine`, `--DefragmentationFlags`.
