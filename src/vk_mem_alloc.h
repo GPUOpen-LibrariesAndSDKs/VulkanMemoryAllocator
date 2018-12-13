@@ -799,7 +799,7 @@ for(uint32_t i = 0; i < allocCount; ++i)
 }
 \endcode
 
-Filling VmaDefragmentationInfo2::pAllocationsChanged is optional.
+Setting VmaDefragmentationInfo2::pAllocationsChanged is optional.
 This output array tells whether particular allocation in VmaDefragmentationInfo2::pAllocations at the same index
 has been modified during defragmentation.
 You can pass null, but you then need to query every allocation passed to defragmentation
@@ -914,13 +914,13 @@ but it is not exposed through the library API - you need to hack its source code
 Here are steps needed to do this:
 
 -# Main thing you need to do is to define your own class derived from base abstract
-   class `VmaDefragmentationAlgorithm` and implement your version of its pure virtual method.
+   class `VmaDefragmentationAlgorithm` and implement your version of its pure virtual methods.
    See definition and comments of this class for details.
 -# Your code needs to interact with device memory block metadata.
    If you need more access to its data than it's provided by its public interface,
    declare your new class as a friend class e.g. in class `VmaBlockMetadata_Generic`.
 -# If you want to create a flag that would enable your algorithm or pass some additional
-   flags to configure it, define some enum with such flags and use them in
+   flags to configure it, add them to `VmaDefragmentationFlagBits` and use them in
    VmaDefragmentationInfo2::flags.
 -# Modify function `VmaBlockVectorDefragmentationContext::Begin` to create object
    of your new class whenever needed.
