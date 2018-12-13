@@ -24,9 +24,7 @@ Minor changes:
 - VmaReplay: Added support for Windows end of lines.
 - Updated recording CSV file format version to 1.5, to support new functions.
 - Internal optimization: using read-write mutex on some platforms.
-- Many additions and fixes in documentation.
-- Many compatibility fixes for various compilers.
-- Other internal bugfixes, optimizations, refactoring, added more internal validation.
+- Many additions and fixes in documentation. Many compatibility fixes for various compilers. Other internal bugfixes, optimizations, refactoring, added more internal validation...
 
 # 2.1.0 (2018-09-10)
 
