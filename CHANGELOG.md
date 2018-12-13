@@ -1,4 +1,4 @@
-# 2.2.0 (TODO)
+# 2.2.0 (2018-12-13)
 
 Major release after many months of development in "master" branch and feature branches. Notable new features: defragmentation of GPU memory, buddy algorithm, convenience functions for sparse binding.
 

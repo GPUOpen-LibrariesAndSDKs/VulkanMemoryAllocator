@@ -5148,14 +5148,9 @@ void Test()
 
     if(false)
     {
-        // # Temporarily insert custom tests here
-        // ########################################
-        // ########################################
+        ////////////////////////////////////////////////////////////////////////////////
+        // Temporarily insert custom tests here:
         
-        TestDefragmentationSimple();
-        TestDefragmentationFull();
-        TestDefragmentationGpu();
-        TestDefragmentationWholePool();
         return;
     }
 
