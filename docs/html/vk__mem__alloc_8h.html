@@ -870,7 +870,6 @@ Functions</h2></td></tr>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f"></a>VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT&#160;</td><td class="fielddoc"><p>Set this flag if the allocation should have its own memory block. </p>
 <p>Use it for special, big resources, like fullscreen images used as attachments.</p>
-<p>This flag must also be used for host visible resources that you want to map simultaneously because otherwise they might end up as regions of the same <code>VkDeviceMemory</code>, while mapping same <code>VkDeviceMemory</code> multiple times simultaneously is illegal.</p>
 <p>You should not use this flag if <a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150" title="Pool that this allocation should be created in. ">VmaAllocationCreateInfo::pool</a> is not null. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff"></a>VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT&#160;</td><td class="fielddoc"><p>Set this flag to only try to allocate from existing <code>VkDeviceMemory</code> blocks and never create new such block. </p>

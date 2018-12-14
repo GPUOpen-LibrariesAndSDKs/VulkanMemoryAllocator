@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.2.0</b> (2018-12-13)
+<b>Version 2.2.1-development</b> (2018-12-14)
 
 Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -48,6 +48,7 @@ Documentation of all members: vk_mem_alloc.h
     - [Required and preferred flags](@ref choosing_memory_type_required_preferred_flags)
     - [Explicit memory types](@ref choosing_memory_type_explicit_memory_types)
     - [Custom memory pools](@ref choosing_memory_type_custom_memory_pools)
+    - [Dedicated allocations](@ref choosing_memory_type_dedicated_allocations)
   - \subpage memory_mapping
     - [Mapping functions](@ref memory_mapping_mapping_functions)
     - [Persistently mapped memory](@ref memory_mapping_persistently_mapped_memory)
@@ -105,7 +106,7 @@ Documentation of all members: vk_mem_alloc.h
 
 \section quick_start_project_setup Project setup
 
-Vulkan Memory Allocator comes in form of a single header file.
+Vulkan Memory Allocator comes in form of a "stb-style" single header file.
 You don't need to build it as a separate library project.
 You can add this file directly to your project and submit it to code repository next to your other source files.
 
@@ -195,17 +196,20 @@ appropriate members of VmaAllocationCreateInfo structure, as described below.
 You can also combine multiple methods.
 
 -# If you just want to find memory type index that meets your requirements, you
-   can use function vmaFindMemoryTypeIndex().
+   can use function: vmaFindMemoryTypeIndex(), vmaFindMemoryTypeIndexForBufferInfo(),
+   vmaFindMemoryTypeIndexForImageInfo().
 -# If you want to allocate a region of device memory without association with any
    specific image or buffer, you can use function vmaAllocateMemory(). Usage of
    this function is not recommended and usually not needed.
+   vmaAllocateMemoryPages() function is also provided for creating multiple allocations at once,
+   which may be useful for sparse binding.
 -# If you already have a buffer or an image created, you want to allocate memory
    for it and then you will bind it yourself, you can use function
    vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
    For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory().
 -# If you want to create a buffer or an image, allocate memory for it and bind
    them together, all in one call, you can use function vmaCreateBuffer(),
-   vmaCreateImage(). This is the recommended way to use this library.
+   vmaCreateImage(). This is the easiest and recommended way to use this library.
 
 When using 3. or 4., the library internally queries Vulkan for memory types
 supported for that buffer or image (function `vkGetBufferMemoryRequirements()`)
@@ -300,6 +304,23 @@ requirements described above are not applicable and the aforementioned members
 of VmaAllocationCreateInfo structure are ignored. Memory type is selected
 explicitly when creating the pool and then used to make all the allocations from
 that pool. For further details, see \ref custom_memory_pools.
+
+\section choosing_memory_type_dedicated_allocations Dedicated allocations
+
+Memory for allocations is reserved out of larger block of `VkDeviceMemory`
+allocated from Vulkan internally. That's the main feature of this whole library.
+You can still request a separate memory block to be created for an allocation,
+just like you would do in a trivial solution without using any allocator.
+In that case, a buffer or image is always bound to that memory at offset 0.
+This is called a "dedicated allocation".
+You can explicitly request it by using flag #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
+The library can also internally decide to use dedicated allocation in some cases, e.g.:
+
+- When the size of the allocation is large.
+- When [VK_KHR_dedicated_allocation](@ref vk_khr_dedicated_allocation) extension is enabled
+  and it reports that dedicated allocation is required or recommended for the resource.
+- When allocation of next big memory block fails due to not enough device memory,
+  but allocation with the exact requested size succeeds.
 
 
 \page memory_mapping Memory mapping
@@ -2016,11 +2037,6 @@ typedef enum VmaAllocationCreateFlagBits {
     
     Use it for special, big resources, like fullscreen images used as attachments.
    
-    This flag must also be used for host visible resources that you want to map
-    simultaneously because otherwise they might end up as regions of the same
-    `VkDeviceMemory`, while mapping same `VkDeviceMemory` multiple times
-    simultaneously is illegal.
-
     You should not use this flag if VmaAllocationCreateInfo::pool is not null.
     */
     VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT = 0x00000001,

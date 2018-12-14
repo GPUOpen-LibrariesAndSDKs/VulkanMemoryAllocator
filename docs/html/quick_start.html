@@ -71,7 +71,7 @@ $(function() {
 <div class="contents">
 <div class="textblock"><h1><a class="anchor" id="quick_start_project_setup"></a>
 Project setup</h1>
-<p>Vulkan Memory Allocator comes in form of a single header file. You don't need to build it as a separate library project. You can add this file directly to your project and submit it to code repository next to your other source files.</p>
+<p>Vulkan Memory Allocator comes in form of a "stb-style" single header file. You don't need to build it as a separate library project. You can add this file directly to your project and submit it to code repository next to your other source files.</p>
 <p>"Single header" doesn't mean that everything is contained in C/C++ declarations, like it tends to be in case of inline functions or C++ templates. It means that implementation is bundled with interface in a single file and needs to be extracted using preprocessor macro. If you don't do it properly, you will get linker errors.</p>
 <p>To do it properly:</p>
 <ol type="1">
