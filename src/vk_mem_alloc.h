@@ -3139,9 +3139,16 @@ the containers.
 #endif
 
 #ifndef VMA_USE_STL_SHARED_MUTEX
-    // Minimum Visual Studio 2015 Update 2
-    #if defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 190023918
+    // Compiler conforms to C++17.
+    #if __cplusplus >= 201703L
         #define VMA_USE_STL_SHARED_MUTEX 1
+    // Visual studio defines __cplusplus properly only when passed additional parameter: /Zc:__cplusplus
+    // Otherwise it's always 199711L, despite shared_mutex works since Visual Studio 2015 Update 2.
+    // See: https://blogs.msdn.microsoft.com/vcblog/2018/04/09/msvc-now-correctly-reports-__cplusplus/
+    #elif defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 190023918 && __cplusplus == 199711L && _MSVC_LANG >= 201703L
+        #define VMA_USE_STL_SHARED_MUTEX 1
+    #else
+        #define VMA_USE_STL_SHARED_MUTEX 0
     #endif
 #endif
 
