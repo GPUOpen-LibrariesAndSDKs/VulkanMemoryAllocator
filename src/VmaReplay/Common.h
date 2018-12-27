@@ -35,6 +35,11 @@ T ceil_div(T x, T y)
 {
     return (x+y-1) / y;
 }
+template <typename T>
+inline T round_div(T x, T y)
+{
+    return (x+y/(T)2) / y;
+}
 
 template <typename T>
 inline T align_up(T val, T align)
