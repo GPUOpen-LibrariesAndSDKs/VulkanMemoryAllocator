@@ -2550,7 +2550,7 @@ static void TestLinearAllocator()
         {
             vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
 
-            size_t lostAllocCount = SIZE_MAX;
+            size_t lostAllocCount = 0;
             vmaMakePoolAllocationsLost(g_hAllocator, pool, &lostAllocCount);
             TEST(lostAllocCount > 0);
 
