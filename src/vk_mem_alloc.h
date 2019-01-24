@@ -5152,6 +5152,15 @@ typedef VmaList< VmaSuballocation, VmaStlAllocator<VmaSuballocation> > VmaSuball
 // Cost of one additional allocation lost, as equivalent in bytes.
 static const VkDeviceSize VMA_LOST_ALLOCATION_COST = 1048576;
 
+enum class VmaAllocationRequestType
+{
+    Normal,
+    // Used by "Linear" algorithm.
+    UpperAddress,
+    EndOf1st,
+    EndOf2nd,
+};
+
 /*
 Parameters of planned allocation inside a VmaDeviceMemoryBlock.
 
@@ -5173,6 +5182,7 @@ struct VmaAllocationRequest
     VmaSuballocationList::iterator item;
     size_t itemsToMakeLostCount;
     void* customData;
+    VmaAllocationRequestType type;
 
     VkDeviceSize CalcCost() const
     {
@@ -5238,7 +5248,6 @@ public:
         const VmaAllocationRequest& request,
         VmaSuballocationType type,
         VkDeviceSize allocSize,
-        bool upperAddress,
         VmaAllocation hAllocation) = 0;
 
     // Frees suballocation assigned to given memory region.
@@ -5321,7 +5330,6 @@ public:
         const VmaAllocationRequest& request,
         VmaSuballocationType type,
         VkDeviceSize allocSize,
-        bool upperAddress,
         VmaAllocation hAllocation);
 
     virtual void Free(const VmaAllocation allocation);
@@ -5502,7 +5510,6 @@ public:
         const VmaAllocationRequest& request,
         VmaSuballocationType type,
         VkDeviceSize allocSize,
-        bool upperAddress,
         VmaAllocation hAllocation);
 
     virtual void Free(const VmaAllocation allocation);
@@ -5633,7 +5640,6 @@ public:
         const VmaAllocationRequest& request,
         VmaSuballocationType type,
         VkDeviceSize allocSize,
-        bool upperAddress,
         VmaAllocation hAllocation);
 
     virtual void Free(const VmaAllocation allocation) { FreeAtOffset(allocation, allocation->GetOffset()); }
@@ -7863,6 +7869,8 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     VMA_ASSERT(pAllocationRequest != VMA_NULL);
     VMA_HEAVY_ASSERT(Validate());
 
+    pAllocationRequest->type = VmaAllocationRequestType::Normal;
+
     // There is not enough total free space in this block to fullfill the request: Early return.
     if(canMakeOtherLost == false &&
         m_SumFreeSize < allocSize + 2 * VMA_DEBUG_MARGIN)
@@ -7963,6 +7971,7 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
         pAllocationRequest->sumItemSize = VK_WHOLE_SIZE;
 
         VmaAllocationRequest tmpAllocRequest = {};
+        tmpAllocRequest.type = VmaAllocationRequestType::Normal;
         for(VmaSuballocationList::iterator suballocIt = m_Suballocations.begin();
             suballocIt != m_Suballocations.end();
             ++suballocIt)
@@ -8009,6 +8018,8 @@ bool VmaBlockMetadata_Generic::MakeRequestedAllocationsLost(
     uint32_t frameInUseCount,
     VmaAllocationRequest* pAllocationRequest)
 {
+    VMA_ASSERT(pAllocationRequest && pAllocationRequest->type == VmaAllocationRequestType::Normal);
+
     while(pAllocationRequest->itemsToMakeLostCount > 0)
     {
         if(pAllocationRequest->item->type == VMA_SUBALLOCATION_TYPE_FREE)
@@ -8082,10 +8093,9 @@ void VmaBlockMetadata_Generic::Alloc(
     const VmaAllocationRequest& request,
     VmaSuballocationType type,
     VkDeviceSize allocSize,
-    bool upperAddress,
     VmaAllocation hAllocation)
 {
-    VMA_ASSERT(!upperAddress);
+    VMA_ASSERT(request.type == VmaAllocationRequestType::Normal);
     VMA_ASSERT(request.item != m_Suballocations.end());
     VmaSuballocation& suballoc = *request.item;
     // Given suballocation is a free block.
@@ -9791,6 +9801,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_UpperAddress(
         pAllocationRequest->sumItemSize = 0;
         // pAllocationRequest->item unused.
         pAllocationRequest->itemsToMakeLostCount = 0;
+        pAllocationRequest->type = VmaAllocationRequestType::UpperAddress;
         return true;
     }
 
@@ -9893,7 +9904,8 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
             pAllocationRequest->offset = resultOffset;
             pAllocationRequest->sumFreeSize = freeSpaceEnd - resultBaseOffset;
             pAllocationRequest->sumItemSize = 0;
-            // pAllocationRequest->item unused.
+            // pAllocationRequest->item, customData unused.
+            pAllocationRequest->type = VmaAllocationRequestType::EndOf1st;
             pAllocationRequest->itemsToMakeLostCount = 0;
             return true;
         }
@@ -10014,6 +10026,14 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
                     ++index1st;
                 }
             }
+
+            // Special case: There is not enough room at the end for this allocation, even after making all from the 1st lost.
+            if(index1st == suballocations1st.size() &&
+                resultOffset + allocSize + VMA_DEBUG_MARGIN > size)
+            {
+                // TODO: This is a known bug that it's not yet implemented and the allocation is failing.
+                VMA_DEBUG_LOG("Unsupported special case in custom pool with linear allocation algorithm used as ring buffer with allocations that can be lost.");
+            }
         }
 
         // There is enough free space at the end after alignment.
@@ -10050,7 +10070,8 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
                 (index1st < suballocations1st.size() ? suballocations1st[index1st].offset : size)
                 - resultBaseOffset
                 - pAllocationRequest->sumItemSize;
-            // pAllocationRequest->item unused.
+            pAllocationRequest->type = VmaAllocationRequestType::EndOf2nd;
+            // pAllocationRequest->item, customData unused.
             return true;
         }
     }
@@ -10070,13 +10091,25 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
 
     VMA_ASSERT(m_2ndVectorMode == SECOND_VECTOR_EMPTY || m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER);
     
-    SuballocationVectorType& suballocations1st = AccessSuballocations1st();
-    size_t index1st = m_1stNullItemsBeginCount;
+    // We always start from 1st.
+    SuballocationVectorType* suballocations = &AccessSuballocations1st();
+    size_t index = m_1stNullItemsBeginCount;
     size_t madeLostCount = 0;
     while(madeLostCount < pAllocationRequest->itemsToMakeLostCount)
     {
-        VMA_ASSERT(index1st < suballocations1st.size());
-        VmaSuballocation& suballoc = suballocations1st[index1st];
+        if(index == suballocations->size())
+        {
+            index = 0;
+            // If we get to the end of 1st, we wrap around to beginning of 2nd of 1st.
+            if(m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
+            {
+                suballocations = &AccessSuballocations2nd();
+            }
+            // else: m_2ndVectorMode == SECOND_VECTOR_EMPTY:
+            // suballocations continues pointing at AccessSuballocations1st().
+            VMA_ASSERT(!suballocations->empty());
+        }
+        VmaSuballocation& suballoc = (*suballocations)[index];
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
             VMA_ASSERT(suballoc.hAllocation != VK_NULL_HANDLE);
@@ -10086,7 +10119,14 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
                 suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
                 suballoc.hAllocation = VK_NULL_HANDLE;
                 m_SumFreeSize += suballoc.size;
-                ++m_1stNullItemsMiddleCount;
+                if(suballocations == &AccessSuballocations1st())
+                {
+                    ++m_1stNullItemsMiddleCount;
+                }
+                else
+                {
+                    ++m_2ndNullItemsCount;
+                }
                 ++madeLostCount;
             }
             else
@@ -10094,7 +10134,7 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
                 return false;
             }
         }
-        ++index1st;
+        ++index;
     }
 
     CleanupAfterFree();
@@ -10193,67 +10233,64 @@ void VmaBlockMetadata_Linear::Alloc(
     const VmaAllocationRequest& request,
     VmaSuballocationType type,
     VkDeviceSize allocSize,
-    bool upperAddress,
     VmaAllocation hAllocation)
 {
     const VmaSuballocation newSuballoc = { request.offset, allocSize, hAllocation, type };
 
-    if(upperAddress)
+    switch(request.type)
     {
-        VMA_ASSERT(m_2ndVectorMode != SECOND_VECTOR_RING_BUFFER &&
-            "CRITICAL ERROR: Trying to use linear allocator as double stack while it was already used as ring buffer.");
-        SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
-        suballocations2nd.push_back(newSuballoc);
-        m_2ndVectorMode = SECOND_VECTOR_DOUBLE_STACK;
-    }
-    else
-    {
-        SuballocationVectorType& suballocations1st = AccessSuballocations1st();
-
-        // First allocation.
-        if(suballocations1st.empty())
+    case VmaAllocationRequestType::UpperAddress:
         {
+            VMA_ASSERT(m_2ndVectorMode != SECOND_VECTOR_RING_BUFFER &&
+                "CRITICAL ERROR: Trying to use linear allocator as double stack while it was already used as ring buffer.");
+            SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+            suballocations2nd.push_back(newSuballoc);
+            m_2ndVectorMode = SECOND_VECTOR_DOUBLE_STACK;
+        }
+        break;
+    case VmaAllocationRequestType::EndOf1st:
+        {
+            SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+
+            VMA_ASSERT(suballocations1st.empty() ||
+                request.offset >= suballocations1st.back().offset + suballocations1st.back().size);
+            // Check if it fits before the end of the block.
+            VMA_ASSERT(request.offset + allocSize <= GetSize());
+
             suballocations1st.push_back(newSuballoc);
         }
-        else
+        break;
+    case VmaAllocationRequestType::EndOf2nd:
         {
-            // New allocation at the end of 1st vector.
-            if(request.offset >= suballocations1st.back().offset + suballocations1st.back().size)
-            {
-                // Check if it fits before the end of the block.
-                VMA_ASSERT(request.offset + allocSize <= GetSize());
-                suballocations1st.push_back(newSuballoc);
-            }
+            SuballocationVectorType& suballocations1st = AccessSuballocations1st();
             // New allocation at the end of 2-part ring buffer, so before first allocation from 1st vector.
-            else if(request.offset + allocSize <= suballocations1st[m_1stNullItemsBeginCount].offset)
-            {
-                SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+            VMA_ASSERT(!suballocations1st.empty() &&
+                request.offset + allocSize <= suballocations1st[m_1stNullItemsBeginCount].offset);
+            SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
 
-                switch(m_2ndVectorMode)
-                {
-                case SECOND_VECTOR_EMPTY:
-                    // First allocation from second part ring buffer.
-                    VMA_ASSERT(suballocations2nd.empty());
-                    m_2ndVectorMode = SECOND_VECTOR_RING_BUFFER;
-                    break;
-                case SECOND_VECTOR_RING_BUFFER:
-                    // 2-part ring buffer is already started.
-                    VMA_ASSERT(!suballocations2nd.empty());
-                    break;
-                case SECOND_VECTOR_DOUBLE_STACK:
-                    VMA_ASSERT(0 && "CRITICAL ERROR: Trying to use linear allocator as ring buffer while it was already used as double stack.");
-                    break;
-                default:
-                    VMA_ASSERT(0);
-                }
-
-                suballocations2nd.push_back(newSuballoc);
-            }
-            else
+            switch(m_2ndVectorMode)
             {
-                VMA_ASSERT(0 && "CRITICAL INTERNAL ERROR.");
+            case SECOND_VECTOR_EMPTY:
+                // First allocation from second part ring buffer.
+                VMA_ASSERT(suballocations2nd.empty());
+                m_2ndVectorMode = SECOND_VECTOR_RING_BUFFER;
+                break;
+            case SECOND_VECTOR_RING_BUFFER:
+                // 2-part ring buffer is already started.
+                VMA_ASSERT(!suballocations2nd.empty());
+                break;
+            case SECOND_VECTOR_DOUBLE_STACK:
+                VMA_ASSERT(0 && "CRITICAL ERROR: Trying to use linear allocator as ring buffer while it was already used as double stack.");
+                break;
+            default:
+                VMA_ASSERT(0);
             }
+
+            suballocations2nd.push_back(newSuballoc);
         }
+        break;
+    default:
+        VMA_ASSERT(0 && "CRITICAL INTERNAL ERROR.");
     }
 
     m_SumFreeSize -= newSuballoc.size;
@@ -10402,6 +10439,14 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
         {
             --m_2ndNullItemsCount;
             suballocations2nd.pop_back();
+        }
+
+        // Find more null items at the beginning of 2nd vector.
+        while(m_2ndNullItemsCount > 0 &&
+            suballocations2nd[0].hAllocation == VK_NULL_HANDLE)
+        {
+            --m_2ndNullItemsCount;
+            suballocations2nd.remove(0);
         }
 
         if(ShouldCompact1st())
@@ -10664,6 +10709,7 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
         {
             if(freeNode->offset % allocAlignment == 0)
             {
+                pAllocationRequest->type = VmaAllocationRequestType::Normal;
                 pAllocationRequest->offset = freeNode->offset;
                 pAllocationRequest->sumFreeSize = LevelToNodeSize(level);
                 pAllocationRequest->sumItemSize = 0;
@@ -10702,9 +10748,10 @@ void VmaBlockMetadata_Buddy::Alloc(
     const VmaAllocationRequest& request,
     VmaSuballocationType type,
     VkDeviceSize allocSize,
-    bool upperAddress,
     VmaAllocation hAllocation)
 {
+    VMA_ASSERT(request.type == VmaAllocationRequestType::Normal);
+
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
     uint32_t currLevel = (uint32_t)(uintptr_t)request.customData;
     
@@ -11756,7 +11803,7 @@ VkResult VmaBlockVector::AllocatePage(
                     }
                     // Allocate from this pBlock.
                     *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
-                    pBestRequestBlock->m_pMetadata->Alloc(bestRequest, suballocType, size, isUpperAddress, *pAllocation);
+                    pBestRequestBlock->m_pMetadata->Alloc(bestRequest, suballocType, size, *pAllocation);
                     (*pAllocation)->InitBlockAllocation(
                         hCurrentPool,
                         pBestRequestBlock,
@@ -11767,7 +11814,7 @@ VkResult VmaBlockVector::AllocatePage(
                         mapped,
                         (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
                     VMA_HEAVY_ASSERT(pBestRequestBlock->Validate());
-                    VMA_DEBUG_LOG("    Returned from existing allocation #%u", (uint32_t)blockIndex);
+                    VMA_DEBUG_LOG("    Returned from existing block");
                     (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
                     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
                     {
@@ -11825,7 +11872,7 @@ void VmaBlockVector::Free(
         pBlock->m_pMetadata->Free(hAllocation);
         VMA_HEAVY_ASSERT(pBlock->Validate());
 
-        VMA_DEBUG_LOG("  Freed from MemoryTypeIndex=%u", memTypeIndex);
+        VMA_DEBUG_LOG("  Freed from MemoryTypeIndex=%u", m_MemoryTypeIndex);
 
         // pBlock became empty after this deallocation.
         if(pBlock->m_pMetadata->IsEmpty())
@@ -11960,7 +12007,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
         }
             
         *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
-        pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, isUpperAddress, *pAllocation);
+        pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, *pAllocation);
         (*pAllocation)->InitBlockAllocation(
             hCurrentPool,
             pBlock,
@@ -12678,7 +12725,6 @@ VkResult VmaDefragmentationAlgorithm_Generic::DefragmentRound(
                     dstAllocRequest,
                     suballocType,
                     size,
-                    false, // upperAddress
                     allocInfo.m_hAllocation);
                 pSrcBlockInfo->m_pBlock->m_pMetadata->FreeAtOffset(srcOffset);
                 
@@ -14290,7 +14336,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     VmaAllocation* pAllocations)
 {
     VMA_ASSERT(pAllocations != VMA_NULL);
-    VMA_DEBUG_LOG("  AllocateMemory: MemoryTypeIndex=%u, AllocationCount=%zu, Size=%llu", memTypeIndex, allocationCount, vkMemReq.size);
+    VMA_DEBUG_LOG("  AllocateMemory: MemoryTypeIndex=%u, AllocationCount=%zu, Size=%llu", memTypeIndex, allocationCount, size);
 
     VmaAllocationCreateInfo finalCreateInfo = createInfo;
 
