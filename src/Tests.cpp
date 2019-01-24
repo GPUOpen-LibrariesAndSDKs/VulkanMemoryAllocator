@@ -667,6 +667,7 @@ VkResult MainTest(Result& outResult, const Config& config)
 
 void SaveAllocatorStatsToFile(const wchar_t* filePath)
 {
+    wprintf(L"Saving JSON dump to file \"%s\"\n", filePath);
     char* stats;
     vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
     SaveFile(filePath, stats, strlen(stats));
@@ -1719,8 +1720,13 @@ static void TestDefragmentationGpu()
             }
         }
 
-        TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
-        TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
+        // If corruption detection is enabled, GPU defragmentation may not work on
+        // memory types that have this detection active, e.g. on Intel.
+        if(VMA_DEBUG_DETECT_CORRUPTION == 0)
+        {
+            TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
+            TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
+        }
     }
 
     ValidateGpuData(allocations.data(), allocations.size());
@@ -2877,6 +2883,8 @@ static void BenchmarkAlgorithmsCase(FILE* file,
         VkDeviceSize totalSize = 0;
         while(totalSize < poolCreateInfo.blockSize / 3)
         {
+            // This test intentionally allows sizes that are aligned to 4 or 16 bytes.
+            // This is theoretically allowed and already uncovered one bug.
             memReq.size = bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin);
             res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
             TEST(res == VK_SUCCESS);
@@ -5180,7 +5188,6 @@ void Test()
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
-        
         return;
     }
 

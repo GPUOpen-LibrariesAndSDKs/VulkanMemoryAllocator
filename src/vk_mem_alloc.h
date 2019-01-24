@@ -11444,6 +11444,12 @@ VkResult VmaBlockVector::Allocate(
     size_t allocIndex;
     VkResult res = VK_SUCCESS;
 
+    if(IsCorruptionDetectionEnabled())
+    {
+        size = VmaAlignUp<VkDeviceSize>(size, sizeof(VMA_CORRUPTION_DETECTION_MAGIC_VALUE));
+        alignment = VmaAlignUp<VkDeviceSize>(alignment, sizeof(VMA_CORRUPTION_DETECTION_MAGIC_VALUE));
+    }
+
     {
         VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
         for(allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
@@ -12375,7 +12381,7 @@ void VmaBlockVector::Defragment(
     const bool canDefragmentOnCpu = maxCpuBytesToMove > 0 && maxCpuAllocationsToMove > 0 &&
         isHostVisible;
     const bool canDefragmentOnGpu = maxGpuBytesToMove > 0 && maxGpuAllocationsToMove > 0 &&
-        (VMA_DEBUG_DETECT_CORRUPTION == 0 || !(isHostVisible && isHostCoherent));
+        !IsCorruptionDetectionEnabled();
 
     // There are options to defragment this memory type.
     if(canDefragmentOnCpu || canDefragmentOnGpu)
