@@ -3718,7 +3718,7 @@ struct VmaMutexLock
 {
     VMA_CLASS_NO_COPY(VmaMutexLock)
 public:
-    VmaMutexLock(VMA_MUTEX& mutex, bool useMutex) :
+    VmaMutexLock(VMA_MUTEX& mutex, bool useMutex = true) :
         m_pMutex(useMutex ? &mutex : VMA_NULL)
     { if(m_pMutex) { m_pMutex->Lock(); } }
     ~VmaMutexLock()
@@ -4907,7 +4907,6 @@ enum VMA_CACHE_OPERATION { VMA_CACHE_FLUSH, VMA_CACHE_INVALIDATE };
 
 struct VmaAllocation_T
 {
-    VMA_CLASS_NO_COPY(VmaAllocation_T)
 private:
     static const uint8_t MAP_COUNT_FLAG_PERSISTENT_MAP = 0x80;
 
@@ -4924,23 +4923,29 @@ public:
         ALLOCATION_TYPE_DEDICATED,
     };
 
-    VmaAllocation_T(uint32_t currentFrameIndex, bool userDataString) :
-        m_Alignment(1),
-        m_Size(0),
-        m_pUserData(VMA_NULL),
-        m_LastUseFrameIndex(currentFrameIndex),
-        m_Type((uint8_t)ALLOCATION_TYPE_NONE),
-        m_SuballocationType((uint8_t)VMA_SUBALLOCATION_TYPE_UNKNOWN),
-        m_MapCount(0),
-        m_Flags(userDataString ? (uint8_t)FLAG_USER_DATA_STRING : 0)
+    /*
+    This struct cannot have constructor or destructor. It must be POD because it is
+    allocated using VmaPoolAllocator.
+    */
+
+    void Ctor(uint32_t currentFrameIndex, bool userDataString)
     {
+        m_Alignment = 1;
+        m_Size = 0;
+        m_pUserData = VMA_NULL;
+        m_LastUseFrameIndex = currentFrameIndex;
+        m_Type = (uint8_t)ALLOCATION_TYPE_NONE;
+        m_SuballocationType = (uint8_t)VMA_SUBALLOCATION_TYPE_UNKNOWN;
+        m_MapCount = 0;
+        m_Flags = userDataString ? (uint8_t)FLAG_USER_DATA_STRING : 0;
+
 #if VMA_STATS_STRING_ENABLED
         m_CreationFrameIndex = currentFrameIndex;
         m_BufferImageUsage = 0;
 #endif
     }
 
-    ~VmaAllocation_T()
+    void Dtor()
     {
         VMA_ASSERT((m_MapCount & ~MAP_COUNT_FLAG_PERSISTENT_MAP) == 0 && "Allocation was not unmapped before destruction.");
 
@@ -6568,6 +6573,23 @@ private:
 
 #endif // #if VMA_RECORDING_ENABLED
 
+/*
+Thread-safe wrapper over VmaPoolAllocator free list, for allocation of VmaAllocation_T objects.
+*/
+class VmaAllocationObjectAllocator
+{
+    VMA_CLASS_NO_COPY(VmaAllocationObjectAllocator)
+public:
+    VmaAllocationObjectAllocator(const VkAllocationCallbacks* pAllocationCallbacks);
+
+    VmaAllocation Allocate();
+    void Free(VmaAllocation hAlloc);
+
+private:
+    VMA_MUTEX m_Mutex;
+    VmaPoolAllocator<VmaAllocation_T> m_Allocator;
+};
+
 // Main allocator object.
 struct VmaAllocator_T
 {
@@ -6579,6 +6601,7 @@ public:
     bool m_AllocationCallbacksSpecified;
     VkAllocationCallbacks m_AllocationCallbacks;
     VmaDeviceMemoryCallbacks m_DeviceMemoryCallbacks;
+    VmaAllocationObjectAllocator m_AllocationObjectAllocator;
     
     // Number of bytes free out of limit, or VK_WHOLE_SIZE if no limit for that heap.
     VkDeviceSize m_HeapSizeLimit[VK_MAX_MEMORY_HEAPS];
@@ -11806,7 +11829,8 @@ VkResult VmaBlockVector::AllocatePage(
                         m_HasEmptyBlock = false;
                     }
                     // Allocate from this pBlock.
-                    *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
+                    *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate();
+                    (*pAllocation)->Ctor(currentFrameIndex, isUserDataString);
                     pBestRequestBlock->m_pMetadata->Alloc(bestRequest, suballocType, size, *pAllocation);
                     (*pAllocation)->InitBlockAllocation(
                         pBestRequestBlock,
@@ -12008,7 +12032,8 @@ VkResult VmaBlockVector::AllocateFromBlock(
             m_HasEmptyBlock = false;
         }
             
-        *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
+        *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate();
+        (*pAllocation)->Ctor(currentFrameIndex, isUserDataString);
         pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, *pAllocation);
         (*pAllocation)->InitBlockAllocation(
             pBlock,
@@ -14079,6 +14104,26 @@ void VmaRecorder::Flush()
 #endif // #if VMA_RECORDING_ENABLED
 
 ////////////////////////////////////////////////////////////////////////////////
+// VmaAllocationObjectAllocator
+
+VmaAllocationObjectAllocator::VmaAllocationObjectAllocator(const VkAllocationCallbacks* pAllocationCallbacks) :
+    m_Allocator(pAllocationCallbacks, 1024)
+{
+}
+
+VmaAllocation VmaAllocationObjectAllocator::Allocate()
+{
+    VmaMutexLock mutexLock(m_Mutex);
+    return m_Allocator.Alloc();
+}
+
+void VmaAllocationObjectAllocator::Free(VmaAllocation hAlloc)
+{
+    VmaMutexLock mutexLock(m_Mutex);
+    m_Allocator.Free(hAlloc);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // VmaAllocator_T
 
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
@@ -14088,6 +14133,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
     m_AllocationCallbacks(pCreateInfo->pAllocationCallbacks ?
         *pCreateInfo->pAllocationCallbacks : VmaEmptyAllocationCallbacks),
+    m_AllocationObjectAllocator(&m_AllocationCallbacks),
     m_PreferredLargeHeapBlockSize(0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
@@ -14224,6 +14270,11 @@ VmaAllocator_T::~VmaAllocator_T()
 
     for(size_t i = GetMemoryTypeCount(); i--; )
     {
+        if(m_pDedicatedAllocations[i] != VMA_NULL && !m_pDedicatedAllocations[i]->empty())
+        {
+            VMA_ASSERT(0 && "Unfreed dedicated allocations found.");
+        }
+
         vma_delete(this, m_pDedicatedAllocations[i]);
         vma_delete(this, m_pBlockVectors[i]);
     }
@@ -14528,7 +14579,8 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
             FreeVulkanMemory(memTypeIndex, currAlloc->GetSize(), hMemory);
 
             currAlloc->SetUserData(this, VMA_NULL);
-            vma_delete(this, currAlloc);
+            currAlloc->Dtor();
+            m_AllocationObjectAllocator.Free(currAlloc);
         }
 
         memset(pAllocations, 0, sizeof(VmaAllocation) * allocationCount);
@@ -14573,7 +14625,8 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
         }
     }
 
-    *pAllocation = vma_new(this, VmaAllocation_T)(m_CurrentFrameIndex.load(), isUserDataString);
+    *pAllocation = m_AllocationObjectAllocator.Allocate();
+    (*pAllocation)->Ctor(m_CurrentFrameIndex.load(), isUserDataString);
     (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size);
     (*pAllocation)->SetUserData(this, pUserData);
     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
@@ -14835,7 +14888,8 @@ void VmaAllocator_T::FreeMemory(
             }
 
             allocation->SetUserData(this, VMA_NULL);
-            vma_delete(this, allocation);
+            allocation->Dtor();
+            m_AllocationObjectAllocator.Free(allocation);
         }
     }
 }
@@ -15214,7 +15268,8 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
 
 void VmaAllocator_T::CreateLostAllocation(VmaAllocation* pAllocation)
 {
-    *pAllocation = vma_new(this, VmaAllocation_T)(VMA_FRAME_INDEX_LOST, false);
+    *pAllocation = m_AllocationObjectAllocator.Allocate();
+    (*pAllocation)->Ctor(VMA_FRAME_INDEX_LOST, false);
     (*pAllocation)->InitLost();
 }
 
