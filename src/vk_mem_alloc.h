@@ -7959,9 +7959,7 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     {
         // Brute-force algorithm. TODO: Come up with something better.
 
-        pAllocationRequest->sumFreeSize = VK_WHOLE_SIZE;
-        pAllocationRequest->sumItemSize = VK_WHOLE_SIZE;
-
+        bool found = false;
         VmaAllocationRequest tmpAllocRequest = {};
         tmpAllocRequest.type = VmaAllocationRequestType::Normal;
         for(VmaSuballocationList::iterator suballocIt = m_Suballocations.begin();
@@ -7985,21 +7983,23 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
                     &tmpAllocRequest.sumFreeSize,
                     &tmpAllocRequest.sumItemSize))
                 {
-                    tmpAllocRequest.item = suballocIt;
-
-                    if(tmpAllocRequest.CalcCost() < pAllocationRequest->CalcCost() ||
-                        strategy == VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT)
+                    if(strategy == VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT)
                     {
                         *pAllocationRequest = tmpAllocRequest;
+                        pAllocationRequest->item = suballocIt;
+                        break;
+                    }
+                    if(!found || tmpAllocRequest.CalcCost() < pAllocationRequest->CalcCost())
+                    {
+                        *pAllocationRequest = tmpAllocRequest;
+                        pAllocationRequest->item = suballocIt;
+                        found = true;
                     }
                 }
             }
         }
 
-        if(pAllocationRequest->sumItemSize != VK_WHOLE_SIZE)
-        {
-            return true;
-        }
+        return found;
     }
 
     return false;
