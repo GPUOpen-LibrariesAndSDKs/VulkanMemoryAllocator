@@ -724,7 +724,9 @@ public:
     static uint32_t ImageUsageToClass(uint32_t usage);
 
     Statistics();
+    ~Statistics();
     void Init(uint32_t memHeapCount, uint32_t memTypeCount);
+    void PrintDeviceMemStats() const;
     void PrintMemStats() const;
     void PrintDetailedStats() const;
 
@@ -745,6 +747,7 @@ public:
     void RegisterAllocateMemoryPages(size_t allocCount) { m_VmaAllocateMemoryPages.PostValue(allocCount); }
     void RegisterDefragmentation(const VmaDefragmentationInfo2& info);
 
+    void RegisterDeviceMemoryAllocation(uint32_t memoryType, VkDeviceSize size);
     void UpdateMemStats(const VmaStats& currStats);
 
 private:
@@ -755,6 +758,17 @@ private:
     size_t m_ImageCreationCount[4] = { };
     size_t m_LinearImageCreationCount = 0;
     size_t m_BufferCreationCount[4] = { };
+
+    struct DeviceMemStatInfo
+    {
+        size_t allocationCount;
+        VkDeviceSize allocationTotalSize;
+    };
+    struct DeviceMemStats
+    {
+        DeviceMemStatInfo memoryType[VK_MAX_MEMORY_TYPES];
+        DeviceMemStatInfo total;
+    } m_DeviceMemStats;
     
     // Structure similar to VmaStatInfo, but not the same.
     struct MemStatInfo
@@ -784,6 +798,28 @@ private:
     void UpdateMemStatInfo(MemStatInfo& inoutPeakInfo, const VmaStatInfo& currInfo);
     static void PrintMemStatInfo(const MemStatInfo& info);
 };
+
+// Hack for global AllocateDeviceMemoryCallback.
+static Statistics* g_Statistics;
+
+static void VKAPI_CALL AllocateDeviceMemoryCallback(
+    VmaAllocator      allocator,
+    uint32_t          memoryType,
+    VkDeviceMemory    memory,
+    VkDeviceSize      size)
+{
+    g_Statistics->RegisterDeviceMemoryAllocation(memoryType, size);
+}
+
+/// Callback function called before vkFreeMemory.
+static void VKAPI_CALL FreeDeviceMemoryCallback(
+    VmaAllocator      allocator,
+    uint32_t          memoryType,
+    VkDeviceMemory    memory,
+    VkDeviceSize      size)
+{
+    // Nothing.
+}
 
 uint32_t Statistics::BufferUsageToClass(uint32_t usage)
 {
@@ -850,13 +886,35 @@ uint32_t Statistics::ImageUsageToClass(uint32_t usage)
 
 Statistics::Statistics()
 {
+    ZeroMemory(&m_DeviceMemStats, sizeof(m_DeviceMemStats));
     ZeroMemory(&m_PeakMemStats, sizeof(m_PeakMemStats));
+
+    assert(g_Statistics == nullptr);
+    g_Statistics = this;
+}
+
+Statistics::~Statistics()
+{
+    assert(g_Statistics == this);
+    g_Statistics = nullptr;
 }
 
 void Statistics::Init(uint32_t memHeapCount, uint32_t memTypeCount)
 {
     m_MemHeapCount = memHeapCount;
     m_MemTypeCount = memTypeCount;
+}
+
+void Statistics::PrintDeviceMemStats() const
+{
+    printf("Successful device memory allocations:\n");
+    printf("    Total: count = %zu, total size = %llu\n",
+        m_DeviceMemStats.total.allocationCount, m_DeviceMemStats.total.allocationTotalSize);
+    for(uint32_t i = 0; i < m_MemTypeCount; ++i)
+    {
+        printf("    Memory type %u: count = %zu, total size = %llu\n",
+            i, m_DeviceMemStats.memoryType[i].allocationCount, m_DeviceMemStats.memoryType[i].allocationTotalSize);
+    }
 }
 
 void Statistics::PrintMemStats() const
@@ -951,6 +1009,15 @@ void Statistics::UpdateMemStats(const VmaStats& currStats)
     {
         UpdateMemStatInfo(m_PeakMemStats.memoryType[i], currStats.memoryType[i]);
     }
+}
+
+void Statistics::RegisterDeviceMemoryAllocation(uint32_t memoryType, VkDeviceSize size)
+{
+    ++m_DeviceMemStats.total.allocationCount;
+    m_DeviceMemStats.total.allocationTotalSize += size;
+
+    ++m_DeviceMemStats.memoryType[memoryType].allocationCount;
+    m_DeviceMemStats.memoryType[memoryType].allocationTotalSize += size;
 }
 
 void Statistics::UpdateMemStatInfo(MemStatInfo& inoutPeakInfo, const VmaStatInfo& currInfo)
@@ -2137,10 +2204,15 @@ int Player::InitVulkan()
 
     // Create memory allocator
 
+    VmaDeviceMemoryCallbacks deviceMemoryCallbacks = {};
+    deviceMemoryCallbacks.pfnAllocate = AllocateDeviceMemoryCallback;
+    deviceMemoryCallbacks.pfnFree = FreeDeviceMemoryCallback;
+
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice = m_PhysicalDevice;
     allocatorInfo.device = m_Device;
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
+    allocatorInfo.pDeviceMemoryCallbacks = &deviceMemoryCallbacks;
 
     if(m_DedicatedAllocationEnabled)
     {
@@ -2433,6 +2505,8 @@ void Player::PrintStats()
     {
         return;
     }
+
+    m_Stats.PrintDeviceMemStats();
 
     printf("Statistics:\n");
     if(m_Stats.GetAllocationCreationCount() > 0)
