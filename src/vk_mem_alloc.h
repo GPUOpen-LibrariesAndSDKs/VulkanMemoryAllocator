@@ -4943,7 +4943,6 @@ public:
     }
 
     void InitBlockAllocation(
-        VmaPool hPool,
         VmaDeviceMemoryBlock* block,
         VkDeviceSize offset,
         VkDeviceSize alignment,
@@ -4959,7 +4958,6 @@ public:
         m_Size = size;
         m_MapCount = mapped ? MAP_COUNT_FLAG_PERSISTENT_MAP : 0;
         m_SuballocationType = (uint8_t)suballocationType;
-        m_BlockAllocation.m_hPool = hPool;
         m_BlockAllocation.m_Block = block;
         m_BlockAllocation.m_Offset = offset;
         m_BlockAllocation.m_CanBecomeLost = canBecomeLost;
@@ -4970,7 +4968,6 @@ public:
         VMA_ASSERT(m_Type == ALLOCATION_TYPE_NONE);
         VMA_ASSERT(m_LastUseFrameIndex.load() == VMA_FRAME_INDEX_LOST);
         m_Type = (uint8_t)ALLOCATION_TYPE_BLOCK;
-        m_BlockAllocation.m_hPool = VK_NULL_HANDLE;
         m_BlockAllocation.m_Block = VMA_NULL;
         m_BlockAllocation.m_Offset = 0;
         m_BlockAllocation.m_CanBecomeLost = true;
@@ -5023,7 +5020,6 @@ public:
     bool IsPersistentMap() const { return (m_MapCount & MAP_COUNT_FLAG_PERSISTENT_MAP) != 0; }
     void* GetMappedData() const;
     bool CanBecomeLost() const;
-    VmaPool GetPool() const;
     
     uint32_t GetLastUseFrameIndex() const
     {
@@ -5089,7 +5085,6 @@ private:
     // Allocation out of VmaDeviceMemoryBlock.
     struct BlockAllocation
     {
-        VmaPool m_hPool; // Null if belongs to general memory.
         VmaDeviceMemoryBlock* m_Block;
         VkDeviceSize m_Offset;
         bool m_CanBecomeLost;
@@ -5753,6 +5748,7 @@ public:
     // Always call after construction.
     void Init(
         VmaAllocator hAllocator,
+        VmaPool hParentPool,
         uint32_t newMemoryTypeIndex,
         VkDeviceMemory newMemory,
         VkDeviceSize newSize,
@@ -5761,6 +5757,7 @@ public:
     // Always call before destruction.
     void Destroy(VmaAllocator allocator);
     
+    VmaPool GetParentPool() const { return m_hParentPool; }
     VkDeviceMemory GetDeviceMemory() const { return m_hMemory; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     uint32_t GetId() const { return m_Id; }
@@ -5788,6 +5785,7 @@ public:
         VkImage hImage);
 
 private:
+    VmaPool m_hParentPool; // VK_NULL_HANDLE if not belongs to custom pool.
     uint32_t m_MemoryTypeIndex;
     uint32_t m_Id;
     VkDeviceMemory m_hMemory;
@@ -5833,6 +5831,7 @@ struct VmaBlockVector
 public:
     VmaBlockVector(
         VmaAllocator hAllocator,
+        VmaPool hParentPool,
         uint32_t memoryTypeIndex,
         VkDeviceSize preferredBlockSize,
         size_t minBlockCount,
@@ -5846,6 +5845,7 @@ public:
 
     VkResult CreateMinBlocks();
 
+    VmaPool GetParentPool() const { return m_hParentPool; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     VkDeviceSize GetPreferredBlockSize() const { return m_PreferredBlockSize; }
     VkDeviceSize GetBufferImageGranularity() const { return m_BufferImageGranularity; }
@@ -5858,7 +5858,6 @@ public:
     bool IsCorruptionDetectionEnabled() const;
 
     VkResult Allocate(
-        VmaPool hCurrentPool,
         uint32_t currentFrameIndex,
         VkDeviceSize size,
         VkDeviceSize alignment,
@@ -5905,6 +5904,7 @@ private:
     friend class VmaDefragmentationAlgorithm_Generic;
 
     const VmaAllocator m_hAllocator;
+    const VmaPool m_hParentPool;
     const uint32_t m_MemoryTypeIndex;
     const VkDeviceSize m_PreferredBlockSize;
     const size_t m_MinBlockCount;
@@ -5933,7 +5933,6 @@ private:
     void IncrementallySortBlocks();
 
     VkResult AllocatePage(
-        VmaPool hCurrentPool,
         uint32_t currentFrameIndex,
         VkDeviceSize size,
         VkDeviceSize alignment,
@@ -5944,7 +5943,6 @@ private:
     // To be used only without CAN_MAKE_OTHER_LOST flag.
     VkResult AllocateFromBlock(
         VmaDeviceMemoryBlock* pBlock,
-        VmaPool hCurrentPool,
         uint32_t currentFrameIndex,
         VkDeviceSize size,
         VkDeviceSize alignment,
@@ -7311,12 +7309,6 @@ bool VmaAllocation_T::CanBecomeLost() const
         VMA_ASSERT(0);
         return false;
     }
-}
-
-VmaPool VmaAllocation_T::GetPool() const
-{
-    VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK);
-    return m_BlockAllocation.m_hPool;
 }
 
 bool VmaAllocation_T::MakeLost(uint32_t currentFrameIndex, uint32_t frameInUseCount)
@@ -11086,6 +11078,7 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator) :
 
 void VmaDeviceMemoryBlock::Init(
     VmaAllocator hAllocator,
+    VmaPool hParentPool,
     uint32_t newMemoryTypeIndex,
     VkDeviceMemory newMemory,
     VkDeviceSize newSize,
@@ -11094,6 +11087,7 @@ void VmaDeviceMemoryBlock::Init(
 {
     VMA_ASSERT(m_hMemory == VK_NULL_HANDLE);
 
+    m_hParentPool = hParentPool;
     m_MemoryTypeIndex = newMemoryTypeIndex;
     m_Id = id;
     m_hMemory = newMemory;
@@ -11328,6 +11322,7 @@ VmaPool_T::VmaPool_T(
     VkDeviceSize preferredBlockSize) :
     m_BlockVector(
         hAllocator,
+        this, // hParentPool
         createInfo.memoryTypeIndex,
         createInfo.blockSize != 0 ? createInfo.blockSize : preferredBlockSize,
         createInfo.minBlockCount,
@@ -11351,6 +11346,7 @@ VmaPool_T::~VmaPool_T()
 
 VmaBlockVector::VmaBlockVector(
     VmaAllocator hAllocator,
+    VmaPool hParentPool,
     uint32_t memoryTypeIndex,
     VkDeviceSize preferredBlockSize,
     size_t minBlockCount,
@@ -11361,6 +11357,7 @@ VmaBlockVector::VmaBlockVector(
     bool explicitBlockSize,
     uint32_t algorithm) :
     m_hAllocator(hAllocator),
+    m_hParentPool(hParentPool),
     m_MemoryTypeIndex(memoryTypeIndex),
     m_PreferredBlockSize(preferredBlockSize),
     m_MinBlockCount(minBlockCount),
@@ -11432,7 +11429,6 @@ bool VmaBlockVector::IsCorruptionDetectionEnabled() const
 static const uint32_t VMA_ALLOCATION_TRY_COUNT = 32;
 
 VkResult VmaBlockVector::Allocate(
-    VmaPool hCurrentPool,
     uint32_t currentFrameIndex,
     VkDeviceSize size,
     VkDeviceSize alignment,
@@ -11455,7 +11451,6 @@ VkResult VmaBlockVector::Allocate(
         for(allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
         {
             res = AllocatePage(
-                hCurrentPool,
                 currentFrameIndex,
                 size,
                 alignment,
@@ -11483,7 +11478,6 @@ VkResult VmaBlockVector::Allocate(
 }
 
 VkResult VmaBlockVector::AllocatePage(
-    VmaPool hCurrentPool,
     uint32_t currentFrameIndex,
     VkDeviceSize size,
     VkDeviceSize alignment,
@@ -11554,7 +11548,6 @@ VkResult VmaBlockVector::AllocatePage(
                 VMA_ASSERT(pCurrBlock);
                 VkResult res = AllocateFromBlock(
                     pCurrBlock,
-                    hCurrentPool,
                     currentFrameIndex,
                     size,
                     alignment,
@@ -11581,7 +11574,6 @@ VkResult VmaBlockVector::AllocatePage(
                     VMA_ASSERT(pCurrBlock);
                     VkResult res = AllocateFromBlock(
                         pCurrBlock,
-                        hCurrentPool,
                         currentFrameIndex,
                         size,
                         alignment,
@@ -11606,7 +11598,6 @@ VkResult VmaBlockVector::AllocatePage(
                     VMA_ASSERT(pCurrBlock);
                     VkResult res = AllocateFromBlock(
                         pCurrBlock,
-                        hCurrentPool,
                         currentFrameIndex,
                         size,
                         alignment,
@@ -11679,7 +11670,6 @@ VkResult VmaBlockVector::AllocatePage(
 
                 res = AllocateFromBlock(
                     pBlock,
-                    hCurrentPool,
                     currentFrameIndex,
                     size,
                     alignment,
@@ -11813,7 +11803,6 @@ VkResult VmaBlockVector::AllocatePage(
                     *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
                     pBestRequestBlock->m_pMetadata->Alloc(bestRequest, suballocType, size, *pAllocation);
                     (*pAllocation)->InitBlockAllocation(
-                        hCurrentPool,
                         pBestRequestBlock,
                         bestRequest.offset,
                         alignment,
@@ -11968,7 +11957,6 @@ void VmaBlockVector::IncrementallySortBlocks()
 
 VkResult VmaBlockVector::AllocateFromBlock(
     VmaDeviceMemoryBlock* pBlock,
-    VmaPool hCurrentPool,
     uint32_t currentFrameIndex,
     VkDeviceSize size,
     VkDeviceSize alignment,
@@ -12017,7 +12005,6 @@ VkResult VmaBlockVector::AllocateFromBlock(
         *pAllocation = vma_new(m_hAllocator, VmaAllocation_T)(currentFrameIndex, isUserDataString);
         pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, *pAllocation);
         (*pAllocation)->InitBlockAllocation(
-            hCurrentPool,
             pBlock,
             currRequest.offset,
             alignment,
@@ -12059,6 +12046,7 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
     VmaDeviceMemoryBlock* const pBlock = vma_new(m_hAllocator, VmaDeviceMemoryBlock)(m_hAllocator);
     pBlock->Init(
         m_hAllocator,
+        m_hParentPool,
         m_MemoryTypeIndex,
         mem,
         allocInfo.allocationSize,
@@ -13393,7 +13381,7 @@ void VmaDefragmentationContext_T::AddAllocations(
         {
             VmaBlockVectorDefragmentationContext* pBlockVectorDefragCtx = VMA_NULL;
 
-            const VmaPool hAllocPool = hAlloc->GetPool();
+            const VmaPool hAllocPool = hAlloc->GetBlock()->GetParentPool();
             // This allocation belongs to custom pool.
             if(hAllocPool != VK_NULL_HANDLE)
             {
@@ -14171,6 +14159,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
 
         m_pBlockVectors[memTypeIndex] = vma_new(this, VmaBlockVector)(
             this,
+            VK_NULL_HANDLE, // hParentPool
             memTypeIndex,
             preferredBlockSize,
             0,
@@ -14396,7 +14385,6 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     else
     {
         VkResult res = blockVector->Allocate(
-            VK_NULL_HANDLE, // hCurrentPool
             m_CurrentFrameIndex.load(),
             size,
             alignment,
@@ -14711,7 +14699,6 @@ VkResult VmaAllocator_T::AllocateMemory(
             vkMemReq.alignment,
             GetMemoryTypeMinAlignment(createInfo.pool->m_BlockVector.GetMemoryTypeIndex()));
         return createInfo.pool->m_BlockVector.Allocate(
-            createInfo.pool,
             m_CurrentFrameIndex.load(),
             vkMemReq.size,
             alignmentForPool,
@@ -14820,7 +14807,7 @@ void VmaAllocator_T::FreeMemory(
                 case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
                     {
                         VmaBlockVector* pBlockVector = VMA_NULL;
-                        VmaPool hPool = allocation->GetPool();
+                        VmaPool hPool = allocation->GetBlock()->GetParentPool();
                         if(hPool != VK_NULL_HANDLE)
                         {
                             pBlockVector = &hPool->m_BlockVector;
