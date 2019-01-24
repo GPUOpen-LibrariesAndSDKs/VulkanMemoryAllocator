@@ -4209,7 +4209,7 @@ class VmaPoolAllocator
 {
     VMA_CLASS_NO_COPY(VmaPoolAllocator)
 public:
-    VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, size_t itemsPerBlock);
+    VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, uint32_t firstBlockCapacity);
     ~VmaPoolAllocator();
     void Clear();
     T* Alloc();
@@ -4225,23 +4225,24 @@ private:
     struct ItemBlock
     {
         Item* pItems;
+        uint32_t Capacity;
         uint32_t FirstFreeIndex;
     };
     
     const VkAllocationCallbacks* m_pAllocationCallbacks;
-    size_t m_ItemsPerBlock;
+    const uint32_t m_FirstBlockCapacity;
     VmaVector< ItemBlock, VmaStlAllocator<ItemBlock> > m_ItemBlocks;
 
     ItemBlock& CreateNewBlock();
 };
 
 template<typename T>
-VmaPoolAllocator<T>::VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, size_t itemsPerBlock) :
+VmaPoolAllocator<T>::VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, uint32_t firstBlockCapacity) :
     m_pAllocationCallbacks(pAllocationCallbacks),
-    m_ItemsPerBlock(itemsPerBlock),
+    m_FirstBlockCapacity(firstBlockCapacity),
     m_ItemBlocks(VmaStlAllocator<ItemBlock>(pAllocationCallbacks))
 {
-    VMA_ASSERT(itemsPerBlock > 0);
+    VMA_ASSERT(m_FirstBlockCapacity > 1);
 }
 
 template<typename T>
@@ -4254,7 +4255,7 @@ template<typename T>
 void VmaPoolAllocator<T>::Clear()
 {
     for(size_t i = m_ItemBlocks.size(); i--; )
-        vma_delete_array(m_pAllocationCallbacks, m_ItemBlocks[i].pItems, m_ItemsPerBlock);
+        vma_delete_array(m_pAllocationCallbacks, m_ItemBlocks[i].pItems, m_ItemBlocks[i].Capacity);
     m_ItemBlocks.clear();
 }
 
@@ -4284,7 +4285,7 @@ template<typename T>
 void VmaPoolAllocator<T>::Free(T* ptr)
 {
     // Search all memory blocks to find ptr.
-    for(size_t i = 0; i < m_ItemBlocks.size(); ++i)
+    for(size_t i = m_ItemBlocks.size(); i--; )
     {
         ItemBlock& block = m_ItemBlocks[i];
         
@@ -4293,7 +4294,7 @@ void VmaPoolAllocator<T>::Free(T* ptr)
         memcpy(&pItemPtr, &ptr, sizeof(pItemPtr));
         
         // Check if pItemPtr is in address range of this block.
-        if((pItemPtr >= block.pItems) && (pItemPtr < block.pItems + m_ItemsPerBlock))
+        if((pItemPtr >= block.pItems) && (pItemPtr < block.pItems + block.Capacity))
         {
             const uint32_t index = static_cast<uint32_t>(pItemPtr - block.pItems);
             pItemPtr->NextFreeIndex = block.FirstFreeIndex;
@@ -4307,15 +4308,20 @@ void VmaPoolAllocator<T>::Free(T* ptr)
 template<typename T>
 typename VmaPoolAllocator<T>::ItemBlock& VmaPoolAllocator<T>::CreateNewBlock()
 {
-    ItemBlock newBlock = {
-        vma_new_array(m_pAllocationCallbacks, Item, m_ItemsPerBlock), 0 };
+    const uint32_t newBlockCapacity = m_ItemBlocks.empty() ?
+        m_FirstBlockCapacity : m_ItemBlocks.back().Capacity * 3 / 2;
+
+    const ItemBlock newBlock = {
+        vma_new_array(m_pAllocationCallbacks, Item, newBlockCapacity),
+        newBlockCapacity,
+        0 };
 
     m_ItemBlocks.push_back(newBlock);
 
     // Setup singly-linked list of all free items in this block.
-    for(uint32_t i = 0; i < m_ItemsPerBlock - 1; ++i)
+    for(uint32_t i = 0; i < newBlockCapacity - 1; ++i)
         newBlock.pItems[i].NextFreeIndex = i + 1;
-    newBlock.pItems[m_ItemsPerBlock - 1].NextFreeIndex = UINT32_MAX;
+    newBlock.pItems[newBlockCapacity - 1].NextFreeIndex = UINT32_MAX;
     return m_ItemBlocks.back();
 }
 
