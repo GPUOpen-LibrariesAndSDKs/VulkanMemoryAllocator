@@ -1722,11 +1722,10 @@ static void TestDefragmentationGpu()
 
         // If corruption detection is enabled, GPU defragmentation may not work on
         // memory types that have this detection active, e.g. on Intel.
-        if(VMA_DEBUG_DETECT_CORRUPTION == 0)
-        {
+        #if !defined(VMA_DEBUG_DETECT_CORRUPTION) || VMA_DEBUG_DETECT_CORRUPTION == 0
             TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
             TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
-        }
+        #endif
     }
 
     ValidateGpuData(allocations.data(), allocations.size());
