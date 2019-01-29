@@ -14525,7 +14525,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
 #endif // #if VMA_DEDICATED_ALLOCATION
 
     size_t allocIndex;
-    VkResult res;
+    VkResult res = VK_SUCCESS;
     for(allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
     {
         res = AllocateDedicatedMemoryPage(
