@@ -3330,8 +3330,9 @@ void *aligned_alloc(size_t alignment, size_t size)
             std::shared_mutex m_Mutex;
         };
         #define VMA_RW_MUTEX VmaRWMutex
-    #elif defined(_WIN32)
+    #elif defined(_WIN32) && defined(WINVER) && WINVER >= 0x0600
         // Use SRWLOCK from WinAPI.
+        // Minimum supported client = Windows Vista, server = Windows Server 2008.
         class VmaRWMutex
         {
         public:
