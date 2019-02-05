@@ -12978,7 +12978,6 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
                 size_t freeSpaceOrigBlockIndex = m_BlockInfos[freeSpaceInfoIndex].origBlockIndex;
                 VmaDeviceMemoryBlock* pFreeSpaceBlock = m_pBlockVector->GetBlock(freeSpaceOrigBlockIndex);
                 VmaBlockMetadata_Generic* pFreeSpaceMetadata = (VmaBlockMetadata_Generic*)pFreeSpaceBlock->m_pMetadata;
-                VkDeviceSize freeSpaceBlockSize = pFreeSpaceMetadata->GetSize();
 
                 // Same block
                 if(freeSpaceInfoIndex == srcBlockInfoIndex)
