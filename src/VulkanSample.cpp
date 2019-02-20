@@ -412,44 +412,25 @@ static void CreateMesh()
 
 static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
 {
-    // Create Image
+    // Create staging buffer.
 
     const VkDeviceSize imageSize = sizeX * sizeY * 4;
 
-    VkImageCreateInfo stagingImageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-    stagingImageInfo.imageType = VK_IMAGE_TYPE_2D;
-    stagingImageInfo.extent.width = sizeX;
-    stagingImageInfo.extent.height = sizeY;
-    stagingImageInfo.extent.depth = 1;
-    stagingImageInfo.mipLevels = 1;
-    stagingImageInfo.arrayLayers = 1;
-    stagingImageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    stagingImageInfo.tiling = VK_IMAGE_TILING_LINEAR;
-    stagingImageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    stagingImageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    stagingImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    stagingImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    stagingImageInfo.flags = 0;
+    VkBufferCreateInfo stagingBufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    stagingBufInfo.size = imageSize;
+    stagingBufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo stagingBufAllocCreateInfo = {};
+    stagingBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    stagingBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
     
-    VmaAllocationCreateInfo stagingImageAllocCreateInfo = {};
-    stagingImageAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    stagingImageAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    
-    VkImage stagingImage = VK_NULL_HANDLE;
-    VmaAllocation stagingImageAlloc = VK_NULL_HANDLE;
-    VmaAllocationInfo stagingImageAllocInfo = {};
-    ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &stagingImageInfo, &stagingImageAllocCreateInfo, &stagingImage, &stagingImageAlloc, &stagingImageAllocInfo) );
+    VkBuffer stagingBuf = VK_NULL_HANDLE;
+    VmaAllocation stagingBufAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo stagingBufAllocInfo = {};
+    ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &stagingBufInfo, &stagingBufAllocCreateInfo, &stagingBuf, &stagingBufAlloc, &stagingBufAllocInfo) );
 
-    VkImageSubresource imageSubresource = {};
-    imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageSubresource.mipLevel = 0;
-    imageSubresource.arrayLayer = 0;
-
-    VkSubresourceLayout imageLayout = {};
-    vkGetImageSubresourceLayout(g_hDevice, stagingImage, &imageSubresource, &imageLayout);
-
-    char* const pMipLevelData = (char*)stagingImageAllocInfo.pMappedData + imageLayout.offset;
-    uint8_t* pRowData = (uint8_t*)pMipLevelData;
+    char* const pImageData = (char*)stagingBufAllocInfo.pMappedData;
+    uint8_t* pRowData = (uint8_t*)pImageData;
     for(uint32_t y = 0; y < sizeY; ++y)
     {
         uint32_t* pPixelData = (uint32_t*)pRowData;
@@ -462,7 +443,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
                 ((y & 0x18) == 0x10 ? 0x00FF0000 : 0x00000000);
             ++pPixelData;
         }
-        pRowData += imageLayout.rowPitch;
+        pRowData += sizeX * 4;
     }
 
     // No need to flush stagingImage memory because CPU_ONLY memory is always HOST_COHERENT.
@@ -494,28 +475,13 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     BeginSingleTimeCommands();
 
     VkImageMemoryBarrier imgMemBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-    imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imgMemBarrier.image = stagingImage;
     imgMemBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     imgMemBarrier.subresourceRange.baseMipLevel = 0;
     imgMemBarrier.subresourceRange.levelCount = 1;
     imgMemBarrier.subresourceRange.baseArrayLayer = 0;
     imgMemBarrier.subresourceRange.layerCount = 1;
-    imgMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-    vkCmdPipelineBarrier(
-        g_hTemporaryCommandBuffer,
-        VK_PIPELINE_STAGE_HOST_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &imgMemBarrier);
-
     imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     imgMemBarrier.image = g_hTextureImage;
@@ -531,29 +497,14 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
         0, nullptr,
         1, &imgMemBarrier);
 
-    VkImageCopy imageCopy = {};
-    imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopy.srcSubresource.baseArrayLayer = 0;
-    imageCopy.srcSubresource.mipLevel = 0;
-    imageCopy.srcSubresource.layerCount = 1;
-    imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopy.dstSubresource.baseArrayLayer = 0;
-    imageCopy.dstSubresource.mipLevel = 0;
-    imageCopy.dstSubresource.layerCount = 1;
-    imageCopy.srcOffset.x = 0;
-    imageCopy.srcOffset.y = 0;
-    imageCopy.srcOffset.z = 0;
-    imageCopy.dstOffset.x = 0;
-    imageCopy.dstOffset.y = 0;
-    imageCopy.dstOffset.z = 0;
-    imageCopy.extent.width = sizeX;
-    imageCopy.extent.height = sizeY;
-    imageCopy.extent.depth = 1;
-    vkCmdCopyImage(
-        g_hTemporaryCommandBuffer,
-        stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        g_hTextureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &imageCopy);
+    VkBufferImageCopy region = {};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent.width = sizeX;
+    region.imageExtent.height = sizeY;
+    region.imageExtent.depth = 1;
+
+    vkCmdCopyBufferToImage(g_hTemporaryCommandBuffer, stagingBuf, g_hTextureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -572,7 +523,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
 
     EndSingleTimeCommands();
 
-    vmaDestroyImage(g_hAllocator, stagingImage, stagingImageAlloc);
+    vmaDestroyBuffer(g_hAllocator, stagingBuf, stagingBufAlloc);
 
     // Create ImageView
 
