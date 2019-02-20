@@ -1960,7 +1960,9 @@ void vmaCalculateStats(
     VmaAllocator allocator,
     VmaStats* pStats);
 
+#ifndef VMA_STATS_STRING_ENABLED
 #define VMA_STATS_STRING_ENABLED 1
+#endif
 
 #if VMA_STATS_STRING_ENABLED
 
@@ -3561,6 +3563,8 @@ static inline bool VmaStrIsEmpty(const char* pStr)
     return pStr == VMA_NULL || *pStr == '\0';
 }
 
+#if VMA_STATS_STRING_ENABLED
+
 static const char* VmaAlgorithmToStr(uint32_t algorithm)
 {
     switch(algorithm)
@@ -3576,6 +3580,8 @@ static const char* VmaAlgorithmToStr(uint32_t algorithm)
         return "";
     }
 }
+
+#endif // #if VMA_STATS_STRING_ENABLED
 
 #ifndef VMA_SORT
 
@@ -12972,7 +12978,6 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
                 size_t freeSpaceOrigBlockIndex = m_BlockInfos[freeSpaceInfoIndex].origBlockIndex;
                 VmaDeviceMemoryBlock* pFreeSpaceBlock = m_pBlockVector->GetBlock(freeSpaceOrigBlockIndex);
                 VmaBlockMetadata_Generic* pFreeSpaceMetadata = (VmaBlockMetadata_Generic*)pFreeSpaceBlock->m_pMetadata;
-                VkDeviceSize freeSpaceBlockSize = pFreeSpaceMetadata->GetSize();
 
                 // Same block
                 if(freeSpaceInfoIndex == srcBlockInfoIndex)
