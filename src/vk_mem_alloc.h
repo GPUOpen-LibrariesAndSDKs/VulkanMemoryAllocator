@@ -14289,23 +14289,23 @@ VmaAllocator_T::~VmaAllocator_T()
 void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions)
 {
 #if VMA_STATIC_VULKAN_FUNCTIONS == 1
-    m_VulkanFunctions.vkGetPhysicalDeviceProperties = &vkGetPhysicalDeviceProperties;
-    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = &vkGetPhysicalDeviceMemoryProperties;
-    m_VulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
-    m_VulkanFunctions.vkFreeMemory = &vkFreeMemory;
-    m_VulkanFunctions.vkMapMemory = &vkMapMemory;
-    m_VulkanFunctions.vkUnmapMemory = &vkUnmapMemory;
-    m_VulkanFunctions.vkFlushMappedMemoryRanges = &vkFlushMappedMemoryRanges;
-    m_VulkanFunctions.vkInvalidateMappedMemoryRanges = &vkInvalidateMappedMemoryRanges;
-    m_VulkanFunctions.vkBindBufferMemory = &vkBindBufferMemory;
-    m_VulkanFunctions.vkBindImageMemory = &vkBindImageMemory;
-    m_VulkanFunctions.vkGetBufferMemoryRequirements = &vkGetBufferMemoryRequirements;
-    m_VulkanFunctions.vkGetImageMemoryRequirements = &vkGetImageMemoryRequirements;
-    m_VulkanFunctions.vkCreateBuffer = &vkCreateBuffer;
-    m_VulkanFunctions.vkDestroyBuffer = &vkDestroyBuffer;
-    m_VulkanFunctions.vkCreateImage = &vkCreateImage;
-    m_VulkanFunctions.vkDestroyImage = &vkDestroyImage;
-    m_VulkanFunctions.vkCmdCopyBuffer = &vkCmdCopyBuffer;
+    m_VulkanFunctions.vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)vkGetPhysicalDeviceProperties;
+    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vkGetPhysicalDeviceMemoryProperties;
+    m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
+    m_VulkanFunctions.vkFreeMemory = (PFN_vkFreeMemory)vkFreeMemory;
+    m_VulkanFunctions.vkMapMemory = (PFN_vkMapMemory)vkMapMemory;
+    m_VulkanFunctions.vkUnmapMemory = (PFN_vkUnmapMemory)vkUnmapMemory;
+    m_VulkanFunctions.vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)vkFlushMappedMemoryRanges;
+    m_VulkanFunctions.vkInvalidateMappedMemoryRanges = (PFN_vkInvalidateMappedMemoryRanges)vkInvalidateMappedMemoryRanges;
+    m_VulkanFunctions.vkBindBufferMemory = (PFN_vkBindBufferMemory)vkBindBufferMemory;
+    m_VulkanFunctions.vkBindImageMemory = (PFN_vkBindImageMemory)vkBindImageMemory;
+    m_VulkanFunctions.vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)vkGetBufferMemoryRequirements;
+    m_VulkanFunctions.vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)vkGetImageMemoryRequirements;
+    m_VulkanFunctions.vkCreateBuffer = (PFN_vkCreateBuffer)vkCreateBuffer;
+    m_VulkanFunctions.vkDestroyBuffer = (PFN_vkDestroyBuffer)vkDestroyBuffer;
+    m_VulkanFunctions.vkCreateImage = (PFN_vkCreateImage)vkCreateImage;
+    m_VulkanFunctions.vkDestroyImage = (PFN_vkDestroyImage)vkDestroyImage;
+    m_VulkanFunctions.vkCmdCopyBuffer = (PFN_vkCmdCopyBuffer)vkCmdCopyBuffer;
 #if VMA_DEDICATED_ALLOCATION
     if(m_UseKhrDedicatedAllocation)
     {
