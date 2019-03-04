@@ -15,6 +15,9 @@ Easy to integrate Vulkan memory allocation library.
 - Windows: [![Build status](https://ci.appveyor.com/api/projects/status/4vlcrb0emkaio2pn/branch/master?svg=true)](https://ci.appveyor.com/project/adam-sawicki-amd/vulkanmemoryallocator/branch/master)  
 - Linux: [![Build Status](https://travis-ci.org/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.svg?branch=master)](https://travis-ci.org/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
+**❗ Please help to shape the future of the library by participating in the survey:**  
+**[Vulkan Memory Allocator Survey March 2019](http://goo.gl/forms/0c5DTDjwDAaZOmJM2)**
+
 # Problem
 
 Memory allocation and resource (buffer and image) creation in Vulkan is difficult (comparing to older graphics API-s, like D3D11 or OpenGL) for several reasons:
