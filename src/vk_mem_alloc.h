@@ -29,7 +29,7 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.2.1-development</b> (2018-12-14)
+<b>Version 2.3.0-development</b> (2019-03-05)
 
 Copyright (c) 2017-2018 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -2106,6 +2106,12 @@ typedef enum VmaAllocationCreateFlagBits {
     This flag is only allowed for custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT flag.
     */
     VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT = 0x00000040,
+    /** Create both buffer/image and allocation, but don't bind them together.
+    It is useful when you want to bind yourself to do some more advanced binding, e.g. using some extensions.
+    The flag is meaningful only with functions that bind by default: vmaCreateBuffer(), vmaCreateImage().
+    Otherwise it is ignored.
+    */
+    VMA_ALLOCATION_CREATE_DONT_BIND_BIT = 0x00000080,
 
     /** Allocation strategy that chooses smallest possible free range for the
     allocation.
@@ -16750,7 +16756,10 @@ VkResult vmaCreateBuffer(
         if(res >= 0)
         {
             // 3. Bind buffer with memory.
-            res = allocator->BindBufferMemory(*pAllocation, *pBuffer);
+            if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
+            {
+                res = allocator->BindBufferMemory(*pAllocation, *pBuffer);
+            }
             if(res >= 0)
             {
                 // All steps succeeded.
@@ -16887,7 +16896,10 @@ VkResult vmaCreateImage(
         if(res >= 0)
         {
             // 3. Bind image with memory.
-            res = allocator->BindImageMemory(*pAllocation, *pImage);
+            if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
+            {
+                res = allocator->BindImageMemory(*pAllocation, *pImage);
+            }
             if(res >= 0)
             {
                 // All steps succeeded.

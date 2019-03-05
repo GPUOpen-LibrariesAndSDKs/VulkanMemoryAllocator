@@ -23,6 +23,7 @@ var searchData=
   ['vma_5fallocation_5fcreate_5fcan_5fbecome_5flost_5fbit',['VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fcan_5fmake_5fother_5flost_5fbit',['VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fdedicated_5fmemory_5fbit',['VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f',1,'vk_mem_alloc.h']]],
+  ['vma_5fallocation_5fcreate_5fdont_5fbind_5fbit',['VMA_ALLOCATION_CREATE_DONT_BIND_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fflag_5fbits_5fmax_5fenum',['VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fmapped_5fbit',['VMA_ALLOCATION_CREATE_MAPPED_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f',1,'vk_mem_alloc.h']]],
   ['vma_5fallocation_5fcreate_5fnever_5fallocate_5fbit',['VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff',1,'vk_mem_alloc.h']]],
