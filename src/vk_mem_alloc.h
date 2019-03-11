@@ -12609,8 +12609,8 @@ VmaDefragmentationAlgorithm_Generic::VmaDefragmentationAlgorithm_Generic(
     uint32_t currentFrameIndex,
     bool overlappingMoveSupported) :
     VmaDefragmentationAlgorithm(hAllocator, pBlockVector, currentFrameIndex),
-    m_AllAllocations(false),
     m_AllocationCount(0),
+    m_AllAllocations(false),
     m_BytesMoved(0),
     m_AllocationsMoved(0),
     m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks()))
