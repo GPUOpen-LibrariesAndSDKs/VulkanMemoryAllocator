@@ -2750,6 +2750,10 @@ Calls `vkFlushMappedMemoryRanges()` for memory associated with given range of gi
 - If `size` is 0, this call is ignored.
 - If memory type that the `allocation` belongs to is not `HOST_VISIBLE` or it is `HOST_COHERENT`,
   this call is ignored.
+
+Warning! `offset` and `size` are relative to the contents of given `allocation`.
+If you mean whole allocation, you can pass 0 and `VK_WHOLE_SIZE`, respectively.
+Do not pass allocation's offset as `offset`!!!
 */
 void vmaFlushAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size);
 
@@ -2764,6 +2768,10 @@ Calls `vkInvalidateMappedMemoryRanges()` for memory associated with given range 
 - If `size` is 0, this call is ignored.
 - If memory type that the `allocation` belongs to is not `HOST_VISIBLE` or it is `HOST_COHERENT`,
   this call is ignored.
+
+Warning! `offset` and `size` are relative to the contents of given `allocation`.
+If you mean whole allocation, you can pass 0 and `VK_WHOLE_SIZE`, respectively.
+Do not pass allocation's offset as `offset`!!!
 */
 void vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size);
 
