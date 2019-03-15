@@ -3177,6 +3177,10 @@ the containers.
     #endif
 #endif
 
+/*
+THESE INCLUDES ARE NOT ENABLED BY DEFAULT.
+Library has its own container implementation.
+*/
 #if VMA_USE_STL_VECTOR
    #include <vector>
 #endif

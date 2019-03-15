@@ -60,11 +60,11 @@ Additional features:
 
 # Prequisites
 
-- Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan.
+- Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan. STL containers are not used by default.
 - Public interface in C, in same convention as Vulkan API. Implementation in C++.
 - Error handling implemented by returning `VkResult` error codes - same way as in Vulkan.
 - Interface documented using Doxygen-style comments.
-- Platform-independent, but developed and tested on Windows using Visual Studio. Continuous integration setup for Windows and Linux. Tested also on Android, MacOS, and other platforms.
+- Platform-independent, but developed and tested on Windows using Visual Studio. Continuous integration setup for Windows and Linux. Used also on Android, MacOS, and other platforms.
 
 # Example
 
