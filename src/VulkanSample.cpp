@@ -1284,6 +1284,14 @@ static void InitializeApplication()
 
     if(VK_KHR_dedicated_allocation_enabled)
     {
+        /*
+        Comment out this line to make the app working with RenderDoc.
+
+        RenderDoc relies on pointers to Vulkan function being null or not null instead
+        of checking whether the app really uses Vulkan 1.0 or 1.1. This app uses Vulkan
+        1.0 and VK_KHR_dedicated_allocation extension instead of equivalent
+        functionality embedded into Vulkan 1.1.
+        */
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
 
