@@ -1889,8 +1889,9 @@ Functions</h2></td></tr>
 <li>You should not use any of allocations passed as <code>pInfo-&gt;pAllocations</code> or any allocations that belong to pools passed as <code>pInfo-&gt;pPools</code>, including calling <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>, <a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a" title="Returns VK_TRUE if allocation is not lost and atomically marks it as used in current frame.">vmaTouchAllocation()</a>, or access their data.</li>
 <li>Some mutexes protecting internal data structures may be locked, so trying to make or free any allocations, bind buffers or images, map memory, or launch another simultaneous defragmentation in between may cause stall (when done on another thread) or deadlock (when done on the same thread), unless you are 100% sure that defragmented allocations are in different pools.</li>
 <li>Information returned via <code>pStats</code> and <code>pInfo-&gt;pAllocationsChanged</code> are undefined. They become valid after call to <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>.</li>
-<li>If <code>pInfo-&gt;commandBuffer</code> is not null, you must submit that command buffer and make sure it finished execution before calling <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>. </li>
+<li>If <code>pInfo-&gt;commandBuffer</code> is not null, you must submit that command buffer and make sure it finished execution before calling <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>.</li>
 </ul>
+<p>For more information and important limitations regarding defragmentation, see documentation chapter: <a class="el" href="defragmentation.html">Defragmentation</a>. </p>
 
 </div>
 </div>

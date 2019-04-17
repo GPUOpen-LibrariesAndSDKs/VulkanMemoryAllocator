@@ -907,19 +907,22 @@ in function vmaDefragmentationBegin().
 
 \section defragmentation_additional_notes Additional notes
 
-While using defragmentation, you may experience validation layer warnings, which you just need to ignore.
-See [Validation layer warnings](@ref general_considerations_validation_layer_warnings).
+It is only legal to defragment allocations bound to:
 
-If you defragment allocations bound to images, these images should be created with
-`VK_IMAGE_CREATE_ALIAS_BIT` flag, to make sure that new image created with same
-parameters and pointing to data copied to another memory region will interpret
-its contents consistently. Otherwise you may experience corrupted data on some
-implementations, e.g. due to different pixel swizzling used internally by the graphics driver.
+- buffers
+- images created with `VK_IMAGE_CREATE_ALIAS_BIT`, `VK_IMAGE_TILING_LINEAR`, and
+  being currently in `VK_IMAGE_LAYOUT_GENERAL` or `VK_IMAGE_LAYOUT_PREINITIALIZED`.
+
+Defragmentation of images created with `VK_IMAGE_TILING_OPTIMAL` or in any other
+layout may give undefined results.
 
 If you defragment allocations bound to images, new images to be bound to new
 memory region after defragmentation should be created with `VK_IMAGE_LAYOUT_PREINITIALIZED`
-and then transitioned to their original layout from before defragmentation using
-an image memory barrier.
+and then transitioned to their original layout from before defragmentation if
+needed using an image memory barrier.
+
+While using defragmentation, you may experience validation layer warnings, which you just need to ignore.
+See [Validation layer warnings](@ref general_considerations_validation_layer_warnings).
 
 Please don't expect memory to be fully compacted after defragmentation.
 Algorithms inside are based on some heuristics that try to maximize number of Vulkan
@@ -2937,6 +2940,9 @@ Warning! Between the call to vmaDefragmentationBegin() and vmaDefragmentationEnd
   They become valid after call to vmaDefragmentationEnd().
 - If `pInfo->commandBuffer` is not null, you must submit that command buffer
   and make sure it finished execution before calling vmaDefragmentationEnd().
+
+For more information and important limitations regarding defragmentation, see documentation chapter:
+[Defragmentation](@ref defragmentation).
 */
 VkResult vmaDefragmentationBegin(
     VmaAllocator allocator,
