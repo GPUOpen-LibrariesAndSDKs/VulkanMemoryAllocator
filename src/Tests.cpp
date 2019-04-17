@@ -26,6 +26,7 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <functional>
 
 #ifdef _WIN32
 
