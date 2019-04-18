@@ -907,7 +907,19 @@ in function vmaDefragmentationBegin().
 
 \section defragmentation_additional_notes Additional notes
 
-<b>It is only legal to defragment allocations bound to buffers, not images!</b>
+It is only legal to defragment allocations bound to:
+
+- buffers
+- images created with `VK_IMAGE_CREATE_ALIAS_BIT`, `VK_IMAGE_TILING_LINEAR`, and
+  being currently in `VK_IMAGE_LAYOUT_GENERAL` or `VK_IMAGE_LAYOUT_PREINITIALIZED`.
+
+Defragmentation of images created with `VK_IMAGE_TILING_OPTIMAL` or in any other
+layout may give undefined results.
+
+If you defragment allocations bound to images, new images to be bound to new
+memory region after defragmentation should be created with `VK_IMAGE_LAYOUT_PREINITIALIZED`
+and then transitioned to their original layout from before defragmentation if
+needed using an image memory barrier.
 
 While using defragmentation, you may experience validation layer warnings, which you just need to ignore.
 See [Validation layer warnings](@ref general_considerations_validation_layer_warnings).
