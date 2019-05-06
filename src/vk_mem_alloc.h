@@ -10527,7 +10527,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
             suballocations2nd[0].hAllocation == VK_NULL_HANDLE)
         {
             --m_2ndNullItemsCount;
-            suballocations2nd.remove(0);
+            VmaVectorRemove(suballocations2nd, 0);
         }
 
         if(ShouldCompact1st())
