@@ -3819,7 +3819,7 @@ Returned value is the found element, if present in the collection or place where
 new element with value (key) should be inserted.
 */
 template <typename CmpLess, typename IterT, typename KeyT>
-static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, CmpLess cmp)
+static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, const CmpLess& cmp)
 {
     size_t down = 0, up = (end - beg);
     while(down < up)
@@ -3835,6 +3835,19 @@ static IterT VmaBinaryFindFirstNotLess(IterT beg, IterT end, const KeyT &key, Cm
         }
     }
     return beg + down;
+}
+
+template<typename CmpLess, typename IterT, typename KeyT>
+IterT VmaBinaryFindSorted(const IterT& beg, const IterT& end, const KeyT& value, const CmpLess& cmp)
+{
+    IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
+        beg, end, value, cmp);
+    if(it == end ||
+        (!cmp(*it, value) && !cmp(value, *it)))
+    {
+        return it;
+    }
+    return end;
 }
 
 /*
@@ -4226,20 +4239,6 @@ bool VmaVectorRemoveSorted(VectorT& vector, const typename VectorT::value_type& 
         return true;
     }
     return false;
-}
-
-template<typename CmpLess, typename IterT, typename KeyT>
-IterT VmaVectorFindSorted(const IterT& beg, const IterT& end, const KeyT& value)
-{
-    CmpLess comparator;
-    IterT it = VmaBinaryFindFirstNotLess<CmpLess, IterT, KeyT>(
-        beg, end, value, comparator);
-    if(it == end ||
-        (!comparator(*it, value) && !comparator(value, *it)))
-    {
-        return it;
-    }
-    return end;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6858,7 +6857,6 @@ private:
         size_t allocationCount,
         VmaAllocation* pAllocations);
 
-    // Tries to free pMemory as Dedicated Memory. Returns true if found and freed.
     void FreeDedicatedMemory(VmaAllocation allocation);
 
     /*
@@ -10433,10 +10431,11 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         VmaSuballocation refSuballoc;
         refSuballoc.offset = offset;
         // Rest of members stays uninitialized intentionally for better performance.
-        SuballocationVectorType::iterator it = VmaVectorFindSorted<VmaSuballocationOffsetLess>(
+        SuballocationVectorType::iterator it = VmaBinaryFindSorted(
             suballocations1st.begin() + m_1stNullItemsBeginCount,
             suballocations1st.end(),
-            refSuballoc);
+            refSuballoc,
+            VmaSuballocationOffsetLess());
         if(it != suballocations1st.end())
         {
             it->type = VMA_SUBALLOCATION_TYPE_FREE;
@@ -10455,8 +10454,8 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         refSuballoc.offset = offset;
         // Rest of members stays uninitialized intentionally for better performance.
         SuballocationVectorType::iterator it = m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER ?
-            VmaVectorFindSorted<VmaSuballocationOffsetLess>(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc) :
-            VmaVectorFindSorted<VmaSuballocationOffsetGreater>(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc);
+            VmaBinaryFindSorted(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc, VmaSuballocationOffsetLess()) :
+            VmaBinaryFindSorted(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc, VmaSuballocationOffsetGreater());
         if(it != suballocations2nd.end())
         {
             it->type = VMA_SUBALLOCATION_TYPE_FREE;
