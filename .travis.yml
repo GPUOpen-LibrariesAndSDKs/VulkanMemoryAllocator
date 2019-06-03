@@ -15,7 +15,7 @@ before_script:
   - sudo apt-get install 
 
 install:
-  - wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz
+  - wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz?Human=true
   - tar -xzvf premake-5.0.0-alpha11-linux.tar.gz
   - sudo apt-get -qq update
   - sudo apt-get install -y libassimp-dev libglm-dev graphviz libxcb-dri3-0 libxcb-present0 libpciaccess0 cmake libpng-dev libxcb-dri3-dev libx11-dev libx11-xcb-dev libmirclient-dev libwayland-dev libxrandr-dev
