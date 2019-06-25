@@ -14812,11 +14812,20 @@ VkResult VmaAllocator_T::AllocateMemory(
         const VkDeviceSize alignmentForPool = VMA_MAX(
             vkMemReq.alignment,
             GetMemoryTypeMinAlignment(createInfo.pool->m_BlockVector.GetMemoryTypeIndex()));
+
+        VmaAllocationCreateInfo createInfoForPool = createInfo;
+        // If memory type is not HOST_VISIBLE, disable MAPPED.
+        if((createInfoForPool.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0 &&
+            (m_MemProps.memoryTypes[createInfo.pool->m_BlockVector.GetMemoryTypeIndex()].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+        {
+            createInfoForPool.flags &= ~VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        }
+
         return createInfo.pool->m_BlockVector.Allocate(
             m_CurrentFrameIndex.load(),
             vkMemReq.size,
             alignmentForPool,
-            createInfo,
+            createInfoForPool,
             suballocType,
             allocationCount,
             pAllocations);

@@ -4107,6 +4107,51 @@ static void TestMapping()
     }
 }
 
+// Test CREATE_MAPPED with required DEVICE_LOCAL. There was a bug with it.
+static void TestDeviceLocalMapped()
+{
+    VkResult res;
+
+    for(uint32_t testIndex = 0; testIndex < 3; ++testIndex)
+    {
+        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        bufCreateInfo.size = 4096;
+
+        VmaPool pool = VK_NULL_HANDLE;
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        if(testIndex == 2)
+        {
+            VmaPoolCreateInfo poolCreateInfo = {};
+            res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+            TEST(res == VK_SUCCESS);
+            res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+            TEST(res == VK_SUCCESS);
+            allocCreateInfo.pool = pool;
+        }
+        else if(testIndex == 1)
+        {
+            allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
+        }
+
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        VmaAllocationInfo allocInfo = {};
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+        TEST(res == VK_SUCCESS && alloc);
+
+        VkMemoryPropertyFlags memTypeFlags = 0;
+        vmaGetMemoryTypeProperties(g_hAllocator, allocInfo.memoryType, &memTypeFlags);
+        const bool shouldBeMapped = (memTypeFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+        TEST((allocInfo.pMappedData != nullptr) == shouldBeMapped);
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+        vmaDestroyPool(g_hAllocator, pool);
+    }
+}
+
 static void TestMappingMultithreaded()
 {
     wprintf(L"Testing mapping multithreaded...\n");
@@ -5206,6 +5251,7 @@ void Test()
     TestAllocationsInitialization();
 #endif
     TestMapping();
+    TestDeviceLocalMapped();
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
