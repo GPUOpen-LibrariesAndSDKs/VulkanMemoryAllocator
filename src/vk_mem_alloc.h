@@ -1505,7 +1505,7 @@ behavior is implementation-dependant - it depends on GPU vendor and graphics
 driver.
 
 On AMD cards it can be controlled while creating Vulkan device object by using
-VK_AMD_memory_allocation_behavior extension, if available.
+VK_AMD_memory_overallocation_behavior extension, if available.
 
 Alternatively, if you want to test how your program behaves with limited amount of Vulkan device
 memory available without switching your graphics card to one that really has
