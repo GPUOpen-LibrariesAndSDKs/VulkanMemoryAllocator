@@ -6411,8 +6411,7 @@ public:
         VmaAllocator hAllocator,
         VmaPool hCustomPool, // Optional.
         VmaBlockVector* pBlockVector,
-        uint32_t currFrameIndex,
-        uint32_t flags);
+        uint32_t currFrameIndex);
     ~VmaBlockVectorDefragmentationContext();
 
     VmaPool GetCustomPool() const { return m_hCustomPool; }
@@ -6431,7 +6430,6 @@ private:
     // Redundant, for convenience not to fetch from m_hCustomPool->m_BlockVector or m_hAllocator->m_pBlockVectors.
     VmaBlockVector* const m_pBlockVector;
     const uint32_t m_CurrFrameIndex;
-    const uint32_t m_AlgorithmFlags;
     // Owner of this object.
     VmaDefragmentationAlgorithm* m_pAlgorithm;
 
@@ -13309,8 +13307,7 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     VmaAllocator hAllocator,
     VmaPool hCustomPool,
     VmaBlockVector* pBlockVector,
-    uint32_t currFrameIndex,
-    uint32_t algorithmFlags) :
+    uint32_t currFrameIndex) :
     res(VK_SUCCESS),
     mutexLocked(false),
     blockContexts(VmaStlAllocator<VmaBlockDefragmentationContext>(hAllocator->GetAllocationCallbacks())),
@@ -13318,7 +13315,6 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     m_hCustomPool(hCustomPool),
     m_pBlockVector(pBlockVector),
     m_CurrFrameIndex(currFrameIndex),
-    m_AlgorithmFlags(algorithmFlags),
     m_pAlgorithm(VMA_NULL),
     m_Allocations(VmaStlAllocator<AllocInfo>(hAllocator->GetAllocationCallbacks())),
     m_AllAllocations(false)
@@ -13439,8 +13435,7 @@ void VmaDefragmentationContext_T::AddPools(uint32_t poolCount, VmaPool* pPools)
                     m_hAllocator,
                     pool,
                     &pool->m_BlockVector,
-                    m_CurrFrameIndex,
-                    m_Flags);
+                    m_CurrFrameIndex);
                 m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
             }
 
@@ -13487,8 +13482,7 @@ void VmaDefragmentationContext_T::AddAllocations(
                             m_hAllocator,
                             hAllocPool,
                             &hAllocPool->m_BlockVector,
-                            m_CurrFrameIndex,
-                            m_Flags);
+                            m_CurrFrameIndex);
                         m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
                     }
                 }
@@ -13504,8 +13498,7 @@ void VmaDefragmentationContext_T::AddAllocations(
                         m_hAllocator,
                         VMA_NULL, // hCustomPool
                         m_hAllocator->m_pBlockVectors[memTypeIndex],
-                        m_CurrFrameIndex,
-                        m_Flags);
+                        m_CurrFrameIndex);
                     m_DefaultPoolContexts[memTypeIndex] = pBlockVectorDefragCtx;
                 }
             }
