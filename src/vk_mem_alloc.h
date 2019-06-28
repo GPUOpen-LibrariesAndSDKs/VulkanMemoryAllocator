@@ -6391,12 +6391,6 @@ struct VmaBlockDefragmentationContext
     };
     uint32_t flags;
     VkBuffer hBuffer;
-
-    VmaBlockDefragmentationContext() :
-        flags(0),
-        hBuffer(VK_NULL_HANDLE)
-    {
-    }
 };
 
 class VmaBlockVectorDefragmentationContext
