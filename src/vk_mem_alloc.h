@@ -1472,6 +1472,11 @@ mutex, atomic etc.
 The library uses its own implementation of containers by default, but you can switch to using
 STL containers instead.
 
+For example, define `VMA_ASSERT(expr)` before including the library to provide
+custom implementation of the assertion, compatible with your project.
+By default it is defined to standard C `assert(expr)` in `_DEBUG` configuration
+and empty otherwise.
+
 \section config_Vulkan_functions Pointers to Vulkan functions
 
 The library uses Vulkan functions straight from the `vulkan.h` header by default.
