@@ -1307,6 +1307,13 @@ application. It can be useful to:
 
 \section record_and_replay_usage Usage
 
+Recording functionality is disabled by default.
+To enable it, define following macro before every include of this library:
+
+\code
+#define VMA_RECORDING_ENABLED 1
+\endcode
+
 <b>To record sequence of calls to a file:</b> Fill in
 VmaAllocatorCreateInfo::pRecordSettings member while creating #VmaAllocator
 object. File is opened and written during whole lifetime of the allocator.
@@ -1680,11 +1687,7 @@ Define this macro to 0/1 to disable/enable support for recording functionality,
 available through VmaAllocatorCreateInfo::pRecordSettings.
 */
 #ifndef VMA_RECORDING_ENABLED
-    #ifdef _WIN32
-        #define VMA_RECORDING_ENABLED 1
-    #else
-        #define VMA_RECORDING_ENABLED 0
-    #endif
+    #define VMA_RECORDING_ENABLED 0
 #endif
 
 #ifndef NOMINMAX
