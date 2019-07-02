@@ -1332,7 +1332,6 @@ It's a human-readable, text file in CSV format (Comma Separated Values).
   coded and tested only on Windows. Inclusion of recording code is driven by
   `VMA_RECORDING_ENABLED` macro. Support for other platforms should be easy to
   add. Contributions are welcomed.
-- Currently calls to vmaDefragment() function are not recorded.
 
 
 \page usage_patterns Recommended usage patterns
