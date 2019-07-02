@@ -762,7 +762,8 @@ What it doesn't do, so you need to do it yourself:
 - Recreate buffers and images that were bound to allocations that were defragmented and
   bind them with their new places in memory.
   You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
-  `vkCreateBuffer()`, `vkCreateImage()` for that purpose and NOT vmaDestroyBuffer(),
+  `vkCreateBuffer()`, `vkCreateImage()`, vmaBindBufferMemory(), vmaBindImageMemory()
+  for that purpose and NOT vmaDestroyBuffer(),
   vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage(), because you don't need to
   destroy or create allocation objects!
 - Recreate views and update descriptors that point to these buffers and images.
@@ -816,7 +817,7 @@ for(uint32_t i = 0; i < allocCount; ++i)
         // Bind new buffer to new memory region. Data contained in it is already moved.
         VmaAllocationInfo allocInfo;
         vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
-        vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
+        vmaBindBufferMemory(allocator, allocations[i], buffers[i]);
     }
 }
 \endcode
@@ -894,7 +895,7 @@ for(uint32_t i = 0; i < allocCount; ++i)
         // Bind new buffer to new memory region. Data contained in it is already moved.
         VmaAllocationInfo allocInfo;
         vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
-        vkBindBufferMemory(device, buffers[i], allocInfo.deviceMemory, allocInfo.offset);
+        vmaBindBufferMemory(allocator, allocations[i], buffers[i]);
     }
 }
 \endcode

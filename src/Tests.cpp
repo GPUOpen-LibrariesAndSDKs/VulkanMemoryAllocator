@@ -1188,7 +1188,7 @@ static void RecreateAllocationResource(AllocInfo& allocation)
         vkGetBufferMemoryRequirements(g_hDevice, allocation.m_Buffer, &vkMemReq);
         TEST(vkMemReq.size >= allocation.m_BufferInfo.size);
 
-        res = vkBindBufferMemory(g_hDevice, allocation.m_Buffer, allocInfo.deviceMemory, allocInfo.offset);
+        res = vmaBindBufferMemory(g_hAllocator, allocation.m_Allocation, allocation.m_Buffer);
         TEST(res == VK_SUCCESS);
     }
     else
@@ -1202,7 +1202,7 @@ static void RecreateAllocationResource(AllocInfo& allocation)
         VkMemoryRequirements vkMemReq;
         vkGetImageMemoryRequirements(g_hDevice, allocation.m_Image, &vkMemReq);
 
-        res = vkBindImageMemory(g_hDevice, allocation.m_Image, allocInfo.deviceMemory, allocInfo.offset);
+        res = vmaBindImageMemory(g_hAllocator, allocation.m_Allocation, allocation.m_Image);
         TEST(res == VK_SUCCESS);
     }
 }
