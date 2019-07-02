@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (c) 2018-2019 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ import json
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROGRAM_VERSION = 'VMA Dump Visualization 2.0.0'
+PROGRAM_VERSION = 'VMA Dump Visualization 2.0.1'
 IMG_SIZE_X = 800
 IMG_MARGIN = 8
 FONT_SIZE = 10
@@ -216,13 +216,18 @@ iBytesBetweenGridLines = 32
 while iBytesBetweenGridLines * fPixelsPerByte < 64:
     iBytesBetweenGridLines *= 2
 iByte = 0
+TEXT_MARGIN = 4
 while True:
     iX = int(iByte * fPixelsPerByte)
     if iX > IMG_SIZE_X - 2 * IMG_MARGIN:
         break
     draw.line([iX + IMG_MARGIN, 0, iX + IMG_MARGIN, iImgSizeY], fill=COLOR_GRID_LINE)
-    if iX + 32 < IMG_SIZE_X - 2 * IMG_MARGIN:
-        draw.text((iX + IMG_MARGIN + FONT_SIZE/4, y), BytesToStr(iByte), fill=COLOR_TEXT_H2, font=font)
+    if iByte == 0:
+        draw.text((iX + IMG_MARGIN + TEXT_MARGIN, y), "0", fill=COLOR_TEXT_H2, font=font)
+    else:
+        text = BytesToStr(iByte)
+        textSize = draw.textsize(text, font=font)
+        draw.text((iX + IMG_MARGIN - textSize[0] - TEXT_MARGIN, y), text, fill=COLOR_TEXT_H2, font=font)
     iByte += iBytesBetweenGridLines
 y += FONT_SIZE + IMG_MARGIN
 
@@ -247,9 +252,9 @@ for iMemTypeIndex in sorted(data.keys()):
     for iPoolId, listPool in dictMemType['CustomPools'].items():
         for objBlock in listPool:
             if 'Algorithm' in objBlock and objBlock['Algorithm']:
-                sAlgorithm = ' (Algorithm: %s)' % (objBlock['Algorithm']);
+                sAlgorithm = ' (Algorithm: %s)' % (objBlock['Algorithm'])
             else:
-                sAlgorithm = '';
+                sAlgorithm = ''
             draw.text((IMG_MARGIN, y), "Custom pool %d%s block %d" % (iPoolId, sAlgorithm, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
             y += FONT_SIZE + IMG_MARGIN
             DrawBlock(draw, y, objBlock)
