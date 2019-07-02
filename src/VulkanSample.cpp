@@ -130,6 +130,15 @@ static void CustomCpuFree(void* pUserData, void* pMemory)
     _aligned_free(pMemory);
 }
 
+static const VkAllocationCallbacks g_CpuAllocationCallbacks = {
+    CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA, // pUserData
+    &CustomCpuAllocation, // pfnAllocation
+    &CustomCpuReallocation, // pfnReallocation
+    &CustomCpuFree // pfnFree
+};
+
+const VkAllocationCallbacks* g_Allocs;
+
 void BeginSingleTimeCommands()
 {
     VkCommandBufferBeginInfo cmdBufBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -536,7 +545,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     textureImageViewInfo.subresourceRange.levelCount = 1;
     textureImageViewInfo.subresourceRange.baseArrayLayer = 0;
     textureImageViewInfo.subresourceRange.layerCount = 1;
-    ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &textureImageViewInfo, nullptr, &g_hTextureImageView) );
+    ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &textureImageViewInfo, g_Allocs, &g_hTextureImageView) );
 }
 
 struct UniformBufferObject
@@ -570,7 +579,7 @@ static void RegisterDebugCallbacks()
     callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
     callbackCreateInfo.pUserData   = nullptr;
 
-    ERR_GUARD_VULKAN( g_pvkCreateDebugReportCallbackEXT(g_hVulkanInstance, &callbackCreateInfo, nullptr, &g_hCallback) );
+    ERR_GUARD_VULKAN( g_pvkCreateDebugReportCallbackEXT(g_hVulkanInstance, &callbackCreateInfo, g_Allocs, &g_hCallback) );
 }
 
 static bool IsLayerSupported(const VkLayerProperties* pProps, size_t propCount, const char* pLayerName)
@@ -677,9 +686,9 @@ static void CreateSwapchain()
     }
 
     VkSwapchainKHR hNewSwapchain = VK_NULL_HANDLE;
-    ERR_GUARD_VULKAN( vkCreateSwapchainKHR(g_hDevice, &swapChainInfo, nullptr, &hNewSwapchain) );
+    ERR_GUARD_VULKAN( vkCreateSwapchainKHR(g_hDevice, &swapChainInfo, g_Allocs, &hNewSwapchain) );
     if(g_hSwapchain != VK_NULL_HANDLE)
-        vkDestroySwapchainKHR(g_hDevice, g_hSwapchain, nullptr);
+        vkDestroySwapchainKHR(g_hDevice, g_hSwapchain, g_Allocs);
     g_hSwapchain = hNewSwapchain;
 
     // Retrieve swapchain images.
@@ -692,7 +701,7 @@ static void CreateSwapchain()
     // Create swapchain image views.
 
     for(size_t i = g_SwapchainImageViews.size(); i--; )
-        vkDestroyImageView(g_hDevice, g_SwapchainImageViews[i], nullptr);
+        vkDestroyImageView(g_hDevice, g_SwapchainImageViews[i], g_Allocs);
     g_SwapchainImageViews.clear();
 
     VkImageViewCreateInfo swapchainImageViewInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -711,7 +720,7 @@ static void CreateSwapchain()
         swapchainImageViewInfo.subresourceRange.levelCount = 1;
         swapchainImageViewInfo.subresourceRange.baseArrayLayer = 0;
         swapchainImageViewInfo.subresourceRange.layerCount = 1;
-        ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &swapchainImageViewInfo, nullptr, &g_SwapchainImageViews[i]) );
+        ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &swapchainImageViewInfo, g_Allocs, &g_SwapchainImageViews[i]) );
     }
 
     // Create depth buffer
@@ -749,13 +758,13 @@ static void CreateSwapchain()
     depthImageViewInfo.subresourceRange.baseArrayLayer = 0;
     depthImageViewInfo.subresourceRange.layerCount = 1;
 
-    ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &depthImageViewInfo, nullptr, &g_hDepthImageView) );
+    ERR_GUARD_VULKAN( vkCreateImageView(g_hDevice, &depthImageViewInfo, g_Allocs, &g_hDepthImageView) );
 
     // Create pipeline layout
     {
         if(g_hPipelineLayout != VK_NULL_HANDLE)
         {
-            vkDestroyPipelineLayout(g_hDevice, g_hPipelineLayout, nullptr);
+            vkDestroyPipelineLayout(g_hDevice, g_hPipelineLayout, g_Allocs);
             g_hPipelineLayout = VK_NULL_HANDLE;
         }
 
@@ -771,14 +780,14 @@ static void CreateSwapchain()
         pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
         pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges;
-        ERR_GUARD_VULKAN( vkCreatePipelineLayout(g_hDevice, &pipelineLayoutInfo, nullptr, &g_hPipelineLayout) );
+        ERR_GUARD_VULKAN( vkCreatePipelineLayout(g_hDevice, &pipelineLayoutInfo, g_Allocs, &g_hPipelineLayout) );
     }
 
     // Create render pass
     {
         if(g_hRenderPass != VK_NULL_HANDLE)
         {
-            vkDestroyRenderPass(g_hDevice, g_hRenderPass, nullptr);
+            vkDestroyRenderPass(g_hDevice, g_hRenderPass, g_Allocs);
             g_hRenderPass = VK_NULL_HANDLE;
         }
 
@@ -823,7 +832,7 @@ static void CreateSwapchain()
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpassDesc;
         renderPassInfo.dependencyCount = 0;
-        ERR_GUARD_VULKAN( vkCreateRenderPass(g_hDevice, &renderPassInfo, nullptr, &g_hRenderPass) );
+        ERR_GUARD_VULKAN( vkCreateRenderPass(g_hDevice, &renderPassInfo, g_Allocs, &g_hRenderPass) );
     }
 
     // Create pipeline
@@ -834,14 +843,14 @@ static void CreateSwapchain()
         shaderModuleInfo.codeSize = vertShaderCode.size();
         shaderModuleInfo.pCode = (const uint32_t*)vertShaderCode.data();
         VkShaderModule hVertShaderModule = VK_NULL_HANDLE;
-        ERR_GUARD_VULKAN( vkCreateShaderModule(g_hDevice, &shaderModuleInfo, nullptr, &hVertShaderModule) );
+        ERR_GUARD_VULKAN( vkCreateShaderModule(g_hDevice, &shaderModuleInfo, g_Allocs, &hVertShaderModule) );
 
         std::vector<char> hFragShaderCode;
         LoadShader(hFragShaderCode, "Shader.frag.spv");
         shaderModuleInfo.codeSize = hFragShaderCode.size();
         shaderModuleInfo.pCode = (const uint32_t*)hFragShaderCode.data();
         VkShaderModule fragShaderModule = VK_NULL_HANDLE;
-        ERR_GUARD_VULKAN( vkCreateShaderModule(g_hDevice, &shaderModuleInfo, nullptr, &fragShaderModule) );
+        ERR_GUARD_VULKAN( vkCreateShaderModule(g_hDevice, &shaderModuleInfo, g_Allocs, &fragShaderModule) );
 
         VkPipelineShaderStageCreateInfo vertPipelineShaderStageInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
         vertPipelineShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -977,17 +986,18 @@ static void CreateSwapchain()
             g_hDevice,
             VK_NULL_HANDLE,
             1,
-            &pipelineInfo, nullptr,
+            &pipelineInfo,
+            g_Allocs,
             &g_hPipeline) );
 
-        vkDestroyShaderModule(g_hDevice, fragShaderModule, nullptr);
-        vkDestroyShaderModule(g_hDevice, hVertShaderModule, nullptr);
+        vkDestroyShaderModule(g_hDevice, fragShaderModule, g_Allocs);
+        vkDestroyShaderModule(g_hDevice, hVertShaderModule, g_Allocs);
     }
 
     // Create frambuffers
 
     for(size_t i = g_Framebuffers.size(); i--; )
-        vkDestroyFramebuffer(g_hDevice, g_Framebuffers[i], nullptr);
+        vkDestroyFramebuffer(g_hDevice, g_Framebuffers[i], g_Allocs);
     g_Framebuffers.clear();
 
     g_Framebuffers.resize(g_SwapchainImageViews.size());
@@ -1002,47 +1012,47 @@ static void CreateSwapchain()
         framebufferInfo.width = g_Extent.width;
         framebufferInfo.height = g_Extent.height;
         framebufferInfo.layers = 1;
-        ERR_GUARD_VULKAN( vkCreateFramebuffer(g_hDevice, &framebufferInfo, nullptr, &g_Framebuffers[i]) );
+        ERR_GUARD_VULKAN( vkCreateFramebuffer(g_hDevice, &framebufferInfo, g_Allocs, &g_Framebuffers[i]) );
     }
 
     // Create semaphores
 
     if(g_hImageAvailableSemaphore != VK_NULL_HANDLE)
     {
-        vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphore, nullptr);
+        vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphore, g_Allocs);
         g_hImageAvailableSemaphore = VK_NULL_HANDLE;
     }
     if(g_hRenderFinishedSemaphore != VK_NULL_HANDLE)
     {
-        vkDestroySemaphore(g_hDevice, g_hRenderFinishedSemaphore, nullptr);
+        vkDestroySemaphore(g_hDevice, g_hRenderFinishedSemaphore, g_Allocs);
         g_hRenderFinishedSemaphore = VK_NULL_HANDLE;
     }
 
     VkSemaphoreCreateInfo semaphoreInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-    ERR_GUARD_VULKAN( vkCreateSemaphore(g_hDevice, &semaphoreInfo, nullptr, &g_hImageAvailableSemaphore) );
-    ERR_GUARD_VULKAN( vkCreateSemaphore(g_hDevice, &semaphoreInfo, nullptr, &g_hRenderFinishedSemaphore) );
+    ERR_GUARD_VULKAN( vkCreateSemaphore(g_hDevice, &semaphoreInfo, g_Allocs, &g_hImageAvailableSemaphore) );
+    ERR_GUARD_VULKAN( vkCreateSemaphore(g_hDevice, &semaphoreInfo, g_Allocs, &g_hRenderFinishedSemaphore) );
 }
 
 static void DestroySwapchain(bool destroyActualSwapchain)
 {
     if(g_hImageAvailableSemaphore != VK_NULL_HANDLE)
     {
-        vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphore, nullptr);
+        vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphore, g_Allocs);
         g_hImageAvailableSemaphore = VK_NULL_HANDLE;
     }
     if(g_hRenderFinishedSemaphore != VK_NULL_HANDLE)
     {
-        vkDestroySemaphore(g_hDevice, g_hRenderFinishedSemaphore, nullptr);
+        vkDestroySemaphore(g_hDevice, g_hRenderFinishedSemaphore, g_Allocs);
         g_hRenderFinishedSemaphore = VK_NULL_HANDLE;
     }
 
     for(size_t i = g_Framebuffers.size(); i--; )
-        vkDestroyFramebuffer(g_hDevice, g_Framebuffers[i], nullptr);
+        vkDestroyFramebuffer(g_hDevice, g_Framebuffers[i], g_Allocs);
     g_Framebuffers.clear();
 
     if(g_hDepthImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(g_hDevice, g_hDepthImageView, nullptr);
+        vkDestroyImageView(g_hDevice, g_hDepthImageView, g_Allocs);
         g_hDepthImageView = VK_NULL_HANDLE;
     }
     if(g_hDepthImage != VK_NULL_HANDLE)
@@ -1053,35 +1063,40 @@ static void DestroySwapchain(bool destroyActualSwapchain)
 
     if(g_hPipeline != VK_NULL_HANDLE)
     {
-        vkDestroyPipeline(g_hDevice, g_hPipeline, nullptr);
+        vkDestroyPipeline(g_hDevice, g_hPipeline, g_Allocs);
         g_hPipeline = VK_NULL_HANDLE;
     }
 
     if(g_hRenderPass != VK_NULL_HANDLE)
     {
-        vkDestroyRenderPass(g_hDevice, g_hRenderPass, nullptr);
+        vkDestroyRenderPass(g_hDevice, g_hRenderPass, g_Allocs);
         g_hRenderPass = VK_NULL_HANDLE;
     }
 
     if(g_hPipelineLayout != VK_NULL_HANDLE)
     {
-        vkDestroyPipelineLayout(g_hDevice, g_hPipelineLayout, nullptr);
+        vkDestroyPipelineLayout(g_hDevice, g_hPipelineLayout, g_Allocs);
         g_hPipelineLayout = VK_NULL_HANDLE;
     }
     
     for(size_t i = g_SwapchainImageViews.size(); i--; )
-        vkDestroyImageView(g_hDevice, g_SwapchainImageViews[i], nullptr);
+        vkDestroyImageView(g_hDevice, g_SwapchainImageViews[i], g_Allocs);
     g_SwapchainImageViews.clear();
 
     if(destroyActualSwapchain && (g_hSwapchain != VK_NULL_HANDLE))
     {
-        vkDestroySwapchainKHR(g_hDevice, g_hSwapchain, nullptr);
+        vkDestroySwapchainKHR(g_hDevice, g_hSwapchain, g_Allocs);
         g_hSwapchain = VK_NULL_HANDLE;
     }
 }
 
 static void InitializeApplication()
 {
+    if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
+    {
+        g_Allocs = &g_CpuAllocationCallbacks;
+    }
+
     uint32_t instanceLayerPropCount = 0;
     ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr) );
     std::vector<VkLayerProperties> instanceLayerProps(instanceLayerPropCount);
@@ -1124,13 +1139,13 @@ static void InitializeApplication()
     instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
     instInfo.ppEnabledLayerNames = instanceLayers.data();
 
-    ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, NULL, &g_hVulkanInstance) );
+    ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, g_Allocs, &g_hVulkanInstance) );
 
     // Create VkSurfaceKHR.
     VkWin32SurfaceCreateInfoKHR surfaceInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
     surfaceInfo.hinstance = g_hAppInstance;
     surfaceInfo.hwnd = g_hWnd;
-    VkResult result = vkCreateWin32SurfaceKHR(g_hVulkanInstance, &surfaceInfo, NULL, &g_hSurface);
+    VkResult result = vkCreateWin32SurfaceKHR(g_hVulkanInstance, &surfaceInfo, g_Allocs, &g_hSurface);
     assert(result == VK_SUCCESS);
 
     if(g_EnableValidationLayer == true)
@@ -1274,7 +1289,7 @@ static void InitializeApplication()
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfo;
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
-    ERR_GUARD_VULKAN( vkCreateDevice(g_hPhysicalDevice, &deviceCreateInfo, nullptr, &g_hDevice) );
+    ERR_GUARD_VULKAN( vkCreateDevice(g_hPhysicalDevice, &deviceCreateInfo, g_Allocs, &g_hDevice) );
 
     // Create memory allocator
 
@@ -1298,14 +1313,9 @@ static void InitializeApplication()
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
 
-    VkAllocationCallbacks cpuAllocationCallbacks = {};
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
     {
-        cpuAllocationCallbacks.pUserData = CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA;
-        cpuAllocationCallbacks.pfnAllocation = &CustomCpuAllocation;
-        cpuAllocationCallbacks.pfnReallocation = &CustomCpuReallocation;
-        cpuAllocationCallbacks.pfnFree = &CustomCpuFree;
-        allocatorInfo.pAllocationCallbacks = &cpuAllocationCallbacks;
+        allocatorInfo.pAllocationCallbacks = &g_CpuAllocationCallbacks;
     }
 
     // Uncomment to enable recording to CSV file.
@@ -1337,7 +1347,7 @@ static void InitializeApplication()
     VkCommandPoolCreateInfo commandPoolInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
     commandPoolInfo.queueFamilyIndex = g_GraphicsQueueFamilyIndex;
     commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    ERR_GUARD_VULKAN( vkCreateCommandPool(g_hDevice, &commandPoolInfo, nullptr, &g_hCommandPool) );
+    ERR_GUARD_VULKAN( vkCreateCommandPool(g_hDevice, &commandPoolInfo, g_Allocs, &g_hCommandPool) );
 
     VkCommandBufferAllocateInfo commandBufferInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
     commandBufferInfo.commandPool = g_hCommandPool;
@@ -1349,10 +1359,10 @@ static void InitializeApplication()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     for(size_t i = 0; i < COMMAND_BUFFER_COUNT; ++i)
     {
-        ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, nullptr, &g_MainCommandBufferExecutedFances[i]) );
+        ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, g_Allocs, &g_MainCommandBufferExecutedFances[i]) );
     }
 
-    ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, nullptr, &g_ImmediateFence) );
+    ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, g_Allocs, &g_ImmediateFence) );
 
     commandBufferInfo.commandBufferCount = 1;
     ERR_GUARD_VULKAN( vkAllocateCommandBuffers(g_hDevice, &commandBufferInfo, &g_hTemporaryCommandBuffer) );
@@ -1375,7 +1385,7 @@ static void InitializeApplication()
     samplerInfo.mipLodBias = 0.f;
     samplerInfo.minLod = 0.f;
     samplerInfo.maxLod = FLT_MAX;
-    ERR_GUARD_VULKAN( vkCreateSampler(g_hDevice, &samplerInfo, nullptr, &g_hSampler) );
+    ERR_GUARD_VULKAN( vkCreateSampler(g_hDevice, &samplerInfo, g_Allocs, &g_hSampler) );
 
     CreateTexture(128, 128);
     CreateMesh();
@@ -1389,7 +1399,7 @@ static void InitializeApplication()
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
     descriptorSetLayoutInfo.bindingCount = 1;
     descriptorSetLayoutInfo.pBindings = &samplerLayoutBinding;
-    ERR_GUARD_VULKAN( vkCreateDescriptorSetLayout(g_hDevice, &descriptorSetLayoutInfo, nullptr, &g_hDescriptorSetLayout) );
+    ERR_GUARD_VULKAN( vkCreateDescriptorSetLayout(g_hDevice, &descriptorSetLayoutInfo, g_Allocs, &g_hDescriptorSetLayout) );
 
     // Create descriptor pool
 
@@ -1404,7 +1414,7 @@ static void InitializeApplication()
     descriptorPoolInfo.poolSizeCount = (uint32_t)_countof(descriptorPoolSizes);
     descriptorPoolInfo.pPoolSizes = descriptorPoolSizes;
     descriptorPoolInfo.maxSets = 1;
-    ERR_GUARD_VULKAN( vkCreateDescriptorPool(g_hDevice, &descriptorPoolInfo, nullptr, &g_hDescriptorPool) );
+    ERR_GUARD_VULKAN( vkCreateDescriptorPool(g_hDevice, &descriptorPoolInfo, g_Allocs, &g_hDescriptorPool) );
 
     // Create descriptor set layout
 
@@ -1441,19 +1451,19 @@ static void FinalizeApplication()
 
     if(g_hDescriptorPool != VK_NULL_HANDLE)
     {
-        vkDestroyDescriptorPool(g_hDevice, g_hDescriptorPool, nullptr);
+        vkDestroyDescriptorPool(g_hDevice, g_hDescriptorPool, g_Allocs);
         g_hDescriptorPool = VK_NULL_HANDLE;
     }
 
     if(g_hDescriptorSetLayout != VK_NULL_HANDLE)
     {
-        vkDestroyDescriptorSetLayout(g_hDevice, g_hDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(g_hDevice, g_hDescriptorSetLayout, g_Allocs);
         g_hDescriptorSetLayout = VK_NULL_HANDLE;
     }
 
     if(g_hTextureImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(g_hDevice, g_hTextureImageView, nullptr);
+        vkDestroyImageView(g_hDevice, g_hTextureImageView, g_Allocs);
         g_hTextureImageView = VK_NULL_HANDLE;
     }
     if(g_hTextureImage != VK_NULL_HANDLE)
@@ -1475,13 +1485,13 @@ static void FinalizeApplication()
     
     if(g_hSampler != VK_NULL_HANDLE)
     {
-        vkDestroySampler(g_hDevice, g_hSampler, nullptr);
+        vkDestroySampler(g_hDevice, g_hSampler, g_Allocs);
         g_hSampler = VK_NULL_HANDLE;
     }
 
     if(g_ImmediateFence)
     {
-        vkDestroyFence(g_hDevice, g_ImmediateFence, nullptr);
+        vkDestroyFence(g_hDevice, g_ImmediateFence, g_Allocs);
         g_ImmediateFence = VK_NULL_HANDLE;
     }
 
@@ -1489,7 +1499,7 @@ static void FinalizeApplication()
     {
         if(g_MainCommandBufferExecutedFances[i] != VK_NULL_HANDLE)
         {
-            vkDestroyFence(g_hDevice, g_MainCommandBufferExecutedFances[i], nullptr);
+            vkDestroyFence(g_hDevice, g_MainCommandBufferExecutedFances[i], g_Allocs);
             g_MainCommandBufferExecutedFances[i] = VK_NULL_HANDLE;
         }
     }
@@ -1506,7 +1516,7 @@ static void FinalizeApplication()
 
     if(g_hCommandPool != VK_NULL_HANDLE)
     {
-        vkDestroyCommandPool(g_hDevice, g_hCommandPool, nullptr);
+        vkDestroyCommandPool(g_hDevice, g_hCommandPool, g_Allocs);
         g_hCommandPool = VK_NULL_HANDLE;
     }
 
@@ -1518,25 +1528,25 @@ static void FinalizeApplication()
 
     if(g_hDevice != VK_NULL_HANDLE)
     {
-        vkDestroyDevice(g_hDevice, nullptr);
+        vkDestroyDevice(g_hDevice, g_Allocs);
         g_hDevice = nullptr;
     }
 
     if(g_pvkDestroyDebugReportCallbackEXT && g_hCallback != VK_NULL_HANDLE)
     {
-        g_pvkDestroyDebugReportCallbackEXT(g_hVulkanInstance, g_hCallback, nullptr);
+        g_pvkDestroyDebugReportCallbackEXT(g_hVulkanInstance, g_hCallback, g_Allocs);
         g_hCallback = VK_NULL_HANDLE;
     }
 
     if(g_hSurface != VK_NULL_HANDLE)
     {
-        vkDestroySurfaceKHR(g_hVulkanInstance, g_hSurface, NULL);
+        vkDestroySurfaceKHR(g_hVulkanInstance, g_hSurface, g_Allocs);
         g_hSurface = VK_NULL_HANDLE;
     }
 
     if(g_hVulkanInstance != VK_NULL_HANDLE)
     {
-        vkDestroyInstance(g_hVulkanInstance, NULL);
+        vkDestroyInstance(g_hVulkanInstance, g_Allocs);
         g_hVulkanInstance = VK_NULL_HANDLE;
     }
 }
