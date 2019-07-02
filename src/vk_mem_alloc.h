@@ -15808,7 +15808,7 @@ VkResult vmaFindMemoryTypeIndex(
         break;
     case VMA_MEMORY_USAGE_GPU_TO_CPU:
         requiredFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        preferredFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+        preferredFlags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
         break;
     default:
         break;
