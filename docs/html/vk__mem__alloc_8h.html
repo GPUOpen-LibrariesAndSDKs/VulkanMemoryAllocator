@@ -124,6 +124,8 @@ Macros</h2></td></tr>
 <tr class="separator:a9f918755b601cf4bffca775992e6fb90"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
 <tr class="separator:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a88bef97f86d70a34a4c0746e09a2680d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a88bef97f86d70a34a4c0746e09a2680d">VMA_BIND_MEMORY2</a>&#160;&#160;&#160;0</td></tr>
+<tr class="separator:a88bef97f86d70a34a4c0746e09a2680d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae25f0d55fd91cb166f002b63244800e1"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1">VMA_STATS_STRING_ENABLED</a>&#160;&#160;&#160;1</td></tr>
 <tr class="separator:ae25f0d55fd91cb166f002b63244800e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -205,6 +207,7 @@ Typedefs</h2></td></tr>
 Enumerations</h2></td></tr>
 <tr class="memitem:a4f87c9100d154a65a4ad495f7763cf7c"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7c">VmaAllocatorCreateFlagBits</a> { <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4816ddaed324ba110172ca608a20f29d">VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT</a> = 0x00000001, 
 <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878">VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT</a> = 0x00000002, 
+<a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> = 0x00000004, 
 <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c">VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
  }</td></tr>
 <tr class="memdesc:a4f87c9100d154a65a4ad495f7763cf7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a>.  <a href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7c">More...</a><br /></td></tr>
@@ -374,9 +377,15 @@ Functions</h2></td></tr>
 <tr class="memitem:a6b0929b914b60cf2d45cac4bf3547470"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a6b0929b914b60cf2d45cac4bf3547470">vmaBindBufferMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkBuffer buffer)</td></tr>
 <tr class="memdesc:a6b0929b914b60cf2d45cac4bf3547470"><td class="mdescLeft">&#160;</td><td class="mdescRight">Binds buffer to allocation.  <a href="#a6b0929b914b60cf2d45cac4bf3547470">More...</a><br /></td></tr>
 <tr class="separator:a6b0929b914b60cf2d45cac4bf3547470"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a927c944f45e0f2941182abb6f608e64a"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a927c944f45e0f2941182abb6f608e64a">vmaBindBufferMemory2</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize allocationLocalOffset, VkBuffer buffer, const void *pNext)</td></tr>
+<tr class="memdesc:a927c944f45e0f2941182abb6f608e64a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Binds buffer to allocation with additional parameters.  <a href="#a927c944f45e0f2941182abb6f608e64a">More...</a><br /></td></tr>
+<tr class="separator:a927c944f45e0f2941182abb6f608e64a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d3ca45799923aa5d138e9e5f9eb2da5"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a3d3ca45799923aa5d138e9e5f9eb2da5">vmaBindImageMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkImage image)</td></tr>
 <tr class="memdesc:a3d3ca45799923aa5d138e9e5f9eb2da5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Binds image to allocation.  <a href="#a3d3ca45799923aa5d138e9e5f9eb2da5">More...</a><br /></td></tr>
 <tr class="separator:a3d3ca45799923aa5d138e9e5f9eb2da5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa8251ee81b0045a443e35b8e8aa021bc"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aa8251ee81b0045a443e35b8e8aa021bc">vmaBindImageMemory2</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize allocationLocalOffset, VkImage image, const void *pNext)</td></tr>
+<tr class="memdesc:aa8251ee81b0045a443e35b8e8aa021bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Binds image to allocation with additional parameters.  <a href="#aa8251ee81b0045a443e35b8e8aa021bc">More...</a><br /></td></tr>
+<tr class="separator:aa8251ee81b0045a443e35b8e8aa021bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac72ee55598617e8eecca384e746bab51"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, VkBuffer *pBuffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="separator:ac72ee55598617e8eecca384e746bab51"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d9f4e4ba5bf9aab1f1c746387753d77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77">vmaDestroyBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkBuffer buffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
@@ -398,6 +407,20 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define NOMINMAX</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a88bef97f86d70a34a4c0746e09a2680d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a88bef97f86d70a34a4c0746e09a2680d">&#9670;&nbsp;</a></span>VMA_BIND_MEMORY2</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VMA_BIND_MEMORY2&#160;&#160;&#160;0</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -947,6 +970,10 @@ Functions</h2></td></tr>
 <p>vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer. </p>
 </blockquote>
 </td></tr>
+<tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee"></a>VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_KHR_bind_memory2 extension.</p>
+<p>You may set this flag only if you found out that this device extension is supported, you enabled it while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>, and you want it to be used internally by this library.</p>
+<p>The extension provides functions <code>vkBindBufferMemory2KHR</code> and <code>vkBindImageMemory2KHR</code>, which allow to pass a chain of <code>pNext</code> structures while binding. This flag is required if you use <code>pNext</code> parameter in <a class="el" href="vk__mem__alloc_8h.html#a927c944f45e0f2941182abb6f608e64a" title="Binds buffer to allocation with additional parameters.">vmaBindBufferMemory2()</a> or <a class="el" href="vk__mem__alloc_8h.html#aa8251ee81b0045a443e35b8e8aa021bc" title="Binds image to allocation with additional parameters.">vmaBindImageMemory2()</a>. </p>
+</td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c"></a>VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
@@ -1335,6 +1362,63 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a927c944f45e0f2941182abb6f608e64a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a927c944f45e0f2941182abb6f608e64a">&#9670;&nbsp;</a></span>vmaBindBufferMemory2()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaBindBufferMemory2 </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>allocationLocalOffset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkBuffer&#160;</td>
+          <td class="paramname"><em>buffer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const void *&#160;</td>
+          <td class="paramname"><em>pNext</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Binds buffer to allocation with additional parameters. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginnig of the <code>allocation</code>. Normally it should be 0. </td></tr>
+    <tr><td class="paramname">pNext</td><td>A chain of structures to be attached to <code>VkBindBufferMemoryInfoKHR</code> structure used internally. Normally it should be null.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>This function is similar to <a class="el" href="vk__mem__alloc_8h.html#a6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a>, but it provides additional parameters.</p>
+<p>If <code>pNext</code> is not null, <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must have been created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> flag. Otherwise the call fails. </p>
+
+</div>
+</div>
 <a id="a3d3ca45799923aa5d138e9e5f9eb2da5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3d3ca45799923aa5d138e9e5f9eb2da5">&#9670;&nbsp;</a></span>vmaBindImageMemory()</h2>
 
@@ -1370,6 +1454,63 @@ Functions</h2></td></tr>
 <p>Binds image to allocation. </p>
 <p>Binds specified image to region of memory represented by specified allocation. Gets <code>VkDeviceMemory</code> handle and offset from the allocation. If you want to create an image, allocate memory for it and bind them together separately, you should use this function for binding instead of standard <code>vkBindImageMemory()</code>, because it ensures proper synchronization so that when a <code>VkDeviceMemory</code> object is used by multiple allocations, calls to <code>vkBind*Memory()</code> or <code>vkMapMemory()</code> won't happen from multiple threads simultaneously (which is illegal in Vulkan).</p>
 <p>It is recommended to use function <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a> instead of this one. </p>
+
+</div>
+</div>
+<a id="aa8251ee81b0045a443e35b8e8aa021bc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa8251ee81b0045a443e35b8e8aa021bc">&#9670;&nbsp;</a></span>vmaBindImageMemory2()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaBindImageMemory2 </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>allocationLocalOffset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkImage&#160;</td>
+          <td class="paramname"><em>image</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const void *&#160;</td>
+          <td class="paramname"><em>pNext</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Binds image to allocation with additional parameters. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginnig of the <code>allocation</code>. Normally it should be 0. </td></tr>
+    <tr><td class="paramname">pNext</td><td>A chain of structures to be attached to <code>VkBindImageMemoryInfoKHR</code> structure used internally. Normally it should be null.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>This function is similar to <a class="el" href="vk__mem__alloc_8h.html#a3d3ca45799923aa5d138e9e5f9eb2da5" title="Binds image to allocation.">vmaBindImageMemory()</a>, but it provides additional parameters.</p>
+<p>If <code>pNext</code> is not null, <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must have been created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> flag. Otherwise the call fails. </p>
 
 </div>
 </div>

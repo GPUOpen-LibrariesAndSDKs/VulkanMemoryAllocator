@@ -18,6 +18,7 @@ var searchData=
   ['vma_5fallocation_5fcreate_5fuser_5fdata_5fcopy_5fstring_5fbit',['VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520',1,'vk_mem_alloc.h']]],
   ['vma_5fallocator_5fcreate_5fexternally_5fsynchronized_5fbit',['VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT',['../vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4816ddaed324ba110172ca608a20f29d',1,'vk_mem_alloc.h']]],
   ['vma_5fallocator_5fcreate_5fflag_5fbits_5fmax_5fenum',['VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM',['../vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c',1,'vk_mem_alloc.h']]],
+  ['vma_5fallocator_5fcreate_5fkhr_5fbind_5fmemory2_5fbit',['VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT',['../vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee',1,'vk_mem_alloc.h']]],
   ['vma_5fallocator_5fcreate_5fkhr_5fdedicated_5fallocation_5fbit',['VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT',['../vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878',1,'vk_mem_alloc.h']]],
   ['vma_5fdefragmentation_5fflag_5fbits_5fmax_5fenum',['VMA_DEFRAGMENTATION_FLAG_BITS_MAX_ENUM',['../vk__mem__alloc_8h.html#a6552a65b71d16f378c6994b3ceaef50cab87ec33154803bfeb5ac2b379f1d6a97',1,'vk_mem_alloc.h']]],
   ['vma_5fmemory_5fusage_5fcpu_5fonly',['VMA_MEMORY_USAGE_CPU_ONLY',['../vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca40bdf4cddeffeb12f43d45ca1286e0a5',1,'vk_mem_alloc.h']]],

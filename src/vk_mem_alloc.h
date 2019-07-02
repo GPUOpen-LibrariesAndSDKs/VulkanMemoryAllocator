@@ -207,7 +207,8 @@ You can also combine multiple methods.
 -# If you already have a buffer or an image created, you want to allocate memory
    for it and then you will bind it yourself, you can use function
    vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
-   For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory().
+   For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory()
+   or their extended versions: vmaBindBufferMemory2(), vmaBindImageMemory2().
 -# If you want to create a buffer or an image, allocate memory for it and bind
    them together, all in one call, you can use function vmaCreateBuffer(),
    vmaCreateImage(). This is the easiest and recommended way to use this library.
@@ -1706,6 +1707,14 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
+#if !defined(VMA_BIND_MEMORY2)
+    #if VK_KHR_bind_memory2
+        #define VMA_BIND_MEMORY2 1
+    #else
+        #define VMA_BIND_MEMORY2 0
+    #endif
+#endif
+
 /** \struct VmaAllocator
 \brief Represents main object of this library initialized.
 
@@ -1767,12 +1776,24 @@ typedef enum VmaAllocatorCreateFlagBits {
     - VK_KHR_get_memory_requirements2
     - VK_KHR_dedicated_allocation
 
-When this flag is set, you can experience following warnings reported by Vulkan
-validation layer. You can ignore them.
+    When this flag is set, you can experience following warnings reported by Vulkan
+    validation layer. You can ignore them.
 
-> vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer.
+    > vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer.
     */
     VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT = 0x00000002,
+    /**
+    Enables usage of VK_KHR_bind_memory2 extension.
+
+    You may set this flag only if you found out that this device extension is supported,
+    you enabled it while creating Vulkan device passed as VmaAllocatorCreateInfo::device,
+    and you want it to be used internally by this library.
+
+    The extension provides functions `vkBindBufferMemory2KHR` and `vkBindImageMemory2KHR`,
+    which allow to pass a chain of `pNext` structures while binding.
+    This flag is required if you use `pNext` parameter in vmaBindBufferMemory2() or vmaBindImageMemory2().
+    */
+    VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT = 0x00000004,
 
     VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocatorCreateFlagBits;
@@ -1803,6 +1824,10 @@ typedef struct VmaVulkanFunctions {
 #if VMA_DEDICATED_ALLOCATION
     PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
     PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
+#endif
+#if VMA_BIND_MEMORY2
+    PFN_vkBindBufferMemory2KHR vkBindBufferMemory2KHR;
+    PFN_vkBindImageMemory2KHR vkBindImageMemory2KHR;
 #endif
 } VmaVulkanFunctions;
 
@@ -3040,6 +3065,23 @@ VkResult vmaBindBufferMemory(
     VmaAllocation allocation,
     VkBuffer buffer);
 
+/** \brief Binds buffer to allocation with additional parameters.
+
+@param allocationLocalOffset Additional offset to be added while binding, relative to the beginnig of the `allocation`. Normally it should be 0.
+@param pNext A chain of structures to be attached to `VkBindBufferMemoryInfoKHR` structure used internally. Normally it should be null.
+
+This function is similar to vmaBindBufferMemory(), but it provides additional parameters.
+
+If `pNext` is not null, #VmaAllocator object must have been created with #VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT flag.
+Otherwise the call fails.
+*/
+VkResult vmaBindBufferMemory2(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkDeviceSize allocationLocalOffset,
+    VkBuffer buffer,
+    const void* pNext);
+
 /** \brief Binds image to allocation.
 
 Binds specified image to region of memory represented by specified allocation.
@@ -3056,6 +3098,23 @@ VkResult vmaBindImageMemory(
     VmaAllocator allocator,
     VmaAllocation allocation,
     VkImage image);
+
+/** \brief Binds image to allocation with additional parameters.
+
+@param allocationLocalOffset Additional offset to be added while binding, relative to the beginnig of the `allocation`. Normally it should be 0.
+@param pNext A chain of structures to be attached to `VkBindImageMemoryInfoKHR` structure used internally. Normally it should be null.
+
+This function is similar to vmaBindImageMemory(), but it provides additional parameters.
+
+If `pNext` is not null, #VmaAllocator object must have been created with #VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT flag.
+Otherwise the call fails.
+*/
+VkResult vmaBindImageMemory2(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkDeviceSize allocationLocalOffset,
+    VkImage image,
+    const void* pNext);
 
 /**
 @param[out] pBuffer Buffer that was created.
@@ -5847,11 +5906,15 @@ public:
     VkResult BindBufferMemory(
         const VmaAllocator hAllocator,
         const VmaAllocation hAllocation,
-        VkBuffer hBuffer);
+        VkDeviceSize allocationLocalOffset,
+        VkBuffer hBuffer,
+        const void* pNext);
     VkResult BindImageMemory(
         const VmaAllocator hAllocator,
         const VmaAllocation hAllocation,
-        VkImage hImage);
+        VkDeviceSize allocationLocalOffset,
+        VkImage hImage,
+        const void* pNext);
 
 private:
     VmaPool m_hParentPool; // VK_NULL_HANDLE if not belongs to custom pool.
@@ -6500,7 +6563,8 @@ public:
     void WriteConfiguration(
         const VkPhysicalDeviceProperties& devProps,
         const VkPhysicalDeviceMemoryProperties& memProps,
-        bool dedicatedAllocationExtensionEnabled);
+        bool dedicatedAllocationExtensionEnabled,
+        bool bindMemory2ExtensionEnabled);
     ~VmaRecorder();
 
     void RecordCreateAllocator(uint32_t frameIndex);
@@ -6643,6 +6707,7 @@ struct VmaAllocator_T
 public:
     bool m_UseMutex;
     bool m_UseKhrDedicatedAllocation;
+    bool m_UseKhrBindMemory2;
     VkDevice m_hDevice;
     bool m_AllocationCallbacksSpecified;
     VkAllocationCallbacks m_AllocationCallbacks;
@@ -6778,14 +6843,36 @@ public:
 
     void CreateLostAllocation(VmaAllocation* pAllocation);
 
+    // Call to Vulkan function vkAllocateMemory with accompanying bookkeeping.
     VkResult AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory);
+    // Call to Vulkan function vkFreeMemory with accompanying bookkeeping.
     void FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, VkDeviceMemory hMemory);
+    // Call to Vulkan function vkBindBufferMemory or vkBindBufferMemory2KHR.
+    VkResult BindVulkanBuffer(
+        VkDeviceMemory memory,
+        VkDeviceSize memoryOffset,
+        VkBuffer buffer,
+        const void* pNext);
+    // Call to Vulkan function vkBindImageMemory or vkBindImageMemory2KHR.
+    VkResult BindVulkanImage(
+        VkDeviceMemory memory,
+        VkDeviceSize memoryOffset,
+        VkImage image,
+        const void* pNext);
 
     VkResult Map(VmaAllocation hAllocation, void** ppData);
     void Unmap(VmaAllocation hAllocation);
 
-    VkResult BindBufferMemory(VmaAllocation hAllocation, VkBuffer hBuffer);
-    VkResult BindImageMemory(VmaAllocation hAllocation, VkImage hImage);
+    VkResult BindBufferMemory(
+        VmaAllocation hAllocation,
+        VkDeviceSize allocationLocalOffset,
+        VkBuffer hBuffer,
+        const void* pNext);
+    VkResult BindImageMemory(
+        VmaAllocation hAllocation,
+        VkDeviceSize allocationLocalOffset,
+        VkImage hImage,
+        const void* pNext);
 
     void FlushOrInvalidateAllocation(
         VmaAllocation hAllocation,
@@ -11213,33 +11300,35 @@ VkResult VmaDeviceMemoryBlock::ValidateMagicValueAroundAllocation(VmaAllocator h
 VkResult VmaDeviceMemoryBlock::BindBufferMemory(
     const VmaAllocator hAllocator,
     const VmaAllocation hAllocation,
-    VkBuffer hBuffer)
+    VkDeviceSize allocationLocalOffset,
+    VkBuffer hBuffer,
+    const void* pNext)
 {
     VMA_ASSERT(hAllocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK &&
         hAllocation->GetBlock() == this);
+    VMA_ASSERT(allocationLocalOffset < hAllocation->GetSize() &&
+        "Invalid allocationLocalOffset. Did you forget that this offset is relative to the beginning of the allocation, not the whole memory block?");
+    const VkDeviceSize memoryOffset = hAllocation->GetOffset() + allocationLocalOffset;
     // This lock is important so that we don't call vkBind... and/or vkMap... simultaneously on the same VkDeviceMemory from multiple threads.
     VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
-    return hAllocator->GetVulkanFunctions().vkBindBufferMemory(
-        hAllocator->m_hDevice,
-        hBuffer,
-        m_hMemory,
-        hAllocation->GetOffset());
+    return hAllocator->BindVulkanBuffer(m_hMemory, memoryOffset, hBuffer, pNext);
 }
 
 VkResult VmaDeviceMemoryBlock::BindImageMemory(
     const VmaAllocator hAllocator,
     const VmaAllocation hAllocation,
-    VkImage hImage)
+    VkDeviceSize allocationLocalOffset,
+    VkImage hImage,
+    const void* pNext)
 {
     VMA_ASSERT(hAllocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_BLOCK &&
         hAllocation->GetBlock() == this);
+    VMA_ASSERT(allocationLocalOffset < hAllocation->GetSize() &&
+        "Invalid allocationLocalOffset. Did you forget that this offset is relative to the beginning of the allocation, not the whole memory block?");
+    const VkDeviceSize memoryOffset = hAllocation->GetOffset() + allocationLocalOffset;
     // This lock is important so that we don't call vkBind... and/or vkMap... simultaneously on the same VkDeviceMemory from multiple threads.
     VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
-    return hAllocator->GetVulkanFunctions().vkBindImageMemory(
-        hAllocator->m_hDevice,
-        hImage,
-        m_hMemory,
-        hAllocation->GetOffset());
+    return hAllocator->BindVulkanImage(m_hMemory, memoryOffset, hImage, pNext);
 }
 
 static void InitStatInfo(VmaStatInfo& outInfo)
@@ -13931,7 +14020,8 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
 void VmaRecorder::WriteConfiguration(
     const VkPhysicalDeviceProperties& devProps,
     const VkPhysicalDeviceMemoryProperties& memProps,
-    bool dedicatedAllocationExtensionEnabled)
+    bool dedicatedAllocationExtensionEnabled,
+    bool bindMemory2ExtensionEnabled)
 {
     fprintf(m_File, "Config,Begin\n");
 
@@ -13960,6 +14050,7 @@ void VmaRecorder::WriteConfiguration(
     }
 
     fprintf(m_File, "Extension,VK_KHR_dedicated_allocation,%u\n", dedicatedAllocationExtensionEnabled ? 1 : 0);
+    fprintf(m_File, "Extension,VK_KHR_bind_memory2,%u\n", bindMemory2ExtensionEnabled ? 1 : 0);
 
     fprintf(m_File, "Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,%u\n", VMA_DEBUG_ALWAYS_DEDICATED_MEMORY ? 1 : 0);
     fprintf(m_File, "Macro,VMA_DEBUG_ALIGNMENT,%llu\n", (VkDeviceSize)VMA_DEBUG_ALIGNMENT);
@@ -14031,6 +14122,7 @@ void VmaAllocationObjectAllocator::Free(VmaAllocation hAlloc)
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
     m_UseKhrDedicatedAllocation((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT) != 0),
+    m_UseKhrBindMemory2((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT) != 0),
     m_hDevice(pCreateInfo->device),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
     m_AllocationCallbacks(pCreateInfo->pAllocationCallbacks ?
@@ -14058,6 +14150,12 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     if((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT) != 0)
     {
         VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT set but required extensions are disabled by preprocessor macros.");
+    }
+#endif
+#if !(VMA_BIND_MEMORY2)
+    if((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT) != 0)
+    {
+        VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT set but required extension is disabled by preprocessor macros.");
     }
 #endif
 
@@ -14148,7 +14246,8 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
         m_pRecorder->WriteConfiguration(
             m_PhysicalDeviceProperties,
             m_MemProps,
-            m_UseKhrDedicatedAllocation);
+            m_UseKhrDedicatedAllocation,
+            m_UseKhrBindMemory2);
         m_pRecorder->RecordCreateAllocator(GetCurrentFrameIndex());
 #else
         VMA_ASSERT(0 && "VmaAllocatorCreateInfo::pRecordSettings used, but not supported due to VMA_RECORDING_ENABLED not defined to 1.");
@@ -14212,6 +14311,15 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
             (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2KHR");
     }
 #endif // #if VMA_DEDICATED_ALLOCATION
+#if VMA_BIND_MEMORY2
+    if(m_UseKhrBindMemory2)
+    {
+        m_VulkanFunctions.vkBindBufferMemory2KHR =
+            (PFN_vkBindBufferMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory2KHR");
+        m_VulkanFunctions.vkBindImageMemory2KHR =
+            (PFN_vkBindImageMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory2KHR");
+    }
+#endif // #if VMA_BIND_MEMORY2
 #endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
 
 #define VMA_COPY_IF_NOT_NULL(funcName) \
@@ -14239,6 +14347,10 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
 #if VMA_DEDICATED_ALLOCATION
         VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements2KHR);
         VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements2KHR);
+#endif
+#if VMA_BIND_MEMORY2
+        VMA_COPY_IF_NOT_NULL(vkBindBufferMemory2KHR);
+        VMA_COPY_IF_NOT_NULL(vkBindImageMemory2KHR);
 #endif
     }
 
@@ -14268,6 +14380,13 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     {
         VMA_ASSERT(m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR != VMA_NULL);
         VMA_ASSERT(m_VulkanFunctions.vkGetImageMemoryRequirements2KHR != VMA_NULL);
+    }
+#endif
+#if VMA_BIND_MEMORY2
+    if(m_UseKhrBindMemory2)
+    {
+        VMA_ASSERT(m_VulkanFunctions.vkBindBufferMemory2KHR != VMA_NULL);
+        VMA_ASSERT(m_VulkanFunctions.vkBindImageMemory2KHR != VMA_NULL);
     }
 #endif
 }
@@ -15218,6 +15337,66 @@ void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, Vk
     }
 }
 
+VkResult VmaAllocator_T::BindVulkanBuffer(
+    VkDeviceMemory memory,
+    VkDeviceSize memoryOffset,
+    VkBuffer buffer,
+    const void* pNext)
+{
+    if(pNext != VMA_NULL)
+    {
+#if VMA_BIND_MEMORY2
+        if(m_UseKhrBindMemory2 && m_VulkanFunctions.vkBindBufferMemory2KHR != VMA_NULL)
+        {
+            VkBindBufferMemoryInfoKHR bindBufferMemoryInfo = { VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO_KHR };
+            bindBufferMemoryInfo.pNext = pNext;
+            bindBufferMemoryInfo.buffer = buffer;
+            bindBufferMemoryInfo.memory = memory;
+            bindBufferMemoryInfo.memoryOffset = memoryOffset;
+            return (*m_VulkanFunctions.vkBindBufferMemory2KHR)(m_hDevice, 1, &bindBufferMemoryInfo);
+        }
+        else
+#endif // #if VMA_BIND_MEMORY2
+        {
+            return VK_ERROR_EXTENSION_NOT_PRESENT;
+        }
+    }
+    else
+    {
+        return (*m_VulkanFunctions.vkBindBufferMemory)(m_hDevice, buffer, memory, memoryOffset);
+    }
+}
+
+VkResult VmaAllocator_T::BindVulkanImage(
+    VkDeviceMemory memory,
+    VkDeviceSize memoryOffset,
+    VkImage image,
+    const void* pNext)
+{
+    if(pNext != VMA_NULL)
+    {
+#if VMA_BIND_MEMORY2
+        if(m_UseKhrBindMemory2 && m_VulkanFunctions.vkBindImageMemory2KHR != VMA_NULL)
+        {
+            VkBindImageMemoryInfoKHR bindBufferMemoryInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHR };
+            bindBufferMemoryInfo.pNext = pNext;
+            bindBufferMemoryInfo.image = image;
+            bindBufferMemoryInfo.memory = memory;
+            bindBufferMemoryInfo.memoryOffset = memoryOffset;
+            return (*m_VulkanFunctions.vkBindImageMemory2KHR)(m_hDevice, 1, &bindBufferMemoryInfo);
+        }
+        else
+#endif // #if VMA_BIND_MEMORY2
+        {
+            return VK_ERROR_EXTENSION_NOT_PRESENT;
+        }
+    }
+    else
+    {
+        return (*m_VulkanFunctions.vkBindImageMemory)(m_hDevice, image, memory, memoryOffset);
+    }
+}
+
 VkResult VmaAllocator_T::Map(VmaAllocation hAllocation, void** ppData)
 {
     if(hAllocation->CanBecomeLost())
@@ -15266,23 +15445,23 @@ void VmaAllocator_T::Unmap(VmaAllocation hAllocation)
     }
 }
 
-VkResult VmaAllocator_T::BindBufferMemory(VmaAllocation hAllocation, VkBuffer hBuffer)
+VkResult VmaAllocator_T::BindBufferMemory(
+    VmaAllocation hAllocation,
+    VkDeviceSize allocationLocalOffset,
+    VkBuffer hBuffer,
+    const void* pNext)
 {
     VkResult res = VK_SUCCESS;
     switch(hAllocation->GetType())
     {
     case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
-        res = GetVulkanFunctions().vkBindBufferMemory(
-            m_hDevice,
-            hBuffer,
-            hAllocation->GetMemory(),
-            0); //memoryOffset
+        res = BindVulkanBuffer(hAllocation->GetMemory(), allocationLocalOffset, hBuffer, pNext);
         break;
     case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
     {
-        VmaDeviceMemoryBlock* pBlock = hAllocation->GetBlock();
+        VmaDeviceMemoryBlock* const pBlock = hAllocation->GetBlock();
         VMA_ASSERT(pBlock && "Binding buffer to allocation that doesn't belong to any block. Is the allocation lost?");
-        res = pBlock->BindBufferMemory(this, hAllocation, hBuffer);
+        res = pBlock->BindBufferMemory(this, hAllocation, allocationLocalOffset, hBuffer, pNext);
         break;
     }
     default:
@@ -15291,23 +15470,23 @@ VkResult VmaAllocator_T::BindBufferMemory(VmaAllocation hAllocation, VkBuffer hB
     return res;
 }
 
-VkResult VmaAllocator_T::BindImageMemory(VmaAllocation hAllocation, VkImage hImage)
+VkResult VmaAllocator_T::BindImageMemory(
+    VmaAllocation hAllocation,
+    VkDeviceSize allocationLocalOffset,
+    VkImage hImage,
+    const void* pNext)
 {
     VkResult res = VK_SUCCESS;
     switch(hAllocation->GetType())
     {
     case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
-        res = GetVulkanFunctions().vkBindImageMemory(
-            m_hDevice,
-            hImage,
-            hAllocation->GetMemory(),
-            0); //memoryOffset
+        res = BindVulkanImage(hAllocation->GetMemory(), allocationLocalOffset, hImage, pNext);
         break;
     case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
     {
         VmaDeviceMemoryBlock* pBlock = hAllocation->GetBlock();
         VMA_ASSERT(pBlock && "Binding image to allocation that doesn't belong to any block. Is the allocation lost?");
-        res = pBlock->BindImageMemory(this, hAllocation, hImage);
+        res = pBlock->BindImageMemory(this, hAllocation, allocationLocalOffset, hImage, pNext);
         break;
     }
     default:
@@ -16560,7 +16739,23 @@ VkResult vmaBindBufferMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return allocator->BindBufferMemory(allocation, buffer);
+    return allocator->BindBufferMemory(allocation, 0, buffer, VMA_NULL);
+}
+
+VkResult vmaBindBufferMemory2(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkDeviceSize allocationLocalOffset,
+    VkBuffer buffer,
+    const void* pNext)
+{
+    VMA_ASSERT(allocator && allocation && buffer);
+
+    VMA_DEBUG_LOG("vmaBindBufferMemory2");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    return allocator->BindBufferMemory(allocation, allocationLocalOffset, buffer, pNext);
 }
 
 VkResult vmaBindImageMemory(
@@ -16574,7 +16769,23 @@ VkResult vmaBindImageMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    return allocator->BindImageMemory(allocation, image);
+    return allocator->BindImageMemory(allocation, 0, image, VMA_NULL);
+}
+
+VkResult vmaBindImageMemory2(
+    VmaAllocator allocator,
+    VmaAllocation allocation,
+    VkDeviceSize allocationLocalOffset,
+    VkImage image,
+    const void* pNext)
+{
+    VMA_ASSERT(allocator && allocation && image);
+
+    VMA_DEBUG_LOG("vmaBindImageMemory2");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+        return allocator->BindImageMemory(allocation, allocationLocalOffset, image, pNext);
 }
 
 VkResult vmaCreateBuffer(
@@ -16660,7 +16871,7 @@ VkResult vmaCreateBuffer(
             // 3. Bind buffer with memory.
             if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
             {
-                res = allocator->BindBufferMemory(*pAllocation, *pBuffer);
+                res = allocator->BindBufferMemory(*pAllocation, 0, *pBuffer, VMA_NULL);
             }
             if(res >= 0)
             {
@@ -16800,7 +17011,7 @@ VkResult vmaCreateImage(
             // 3. Bind image with memory.
             if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
             {
-                res = allocator->BindImageMemory(*pAllocation, *pImage);
+                res = allocator->BindImageMemory(*pAllocation, 0, *pImage, VMA_NULL);
             }
             if(res >= 0)
             {

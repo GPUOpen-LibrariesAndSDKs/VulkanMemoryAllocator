@@ -47,6 +47,7 @@ bool g_MemoryAliasingWarningEnabled = true;
 static bool g_EnableValidationLayer = true;
 static bool VK_KHR_get_memory_requirements2_enabled = false;
 static bool VK_KHR_dedicated_allocation_enabled = false;
+static bool VK_KHR_bind_memory2_enabled = false;
 bool g_SparseBindingEnabled = false;
 
 static HINSTANCE g_hAppInstance;
@@ -1276,6 +1277,11 @@ static void InitializeApplication()
                     enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
                     VK_KHR_dedicated_allocation_enabled = true;
                 }
+                else if(strcmp(properties[i].extensionName, VK_KHR_BIND_MEMORY_2_EXTENSION_NAME) == 0)
+                {
+                    enabledDeviceExtensions.push_back(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
+                    VK_KHR_bind_memory2_enabled = true;
+                }
             }
         }
     }
@@ -1311,6 +1317,10 @@ static void InitializeApplication()
         extension instead of equivalent functionality embedded into Vulkan 1.1.
         */
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+    }
+    if(VK_KHR_bind_memory2_enabled)
+    {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     }
 
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
