@@ -23,7 +23,7 @@ Formats with only minor version incremented are backward compatible.
 VmaReplay application supports all older versions.
 Current version is:
 
-    1,5
+    1,6
 
 # Configuration
 
@@ -222,7 +222,7 @@ No parameters.
 
 - pool : pointer
 
-**vmaResizeAllocation** (min format version: 1.4)
+**vmaResizeAllocation** (min format version: 1.4, max format version: 1.5)
 
 - allocation : pointer
 - newSize : uint64

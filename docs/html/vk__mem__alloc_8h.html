@@ -333,7 +333,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:ab9e709de044c5d8476bea77a4e755840"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory and destroys multiple allocations.  <a href="#ab9e709de044c5d8476bea77a4e755840">More...</a><br /></td></tr>
 <tr class="separator:ab9e709de044c5d8476bea77a4e755840"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0ff488958ca72b28e545880463cb8696"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0ff488958ca72b28e545880463cb8696">vmaResizeAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize newSize)</td></tr>
-<tr class="memdesc:a0ff488958ca72b28e545880463cb8696"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tries to resize an allocation in place, if there is enough free memory after it.  <a href="#a0ff488958ca72b28e545880463cb8696">More...</a><br /></td></tr>
+<tr class="memdesc:a0ff488958ca72b28e545880463cb8696"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deprecated.  <a href="#a0ff488958ca72b28e545880463cb8696">More...</a><br /></td></tr>
 <tr class="separator:a0ff488958ca72b28e545880463cb8696"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">vmaGetAllocationInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current information about specified allocation and atomically marks it as used in current frame.  <a href="#a86dd08aba8633bfa4ad0df2e76481d8b">More...</a><br /></td></tr>
@@ -2700,15 +2700,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Tries to resize an allocation in place, if there is enough free memory after it. </p>
-<p>Tries to change allocation's size without moving or reallocating it. You can both shrink and grow allocation size. When growing, it succeeds only when the allocation belongs to a memory block with enough free space after it.</p>
-<p>Returns <code>VK_SUCCESS</code> if allocation's size has been successfully changed. Returns <code>VK_ERROR_OUT_OF_POOL_MEMORY</code> if allocation's size could not be changed.</p>
-<p>After successful call to this function, <a class="el" href="struct_vma_allocation_info.html#aac76d113a6a5ccbb09fea00fb25fd18f" title="Size of this allocation, in bytes.">VmaAllocationInfo::size</a> of this allocation changes. All other parameters stay the same: memory pool and type, alignment, offset, mapped pointer.</p>
-<ul>
-<li>Calling this function on allocation that is in lost state fails with result <code>VK_ERROR_VALIDATION_FAILED_EXT</code>.</li>
-<li>Calling this function with <code>newSize</code> same as current allocation size does nothing and returns <code>VK_SUCCESS</code>.</li>
-<li>Resizing dedicated allocations, as well as allocations created in pools that use linear or buddy algorithm, is not supported. The function returns <code>VK_ERROR_FEATURE_NOT_PRESENT</code> in such cases. Support may be added in the future. </li>
-</ul>
+<p>Deprecated. </p>
+<p>In version 2.2.0 it used to try to change allocation's size without moving or reallocating it. In current version it returns <code>VK_SUCCESS</code> only if <code>newSize</code> equals current allocation's size. Otherwise returns <code>VK_ERROR_OUT_OF_POOL_MEMORY</code>, indicating that allocation's size could not be changed. </p>
 
 </div>
 </div>

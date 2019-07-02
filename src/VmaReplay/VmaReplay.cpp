@@ -688,7 +688,7 @@ static size_t g_DefragmentAfterLineNextIndex = 0;
 static bool ValidateFileVersion()
 {
     if(GetVersionMajor(g_FileVersion) == 1 &&
-        GetVersionMinor(g_FileVersion) <= 5)
+        GetVersionMinor(g_FileVersion) <= 6)
     {
         return true;
     }
