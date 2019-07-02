@@ -80,6 +80,7 @@ Documentation of all members: vk_mem_alloc.h
     - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
   - \subpage record_and_replay
 - \subpage usage_patterns
+  - [Common mistakes](@ref usage_patterns_common_mistakes)
   - [Simple patterns](@ref usage_patterns_simple)
   - [Advanced patterns](@ref usage_patterns_advanced)
 - \subpage configuration
@@ -1338,6 +1339,27 @@ It's a human-readable, text file in CSV format (Comma Separated Values).
 See also slides from talk:
 [Sawicki, Adam. Advanced Graphics Techniques Tutorial: Memory management in Vulkan and DX12. Game Developers Conference, 2018](https://www.gdcvault.com/play/1025458/Advanced-Graphics-Techniques-Tutorial-New)
 
+
+\section usage_patterns_common_mistakes Common mistakes
+
+<b>Use of CPU_TO_GPU instead of CPU_ONLY memory</b>
+
+#VMA_MEMORY_USAGE_CPU_TO_GPU is recommended only for resources that will be
+mapped and written by the CPU, as well as read directly by the GPU - like some
+buffers or textures updated every frame (dynamic). If you create a staging copy
+of a resource to be written by CPU and then used as a source of transfer to
+another resource placed in the GPU memory, that staging resource should be
+created with #VMA_MEMORY_USAGE_CPU_ONLY. Please read the descriptions of these
+enums carefully for details.
+
+<b>Unnecessary use of custom pools</b>
+
+\ref custom_memory_pools may be useful for special purposes - when you want to
+keep certain type of resources separate e.g. to reserve minimum amount of memory
+for them, limit maximum amount of memory they can occupy, or make some of them
+push out the other through the mechanism of \ref lost_allocations. For most
+resources this is not needed and so it is not recommended to create #VmaPool
+objects and allocations out of them. Allocating from the default pool is sufficient.
 
 \section usage_patterns_simple Simple patterns
 
