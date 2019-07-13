@@ -14313,6 +14313,11 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         m_VulkanFunctions.vkGetImageMemoryRequirements2KHR =
             (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2KHR");
     }
+    else
+    {
+        m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR = nullptr;
+        m_VulkanFunctions.vkGetImageMemoryRequirements2KHR = nullptr;
+    }
 #endif // #if VMA_DEDICATED_ALLOCATION
 #if VMA_BIND_MEMORY2
     if(m_UseKhrBindMemory2)
@@ -14322,7 +14327,14 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         m_VulkanFunctions.vkBindImageMemory2KHR =
             (PFN_vkBindImageMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory2KHR");
     }
+    else
+    {
+        m_VulkanFunctions.vkBindBufferMemory2KHR = nullptr;
+        m_VulkanFunctions.vkBindImageMemory2KHR = nullptr;
+    }
 #endif // #if VMA_BIND_MEMORY2
+#else
+    m_VulkanFunctions = VmaVulkanFunctions{};
 #endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
 
 #define VMA_COPY_IF_NOT_NULL(funcName) \
