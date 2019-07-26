@@ -4097,6 +4097,8 @@ public:
     {
     }
     
+    // This version of the constructor is here for compatibility with pre-C++14 std::vector.
+    // value is unused.
     VmaVector(size_t count, const T& value, const AllocatorT& allocator)
         : VmaVector(count, allocator) {}
     
