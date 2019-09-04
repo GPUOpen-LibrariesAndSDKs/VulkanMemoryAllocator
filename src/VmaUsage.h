@@ -33,8 +33,8 @@
 // Uncomment to test including `vulkan.h` on your own before including VMA.
 //#include <vulkan/vulkan.h>
 
-// Uncomment to export functions when building VMA as a shared library.
-//#define VMA_DLL_EXPORT
+// Uncomment when building VMA as a standalone library.
+//#define VMA_STANDALONE
 
 /*
 In every place where you want to use Vulkan Memory Allocator, define appropriate

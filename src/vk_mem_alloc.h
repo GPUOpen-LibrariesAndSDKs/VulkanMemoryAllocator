@@ -1718,7 +1718,7 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
-#if !defined(VMA_DLL_EXPORT)
+#if !defined(VMA_STANDALONE)
 	#define DECLSPEC
 	#define VMACALL
 #else
