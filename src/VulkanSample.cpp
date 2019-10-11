@@ -1337,6 +1337,14 @@ static void InitializeApplication()
     }
     */
 
+    // Uncomment to enable HeapSizeLimit.
+    /*
+    std::array<VkDeviceSize, VK_MAX_MEMORY_HEAPS> heapSizeLimit;
+    std::fill(heapSizeLimit.begin(), heapSizeLimit.end(), VK_WHOLE_SIZE);
+    heapSizeLimit[0] = 100ull * 1024 * 1024;
+    allocatorInfo.pHeapSizeLimit = heapSizeLimit.data();
+    */
+
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
 
     // Retrieve queues (don't need to be destroyed).
