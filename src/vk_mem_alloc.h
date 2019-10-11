@@ -7054,15 +7054,29 @@ void VmaStringBuilder::Add(const char* pStr)
 void VmaStringBuilder::AddNumber(uint32_t num)
 {
     char buf[11];
-    VmaUint32ToStr(buf, sizeof(buf), num);
-    Add(buf);
+    buf[10] = '\0';
+    char *p = &buf[10];
+    do
+    {
+        *--p = '0' + (num % 10);
+        num /= 10;
+    }
+    while(num);
+    Add(p);
 }
 
 void VmaStringBuilder::AddNumber(uint64_t num)
 {
     char buf[21];
-    VmaUint64ToStr(buf, sizeof(buf), num);
-    Add(buf);
+    buf[20] = '\0';
+    char *p = &buf[20];
+    do
+    {
+        *--p = '0' + (num % 10);
+        num /= 10;
+    }
+    while(num);
+    Add(p);
 }
 
 void VmaStringBuilder::AddPointer(const void* ptr)
