@@ -2028,10 +2028,70 @@ typedef struct VmaStats
     VmaStatInfo total;
 } VmaStats;
 
-/// Retrieves statistics from current state of the Allocator.
+/** \brief Retrieves statistics from current state of the Allocator.
+
+This function is called "calculate" not "get" because it has to traverse all
+internal data structures, so it may be quite slow. For faster but more brief statistics
+suitable to be called every frame or every allocation, use vmaGetBudget().
+
+Note that when using allocator from multiple threads, returned information may immediately
+become outdated.
+*/
 VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStats(
     VmaAllocator allocator,
     VmaStats* pStats);
+
+/** \brief Statistics of current memory usage and available budget, in bytes, per memory heap.
+*/
+typedef struct VmaBudget
+{
+    /** \brief Sum size of all `VkDeviceMemory` blocks allocated from particular heap, in bytes.
+    */
+    VkDeviceSize blockBytes[VK_MAX_MEMORY_HEAPS];
+    
+    /** \brief Sum size of all allocations created in particular heap, in bytes.
+    
+    Always less or equal than `blockBytes[i]`.
+    */
+    VkDeviceSize allocationBytes[VK_MAX_MEMORY_HEAPS];
+    
+    /** \brief Estimated current memory usage of the program, in bytes.
+    
+    Fetched from system using `VK_EXT_memory_budget` extension if enabled.
+    
+    It might be different than `blockBytes[i]` (usually higher) due to additional implicit objects
+    also occupying the memory, like swapchain, pipelines, descriptor heaps, command buffers etc.
+    */
+    VkDeviceSize usage[VK_MAX_MEMORY_HEAPS];
+    
+    /** \brief Estimated amount of memory available to the program, in bytes.
+    
+    Fetched from system using `VK_EXT_memory_budget` extension if enabled.
+    
+    It might be different (most probably smaller) than `VkMemoryHeap::size[i]` due to factors
+    external to the program, like other programs also consuming system resources.
+    
+    Exceeding the budget may result, depending on operating system and graphics driver:
+    
+    - Allocation failing with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+    - Allocation taking very long time, even few seconds.
+    - Overall system slowdown.
+    - Even GPU crash (TDR), observed as `VK_ERROR_DEVICE_LOST` returned somewhere later.
+    */
+    VkDeviceSize budget[VK_MAX_MEMORY_HEAPS];
+} VmaBudget;
+
+/** \brief Retrieves information about current memory budget.
+
+This function is called "get" not "calculate" because it is very fast, suitable to be called
+every frame or every allocation. For more detailed statistics use vmaCalculateStats().
+
+Note that when using allocator from multiple threads, returned information may immediately
+become outdated.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
+    VmaAllocator allocator,
+    VmaBudget* pBudget);
 
 #ifndef VMA_STATS_STRING_ENABLED
 #define VMA_STATS_STRING_ENABLED 1
@@ -3477,16 +3537,16 @@ void *aligned_alloc(size_t alignment, size_t size)
 #endif // #ifndef VMA_RW_MUTEX
 
 /*
-If providing your own implementation, you need to implement a subset of std::atomic:
-
-- Constructor(uint32_t desired)
-- uint32_t load() const
-- void store(uint32_t desired)
-- bool compare_exchange_weak(uint32_t& expected, uint32_t desired)
+If providing your own implementation, you need to implement a subset of std::atomic.
 */
 #ifndef VMA_ATOMIC_UINT32
     #include <atomic>
     #define VMA_ATOMIC_UINT32 std::atomic<uint32_t>
+#endif
+
+#ifndef VMA_ATOMIC_UINT64
+    #include <atomic>
+    #define VMA_ATOMIC_UINT64 std::atomic<uint64_t>
 #endif
 
 #ifndef VMA_DEBUG_ALWAYS_DEDICATED_MEMORY
@@ -6015,8 +6075,7 @@ public:
         size_t allocationCount,
         VmaAllocation* pAllocations);
 
-    void Free(
-        VmaAllocation hAllocation);
+    void Free(const VmaAllocation hAllocation);
 
     // Adds statistics of this BlockVector to pStats.
     void AddStats(VmaStats* pStats);
@@ -6717,6 +6776,21 @@ private:
     VmaPoolAllocator<VmaAllocation_T> m_Allocator;
 };
 
+struct VmaCurrentBudgetData
+{
+    VMA_ATOMIC_UINT64 m_BlockBytes[VK_MAX_MEMORY_HEAPS];
+    VMA_ATOMIC_UINT64 m_AllocationBytes[VK_MAX_MEMORY_HEAPS];
+
+    VmaCurrentBudgetData()
+    {
+        for(uint32_t heapIndex = 0; heapIndex < VK_MAX_MEMORY_HEAPS; ++heapIndex)
+        {
+            m_BlockBytes[heapIndex] = 0;
+            m_AllocationBytes[heapIndex] = 0;
+        }
+    }
+};
+
 // Main allocator object.
 struct VmaAllocator_T
 {
@@ -6731,9 +6805,8 @@ public:
     VmaDeviceMemoryCallbacks m_DeviceMemoryCallbacks;
     VmaAllocationObjectAllocator m_AllocationObjectAllocator;
     
-    // Number of bytes free out of limit, or VK_WHOLE_SIZE if no limit for that heap.
-    VkDeviceSize m_HeapSizeLimit[VK_MAX_MEMORY_HEAPS];
-    VMA_MUTEX m_HeapSizeLimitMutex;
+    // Each bit (1 << i) is set if HeapSizeLimit is enabled for that heap, so cannot allocate more than the heap size.
+    uint32_t m_HeapSizeLimitMask;
 
     VkPhysicalDeviceProperties m_PhysicalDeviceProperties;
     VkPhysicalDeviceMemoryProperties m_MemProps;
@@ -6745,6 +6818,8 @@ public:
     typedef VmaVector< VmaAllocation, VmaStlAllocator<VmaAllocation> > AllocationVectorType;
     AllocationVectorType* m_pDedicatedAllocations[VK_MAX_MEMORY_TYPES];
     VMA_RW_MUTEX m_DedicatedAllocationsMutex[VK_MAX_MEMORY_TYPES];
+
+    VmaCurrentBudgetData m_Budget;
 
     VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo);
     VkResult Init(const VmaAllocatorCreateInfo* pCreateInfo);
@@ -6830,6 +6905,8 @@ public:
         VkDeviceSize newSize);
 
     void CalculateStats(VmaStats* pStats);
+
+    void GetBudget(VmaBudget* outBudget);
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json);
@@ -6962,7 +7039,7 @@ private:
         size_t allocationCount,
         VmaAllocation* pAllocations);
 
-    void FreeDedicatedMemory(VmaAllocation allocation);
+    void FreeDedicatedMemory(const VmaAllocation allocation);
 
     /*
     Calculates and returns bit mask of memory types that can support defragmentation
@@ -11889,6 +11966,7 @@ VkResult VmaBlockVector::AllocatePage(
                     VMA_HEAVY_ASSERT(pBestRequestBlock->Validate());
                     VMA_DEBUG_LOG("    Returned from existing block");
                     (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
+                    m_hAllocator->m_Budget.m_AllocationBytes[m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex)] += size;
                     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
                     {
                         m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
@@ -11921,7 +11999,7 @@ VkResult VmaBlockVector::AllocatePage(
 }
 
 void VmaBlockVector::Free(
-    VmaAllocation hAllocation)
+    const VmaAllocation hAllocation)
 {
     VmaDeviceMemoryBlock* pBlockToDelete = VMA_NULL;
 
@@ -12091,6 +12169,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
             (allocFlags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
         VMA_HEAVY_ASSERT(pBlock->Validate());
         (*pAllocation)->SetUserData(m_hAllocator, pUserData);
+        m_hAllocator->m_Budget.m_AllocationBytes[m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex)] += size;
         if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
         {
             m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
@@ -14159,6 +14238,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_AllocationCallbacks(pCreateInfo->pAllocationCallbacks ?
         *pCreateInfo->pAllocationCallbacks : VmaEmptyAllocationCallbacks),
     m_AllocationObjectAllocator(&m_AllocationCallbacks),
+    m_HeapSizeLimitMask(0),
     m_PreferredLargeHeapBlockSize(0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
@@ -14198,11 +14278,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     memset(&m_pDedicatedAllocations, 0, sizeof(m_pDedicatedAllocations));
     memset(&m_VulkanFunctions, 0, sizeof(m_VulkanFunctions));
 
-    for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
-    {
-        m_HeapSizeLimit[i] = VK_WHOLE_SIZE;
-    }
-
     if(pCreateInfo->pDeviceMemoryCallbacks != VMA_NULL)
     {
         m_DeviceMemoryCallbacks.pfnAllocate = pCreateInfo->pDeviceMemoryCallbacks->pfnAllocate;
@@ -14229,7 +14304,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             const VkDeviceSize limit = pCreateInfo->pHeapSizeLimit[heapIndex];
             if(limit != VK_WHOLE_SIZE)
             {
-                m_HeapSizeLimit[heapIndex] = limit;
+                m_HeapSizeLimitMask |= 1u << heapIndex;
                 if(limit < m_MemProps.memoryHeaps[heapIndex].size)
                 {
                     m_MemProps.memoryHeaps[heapIndex].size = limit;
@@ -14631,7 +14706,8 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
             */
     
             FreeVulkanMemory(memTypeIndex, currAlloc->GetSize(), hMemory);
-
+            const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
+            m_Budget.m_AllocationBytes[heapIndex] -= currAlloc->GetSize();
             currAlloc->SetUserData(this, VMA_NULL);
             currAlloc->Dtor();
             m_AllocationObjectAllocator.Free(currAlloc);
@@ -14683,6 +14759,8 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
     (*pAllocation)->Ctor(m_CurrentFrameIndex.load(), isUserDataString);
     (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size);
     (*pAllocation)->SetUserData(this, pUserData);
+    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
+    m_Budget.m_AllocationBytes[heapIndex] += size;
     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
     {
         FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
@@ -14950,6 +15028,7 @@ void VmaAllocator_T::FreeMemory(
                 }
             }
 
+            m_Budget.m_AllocationBytes[MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex())] -= allocation->GetSize();
             allocation->SetUserData(this, VMA_NULL);
             allocation->Dtor();
             m_AllocationObjectAllocator.Free(allocation);
@@ -15022,6 +15101,17 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
         VmaPostprocessCalcStatInfo(pStats->memoryType[i]);
     for(size_t i = 0; i < GetMemoryHeapCount(); ++i)
         VmaPostprocessCalcStatInfo(pStats->memoryHeap[i]);
+}
+
+void VmaAllocator_T::GetBudget(VmaBudget* outBudget)
+{
+    for(uint32_t heapIndex = 0; heapIndex < GetMemoryHeapCount(); ++heapIndex)
+    {
+        outBudget->blockBytes[heapIndex] = m_Budget.m_BlockBytes[heapIndex];
+        outBudget->allocationBytes[heapIndex] = m_Budget.m_AllocationBytes[heapIndex];
+        outBudget->usage[heapIndex] = outBudget->blockBytes[heapIndex];
+        outBudget->budget[heapIndex] = m_MemProps.memoryHeaps[heapIndex].size * 8 / 10; // 80% heuristics.
+    }
 }
 
 static const uint32_t VMA_VENDOR_ID_AMD = 4098;
@@ -15322,31 +15412,43 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
 {
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(pAllocateInfo->memoryTypeIndex);
 
-    VkResult res;
-    if(m_HeapSizeLimit[heapIndex] != VK_WHOLE_SIZE)
+    // HeapSizeLimit is in effect for this heap.
+    if((m_HeapSizeLimitMask | (1u << heapIndex)) != 0)
     {
-        VmaMutexLock lock(m_HeapSizeLimitMutex, m_UseMutex);
-        if(m_HeapSizeLimit[heapIndex] >= pAllocateInfo->allocationSize)
+        const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
+        VkDeviceSize blockBytes = m_Budget.m_BlockBytes[heapIndex];
+        for(;;)
         {
-            res = (*m_VulkanFunctions.vkAllocateMemory)(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
-            if(res == VK_SUCCESS)
+            const VkDeviceSize blockBytesAfterAllocation = blockBytes + pAllocateInfo->allocationSize;
+            if(blockBytesAfterAllocation > heapSize)
             {
-                m_HeapSizeLimit[heapIndex] -= pAllocateInfo->allocationSize;
+                return VK_ERROR_OUT_OF_DEVICE_MEMORY;
             }
-        }
-        else
-        {
-            res = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+            if(m_Budget.m_BlockBytes->compare_exchange_strong(blockBytes, blockBytesAfterAllocation))
+            {
+                break;
+            }
         }
     }
     else
     {
-        res = (*m_VulkanFunctions.vkAllocateMemory)(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
+        m_Budget.m_BlockBytes[heapIndex] += pAllocateInfo->allocationSize;
     }
 
-    if(res == VK_SUCCESS && m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
+    // VULKAN CALL vkAllocateMemory.
+    VkResult res = (*m_VulkanFunctions.vkAllocateMemory)(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
+
+    if(res == VK_SUCCESS)
     {
-        (*m_DeviceMemoryCallbacks.pfnAllocate)(this, pAllocateInfo->memoryTypeIndex, *pMemory, pAllocateInfo->allocationSize);
+        // Informative callback.
+        if(m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
+        {
+            (*m_DeviceMemoryCallbacks.pfnAllocate)(this, pAllocateInfo->memoryTypeIndex, *pMemory, pAllocateInfo->allocationSize);
+        }
+    }
+    else
+    {
+        m_Budget.m_BlockBytes[heapIndex] -= pAllocateInfo->allocationSize;
     }
 
     return res;
@@ -15354,19 +15456,17 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
 
 void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, VkDeviceMemory hMemory)
 {
+    // Informative callback.
     if(m_DeviceMemoryCallbacks.pfnFree != VMA_NULL)
     {
         (*m_DeviceMemoryCallbacks.pfnFree)(this, memoryType, hMemory, size);
     }
 
+    // VULKAN CALL vkFreeMemory.
     (*m_VulkanFunctions.vkFreeMemory)(m_hDevice, hMemory, GetAllocationCallbacks());
 
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memoryType);
-    if(m_HeapSizeLimit[heapIndex] != VK_WHOLE_SIZE)
-    {
-        VmaMutexLock lock(m_HeapSizeLimitMutex, m_UseMutex);
-        m_HeapSizeLimit[heapIndex] += size;
-    }
+    m_Budget.m_BlockBytes[heapIndex] -= size;
 }
 
 VkResult VmaAllocator_T::BindVulkanBuffer(
@@ -15603,7 +15703,7 @@ void VmaAllocator_T::FlushOrInvalidateAllocation(
     // else: Just ignore this call.
 }
 
-void VmaAllocator_T::FreeDedicatedMemory(VmaAllocation allocation)
+void VmaAllocator_T::FreeDedicatedMemory(const VmaAllocation allocation)
 {
     VMA_ASSERT(allocation && allocation->GetType() == VmaAllocation_T::ALLOCATION_TYPE_DEDICATED);
 
@@ -15849,6 +15949,15 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStats(
     VMA_ASSERT(allocator && pStats);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
     allocator->CalculateStats(pStats);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
+    VmaAllocator allocator,
+    VmaBudget* pBudget)
+{
+    VMA_ASSERT(allocator && pBudget);
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+    allocator->GetBudget(pBudget);
 }
 
 #if VMA_STATS_STRING_ENABLED

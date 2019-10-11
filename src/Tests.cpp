@@ -179,6 +179,13 @@ struct BufferInfo
     VmaAllocation Allocation = VK_NULL_HANDLE;
 };
 
+static uint32_t MemoryTypeToHeap(uint32_t memoryTypeIndex)
+{
+    const VkPhysicalDeviceMemoryProperties* props;
+    vmaGetMemoryProperties(g_hAllocator, &props);
+    return props->memoryTypes[memoryTypeIndex].heapIndex;
+}
+
 static uint32_t GetAllocationStrategyCount()
 {
     uint32_t strategyCount = 0;
@@ -3850,6 +3857,84 @@ static inline bool MemoryRegionsOverlap(char* ptr1, size_t size1, char* ptr2, si
         return true;
 }
 
+static void TestBudget()
+{
+    wprintf(L"Testing budget...\n");
+
+    uint32_t memTypeIndex = UINT32_MAX;
+
+    static const VkDeviceSize BUF_SIZE = 0x10000;
+    static const uint32_t BUF_COUNT = 32;
+
+    for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
+    {
+        VmaBudget budgetBeg = {};
+        vmaGetBudget(g_hAllocator, &budgetBeg);
+
+        VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufInfo.size = BUF_SIZE;
+        bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        if(testIndex == 0)
+        {
+            allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+        }
+
+        // CREATE BUFFERS
+        uint32_t heapIndex = 0;
+        BufferInfo bufInfos[BUF_COUNT] = {};
+        for(uint32_t bufIndex = 0; bufIndex < BUF_COUNT; ++bufIndex)
+        {
+            VmaAllocationInfo allocInfo;
+            VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo,
+                &bufInfos[bufIndex].Buffer, &bufInfos[bufIndex].Allocation, &allocInfo);
+            TEST(res == VK_SUCCESS);
+            if(bufIndex == 0)
+            {
+                heapIndex = MemoryTypeToHeap(allocInfo.memoryType);
+            }
+            else
+            {
+                // All buffers need to fall into the same heap.
+                TEST(MemoryTypeToHeap(allocInfo.memoryType) == heapIndex);
+            }
+        }
+
+        VmaBudget budgetWithBufs = {};
+        vmaGetBudget(g_hAllocator, &budgetWithBufs);
+
+        // DESTROY BUFFERS
+        for(size_t bufIndex = BUF_COUNT; bufIndex--; )
+        {
+            vmaDestroyBuffer(g_hAllocator, bufInfos[bufIndex].Buffer, bufInfos[bufIndex].Allocation);
+        }
+
+        VmaBudget budgetEnd = {};
+        vmaGetBudget(g_hAllocator, &budgetEnd);
+
+        // CHECK
+        for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
+        {
+            TEST(budgetEnd.allocationBytes[i] <= budgetEnd.blockBytes[i]);
+            if(i == heapIndex)
+            {
+                TEST(budgetEnd.allocationBytes[i] == budgetBeg.allocationBytes[i]);
+                TEST(budgetWithBufs.allocationBytes[i] == budgetBeg.allocationBytes[i] + BUF_SIZE * BUF_COUNT);
+                TEST(budgetWithBufs.blockBytes[i] >= budgetEnd.blockBytes[i]);
+            }
+            else
+            {
+                TEST(budgetEnd.allocationBytes[i] == budgetEnd.allocationBytes[i] &&
+                    budgetEnd.allocationBytes[i] == budgetWithBufs.allocationBytes[i]);
+                TEST(budgetEnd.blockBytes[i] == budgetEnd.blockBytes[i] &&
+                    budgetEnd.blockBytes[i] == budgetWithBufs.blockBytes[i]);
+            }
+        }
+    }
+}
+
 static void TestMapping()
 {
     wprintf(L"Testing mapping...\n");
@@ -3879,15 +3964,15 @@ static void TestMapping()
         VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufInfo.size = 0x10000;
         bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    
+
         VmaAllocationCreateInfo allocCreateInfo = {};
         allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
         allocCreateInfo.pool = pool;
         if(testIndex == TEST_DEDICATED)
             allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    
+
         VmaAllocationInfo allocInfo;
-    
+
         // Mapped manually
 
         // Create 2 buffers.
@@ -3900,7 +3985,7 @@ static void TestMapping()
             TEST(allocInfo.pMappedData == nullptr);
             memTypeIndex = allocInfo.memoryType;
         }
-    
+
         // Map buffer 0.
         char* data00 = nullptr;
         res = vmaMapMemory(g_hAllocator, bufferInfos[0].Allocation, (void**)&data00);
@@ -5077,10 +5162,11 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(false)
+    if(true)
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
+        TestBudget();
         return;
     }
 
@@ -5097,6 +5183,7 @@ void Test()
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
     TestAllocationsInitialization();
 #endif
+    TestBudget();
     TestMapping();
     TestDeviceLocalMapped();
     TestMappingMultithreaded();
