@@ -3104,6 +3104,20 @@ static void TestPool_SameSize()
     res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
     TEST(res == VK_SUCCESS);
 
+    // Test pool name
+    {
+        static const char* const POOL_NAME = "Pool name";
+        vmaSetPoolName(g_hAllocator, pool, POOL_NAME);
+
+        const char* fetchedPoolName = nullptr;
+        vmaGetPoolName(g_hAllocator, pool, &fetchedPoolName);
+        TEST(strcmp(fetchedPoolName, POOL_NAME) == 0);
+
+        SaveAllocatorStatsToFile(L"TEST.json");//DELME
+
+        vmaSetPoolName(g_hAllocator, pool, nullptr);
+    }
+
     vmaSetCurrentFrameIndex(g_hAllocator, 1);
 
     VmaAllocationCreateInfo allocInfo = {};

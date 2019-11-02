@@ -2512,6 +2512,20 @@ Possible return values:
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocator, VmaPool pool);
 
+/** TODO
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char** ppName);
+
+/* TODO
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char* pName);
+
 /** \struct VmaAllocation
 \brief Represents single memory allocation.
 
@@ -4035,6 +4049,30 @@ static void vma_delete_array(const VkAllocationCallbacks* pAllocationCallbacks, 
             ptr[i].~T();
         }
         VmaFree(pAllocationCallbacks, ptr);
+    }
+}
+
+static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char* srcStr)
+{
+    if(srcStr != VMA_NULL)
+    {
+        const size_t len = strlen(srcStr);
+        char* const result = vma_new_array(allocs, char, len + 1);
+        memcpy(result, srcStr, len + 1);
+        return result;
+    }
+    else
+    {
+        return VMA_NULL;
+    }
+}
+
+static void VmaFreeString(const VkAllocationCallbacks* allocs, char* str)
+{
+    if(str != VMA_NULL)
+    {
+        const size_t len = strlen(str);
+        vma_delete_array(allocs, str, len + 1);
     }
 }
 
@@ -5994,6 +6032,7 @@ public:
 
     VkResult CreateMinBlocks();
 
+    VmaAllocator GetAllocator() const { return m_hAllocator; }
     VmaPool GetParentPool() const { return m_hParentPool; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     VkDeviceSize GetPreferredBlockSize() const { return m_PreferredBlockSize; }
@@ -6135,12 +6174,16 @@ public:
     uint32_t GetId() const { return m_Id; }
     void SetId(uint32_t id) { VMA_ASSERT(m_Id == 0); m_Id = id; }
 
+    const char* GetName() const { return m_Name; }
+    void SetName(const char* pName);
+
 #if VMA_STATS_STRING_ENABLED
     //void PrintDetailedMap(class VmaStringBuilder& sb);
 #endif
 
 private:
     uint32_t m_Id;
+    char* m_Name;
 };
 
 /*
@@ -7388,11 +7431,7 @@ void VmaAllocation_T::SetUserData(VmaAllocator hAllocator, void* pUserData)
 
         if(pUserData != VMA_NULL)
         {
-            const char* const newStrSrc = (char*)pUserData;
-            const size_t newStrLen = strlen(newStrSrc);
-            char* const newStrDst = vma_new_array(hAllocator, char, newStrLen + 1);
-            memcpy(newStrDst, newStrSrc, newStrLen + 1);
-            m_pUserData = newStrDst;
+            m_pUserData = VmaCreateStringCopy(hAllocator->GetAllocationCallbacks(), (const char*)pUserData);
         }
     }
     else
@@ -7595,13 +7634,8 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
 void VmaAllocation_T::FreeUserDataString(VmaAllocator hAllocator)
 {
     VMA_ASSERT(IsUserDataString());
-    if(m_pUserData != VMA_NULL)
-    {
-        char* const oldStr = (char*)m_pUserData;
-        const size_t oldStrLen = strlen(oldStr);
-        vma_delete_array(hAllocator, oldStr, oldStrLen + 1);
-        m_pUserData = VMA_NULL;
-    }
+    VmaFreeString(hAllocator->GetAllocationCallbacks(), (char*)m_pUserData);
+    m_pUserData = VMA_NULL;
 }
 
 void VmaAllocation_T::BlockAllocMap()
@@ -11407,12 +11441,28 @@ VmaPool_T::VmaPool_T(
         true, // isCustomPool
         createInfo.blockSize != 0, // explicitBlockSize
         createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK), // algorithm
-    m_Id(0)
+    m_Id(0),
+    m_Name(VMA_NULL)
 {
 }
 
 VmaPool_T::~VmaPool_T()
 {
+}
+
+void VmaPool_T::SetName(const char* pName)
+{
+    const VkAllocationCallbacks* allocs = m_BlockVector.GetAllocator()->GetAllocationCallbacks();
+    VmaFreeString(allocs, m_Name);
+    
+    if(pName != VMA_NULL)
+    {
+        m_Name = VmaCreateStringCopy(allocs, pName);
+    }
+    else
+    {
+        m_Name = VMA_NULL;
+    }
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -15769,6 +15819,15 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
             {
                 json.BeginString();
                 json.ContinueString(m_Pools[poolIndex]->GetId());
+                const char* poolName = m_Pools[poolIndex]->GetName();
+                if(poolName != VMA_NULL && poolName[0] != '\0')
+                {
+                    json.ContinueString(" ");
+                    json.ContinueString(poolName);
+                }
+                else
+                {
+                }
                 json.EndString();
 
                 m_Pools[poolIndex]->m_BlockVector.PrintDetailedMap(json);
@@ -16211,6 +16270,34 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocato
     VMA_DEBUG_LOG("vmaCheckPoolCorruption");
 
     return allocator->CheckPoolCorruption(pool);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char** ppName)
+{
+    VMA_ASSERT(allocator && pool);
+    
+    VMA_DEBUG_LOG("vmaGetPoolName");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    *ppName = pool->GetName();
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char* pName)
+{
+    VMA_ASSERT(allocator && pool);
+
+    VMA_DEBUG_LOG("vmaSetPoolName");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    pool->SetName(pName);
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
