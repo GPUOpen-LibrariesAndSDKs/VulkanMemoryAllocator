@@ -561,7 +561,7 @@ which may be less precise. In order to use this extension:
 1. Make sure extensions VK_EXT_memory_budget and VK_KHR_get_physical_device_properties2
    required by it are available and enable them. Please note that the first is a device
    extension and the second is instance extension!
-2. Use flag #VMA_ALLOCATOR_CREATE_ ?? when creating #VmaAllocator object.
+2. Use flag #VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT when creating #VmaAllocator object.
 3. Make sure to call vmaSetCurrentFrameIndex() every frame. Budget is queried from
    Vulkan inside of it to avoid overhead of querying it with every allocation.
 
@@ -2179,7 +2179,7 @@ typedef struct VmaBudget
     Difference `budget - usage` is the amount of additional memory that can probably
     be allocated without problems. Exceeding the budget may result in various problems.
     */
-    VkDeviceSize budget[VK_MAX_MEMORY_HEAPS];
+    VkDeviceSize budget;
 } VmaBudget;
 
 /** \brief Retrieves information about current memory budget for all memory heaps.

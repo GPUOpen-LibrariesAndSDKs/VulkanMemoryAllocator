@@ -3935,55 +3935,6 @@ static void TestBudget()
             }
         }
     }
-
-    // DELME
-
-    {
-        std::vector<BufferInfo> buffers;
-
-        for(uint32_t i = 0; i < 160; ++i)
-        {
-            //vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-            VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-            bufCreateInfo.size = 50ull * 1024 * 1024;
-            bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-            VmaAllocationCreateInfo allocCreateInfo = {};
-            //allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-            allocCreateInfo.memoryTypeBits = 1;
-            //allocCreateInfo.flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT;
-
-            BufferInfo bufInfo = {};
-            VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, nullptr);
-            if(res == VK_SUCCESS)
-            {
-                buffers.push_back(std::move(bufInfo));
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        char* statsString;
-        vmaBuildStatsString(g_hAllocator, &statsString, VK_TRUE);
-        printf("%s\n", statsString);
-        vmaFreeStatsString(g_hAllocator, statsString);
-
-        VmaBudget budget1[VK_MAX_MEMORY_HEAPS];
-        vmaGetBudget(g_hAllocator, budget1);
-
-        vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-        VmaBudget budget2[VK_MAX_MEMORY_HEAPS];
-        vmaGetBudget(g_hAllocator, budget2);
-
-        for(size_t i = buffers.size(); i--; )
-        {
-            vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
-        }
-    }
 }
 
 static void TestMapping()
@@ -5213,11 +5164,10 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(true)
+    if(false)
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
-        TestBudget();
         return;
     }
 

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['quick_20start',['Quick start',['../quick_start.html',1,'index']]]
+  ['quick_20start_445',['Quick start',['../quick_start.html',1,'']]]
 ];
