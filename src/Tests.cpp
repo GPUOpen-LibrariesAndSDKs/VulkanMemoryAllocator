@@ -3863,13 +3863,15 @@ static void TestBudget()
 
     uint32_t memTypeIndex = UINT32_MAX;
 
-    static const VkDeviceSize BUF_SIZE = 0x10000;
-    static const uint32_t BUF_COUNT = 32;
+    static const VkDeviceSize BUF_SIZE = 100ull * 1024 * 1024;
+    static const uint32_t BUF_COUNT = 4;
 
     for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
     {
-        VmaBudget budgetBeg = {};
-        vmaGetBudget(g_hAllocator, &budgetBeg);
+        vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+        VmaBudget budgetBeg[VK_MAX_MEMORY_HEAPS] = {};
+        vmaGetBudget(g_hAllocator, budgetBeg);
 
         VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufInfo.size = BUF_SIZE;
@@ -3902,8 +3904,8 @@ static void TestBudget()
             }
         }
 
-        VmaBudget budgetWithBufs = {};
-        vmaGetBudget(g_hAllocator, &budgetWithBufs);
+        VmaBudget budgetWithBufs[VK_MAX_MEMORY_HEAPS] = {};
+        vmaGetBudget(g_hAllocator, budgetWithBufs);
 
         // DESTROY BUFFERS
         for(size_t bufIndex = BUF_COUNT; bufIndex--; )
@@ -3911,26 +3913,75 @@ static void TestBudget()
             vmaDestroyBuffer(g_hAllocator, bufInfos[bufIndex].Buffer, bufInfos[bufIndex].Allocation);
         }
 
-        VmaBudget budgetEnd = {};
-        vmaGetBudget(g_hAllocator, &budgetEnd);
+        VmaBudget budgetEnd[VK_MAX_MEMORY_HEAPS] = {};
+        vmaGetBudget(g_hAllocator, budgetEnd);
 
         // CHECK
         for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
         {
-            TEST(budgetEnd.allocationBytes[i] <= budgetEnd.blockBytes[i]);
+            TEST(budgetEnd[i].allocationBytes <= budgetEnd[i].blockBytes);
             if(i == heapIndex)
             {
-                TEST(budgetEnd.allocationBytes[i] == budgetBeg.allocationBytes[i]);
-                TEST(budgetWithBufs.allocationBytes[i] == budgetBeg.allocationBytes[i] + BUF_SIZE * BUF_COUNT);
-                TEST(budgetWithBufs.blockBytes[i] >= budgetEnd.blockBytes[i]);
+                TEST(budgetEnd[i].allocationBytes == budgetBeg[i].allocationBytes);
+                TEST(budgetWithBufs[i].allocationBytes == budgetBeg[i].allocationBytes + BUF_SIZE * BUF_COUNT);
+                TEST(budgetWithBufs[i].blockBytes >= budgetEnd[i].blockBytes);
             }
             else
             {
-                TEST(budgetEnd.allocationBytes[i] == budgetEnd.allocationBytes[i] &&
-                    budgetEnd.allocationBytes[i] == budgetWithBufs.allocationBytes[i]);
-                TEST(budgetEnd.blockBytes[i] == budgetEnd.blockBytes[i] &&
-                    budgetEnd.blockBytes[i] == budgetWithBufs.blockBytes[i]);
+                TEST(budgetEnd[i].allocationBytes == budgetEnd[i].allocationBytes &&
+                    budgetEnd[i].allocationBytes == budgetWithBufs[i].allocationBytes);
+                TEST(budgetEnd[i].blockBytes == budgetEnd[i].blockBytes &&
+                    budgetEnd[i].blockBytes == budgetWithBufs[i].blockBytes);
             }
+        }
+    }
+
+    // DELME
+
+    {
+        std::vector<BufferInfo> buffers;
+
+        for(uint32_t i = 0; i < 160; ++i)
+        {
+            //vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+            VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+            bufCreateInfo.size = 50ull * 1024 * 1024;
+            bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            //allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+            allocCreateInfo.memoryTypeBits = 1;
+            //allocCreateInfo.flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT;
+
+            BufferInfo bufInfo = {};
+            VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, nullptr);
+            if(res == VK_SUCCESS)
+            {
+                buffers.push_back(std::move(bufInfo));
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        char* statsString;
+        vmaBuildStatsString(g_hAllocator, &statsString, VK_TRUE);
+        printf("%s\n", statsString);
+        vmaFreeStatsString(g_hAllocator, statsString);
+
+        VmaBudget budget1[VK_MAX_MEMORY_HEAPS];
+        vmaGetBudget(g_hAllocator, budget1);
+
+        vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
+
+        VmaBudget budget2[VK_MAX_MEMORY_HEAPS];
+        vmaGetBudget(g_hAllocator, budget2);
+
+        for(size_t i = buffers.size(); i--; )
+        {
+            vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
         }
     }
 }

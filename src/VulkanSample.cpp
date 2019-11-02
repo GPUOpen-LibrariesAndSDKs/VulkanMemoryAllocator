@@ -46,8 +46,10 @@ bool g_MemoryAliasingWarningEnabled = true;
 
 static bool g_EnableValidationLayer = true;
 static bool VK_KHR_get_memory_requirements2_enabled = false;
+static bool VK_KHR_get_physical_device_properties2_enabled = false;
 static bool VK_KHR_dedicated_allocation_enabled = false;
 static bool VK_KHR_bind_memory2_enabled = false;
+static bool VK_EXT_memory_budget_enabled = false;
 bool g_SparseBindingEnabled = false;
 
 static HINSTANCE g_hAppInstance;
@@ -1115,15 +1117,32 @@ static void InitializeApplication()
         }
     }
 
-    std::vector<const char*> instanceExtensions;
-    instanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-    instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+    uint32_t availableInstanceExtensionCount = 0;
+    ERR_GUARD_VULKAN( vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, nullptr) );
+    std::vector<VkExtensionProperties> availableInstanceExtensions(availableInstanceExtensionCount);
+    if(availableInstanceExtensionCount > 0)
+    {
+        ERR_GUARD_VULKAN( vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, availableInstanceExtensions.data()) );
+    }
+
+    std::vector<const char*> enabledInstanceExtensions;
+    enabledInstanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    enabledInstanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
     std::vector<const char*> instanceLayers;
     if(g_EnableValidationLayer == true)
     {
         instanceLayers.push_back(VALIDATION_LAYER_NAME);
-        instanceExtensions.push_back("VK_EXT_debug_report");
+        enabledInstanceExtensions.push_back("VK_EXT_debug_report");
+    }
+
+    for(const auto& extensionProperties : availableInstanceExtensions)
+    {
+        if(strcmp(extensionProperties.extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0)
+        {
+            enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+            VK_KHR_get_physical_device_properties2_enabled = true;
+        }
     }
 
     VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -1135,8 +1154,8 @@ static void InitializeApplication()
 
     VkInstanceCreateInfo instInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     instInfo.pApplicationInfo = &appInfo;
-    instInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
-    instInfo.ppEnabledExtensionNames = instanceExtensions.data();
+    instInfo.enabledExtensionCount = static_cast<uint32_t>(enabledInstanceExtensions.size());
+    instInfo.ppEnabledExtensionNames = enabledInstanceExtensions.data();
     instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
     instInfo.ppEnabledLayerNames = instanceLayers.data();
 
@@ -1282,6 +1301,11 @@ static void InitializeApplication()
                     enabledDeviceExtensions.push_back(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
                     VK_KHR_bind_memory2_enabled = true;
                 }
+                else if(strcmp(properties[i].extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME) == 0)
+                {
+                    enabledDeviceExtensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+                    VK_EXT_memory_budget_enabled = true;
+                }
             }
         }
     }
@@ -1302,6 +1326,7 @@ static void InitializeApplication()
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice = g_hPhysicalDevice;
     allocatorInfo.device = g_hDevice;
+    allocatorInfo.instance = g_hVulkanInstance;
 
     if(VK_KHR_dedicated_allocation_enabled)
     {
@@ -1322,6 +1347,10 @@ static void InitializeApplication()
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     }
+    if(VK_EXT_memory_budget_enabled && VK_KHR_get_physical_device_properties2_enabled)
+    {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+    }
 
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
     {
@@ -1341,7 +1370,7 @@ static void InitializeApplication()
     /*
     std::array<VkDeviceSize, VK_MAX_MEMORY_HEAPS> heapSizeLimit;
     std::fill(heapSizeLimit.begin(), heapSizeLimit.end(), VK_WHOLE_SIZE);
-    heapSizeLimit[0] = 100ull * 1024 * 1024;
+    heapSizeLimit[0] = 512ull * 1024 * 1024;
     allocatorInfo.pHeapSizeLimit = heapSizeLimit.data();
     */
 
