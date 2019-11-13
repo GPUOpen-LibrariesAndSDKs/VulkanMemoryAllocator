@@ -12149,6 +12149,14 @@ void VmaBlockVector::Free(
 {
     VmaDeviceMemoryBlock* pBlockToDelete = VMA_NULL;
 
+    bool budgetExceeded = false;
+    {
+        const uint32_t heapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex);
+        VmaBudget heapBudget = {};
+        m_hAllocator->GetBudget(&heapBudget, heapIndex, 1);
+        budgetExceeded = heapBudget.usage >= heapBudget.budget;
+    }
+
     // Scope for lock.
     {
         VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
@@ -12171,11 +12179,12 @@ void VmaBlockVector::Free(
 
         VMA_DEBUG_LOG("  Freed from MemoryTypeIndex=%u", m_MemoryTypeIndex);
 
+        const bool canDeleteBlock = m_Blocks.size() > m_MinBlockCount;
         // pBlock became empty after this deallocation.
         if(pBlock->m_pMetadata->IsEmpty())
         {
-            // Already has empty Allocation. We don't want to have two, so delete this one.
-            if(m_HasEmptyBlock && m_Blocks.size() > m_MinBlockCount)
+            // Already has empty block. We don't want to have two, so delete this one.
+            if((m_HasEmptyBlock || budgetExceeded) && canDeleteBlock)
             {
                 pBlockToDelete = pBlock;
                 Remove(pBlock);
@@ -12188,10 +12197,10 @@ void VmaBlockVector::Free(
         }
         // pBlock didn't become empty, but we have another empty block - find and free that one.
         // (This is optional, heuristics.)
-        else if(m_HasEmptyBlock)
+        else if(m_HasEmptyBlock && canDeleteBlock)
         {
             VmaDeviceMemoryBlock* pLastBlock = m_Blocks.back();
-            if(pLastBlock->m_pMetadata->IsEmpty() && m_Blocks.size() > m_MinBlockCount)
+            if(pLastBlock->m_pMetadata->IsEmpty())
             {
                 pBlockToDelete = pLastBlock;
                 m_Blocks.pop_back();
@@ -12202,11 +12211,11 @@ void VmaBlockVector::Free(
         IncrementallySortBlocks();
     }
 
-    // Destruction of a free Allocation. Deferred until this point, outside of mutex
+    // Destruction of a free block. Deferred until this point, outside of mutex
     // lock, for performance reason.
     if(pBlockToDelete != VMA_NULL)
     {
-        VMA_DEBUG_LOG("    Deleted empty allocation");
+        VMA_DEBUG_LOG("    Deleted empty block");
         pBlockToDelete->Destroy(m_hAllocator);
         vma_delete(m_hAllocator, pBlockToDelete);
     }
@@ -15223,8 +15232,11 @@ void VmaAllocator_T::FreeMemory(
                 }
             }
 
-            m_Budget.m_AllocationBytes[MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex())] -= allocation->GetSize();
-            ++m_Budget.m_OperationsSinceBudgetFetch;
+            if(allocation->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
+            {
+                m_Budget.m_AllocationBytes[MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex())] -= allocation->GetSize();
+                ++m_Budget.m_OperationsSinceBudgetFetch;
+            }
             allocation->SetUserData(this, VMA_NULL);
             allocation->Dtor();
             m_AllocationObjectAllocator.Free(allocation);
