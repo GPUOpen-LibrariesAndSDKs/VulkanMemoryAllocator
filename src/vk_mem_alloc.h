@@ -16262,6 +16262,9 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
         VmaJsonWriter json(allocator->GetAllocationCallbacks(), sb);
         json.BeginObject();
 
+        VmaBudget budget[VK_MAX_MEMORY_HEAPS];
+        allocator->GetBudget(budget, 0, allocator->GetMemoryHeapCount());
+
         VmaStats stats;
         allocator->CalculateStats(&stats);
 
@@ -16285,6 +16288,20 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
                 json.WriteString("DEVICE_LOCAL");
             }
             json.EndArray();
+
+            json.WriteString("Budget");
+            json.BeginObject();
+            {
+                json.WriteString("BlockBytes");
+                json.WriteNumber(budget[heapIndex].blockBytes);
+                json.WriteString("AllocationBytes");
+                json.WriteNumber(budget[heapIndex].allocationBytes);
+                json.WriteString("Usage");
+                json.WriteNumber(budget[heapIndex].usage);
+                json.WriteString("Budget");
+                json.WriteNumber(budget[heapIndex].budget);
+            }
+            json.EndObject();
 
             if(stats.memoryHeap[heapIndex].blockCount > 0)
             {
