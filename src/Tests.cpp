@@ -3870,6 +3870,202 @@ static inline bool MemoryRegionsOverlap(char* ptr1, size_t size1, char* ptr2, si
         return true;
 }
 
+static void TestMemoryUsage()
+{
+    wprintf(L"Testing memory usage:\n");
+
+    static const VmaMemoryUsage lastUsage = VMA_MEMORY_USAGE_CPU_COPY;
+    for(uint32_t usage = 0; usage <= lastUsage; ++usage)
+    {
+        switch(usage)
+        {
+        case VMA_MEMORY_USAGE_UNKNOWN: printf("  VMA_MEMORY_USAGE_UNKNOWN:\n"); break;
+        case VMA_MEMORY_USAGE_GPU_ONLY: printf("  VMA_MEMORY_USAGE_GPU_ONLY:\n"); break;
+        case VMA_MEMORY_USAGE_CPU_ONLY: printf("  VMA_MEMORY_USAGE_CPU_ONLY:\n"); break;
+        case VMA_MEMORY_USAGE_CPU_TO_GPU: printf("  VMA_MEMORY_USAGE_CPU_TO_GPU:\n"); break;
+        case VMA_MEMORY_USAGE_GPU_TO_CPU: printf("  VMA_MEMORY_USAGE_GPU_TO_CPU:\n"); break;
+        case VMA_MEMORY_USAGE_CPU_COPY: printf("  VMA_MEMORY_USAGE_CPU_COPY:\n"); break;
+        default: assert(0);
+        }
+
+        auto printResult = [](const char* testName, VkResult res, uint32_t memoryTypeBits, uint32_t memoryTypeIndex)
+        {
+            if(res == VK_SUCCESS)
+                printf("    %s: memoryTypeBits=0x%X, memoryTypeIndex=%u\n", testName, memoryTypeBits, memoryTypeIndex);
+            else
+                printf("    %s: memoryTypeBits=0x%X, FAILED with res=%d\n", testName, memoryTypeBits, (int32_t)res);
+        };
+        
+        // 1: Buffer for copy
+        {
+            VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+            bufCreateInfo.size = 65536;
+            bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+            VkBuffer buf = VK_NULL_HANDLE;
+            VkResult res = vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf);
+            TEST(res == VK_SUCCESS && buf != VK_NULL_HANDLE);
+
+            VkMemoryRequirements memReq = {};
+            vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
+
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.usage = (VmaMemoryUsage)usage;
+            VmaAllocation alloc = VK_NULL_HANDLE;
+            VmaAllocationInfo allocInfo = {};
+            res = vmaAllocateMemoryForBuffer(g_hAllocator, buf, &allocCreateInfo, &alloc, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                TEST((memReq.memoryTypeBits & (1u << allocInfo.memoryType)) != 0);
+                res = vkBindBufferMemory(g_hDevice, buf, allocInfo.deviceMemory, allocInfo.offset);
+                TEST(res == VK_SUCCESS);
+            }
+            printResult("Buffer TRANSFER_DST + TRANSFER_SRC", res, memReq.memoryTypeBits, allocInfo.memoryType);
+            vmaDestroyBuffer(g_hAllocator, buf, alloc);
+        }
+
+        // 2: Vertex buffer
+        {
+            VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+            bufCreateInfo.size = 65536;
+            bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+            VkBuffer buf = VK_NULL_HANDLE;
+            VkResult res = vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf);
+            TEST(res == VK_SUCCESS && buf != VK_NULL_HANDLE);
+
+            VkMemoryRequirements memReq = {};
+            vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
+
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.usage = (VmaMemoryUsage)usage;
+            VmaAllocation alloc = VK_NULL_HANDLE;
+            VmaAllocationInfo allocInfo = {};
+            res = vmaAllocateMemoryForBuffer(g_hAllocator, buf, &allocCreateInfo, &alloc, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                TEST((memReq.memoryTypeBits & (1u << allocInfo.memoryType)) != 0);
+                res = vkBindBufferMemory(g_hDevice, buf, allocInfo.deviceMemory, allocInfo.offset);
+                TEST(res == VK_SUCCESS);
+            }
+            printResult("Buffer TRANSFER_DST + VERTEX_BUFFER", res, memReq.memoryTypeBits, allocInfo.memoryType);
+            vmaDestroyBuffer(g_hAllocator, buf, alloc);
+        }
+
+        // 3: Image for copy, OPTIMAL
+        {
+            VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+            imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+            imgCreateInfo.extent.width = 256;
+            imgCreateInfo.extent.height = 256;
+            imgCreateInfo.extent.depth = 1;
+            imgCreateInfo.mipLevels = 1;
+            imgCreateInfo.arrayLayers = 1;
+            imgCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+            imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            imgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imgCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+            VkImage img = VK_NULL_HANDLE;
+            VkResult res = vkCreateImage(g_hDevice, &imgCreateInfo, g_Allocs, &img);
+            TEST(res == VK_SUCCESS && img != VK_NULL_HANDLE);
+
+            VkMemoryRequirements memReq = {};
+            vkGetImageMemoryRequirements(g_hDevice, img, &memReq);
+
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.usage = (VmaMemoryUsage)usage;
+            VmaAllocation alloc = VK_NULL_HANDLE;
+            VmaAllocationInfo allocInfo = {};
+            res = vmaAllocateMemoryForImage(g_hAllocator, img, &allocCreateInfo, &alloc, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                TEST((memReq.memoryTypeBits & (1u << allocInfo.memoryType)) != 0);
+                res = vkBindImageMemory(g_hDevice, img, allocInfo.deviceMemory, allocInfo.offset);
+                TEST(res == VK_SUCCESS);
+            }
+            printResult("Image OPTIMAL TRANSFER_DST + TRANSFER_SRC", res, memReq.memoryTypeBits, allocInfo.memoryType);
+
+            vmaDestroyImage(g_hAllocator, img, alloc);
+        }
+
+        // 4: Image SAMPLED, OPTIMAL
+        {
+            VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+            imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+            imgCreateInfo.extent.width = 256;
+            imgCreateInfo.extent.height = 256;
+            imgCreateInfo.extent.depth = 1;
+            imgCreateInfo.mipLevels = 1;
+            imgCreateInfo.arrayLayers = 1;
+            imgCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+            imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            imgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imgCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+            VkImage img = VK_NULL_HANDLE;
+            VkResult res = vkCreateImage(g_hDevice, &imgCreateInfo, g_Allocs, &img);
+            TEST(res == VK_SUCCESS && img != VK_NULL_HANDLE);
+
+            VkMemoryRequirements memReq = {};
+            vkGetImageMemoryRequirements(g_hDevice, img, &memReq);
+
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.usage = (VmaMemoryUsage)usage;
+            VmaAllocation alloc = VK_NULL_HANDLE;
+            VmaAllocationInfo allocInfo = {};
+            res = vmaAllocateMemoryForImage(g_hAllocator, img, &allocCreateInfo, &alloc, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                TEST((memReq.memoryTypeBits & (1u << allocInfo.memoryType)) != 0);
+                res = vkBindImageMemory(g_hDevice, img, allocInfo.deviceMemory, allocInfo.offset);
+                TEST(res == VK_SUCCESS);
+            }
+            printResult("Image OPTIMAL TRANSFER_DST + SAMPLED", res, memReq.memoryTypeBits, allocInfo.memoryType);
+            vmaDestroyImage(g_hAllocator, img, alloc);
+        }
+
+        // 5: Image COLOR_ATTACHMENT, OPTIMAL
+        {
+            VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+            imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+            imgCreateInfo.extent.width = 256;
+            imgCreateInfo.extent.height = 256;
+            imgCreateInfo.extent.depth = 1;
+            imgCreateInfo.mipLevels = 1;
+            imgCreateInfo.arrayLayers = 1;
+            imgCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+            imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            imgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imgCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+            VkImage img = VK_NULL_HANDLE;
+            VkResult res = vkCreateImage(g_hDevice, &imgCreateInfo, g_Allocs, &img);
+            TEST(res == VK_SUCCESS && img != VK_NULL_HANDLE);
+
+            VkMemoryRequirements memReq = {};
+            vkGetImageMemoryRequirements(g_hDevice, img, &memReq);
+
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.usage = (VmaMemoryUsage)usage;
+            VmaAllocation alloc = VK_NULL_HANDLE;
+            VmaAllocationInfo allocInfo = {};
+            res = vmaAllocateMemoryForImage(g_hAllocator, img, &allocCreateInfo, &alloc, &allocInfo);
+            if(res == VK_SUCCESS)
+            {
+                TEST((memReq.memoryTypeBits & (1u << allocInfo.memoryType)) != 0);
+                res = vkBindImageMemory(g_hDevice, img, allocInfo.deviceMemory, allocInfo.offset);
+                TEST(res == VK_SUCCESS);
+            }
+            printResult("Image OPTIMAL SAMPLED + COLOR_ATTACHMENT", res, memReq.memoryTypeBits, allocInfo.memoryType);
+            vmaDestroyImage(g_hAllocator, img, alloc);
+        }
+    }
+}
+
 static void TestBudget()
 {
     wprintf(L"Testing budget...\n");
@@ -5200,6 +5396,7 @@ void Test()
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
     TestAllocationsInitialization();
 #endif
+    TestMemoryUsage();
     TestBudget();
     TestMapping();
     TestDeviceLocalMapped();

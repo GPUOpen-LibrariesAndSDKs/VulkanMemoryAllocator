@@ -2278,6 +2278,13 @@ typedef enum VmaMemoryUsage
     - Any resources read or accessed randomly on host, e.g. CPU-side copy of vertex buffer used as source of transfer, but also used for collision detection.
     */
     VMA_MEMORY_USAGE_GPU_TO_CPU = 4,
+    /** CPU memory - memory that is preferably not `DEVICE_LOCAL`, but also not guaranteed to be `HOST_VISIBLE`.
+
+    Usage: Staging copy of resources moved from GPU memory to CPU memory as part
+    of custom paging/residency mechanism, to be moved back to GPU memory when needed.
+    */
+    VMA_MEMORY_USAGE_CPU_COPY = 5,
+
     VMA_MEMORY_USAGE_MAX_ENUM = 0x7FFFFFFF
 } VmaMemoryUsage;
 
@@ -16491,6 +16498,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
     
     uint32_t requiredFlags = pAllocationCreateInfo->requiredFlags;
     uint32_t preferredFlags = pAllocationCreateInfo->preferredFlags;
+    uint32_t notPreferredFlags = 0;
 
     // Convert usage to requiredFlags and preferredFlags.
     switch(pAllocationCreateInfo->usage)
@@ -16517,7 +16525,11 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
         requiredFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         preferredFlags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
         break;
+    case VMA_MEMORY_USAGE_CPU_COPY:
+        notPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        break;
     default:
+        VMA_ASSERT(0);
         break;
     }
 
@@ -16536,7 +16548,8 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
             if((requiredFlags & ~currFlags) == 0)
             {
                 // Calculate cost as number of bits from preferredFlags not present in this memory type.
-                uint32_t currCost = VmaCountBitsSet(preferredFlags & ~currFlags);
+                uint32_t currCost = VmaCountBitsSet(preferredFlags & ~currFlags) +
+                    VmaCountBitsSet(currFlags & notPreferredFlags);
                 // Remember memory type with lowest cost.
                 if(currCost < minCost)
                 {
