@@ -3113,8 +3113,6 @@ static void TestPool_SameSize()
         vmaGetPoolName(g_hAllocator, pool, &fetchedPoolName);
         TEST(strcmp(fetchedPoolName, POOL_NAME) == 0);
 
-        SaveAllocatorStatsToFile(L"TEST.json");//DELME
-
         vmaSetPoolName(g_hAllocator, pool, nullptr);
     }
 

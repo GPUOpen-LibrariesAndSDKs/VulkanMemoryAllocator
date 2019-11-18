@@ -189,13 +189,18 @@ if 'DefaultPools' in jsonSrc:
             ProcessBlock(typeData['DefaultPoolBlocks'], int(sBlockId), objBlock, '')
 if 'Pools' in jsonSrc:
     objPools = jsonSrc['Pools']
-    for sPoolName, objPool in objPools.items():
+    for sPoolId, objPool in objPools.items():
         iType = int(objPool['MemoryTypeIndex'])
         typeData = GetDataForMemoryType(iType)
         objBlocks = objPool['Blocks']
         sAlgorithm = objPool.get('Algorithm', '')
+        sName = objPool.get('Name', None)
+        if sName:
+            sFullName = sPoolId + ' "' + sName + '"'
+        else:
+            sFullName = sPoolId
         dstBlockArray = []
-        typeData['CustomPools'][sPoolName] = dstBlockArray
+        typeData['CustomPools'][sFullName] = dstBlockArray
         for sBlockId, objBlock in objBlocks.items():
             ProcessBlock(dstBlockArray, int(sBlockId), objBlock, sAlgorithm)
 
@@ -255,7 +260,7 @@ for iMemTypeIndex in sorted(data.keys()):
                 sAlgorithm = ' (Algorithm: %s)' % (objBlock['Algorithm'])
             else:
                 sAlgorithm = ''
-            draw.text((IMG_MARGIN, y), "Custom pool \"%s\"%s block %d" % (sPoolName, sAlgorithm, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
+            draw.text((IMG_MARGIN, y), "Custom pool %s%s block %d" % (sPoolName, sAlgorithm, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
             y += FONT_SIZE + IMG_MARGIN
             DrawBlock(draw, y, objBlock)
             y += MAP_SIZE + IMG_MARGIN
@@ -274,7 +279,7 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
 - Fixed key 'CustomPools'. Value is dictionary.
-  - Key is string with pool name. Value is list of objects representing memory blocks, each containing dictionary with:
+  - Key is string with pool ID/name. Value is list of objects representing memory blocks, each containing dictionary with:
     - Fixed key 'ID'. Value is int.
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Algorithm'. Optional. Value is string.

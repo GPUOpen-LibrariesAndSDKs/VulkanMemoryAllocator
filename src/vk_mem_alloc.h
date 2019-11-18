@@ -2512,14 +2512,21 @@ Possible return values:
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocator, VmaPool pool);
 
-/** TODO
+/** \brief Retrieves name of a custom pool.
+
+After the call `ppName` is either null or points to an internally-owned null-terminated string
+containing name of the pool that was previously set. The pointer becomes invalid when the pool is
+destroyed or its name is changed using vmaSetPoolName().
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
     VmaAllocator allocator,
     VmaPool pool,
     const char** ppName);
 
-/* TODO
+/* \brief Sets name of a custom pool.
+
+`pName` can be either null or pointer to a null-terminated string with new name for the pool.
+Function makes internal copy of the string, so it can be changed or freed immediately after this call.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
     VmaAllocator allocator,
@@ -12418,6 +12425,13 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 
     if(m_IsCustomPool)
     {
+        const char* poolName = m_hParentPool->GetName();
+        if(poolName != VMA_NULL && poolName[0] != '\0')
+        {
+            json.WriteString("Name");
+            json.WriteString(poolName);
+        }
+
         json.WriteString("MemoryTypeIndex");
         json.WriteNumber(m_MemoryTypeIndex);
 
@@ -15819,15 +15833,6 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
             {
                 json.BeginString();
                 json.ContinueString(m_Pools[poolIndex]->GetId());
-                const char* poolName = m_Pools[poolIndex]->GetName();
-                if(poolName != VMA_NULL && poolName[0] != '\0')
-                {
-                    json.ContinueString(" ");
-                    json.ContinueString(poolName);
-                }
-                else
-                {
-                }
                 json.EndString();
 
                 m_Pools[poolIndex]->m_BlockVector.PrintDetailedMap(json);
