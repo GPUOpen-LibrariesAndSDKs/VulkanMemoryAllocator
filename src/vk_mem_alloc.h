@@ -2679,6 +2679,27 @@ Possible return values:
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocator, VmaPool pool);
 
+/** \brief Retrieves name of a custom pool.
+
+After the call `ppName` is either null or points to an internally-owned null-terminated string
+containing name of the pool that was previously set. The pointer becomes invalid when the pool is
+destroyed or its name is changed using vmaSetPoolName().
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char** ppName);
+
+/** \brief Sets name of a custom pool.
+
+`pName` can be either null or pointer to a null-terminated string with new name for the pool.
+Function makes internal copy of the string, so it can be changed or freed immediately after this call.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char* pName);
+
 /** \struct VmaAllocation
 \brief Represents single memory allocation.
 
@@ -4202,6 +4223,30 @@ static void vma_delete_array(const VkAllocationCallbacks* pAllocationCallbacks, 
             ptr[i].~T();
         }
         VmaFree(pAllocationCallbacks, ptr);
+    }
+}
+
+static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char* srcStr)
+{
+    if(srcStr != VMA_NULL)
+    {
+        const size_t len = strlen(srcStr);
+        char* const result = vma_new_array(allocs, char, len + 1);
+        memcpy(result, srcStr, len + 1);
+        return result;
+    }
+    else
+    {
+        return VMA_NULL;
+    }
+}
+
+static void VmaFreeString(const VkAllocationCallbacks* allocs, char* str)
+{
+    if(str != VMA_NULL)
+    {
+        const size_t len = strlen(str);
+        vma_delete_array(allocs, str, len + 1);
     }
 }
 
@@ -6154,14 +6199,15 @@ public:
         size_t maxBlockCount,
         VkDeviceSize bufferImageGranularity,
         uint32_t frameInUseCount,
-        bool isCustomPool,
         bool explicitBlockSize,
         uint32_t algorithm);
     ~VmaBlockVector();
 
     VkResult CreateMinBlocks();
 
+    VmaAllocator GetAllocator() const { return m_hAllocator; }
     VmaPool GetParentPool() const { return m_hParentPool; }
+    bool IsCustomPool() const { return m_hParentPool != VMA_NULL; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     VkDeviceSize GetPreferredBlockSize() const { return m_PreferredBlockSize; }
     VkDeviceSize GetBufferImageGranularity() const { return m_BufferImageGranularity; }
@@ -6226,7 +6272,6 @@ private:
     const size_t m_MaxBlockCount;
     const VkDeviceSize m_BufferImageGranularity;
     const uint32_t m_FrameInUseCount;
-    const bool m_IsCustomPool;
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
     /* There can be at most one allocation that is completely empty - a
@@ -6301,12 +6346,16 @@ public:
     uint32_t GetId() const { return m_Id; }
     void SetId(uint32_t id) { VMA_ASSERT(m_Id == 0); m_Id = id; }
 
+    const char* GetName() const { return m_Name; }
+    void SetName(const char* pName);
+
 #if VMA_STATS_STRING_ENABLED
     //void PrintDetailedMap(class VmaStringBuilder& sb);
 #endif
 
 private:
     uint32_t m_Id;
+    char* m_Name;
 };
 
 /*
@@ -6818,6 +6867,9 @@ public:
         VmaDefragmentationContext ctx);
     void RecordDefragmentationEnd(uint32_t frameIndex,
         VmaDefragmentationContext ctx);
+    void RecordSetPoolName(uint32_t frameIndex,
+        VmaPool pool,
+        const char* name);
 
 private:
     struct CallParams
@@ -7597,11 +7649,7 @@ void VmaAllocation_T::SetUserData(VmaAllocator hAllocator, void* pUserData)
 
         if(pUserData != VMA_NULL)
         {
-            const char* const newStrSrc = (char*)pUserData;
-            const size_t newStrLen = strlen(newStrSrc);
-            char* const newStrDst = vma_new_array(hAllocator, char, newStrLen + 1);
-            memcpy(newStrDst, newStrSrc, newStrLen + 1);
-            m_pUserData = newStrDst;
+            m_pUserData = VmaCreateStringCopy(hAllocator->GetAllocationCallbacks(), (const char*)pUserData);
         }
     }
     else
@@ -7804,13 +7852,8 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
 void VmaAllocation_T::FreeUserDataString(VmaAllocator hAllocator)
 {
     VMA_ASSERT(IsUserDataString());
-    if(m_pUserData != VMA_NULL)
-    {
-        char* const oldStr = (char*)m_pUserData;
-        const size_t oldStrLen = strlen(oldStr);
-        vma_delete_array(hAllocator, oldStr, oldStrLen + 1);
-        m_pUserData = VMA_NULL;
-    }
+    VmaFreeString(hAllocator->GetAllocationCallbacks(), (char*)m_pUserData);
+    m_pUserData = VMA_NULL;
 }
 
 void VmaAllocation_T::BlockAllocMap()
@@ -11613,15 +11656,30 @@ VmaPool_T::VmaPool_T(
         createInfo.maxBlockCount,
         (createInfo.flags & VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT) != 0 ? 1 : hAllocator->GetBufferImageGranularity(),
         createInfo.frameInUseCount,
-        true, // isCustomPool
         createInfo.blockSize != 0, // explicitBlockSize
         createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK), // algorithm
-    m_Id(0)
+    m_Id(0),
+    m_Name(VMA_NULL)
 {
 }
 
 VmaPool_T::~VmaPool_T()
 {
+}
+
+void VmaPool_T::SetName(const char* pName)
+{
+    const VkAllocationCallbacks* allocs = m_BlockVector.GetAllocator()->GetAllocationCallbacks();
+    VmaFreeString(allocs, m_Name);
+    
+    if(pName != VMA_NULL)
+    {
+        m_Name = VmaCreateStringCopy(allocs, pName);
+    }
+    else
+    {
+        m_Name = VMA_NULL;
+    }
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -11637,7 +11695,6 @@ VmaBlockVector::VmaBlockVector(
     size_t maxBlockCount,
     VkDeviceSize bufferImageGranularity,
     uint32_t frameInUseCount,
-    bool isCustomPool,
     bool explicitBlockSize,
     uint32_t algorithm) :
     m_hAllocator(hAllocator),
@@ -11648,7 +11705,6 @@ VmaBlockVector::VmaBlockVector(
     m_MaxBlockCount(maxBlockCount),
     m_BufferImageGranularity(bufferImageGranularity),
     m_FrameInUseCount(frameInUseCount),
-    m_IsCustomPool(isCustomPool),
     m_ExplicitBlockSize(explicitBlockSize),
     m_Algorithm(algorithm),
     m_HasEmptyBlock(false),
@@ -12601,8 +12657,15 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 
     json.BeginObject();
 
-    if(m_IsCustomPool)
+    if(IsCustomPool())
     {
+        const char* poolName = m_hParentPool->GetName();
+        if(poolName != VMA_NULL && poolName[0] != '\0')
+        {
+            json.WriteString("Name");
+            json.WriteString(poolName);
+        }
+
         json.WriteString("MemoryTypeIndex");
         json.WriteNumber(m_MemoryTypeIndex);
 
@@ -13830,7 +13893,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,6");
+    fprintf(m_File, "%s\n", "1,7");
 
     return VK_SUCCESS;
 }
@@ -14263,6 +14326,19 @@ void VmaRecorder::RecordDefragmentationEnd(uint32_t frameIndex,
     Flush();
 }
 
+void VmaRecorder::RecordSetPoolName(uint32_t frameIndex,
+    VmaPool pool,
+    const char* name)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaSetPoolName,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
+        pool, name != VMA_NULL ? name : "");
+    Flush();
+}
+
 VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData)
 {
     if(pUserData != VMA_NULL)
@@ -14490,7 +14566,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             SIZE_MAX,
             GetBufferImageGranularity(),
             pCreateInfo->frameInUseCount,
-            false, // isCustomPool
             false, // explicitBlockSize
             false); // linearAlgorithm
         // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
@@ -16624,6 +16699,41 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocato
     VMA_DEBUG_LOG("vmaCheckPoolCorruption");
 
     return allocator->CheckPoolCorruption(pool);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char** ppName)
+{
+    VMA_ASSERT(allocator && pool);
+    
+    VMA_DEBUG_LOG("vmaGetPoolName");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    *ppName = pool->GetName();
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
+    VmaAllocator allocator,
+    VmaPool pool,
+    const char* pName)
+{
+    VMA_ASSERT(allocator && pool);
+
+    VMA_DEBUG_LOG("vmaSetPoolName");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    pool->SetName(pName);
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        allocator->GetRecorder()->RecordSetPoolName(allocator->GetCurrentFrameIndex(), pool, pName);
+    }
+#endif
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(

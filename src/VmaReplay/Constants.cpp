@@ -54,6 +54,7 @@ const char* VMA_FUNCTION_NAMES[] = {
     "vmaResizeAllocation",
     "vmaDefragmentationBegin",
     "vmaDefragmentationEnd",
+    "vmaSetPoolName",
 };
 static_assert(
     _countof(VMA_FUNCTION_NAMES) == (size_t)VMA_FUNCTION::Count,

@@ -23,7 +23,7 @@ Formats with only minor version incremented are backward compatible.
 VmaReplay application supports all older versions.
 Current version is:
 
-    1,6
+    1,7
 
 # Configuration
 
@@ -243,6 +243,11 @@ No parameters.
 
 - context : pointer
 
+**vmaSetPoolName** (min format version: 1.7)
+
+- pool : pointer
+- pName : string (may contain additional commas)
+
 # Data types
 
 **bool**
@@ -271,7 +276,7 @@ An ordered sequence of values of some type, separated by single space.
 # Example file
 
     Vulkan Memory Allocator,Calls recording
-    1,6
+    1,7
     Config,Begin
     PhysicalDevice,apiVersion,4198477
     PhysicalDevice,driverVersion,8388653

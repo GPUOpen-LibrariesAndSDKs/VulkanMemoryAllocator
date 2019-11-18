@@ -26,6 +26,7 @@
 #include "Tests.h"
 #include "VmaUsage.h"
 #include "Common.h"
+#include <atomic>
 
 static const char* const SHADER_PATH1 = "./";
 static const char* const SHADER_PATH2 = "../bin/";
@@ -37,7 +38,7 @@ static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 2.3.0
 static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;
 static void* const CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA = (void*)(intptr_t)43564544;
-static const bool USE_CUSTOM_CPU_ALLOCATION_CALLBACKS = false;
+static const bool USE_CUSTOM_CPU_ALLOCATION_CALLBACKS = true;
 
 VkPhysicalDevice g_hPhysicalDevice;
 VkDevice g_hDevice;
@@ -111,12 +112,19 @@ static VkImage g_hTextureImage;
 static VmaAllocation g_hTextureImageAlloc;
 static VkImageView g_hTextureImageView;
 
+static std::atomic_uint32_t g_CpuAllocCount;
+
 static void* CustomCpuAllocation(
     void* pUserData, size_t size, size_t alignment,
     VkSystemAllocationScope allocationScope)
 {
     assert(pUserData == CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA);
-    return _aligned_malloc(size, alignment);
+    void* const result = _aligned_malloc(size, alignment);
+    if(result)
+    {
+        ++g_CpuAllocCount;
+    }
+    return result;
 }
 
 static void* CustomCpuReallocation(
@@ -124,13 +132,27 @@ static void* CustomCpuReallocation(
     VkSystemAllocationScope allocationScope)
 {
     assert(pUserData == CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA);
-    return _aligned_realloc(pOriginal, size, alignment);
+    void* const result = _aligned_realloc(pOriginal, size, alignment);
+    if(pOriginal && !result)
+    {
+        --g_CpuAllocCount;
+    }
+    else if(!pOriginal && result)
+    {
+        ++g_CpuAllocCount;
+    }
+    return result;
 }
 
 static void CustomCpuFree(void* pUserData, void* pMemory)
 {
     assert(pUserData == CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA);
-    _aligned_free(pMemory);
+    if(pMemory)
+    {
+        const uint32_t oldAllocCount = g_CpuAllocCount.fetch_sub(1);
+        TEST(oldAllocCount > 0);
+        _aligned_free(pMemory);
+    }
 }
 
 static const VkAllocationCallbacks g_CpuAllocationCallbacks = {
@@ -1872,6 +1894,8 @@ int main()
         if(g_hDevice != VK_NULL_HANDLE)
             DrawFrame();
     }
+
+    TEST(g_CpuAllocCount.load() == 0);
 
     return 0;
 }

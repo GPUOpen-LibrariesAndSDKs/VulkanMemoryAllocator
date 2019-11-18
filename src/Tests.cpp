@@ -1988,8 +1988,8 @@ static void TestBasics()
 
 void TestHeapSizeLimit()
 {
-    const VkDeviceSize HEAP_SIZE_LIMIT = 1ull * 1024 * 1024 * 1024; // 1 GB
-    const VkDeviceSize BLOCK_SIZE      = 128ull * 1024 * 1024;      // 128 MB
+    const VkDeviceSize HEAP_SIZE_LIMIT = 200ull * 1024 * 1024; // 200 MB
+    const VkDeviceSize BLOCK_SIZE      =  20ull * 1024 * 1024; // 20 MB
 
     VkDeviceSize heapSizeLimit[VK_MAX_MEMORY_HEAPS];
     for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
@@ -3110,6 +3110,18 @@ static void TestPool_SameSize()
     VmaPool pool;
     res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
     TEST(res == VK_SUCCESS);
+
+    // Test pool name
+    {
+        static const char* const POOL_NAME = "Pool name";
+        vmaSetPoolName(g_hAllocator, pool, POOL_NAME);
+
+        const char* fetchedPoolName = nullptr;
+        vmaGetPoolName(g_hAllocator, pool, &fetchedPoolName);
+        TEST(strcmp(fetchedPoolName, POOL_NAME) == 0);
+
+        vmaSetPoolName(g_hAllocator, pool, nullptr);
+    }
 
     vmaSetCurrentFrameIndex(g_hAllocator, 1);
 

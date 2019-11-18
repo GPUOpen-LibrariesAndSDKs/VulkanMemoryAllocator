@@ -173,9 +173,16 @@ public:
     size_t GetCount() const { return m_Count; }
     StrRange GetRange(size_t index) const 
     {
-        return StrRange {
-            m_Line.beg + m_Ranges[index * 2],
-            m_Line.beg + m_Ranges[index * 2 + 1] };
+        if(index < m_Count)
+        {
+            return StrRange {
+                m_Line.beg + m_Ranges[index * 2],
+                m_Line.beg + m_Ranges[index * 2 + 1] };
+        }
+        else
+        {
+            return StrRange{0, 0};
+        }
     }
 
 private:
