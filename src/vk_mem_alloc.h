@@ -6796,7 +6796,8 @@ public:
         const VkPhysicalDeviceProperties& devProps,
         const VkPhysicalDeviceMemoryProperties& memProps,
         bool dedicatedAllocationExtensionEnabled,
-        bool bindMemory2ExtensionEnabled);
+        bool bindMemory2ExtensionEnabled,
+        bool memoryBudgetExtensionEnabled);
     ~VmaRecorder();
 
     void RecordCreateAllocator(uint32_t frameIndex);
@@ -14363,7 +14364,8 @@ void VmaRecorder::WriteConfiguration(
     const VkPhysicalDeviceProperties& devProps,
     const VkPhysicalDeviceMemoryProperties& memProps,
     bool dedicatedAllocationExtensionEnabled,
-    bool bindMemory2ExtensionEnabled)
+    bool bindMemory2ExtensionEnabled,
+    bool memoryBudgetExtensionEnabled)
 {
     fprintf(m_File, "Config,Begin\n");
 
@@ -14393,6 +14395,7 @@ void VmaRecorder::WriteConfiguration(
 
     fprintf(m_File, "Extension,VK_KHR_dedicated_allocation,%u\n", dedicatedAllocationExtensionEnabled ? 1 : 0);
     fprintf(m_File, "Extension,VK_KHR_bind_memory2,%u\n", bindMemory2ExtensionEnabled ? 1 : 0);
+    fprintf(m_File, "Extension,VK_EXT_memory_budget,%u\n", memoryBudgetExtensionEnabled ? 1 : 0);
 
     fprintf(m_File, "Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,%u\n", VMA_DEBUG_ALWAYS_DEDICATED_MEMORY ? 1 : 0);
     fprintf(m_File, "Macro,VMA_DEBUG_ALIGNMENT,%llu\n", (VkDeviceSize)VMA_DEBUG_ALIGNMENT);
@@ -14593,7 +14596,8 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
             m_PhysicalDeviceProperties,
             m_MemProps,
             m_UseKhrDedicatedAllocation,
-            m_UseKhrBindMemory2);
+            m_UseKhrBindMemory2,
+            m_UseExtMemoryBudget);
         m_pRecorder->RecordCreateAllocator(GetCurrentFrameIndex());
 #else
         VMA_ASSERT(0 && "VmaAllocatorCreateInfo::pRecordSettings used, but not supported due to VMA_RECORDING_ENABLED not defined to 1.");

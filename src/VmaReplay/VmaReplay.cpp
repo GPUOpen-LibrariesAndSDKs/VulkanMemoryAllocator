@@ -670,6 +670,7 @@ static bool g_UserDataEnabled = true;
 static bool g_MemStatsEnabled = false;
 VULKAN_EXTENSION_REQUEST g_VK_KHR_dedicated_allocation_request = VULKAN_EXTENSION_REQUEST::DEFAULT;
 VULKAN_EXTENSION_REQUEST g_VK_LAYER_LUNARG_standard_validation = VULKAN_EXTENSION_REQUEST::DEFAULT;
+VULKAN_EXTENSION_REQUEST g_VK_EXT_memory_budget_request        = VULKAN_EXTENSION_REQUEST::DEFAULT;
 
 struct StatsAfterLineEntry
 {
@@ -1063,7 +1064,8 @@ public:
     void Compare(
         const VkPhysicalDeviceProperties& currDevProps,
         const VkPhysicalDeviceMemoryProperties& currMemProps,
-        bool currDedicatedAllocationExtensionEnabled);
+        bool currDedicatedAllocationExtensionEnabled,
+        bool currMemoryBudgetEnabled);
 
 private:
     enum class OPTION
@@ -1078,6 +1080,8 @@ private:
         PhysicalDeviceLimits_bufferImageGranularity,
         PhysicalDeviceLimits_nonCoherentAtomSize,
         Extension_VK_KHR_dedicated_allocation,
+        Extension_VK_KHR_bind_memory2,
+        Extension_VK_EXT_memory_budget,
         Macro_VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,
         Macro_VMA_DEBUG_ALIGNMENT,
         Macro_VMA_DEBUG_MARGIN,
@@ -1202,6 +1206,10 @@ bool ConfigurationParser::Parse(LineSplit& lineSplit)
                 const StrRange subOptionName = csvSplit.GetRange(1);
                 if(StrRangeEq(subOptionName, "VK_KHR_dedicated_allocation"))
                     SetOption(currLineNumber, OPTION::Extension_VK_KHR_dedicated_allocation, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VK_KHR_bind_memory2"))
+                    SetOption(currLineNumber, OPTION::Extension_VK_KHR_bind_memory2, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VK_EXT_memory_budget"))
+                    SetOption(currLineNumber, OPTION::Extension_VK_EXT_memory_budget, csvSplit.GetRange(2));
                 else
                     printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
             }
@@ -1297,7 +1305,8 @@ bool ConfigurationParser::Parse(LineSplit& lineSplit)
 void ConfigurationParser::Compare(
     const VkPhysicalDeviceProperties& currDevProps,
     const VkPhysicalDeviceMemoryProperties& currMemProps,
-    bool currDedicatedAllocationExtensionEnabled)
+    bool currDedicatedAllocationExtensionEnabled,
+    bool currMemoryBudgetEnabled)
 {
     CompareOption(VERBOSITY::MAXIMUM, "PhysicalDevice apiVersion",
         OPTION::PhysicalDevice_apiVersion, currDevProps.apiVersion);
@@ -1319,7 +1328,7 @@ void ConfigurationParser::Compare(
     CompareOption(VERBOSITY::DEFAULT, "PhysicalDeviceLimits nonCoherentAtomSize",
         OPTION::PhysicalDeviceLimits_nonCoherentAtomSize, currDevProps.limits.nonCoherentAtomSize);
     CompareOption(VERBOSITY::DEFAULT, "Extension VK_KHR_dedicated_allocation",
-        OPTION::Extension_VK_KHR_dedicated_allocation, currDedicatedAllocationExtensionEnabled);
+        OPTION::Extension_VK_EXT_memory_budget, currMemoryBudgetEnabled);
 
     CompareMemProps(currMemProps);
 }
@@ -1580,6 +1589,7 @@ private:
     VkCommandPool m_CommandPool = VK_NULL_HANDLE;
     VkCommandBuffer m_CommandBuffer = VK_NULL_HANDLE;
     bool m_DedicatedAllocationEnabled = false;
+    bool m_MemoryBudgetEnabled = false;
     const VkPhysicalDeviceProperties* m_DevProps = nullptr;
     const VkPhysicalDeviceMemoryProperties* m_MemProps = nullptr;
 
@@ -1700,7 +1710,9 @@ Player::~Player()
 
 void Player::ApplyConfig(ConfigurationParser& configParser)
 {
-    configParser.Compare(*m_DevProps, *m_MemProps, m_DedicatedAllocationEnabled);
+    configParser.Compare(*m_DevProps, *m_MemProps,
+        m_DedicatedAllocationEnabled,
+        m_MemoryBudgetEnabled);
 }
 
 void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
@@ -2007,15 +2019,35 @@ int Player::InitVulkan()
     default: assert(0);
     }
 
-    std::vector<const char*> instanceExtensions;
-    //instanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-    //instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+    uint32_t availableInstanceExtensionCount = 0;
+    res = vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, nullptr);
+    assert(res == VK_SUCCESS);
+    std::vector<VkExtensionProperties> availableInstanceExtensions(availableInstanceExtensionCount);
+    if(availableInstanceExtensionCount > 0)
+    {
+        res = vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, availableInstanceExtensions.data());
+        assert(res == VK_SUCCESS);
+    }
+
+    std::vector<const char*> enabledInstanceExtensions;
+    //enabledInstanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    //enabledInstanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
     std::vector<const char*> instanceLayers;
     if(validationLayersEnabled)
     {
         instanceLayers.push_back(VALIDATION_LAYER_NAME);
-        instanceExtensions.push_back("VK_EXT_debug_report");
+        enabledInstanceExtensions.push_back("VK_EXT_debug_report");
+    }
+
+    bool VK_KHR_get_physical_device_properties2_enabled = false;
+    for(const auto& extensionProperties : availableInstanceExtensions)
+    {
+        if(strcmp(extensionProperties.extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0)
+        {
+            enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+            VK_KHR_get_physical_device_properties2_enabled = true;
+        }
     }
 
     VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -2027,8 +2059,8 @@ int Player::InitVulkan()
 
     VkInstanceCreateInfo instInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     instInfo.pApplicationInfo = &appInfo;
-    instInfo.enabledExtensionCount = (uint32_t)instanceExtensions.size();
-    instInfo.ppEnabledExtensionNames = instanceExtensions.data();
+    instInfo.enabledExtensionCount = (uint32_t)enabledInstanceExtensions.size();
+    instInfo.ppEnabledExtensionNames = enabledInstanceExtensions.data();
     instInfo.enabledLayerCount = (uint32_t)instanceLayers.size();
     instInfo.ppEnabledLayerNames = instanceLayers.data();
 
@@ -2136,6 +2168,7 @@ int Player::InitVulkan()
     // Determine list of device extensions to enable.
     std::vector<const char*> enabledDeviceExtensions;
     //enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    bool memoryBudgetAvailable = false;
     {
         uint32_t propertyCount = 0;
         res = vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &propertyCount, nullptr);
@@ -2156,6 +2189,13 @@ int Player::InitVulkan()
                 else if(strcmp(properties[i].extensionName, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME) == 0)
                 {
                     VK_KHR_dedicated_allocation_available = true;
+                }
+                else if(strcmp(properties[i].extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME) == 0)
+                {
+                    if(VK_KHR_get_physical_device_properties2_enabled)
+                    {
+                        memoryBudgetAvailable = true;
+                    }
                 }
             }
         }
@@ -2181,10 +2221,31 @@ int Player::InitVulkan()
     default: assert(0);
     }
 
+    switch(g_VK_EXT_memory_budget_request)
+    {
+    case VULKAN_EXTENSION_REQUEST::DISABLED:
+        break;
+    case VULKAN_EXTENSION_REQUEST::DEFAULT:
+        m_MemoryBudgetEnabled = memoryBudgetAvailable;
+        break;
+    case VULKAN_EXTENSION_REQUEST::ENABLED:
+        m_MemoryBudgetEnabled = memoryBudgetAvailable;
+        if(!memoryBudgetAvailable)
+        {
+            printf("WARNING: VK_EXT_memory_budget extension cannot be enabled.\n");
+        }
+        break;
+    default: assert(0);
+    }
+
     if(m_DedicatedAllocationEnabled)
     {
         enabledDeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
         enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+    }
+    if(m_MemoryBudgetEnabled)
+    {
+        enabledDeviceExtensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
     }
 
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
@@ -2212,6 +2273,7 @@ int Player::InitVulkan()
     deviceMemoryCallbacks.pfnFree = FreeDeviceMemoryCallback;
 
     VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.instance = m_VulkanInstance;
     allocatorInfo.physicalDevice = m_PhysicalDevice;
     allocatorInfo.device = m_Device;
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
@@ -2220,6 +2282,10 @@ int Player::InitVulkan()
     if(m_DedicatedAllocationEnabled)
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+    }
+    if(m_MemoryBudgetEnabled)
+    {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
 
     res = vmaCreateAllocator(&allocatorInfo, &m_Allocator);
@@ -3941,6 +4007,8 @@ static void PrintCommandLineSyntax()
         "        By default the layers are silently enabled if available.\n"
         "    --VK_KHR_dedicated_allocation <Value> - 0 to disable or 1 to enable this extension.\n"
         "        By default the extension is silently enabled if available.\n"
+        "    --VK_EXT_memory_budget <Value> - 0 to disable or 1 to enable this extension.\n"
+        "        By default the extension is silently enabled if available.\n"
     );
 }
 
@@ -4160,6 +4228,7 @@ static int main2(int argc, char** argv)
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_PHYSICAL_DEVICE, "PhysicalDevice", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_USER_DATA, "UserData", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_KHR_DEDICATED_ALLOCATION, "VK_KHR_dedicated_allocation", true);
+    cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_EXT_MEMORY_BUDGET, "VK_EXT_memory_budget", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_VK_LAYER_LUNARG_STANDARD_VALIDATION, VALIDATION_LAYER_NAME, true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_MEM_STATS, "MemStats", true);
     cmdLineParser.RegisterOpt(CMD_LINE_OPT_DUMP_STATS_AFTER_LINE, "DumpStatsAfterLine", true);
@@ -4224,6 +4293,22 @@ static int main2(int argc, char** argv)
                     if(StrRangeToBool(StrRange(cmdLineParser.GetParameter()), newValue))
                     {
                         g_VK_KHR_dedicated_allocation_request = newValue ?
+                            VULKAN_EXTENSION_REQUEST::ENABLED :
+                            VULKAN_EXTENSION_REQUEST::DISABLED;
+                    }
+                    else
+                    {
+                        PrintCommandLineSyntax();
+                        return RESULT_ERROR_COMMAND_LINE;
+                    }
+                }
+                break;
+            case CMD_LINE_OPT_VK_EXT_MEMORY_BUDGET:
+                {
+                    bool newValue;
+                    if(StrRangeToBool(StrRange(cmdLineParser.GetParameter()), newValue))
+                    {
+                        g_VK_EXT_memory_budget_request = newValue ?
                             VULKAN_EXTENSION_REQUEST::ENABLED :
                             VULKAN_EXTENSION_REQUEST::DISABLED;
                     }

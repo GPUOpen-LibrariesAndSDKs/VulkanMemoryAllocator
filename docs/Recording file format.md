@@ -305,6 +305,7 @@ An ordered sequence of values of some type, separated by single space.
     PhysicalDeviceMemory,Type,3,propertyFlags,14
     Extension,VK_KHR_dedicated_allocation,1
     Extension,VK_KHR_bind_memory2,1
+    Extension,VK_EXT_memory_budget,1
     Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,0
     Macro,VMA_DEBUG_ALIGNMENT,1
     Macro,VMA_DEBUG_MARGIN,0
