@@ -688,7 +688,7 @@ static size_t g_DefragmentAfterLineNextIndex = 0;
 static bool ValidateFileVersion()
 {
     if(GetVersionMajor(g_FileVersion) == 1 &&
-        GetVersionMinor(g_FileVersion) <= 6)
+        GetVersionMinor(g_FileVersion) <= 7)
     {
         return true;
     }
@@ -1665,6 +1665,7 @@ private:
     void ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDefragmentationBegin(size_t lineNumber, const CsvSplit& csvSplit);
     void ExecuteDefragmentationEnd(size_t lineNumber, const CsvSplit& csvSplit);
+    void ExecuteSetPoolName(size_t lineNumber, const CsvSplit& csvSplit);
 
     void DestroyAllocation(size_t lineNumber, const CsvSplit& csvSplit, const char* functionName);
 
@@ -1819,6 +1820,8 @@ void Player::ExecuteLine(size_t lineNumber, const StrRange& line)
             ExecuteDefragmentationBegin(lineNumber, csvSplit);
         else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::DefragmentationEnd]))
             ExecuteDefragmentationEnd(lineNumber, csvSplit);
+        else if(StrRangeEq(functionName, VMA_FUNCTION_NAMES[(uint32_t)VMA_FUNCTION::SetPoolName]))
+            ExecuteSetPoolName(lineNumber, csvSplit);
         else
         {
             if(IssueWarning())
@@ -3858,6 +3861,48 @@ void Player::ExecuteDefragmentationEnd(size_t lineNumber, const CsvSplit& csvSpl
             if(IssueWarning())
             {
                 printf("Line %zu: Invalid parameters for vmaDefragmentationEnd.\n", lineNumber);
+            }
+        }
+    }
+}
+
+void Player::ExecuteSetPoolName(size_t lineNumber, const CsvSplit& csvSplit)
+{
+    m_Stats.RegisterFunctionCall(VMA_FUNCTION::SetPoolName);
+
+    if(!g_UserDataEnabled)
+    {
+        return;
+    }
+
+    if(ValidateFunctionParameterCount(lineNumber, csvSplit, 2, true))
+    {
+        uint64_t origPtr = 0;
+        if(StrRangeToPtr(csvSplit.GetRange(FIRST_PARAM_INDEX), origPtr))
+        {
+            if(origPtr != 0)
+            {
+                const auto it = m_Pools.find(origPtr);
+                if(it != m_Pools.end())
+                {
+                    std::string poolName;
+                    csvSplit.GetRange(FIRST_PARAM_INDEX + 1).to_str(poolName);
+                    vmaSetPoolName(m_Allocator, it->second.pool, !poolName.empty() ? poolName.c_str() : nullptr);
+                }
+                else
+                {
+                    if(IssueWarning())
+                    {
+                        printf("Line %zu: Pool %llX not found.\n", lineNumber, origPtr);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if(IssueWarning())
+            {
+                printf("Line %zu: Invalid parameters for vmaSetPoolName.\n", lineNumber);
             }
         }
     }

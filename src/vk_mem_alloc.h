@@ -2523,7 +2523,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
     VmaPool pool,
     const char** ppName);
 
-/* \brief Sets name of a custom pool.
+/** \brief Sets name of a custom pool.
 
 `pName` can be either null or pointer to a null-terminated string with new name for the pool.
 Function makes internal copy of the string, so it can be changed or freed immediately after this call.
@@ -6702,6 +6702,9 @@ public:
         VmaDefragmentationContext ctx);
     void RecordDefragmentationEnd(uint32_t frameIndex,
         VmaDefragmentationContext ctx);
+    void RecordSetPoolName(uint32_t frameIndex,
+        VmaPool pool,
+        const char* name);
 
 private:
     struct CallParams
@@ -13659,7 +13662,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,6");
+    fprintf(m_File, "%s\n", "1,7");
 
     return VK_SUCCESS;
 }
@@ -14089,6 +14092,19 @@ void VmaRecorder::RecordDefragmentationEnd(uint32_t frameIndex,
     VmaMutexLock lock(m_FileMutex, m_UseMutex);
     fprintf(m_File, "%u,%.3f,%u,vmaDefragmentationEnd,%p\n", callParams.threadId, callParams.time, frameIndex,
         ctx);
+    Flush();
+}
+
+void VmaRecorder::RecordSetPoolName(uint32_t frameIndex,
+    VmaPool pool,
+    const char* name)
+{
+    CallParams callParams;
+    GetBasicParams(callParams);
+
+    VmaMutexLock lock(m_FileMutex, m_UseMutex);
+    fprintf(m_File, "%u,%.3f,%u,vmaSetPoolName,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
+        pool, name != VMA_NULL ? name : "");
     Flush();
 }
 
@@ -16303,6 +16319,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     pool->SetName(pName);
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        allocator->GetRecorder()->RecordSetPoolName(allocator->GetCurrentFrameIndex(), pool, pName);
+    }
+#endif
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(

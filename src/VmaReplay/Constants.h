@@ -87,6 +87,7 @@ enum class VMA_FUNCTION
     ResizeAllocation,
     DefragmentationBegin,
     DefragmentationEnd,
+    SetPoolName,
     Count
 };
 extern const char* VMA_FUNCTION_NAMES[];
