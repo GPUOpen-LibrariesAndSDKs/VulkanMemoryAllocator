@@ -2154,9 +2154,12 @@ typedef struct VmaBudget
     
     /** \brief Sum size of all allocations created in particular heap, in bytes.
     
-    Always less or equal than `blockBytes`.
+    Usually less or equal than `blockBytes`.
     Difference `blockBytes - allocationBytes` is the amount of memory allocated but unused -
     available for new allocations or wasted due to fragmentation.
+    
+    It might be greater than `blockBytes` if there are some allocations in lost state, as they account
+    to this value as well.
     */
     VkDeviceSize allocationBytes;
     
@@ -5284,6 +5287,7 @@ public:
     {
         m_Alignment = 1;
         m_Size = 0;
+        m_MemoryTypeIndex = 0;
         m_pUserData = VMA_NULL;
         m_LastUseFrameIndex = currentFrameIndex;
         m_Type = (uint8_t)ALLOCATION_TYPE_NONE;
@@ -5310,6 +5314,7 @@ public:
         VkDeviceSize offset,
         VkDeviceSize alignment,
         VkDeviceSize size,
+        uint32_t memoryTypeIndex,
         VmaSuballocationType suballocationType,
         bool mapped,
         bool canBecomeLost)
@@ -5319,6 +5324,7 @@ public:
         m_Type = (uint8_t)ALLOCATION_TYPE_BLOCK;
         m_Alignment = alignment;
         m_Size = size;
+        m_MemoryTypeIndex = memoryTypeIndex;
         m_MapCount = mapped ? MAP_COUNT_FLAG_PERSISTENT_MAP : 0;
         m_SuballocationType = (uint8_t)suballocationType;
         m_BlockAllocation.m_Block = block;
@@ -5331,6 +5337,7 @@ public:
         VMA_ASSERT(m_Type == ALLOCATION_TYPE_NONE);
         VMA_ASSERT(m_LastUseFrameIndex.load() == VMA_FRAME_INDEX_LOST);
         m_Type = (uint8_t)ALLOCATION_TYPE_BLOCK;
+        m_MemoryTypeIndex = 0;
         m_BlockAllocation.m_Block = VMA_NULL;
         m_BlockAllocation.m_Offset = 0;
         m_BlockAllocation.m_CanBecomeLost = true;
@@ -5356,9 +5363,9 @@ public:
         m_Type = (uint8_t)ALLOCATION_TYPE_DEDICATED;
         m_Alignment = 0;
         m_Size = size;
+        m_MemoryTypeIndex = memoryTypeIndex;
         m_SuballocationType = (uint8_t)suballocationType;
         m_MapCount = (pMappedData != VMA_NULL) ? MAP_COUNT_FLAG_PERSISTENT_MAP : 0;
-        m_DedicatedAllocation.m_MemoryTypeIndex = memoryTypeIndex;
         m_DedicatedAllocation.m_hMemory = hMemory;
         m_DedicatedAllocation.m_pMappedData = pMappedData;
     }
@@ -5378,7 +5385,7 @@ public:
     }
     VkDeviceSize GetOffset() const;
     VkDeviceMemory GetMemory() const;
-    uint32_t GetMemoryTypeIndex() const;
+    uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     bool IsPersistentMap() const { return (m_MapCount & MAP_COUNT_FLAG_PERSISTENT_MAP) != 0; }
     void* GetMappedData() const;
     bool CanBecomeLost() const;
@@ -5437,6 +5444,7 @@ private:
     VkDeviceSize m_Size;
     void* m_pUserData;
     VMA_ATOMIC_UINT32 m_LastUseFrameIndex;
+    uint32_t m_MemoryTypeIndex;
     uint8_t m_Type; // ALLOCATION_TYPE
     uint8_t m_SuballocationType; // VmaSuballocationType
     // Bit 0x80 is set when allocation was created with VMA_ALLOCATION_CREATE_MAPPED_BIT.
@@ -5455,7 +5463,6 @@ private:
     // Allocation for an object that has its own private VkDeviceMemory.
     struct DedicatedAllocation
     {
-        uint32_t m_MemoryTypeIndex;
         VkDeviceMemory m_hMemory;
         void* m_pMappedData; // Not null means memory is mapped.
     };
@@ -6966,6 +6973,23 @@ struct VmaCurrentBudgetData
         m_OperationsSinceBudgetFetch = 0;
 #endif
     }
+
+    void AddAllocation(uint32_t heapIndex, VkDeviceSize allocationSize)
+    {
+        m_AllocationBytes[heapIndex] += allocationSize;
+#if VMA_MEMORY_BUDGET
+        ++m_OperationsSinceBudgetFetch;
+#endif
+    }
+
+    void RemoveAllocation(uint32_t heapIndex, VkDeviceSize allocationSize)
+    {
+        VMA_ASSERT(m_AllocationBytes[heapIndex] >= allocationSize); // DELME
+        m_AllocationBytes[heapIndex] -= allocationSize;
+#if VMA_MEMORY_BUDGET
+        ++m_OperationsSinceBudgetFetch;
+#endif
+    }
 };
 
 // Main allocator object.
@@ -7712,20 +7736,6 @@ VkDeviceMemory VmaAllocation_T::GetMemory() const
     default:
         VMA_ASSERT(0);
         return VK_NULL_HANDLE;
-    }
-}
-
-uint32_t VmaAllocation_T::GetMemoryTypeIndex() const
-{
-    switch(m_Type)
-    {
-    case ALLOCATION_TYPE_BLOCK:
-        return m_BlockAllocation.m_Block->GetMemoryTypeIndex();
-    case ALLOCATION_TYPE_DEDICATED:
-        return m_DedicatedAllocation.m_MemoryTypeIndex;
-    default:
-        VMA_ASSERT(0);
-        return UINT32_MAX;
     }
 }
 
@@ -11840,10 +11850,11 @@ VkResult VmaBlockVector::AllocatePage(
         freeMemory = (heapBudget.usage < heapBudget.budget) ? (heapBudget.budget - heapBudget.usage) : 0;
     }
     
+    const bool canFallbackToDedicated = !IsCustomPool();
     const bool canCreateNewBlock =
         ((createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) == 0) &&
         (m_Blocks.size() < m_MaxBlockCount) &&
-        freeMemory >= size;
+        (freeMemory >= size || !canFallbackToDedicated);
     uint32_t strategy = createInfo.flags & VMA_ALLOCATION_CREATE_STRATEGY_MASK;
 
     // If linearAlgorithm is used, canMakeOtherLost is available only when used as ring buffer.
@@ -11995,7 +12006,7 @@ VkResult VmaBlockVector::AllocatePage(
             }
 
             size_t newBlockIndex = 0;
-            VkResult res = newBlockSize <= freeMemory ?
+            VkResult res = (newBlockSize <= freeMemory || !canFallbackToDedicated) ?
                 CreateBlock(newBlockSize, &newBlockIndex) : VK_ERROR_OUT_OF_DEVICE_MEMORY;
             // Allocation of this size failed? Try 1/2, 1/4, 1/8 of m_PreferredBlockSize.
             if(!m_ExplicitBlockSize)
@@ -12007,7 +12018,7 @@ VkResult VmaBlockVector::AllocatePage(
                     {
                         newBlockSize = smallerNewBlockSize;
                         ++newBlockSizeShift;
-                        res = newBlockSize <= freeMemory ?
+                        res = (newBlockSize <= freeMemory || !canFallbackToDedicated) ?
                             CreateBlock(newBlockSize, &newBlockIndex) : VK_ERROR_OUT_OF_DEVICE_MEMORY;
                     }
                     else
@@ -12162,14 +12173,14 @@ VkResult VmaBlockVector::AllocatePage(
                         bestRequest.offset,
                         alignment,
                         size,
+                        m_MemoryTypeIndex,
                         suballocType,
                         mapped,
                         (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
                     VMA_HEAVY_ASSERT(pBestRequestBlock->Validate());
                     VMA_DEBUG_LOG("    Returned from existing block");
                     (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
-                    m_hAllocator->m_Budget.m_AllocationBytes[m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex)] += size;
-                    ++m_hAllocator->m_Budget.m_OperationsSinceBudgetFetch;
+                    m_hAllocator->m_Budget.AddAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), size);
                     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
                     {
                         m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
@@ -12376,13 +12387,13 @@ VkResult VmaBlockVector::AllocateFromBlock(
             currRequest.offset,
             alignment,
             size,
+            m_MemoryTypeIndex,
             suballocType,
             mapped,
             (allocFlags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
         VMA_HEAVY_ASSERT(pBlock->Validate());
         (*pAllocation)->SetUserData(m_hAllocator, pUserData);
-        m_hAllocator->m_Budget.m_AllocationBytes[m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex)] += size;
-        ++m_hAllocator->m_Budget.m_OperationsSinceBudgetFetch;
+        m_hAllocator->m_Budget.AddAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), size);
         if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
         {
             m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
@@ -14987,9 +14998,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
             */
     
             FreeVulkanMemory(memTypeIndex, currAlloc->GetSize(), hMemory);
-            const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-            m_Budget.m_AllocationBytes[heapIndex] -= currAlloc->GetSize();
-            ++m_Budget.m_OperationsSinceBudgetFetch;
+            m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), currAlloc->GetSize());
             currAlloc->SetUserData(this, VMA_NULL);
             currAlloc->Dtor();
             m_AllocationObjectAllocator.Free(currAlloc);
@@ -15041,9 +15050,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
     (*pAllocation)->Ctor(m_CurrentFrameIndex.load(), isUserDataString);
     (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size);
     (*pAllocation)->SetUserData(this, pUserData);
-    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-    m_Budget.m_AllocationBytes[heapIndex] += size;
-    ++m_Budget.m_OperationsSinceBudgetFetch;
+    m_Budget.AddAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), size);
     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
     {
         FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
@@ -15311,11 +15318,8 @@ void VmaAllocator_T::FreeMemory(
                 }
             }
 
-            if(allocation->GetLastUseFrameIndex() != VMA_FRAME_INDEX_LOST)
-            {
-                m_Budget.m_AllocationBytes[MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex())] -= allocation->GetSize();
-                ++m_Budget.m_OperationsSinceBudgetFetch;
-            }
+            // Do this regardless of whether the allocation is lost. Lost allocations still account to Budget.AllocationBytes.
+            m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex()), allocation->GetSize());
             allocation->SetUserData(this, VMA_NULL);
             allocation->Dtor();
             m_AllocationObjectAllocator.Free(allocation);
@@ -15748,7 +15752,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(pAllocateInfo->memoryTypeIndex);
 
     // HeapSizeLimit is in effect for this heap.
-    if((m_HeapSizeLimitMask | (1u << heapIndex)) != 0)
+    if((m_HeapSizeLimitMask & (1u << heapIndex)) != 0)
     {
         const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
         VkDeviceSize blockBytes = m_Budget.m_BlockBytes[heapIndex];
@@ -15775,7 +15779,9 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
 
     if(res == VK_SUCCESS)
     {
+#if VMA_MEMORY_BUDGET
         ++m_Budget.m_OperationsSinceBudgetFetch;
+#endif
 
         // Informative callback.
         if(m_DeviceMemoryCallbacks.pfnAllocate != VMA_NULL)
@@ -15802,9 +15808,7 @@ void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, Vk
     // VULKAN CALL vkFreeMemory.
     (*m_VulkanFunctions.vkFreeMemory)(m_hDevice, hMemory, GetAllocationCallbacks());
 
-    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memoryType);
-    m_Budget.m_BlockBytes[heapIndex] -= size;
-    ++m_Budget.m_OperationsSinceBudgetFetch;
+    m_Budget.m_BlockBytes[MemoryTypeIndexToHeapIndex(memoryType)] -= size;
 }
 
 VkResult VmaAllocator_T::BindVulkanBuffer(

@@ -43,6 +43,7 @@ static const bool USE_CUSTOM_CPU_ALLOCATION_CALLBACKS = true;
 VkPhysicalDevice g_hPhysicalDevice;
 VkDevice g_hDevice;
 VmaAllocator g_hAllocator;
+VkInstance g_hVulkanInstance;
 bool g_MemoryAliasingWarningEnabled = true;
 
 static bool g_EnableValidationLayer = true;
@@ -56,7 +57,6 @@ bool g_SparseBindingEnabled = false;
 static HINSTANCE g_hAppInstance;
 static HWND g_hWnd;
 static LONG g_SizeX = 1280, g_SizeY = 720;
-static VkInstance g_hVulkanInstance;
 static VkSurfaceKHR g_hSurface;
 static VkQueue g_hPresentQueue;
 static VkSurfaceFormatKHR g_SurfaceFormat;
@@ -1369,10 +1369,12 @@ static void InitializeApplication()
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     }
+#if !defined(VMA_MEMORY_BUDGET) || VMA_MEMORY_BUDGET == 1
     if(VK_EXT_memory_budget_enabled && VK_KHR_get_physical_device_properties2_enabled)
     {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
+#endif
 
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
     {

@@ -2000,6 +2000,7 @@ void TestHeapSizeLimit()
     VmaAllocatorCreateInfo allocatorCreateInfo = {};
     allocatorCreateInfo.physicalDevice = g_hPhysicalDevice;
     allocatorCreateInfo.device = g_hDevice;
+    allocatorCreateInfo.instance = g_hVulkanInstance;
     allocatorCreateInfo.pHeapSizeLimit = heapSizeLimit;
 
     VmaAllocator hAllocator;
@@ -2016,8 +2017,8 @@ void TestHeapSizeLimit()
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-    // 1. Allocate two blocks of Own Memory, half the size of BLOCK_SIZE.
-    VmaAllocationInfo ownAllocInfo;
+    // 1. Allocate two blocks of dedicated memory, half the size of BLOCK_SIZE.
+    VmaAllocationInfo dedicatedAllocInfo;
     {
         VmaAllocationCreateInfo allocCreateInfo = {};
         allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -2028,7 +2029,7 @@ void TestHeapSizeLimit()
         for(size_t i = 0; i < 2; ++i)
         {
             Item item;
-            res = vmaCreateBuffer(hAllocator, &bufCreateInfo, &allocCreateInfo, &item.hBuf, &item.hAlloc, &ownAllocInfo);
+            res = vmaCreateBuffer(hAllocator, &bufCreateInfo, &allocCreateInfo, &item.hBuf, &item.hAlloc, &dedicatedAllocInfo);
             TEST(res == VK_SUCCESS);
             items.push_back(item);
         }
@@ -2036,7 +2037,7 @@ void TestHeapSizeLimit()
 
     // Create pool to make sure allocations must be out of this memory type.
     VmaPoolCreateInfo poolCreateInfo = {};
-    poolCreateInfo.memoryTypeIndex = ownAllocInfo.memoryType;
+    poolCreateInfo.memoryTypeIndex = dedicatedAllocInfo.memoryType;
     poolCreateInfo.blockSize = BLOCK_SIZE;
 
     VmaPool hPool;
@@ -3873,8 +3874,6 @@ static void TestBudget()
 {
     wprintf(L"Testing budget...\n");
 
-    uint32_t memTypeIndex = UINT32_MAX;
-
     static const VkDeviceSize BUF_SIZE = 100ull * 1024 * 1024;
     static const uint32_t BUF_COUNT = 4;
 
@@ -3884,6 +3883,11 @@ static void TestBudget()
 
         VmaBudget budgetBeg[VK_MAX_MEMORY_HEAPS] = {};
         vmaGetBudget(g_hAllocator, budgetBeg);
+
+        for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
+        {
+            TEST(budgetBeg[i].allocationBytes <= budgetBeg[i].blockBytes);
+        }
 
         VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufInfo.size = BUF_SIZE;
@@ -5234,7 +5238,7 @@ void Test()
     //PerformCustomPoolTest(file);
     
     fclose(file);
-
+    
     wprintf(L"Done.\n");
 }
 

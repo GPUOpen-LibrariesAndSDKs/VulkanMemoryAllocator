@@ -66,6 +66,7 @@ typedef std::chrono::high_resolution_clock::duration duration;
 
 extern VkPhysicalDevice g_hPhysicalDevice;
 extern VkDevice g_hDevice;
+extern VkInstance g_hVulkanInstance;
 extern VmaAllocator g_hAllocator;
 extern bool g_MemoryAliasingWarningEnabled;
 
