@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['offset_314',['offset',['../struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268',1,'VmaAllocationInfo']]]
+  ['offset_315',['offset',['../struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268',1,'VmaAllocationInfo']]]
 ];

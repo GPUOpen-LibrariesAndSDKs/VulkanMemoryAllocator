@@ -2284,6 +2284,14 @@ typedef enum VmaMemoryUsage
     of custom paging/residency mechanism, to be moved back to GPU memory when needed.
     */
     VMA_MEMORY_USAGE_CPU_COPY = 5,
+    /** Lazily allocated GPU memory having `VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT`.
+    Exists mostly on mobile platforms. Using it on desktop PC or other GPUs with no such memory type present will fail the allocation.
+    
+    Usage: Memory for transient attachment images (color attachments, depth attachments etc.), created with `VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT`.
+
+    Allocations with this usage are always created as dedicated - it implies #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
+    */
+    VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED = 6,
 
     VMA_MEMORY_USAGE_MAX_ENUM = 0x7FFFFFFF
 } VmaMemoryUsage;
@@ -14814,6 +14822,11 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     {
         finalCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_MAPPED_BIT;
     }
+    // If memory is lazily allocated, it should be always dedicated.
+    if(finalCreateInfo.usage == VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED)
+    {
+        finalCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    }
 
     VmaBlockVector* const blockVector = m_pBlockVectors[memTypeIndex];
     VMA_ASSERT(blockVector);
@@ -16527,6 +16540,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
         break;
     case VMA_MEMORY_USAGE_CPU_COPY:
         notPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        break;
+    case VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED:
+        requiredFlags |= VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
         break;
     default:
         VMA_ASSERT(0);

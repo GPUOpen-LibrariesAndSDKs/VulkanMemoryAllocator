@@ -3874,7 +3874,7 @@ static void TestMemoryUsage()
 {
     wprintf(L"Testing memory usage:\n");
 
-    static const VmaMemoryUsage lastUsage = VMA_MEMORY_USAGE_CPU_COPY;
+    static const VmaMemoryUsage lastUsage = VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
     for(uint32_t usage = 0; usage <= lastUsage; ++usage)
     {
         switch(usage)
@@ -3885,6 +3885,7 @@ static void TestMemoryUsage()
         case VMA_MEMORY_USAGE_CPU_TO_GPU: printf("  VMA_MEMORY_USAGE_CPU_TO_GPU:\n"); break;
         case VMA_MEMORY_USAGE_GPU_TO_CPU: printf("  VMA_MEMORY_USAGE_GPU_TO_CPU:\n"); break;
         case VMA_MEMORY_USAGE_CPU_COPY: printf("  VMA_MEMORY_USAGE_CPU_COPY:\n"); break;
+        case VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED: printf("  VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED:\n"); break;
         default: assert(0);
         }
 
