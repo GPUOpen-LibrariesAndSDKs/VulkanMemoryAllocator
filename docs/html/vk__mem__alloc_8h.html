@@ -236,6 +236,7 @@ Enumerations</h2></td></tr>
 <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca9066b52c5a7079bb74a69aaf8b92ff67">VMA_MEMORY_USAGE_CPU_TO_GPU</a> = 3, 
 <br />
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca7b586d2fdaf82a463b58f581ed72be27">VMA_MEMORY_USAGE_GPU_TO_CPU</a> = 4, 
+<a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca416a444d4d0fc20067c3f76f32ff2500">VMA_MEMORY_USAGE_CPU_COPY</a> = 5, 
 <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cca091e69437ef693e8d0d287f1c719ba6e">VMA_MEMORY_USAGE_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
@@ -1091,6 +1092,9 @@ Functions</h2></td></tr>
 <li>Resources written by device, read by host - results of some computations, e.g. screen capture, average scene luminance for HDR tone mapping.</li>
 <li>Any resources read or accessed randomly on host, e.g. CPU-side copy of vertex buffer used as source of transfer, but also used for collision detection. </li>
 </ul>
+</td></tr>
+<tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca416a444d4d0fc20067c3f76f32ff2500"></a>VMA_MEMORY_USAGE_CPU_COPY&#160;</td><td class="fielddoc"><p>CPU memory - memory that is preferably not <code>DEVICE_LOCAL</code>, but also not guaranteed to be <code>HOST_VISIBLE</code>.</p>
+<p>Usage: Staging copy of resources moved from GPU memory to CPU memory as part of custom paging/residency mechanism, to be moved back to GPU memory when needed. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="aa5846affa1e9da3800e3e78fae2305cca091e69437ef693e8d0d287f1c719ba6e"></a>VMA_MEMORY_USAGE_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
