@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 PROGRAM_VERSION = 'VMA Dump Visualization 2.0.1'
-IMG_SIZE_X = 800
+IMG_SIZE_X = 1200
 IMG_MARGIN = 8
 FONT_SIZE = 10
 MAP_SIZE = 24
