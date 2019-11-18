@@ -6032,7 +6032,6 @@ public:
         size_t maxBlockCount,
         VkDeviceSize bufferImageGranularity,
         uint32_t frameInUseCount,
-        bool isCustomPool,
         bool explicitBlockSize,
         uint32_t algorithm);
     ~VmaBlockVector();
@@ -6041,6 +6040,7 @@ public:
 
     VmaAllocator GetAllocator() const { return m_hAllocator; }
     VmaPool GetParentPool() const { return m_hParentPool; }
+    bool IsCustomPool() const { return m_hParentPool != VMA_NULL; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     VkDeviceSize GetPreferredBlockSize() const { return m_PreferredBlockSize; }
     VkDeviceSize GetBufferImageGranularity() const { return m_BufferImageGranularity; }
@@ -6106,7 +6106,6 @@ private:
     const size_t m_MaxBlockCount;
     const VkDeviceSize m_BufferImageGranularity;
     const uint32_t m_FrameInUseCount;
-    const bool m_IsCustomPool;
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
     /* There can be at most one allocation that is completely empty - a
@@ -11448,7 +11447,6 @@ VmaPool_T::VmaPool_T(
         createInfo.maxBlockCount,
         (createInfo.flags & VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT) != 0 ? 1 : hAllocator->GetBufferImageGranularity(),
         createInfo.frameInUseCount,
-        true, // isCustomPool
         createInfo.blockSize != 0, // explicitBlockSize
         createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK), // algorithm
     m_Id(0),
@@ -11488,7 +11486,6 @@ VmaBlockVector::VmaBlockVector(
     size_t maxBlockCount,
     VkDeviceSize bufferImageGranularity,
     uint32_t frameInUseCount,
-    bool isCustomPool,
     bool explicitBlockSize,
     uint32_t algorithm) :
     m_hAllocator(hAllocator),
@@ -11499,7 +11496,6 @@ VmaBlockVector::VmaBlockVector(
     m_MaxBlockCount(maxBlockCount),
     m_BufferImageGranularity(bufferImageGranularity),
     m_FrameInUseCount(frameInUseCount),
-    m_IsCustomPool(isCustomPool),
     m_ExplicitBlockSize(explicitBlockSize),
     m_Algorithm(algorithm),
     m_HasEmptyBlock(false),
@@ -12426,7 +12422,7 @@ void VmaBlockVector::PrintDetailedMap(class VmaJsonWriter& json)
 
     json.BeginObject();
 
-    if(m_IsCustomPool)
+    if(IsCustomPool())
     {
         const char* poolName = m_hParentPool->GetName();
         if(poolName != VMA_NULL && poolName[0] != '\0')
@@ -14331,7 +14327,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             SIZE_MAX,
             GetBufferImageGranularity(),
             pCreateInfo->frameInUseCount,
-            false, // isCustomPool
             false, // explicitBlockSize
             false); // linearAlgorithm
         // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
