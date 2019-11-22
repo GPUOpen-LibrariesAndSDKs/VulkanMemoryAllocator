@@ -12656,6 +12656,10 @@ void VmaBlockVector::FreeEmptyBlocks(VmaDefragmentationStats* pDefragmentationSt
                 pBlock->Destroy(m_hAllocator);
                 vma_delete(m_hAllocator, pBlock);
             }
+            else
+            {
+                break;
+            }
         }
     }
     UpdateHasEmptyBlock();
