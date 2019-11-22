@@ -6296,11 +6296,11 @@ private:
     const uint32_t m_FrameInUseCount;
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
-    /* There can be at most one allocation that is completely empty - a
-    hysteresis to avoid pessimistic case of alternating creation and destruction
-    of a VkDeviceMemory. */
-    bool m_HasEmptyBlock;
     VMA_RW_MUTEX m_Mutex;
+
+    /* There can be at most one allocation that is completely empty (except when minBlockCount > 0) -
+    a hysteresis to avoid pessimistic case of alternating creation and destruction of a VkDeviceMemory. */
+    bool m_HasEmptyBlock;
     // Incrementally sorted by sumFreeSize, ascending.
     VmaVector< VmaDeviceMemoryBlock*, VmaStlAllocator<VmaDeviceMemoryBlock*> > m_Blocks;
     uint32_t m_NextBlockId;
@@ -6351,6 +6351,8 @@ private:
     - updated with new data.
     */
     void FreeEmptyBlocks(VmaDefragmentationStats* pDefragmentationStats);
+
+    void UpdateHasEmptyBlock();
 };
 
 struct VmaPool_T
@@ -12174,15 +12176,11 @@ VkResult VmaBlockVector::AllocatePage(
                     m_FrameInUseCount,
                     &bestRequest))
                 {
-                    // We no longer have an empty Allocation.
-                    if(pBestRequestBlock->m_pMetadata->IsEmpty())
-                    {
-                        m_HasEmptyBlock = false;
-                    }
                     // Allocate from this pBlock.
                     *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate();
                     (*pAllocation)->Ctor(currentFrameIndex, isUserDataString);
                     pBestRequestBlock->m_pMetadata->Alloc(bestRequest, suballocType, size, *pAllocation);
+                    UpdateHasEmptyBlock();
                     (*pAllocation)->InitBlockAllocation(
                         pBestRequestBlock,
                         bestRequest.offset,
@@ -12272,11 +12270,7 @@ void VmaBlockVector::Free(
                 pBlockToDelete = pBlock;
                 Remove(pBlock);
             }
-            // We now have first empty block.
-            else
-            {
-                m_HasEmptyBlock = true;
-            }
+            // else: We now have an empty block - leave it.
         }
         // pBlock didn't become empty, but we have another empty block - find and free that one.
         // (This is optional, heuristics.)
@@ -12287,10 +12281,10 @@ void VmaBlockVector::Free(
             {
                 pBlockToDelete = pLastBlock;
                 m_Blocks.pop_back();
-                m_HasEmptyBlock = false;
             }
         }
 
+        UpdateHasEmptyBlock();
         IncrementallySortBlocks();
     }
 
@@ -12388,15 +12382,10 @@ VkResult VmaBlockVector::AllocateFromBlock(
             }
         }
             
-        // We no longer have an empty Allocation.
-        if(pBlock->m_pMetadata->IsEmpty())
-        {
-            m_HasEmptyBlock = false;
-        }
-            
         *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate();
         (*pAllocation)->Ctor(currentFrameIndex, isUserDataString);
         pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, *pAllocation);
+        UpdateHasEmptyBlock();
         (*pAllocation)->InitBlockAllocation(
             pBlock,
             currRequest.offset,
@@ -12650,7 +12639,6 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
 
 void VmaBlockVector::FreeEmptyBlocks(VmaDefragmentationStats* pDefragmentationStats)
 {
-    m_HasEmptyBlock = false;
     for(size_t blockIndex = m_Blocks.size(); blockIndex--; )
     {
         VmaDeviceMemoryBlock* pBlock = m_Blocks[blockIndex];
@@ -12668,10 +12656,21 @@ void VmaBlockVector::FreeEmptyBlocks(VmaDefragmentationStats* pDefragmentationSt
                 pBlock->Destroy(m_hAllocator);
                 vma_delete(m_hAllocator, pBlock);
             }
-            else
-            {
-                m_HasEmptyBlock = true;
-            }
+        }
+    }
+    UpdateHasEmptyBlock();
+}
+
+void VmaBlockVector::UpdateHasEmptyBlock()
+{
+    m_HasEmptyBlock = false;
+    for(size_t index = 0, count = m_Blocks.size(); index < count; ++index)
+    {
+        VmaDeviceMemoryBlock* const pBlock = m_Blocks[index];
+        if(pBlock->m_pMetadata->IsEmpty())
+        {
+            m_HasEmptyBlock = true;
+            break;
         }
     }
 }

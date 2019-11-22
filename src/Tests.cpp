@@ -715,14 +715,17 @@ void AllocInfo::Destroy()
     if(m_Image)
     {
         vkDestroyImage(g_hDevice, m_Image, g_Allocs);
+        m_Image = VK_NULL_HANDLE;
     }
     if(m_Buffer)
     {
         vkDestroyBuffer(g_hDevice, m_Buffer, g_Allocs);
+        m_Buffer = VK_NULL_HANDLE;
     }
     if(m_Allocation)
     {
         vmaFreeMemory(g_hAllocator, m_Allocation);
+        m_Allocation = VK_NULL_HANDLE;
     }
 }
 
@@ -1984,6 +1987,80 @@ static void TestBasics()
     TestUserData();
 
     TestInvalidAllocations();
+}
+
+static void TestPool_MinBlockCount()
+{
+#if defined(VMA_DEBUG_MARGIN) && VMA_DEBUG_MARGIN > 0
+    return;
+#endif
+
+    wprintf(L"Test Pool MinBlockCount\n");
+    VkResult res;
+
+    static const VkDeviceSize ALLOC_SIZE = 512ull * 1024;
+    static const VkDeviceSize BLOCK_SIZE = ALLOC_SIZE * 2; // Each block can fit 2 allocations.
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufCreateInfo.size = ALLOC_SIZE;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.blockSize = BLOCK_SIZE;
+    poolCreateInfo.minBlockCount = 2; // At least 2 blocks always present.
+    res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    TEST(res == VK_SUCCESS);
+
+    VmaPool pool = VK_NULL_HANDLE;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    TEST(res == VK_SUCCESS && pool != VK_NULL_HANDLE);
+
+    // Check that there are 2 blocks preallocated as requested.
+    VmaPoolStats begPoolStats = {};
+    vmaGetPoolStats(g_hAllocator, pool, &begPoolStats);
+    TEST(begPoolStats.blockCount == 2 && begPoolStats.allocationCount == 0 && begPoolStats.size == BLOCK_SIZE * 2);
+
+    // Allocate 5 buffers to create 3 blocks.
+    static const uint32_t BUF_COUNT = 5;
+    allocCreateInfo.pool = pool;
+    std::vector<AllocInfo> allocs(BUF_COUNT);
+    for(uint32_t i = 0; i < BUF_COUNT; ++i)
+    {
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &allocs[i].m_Buffer, &allocs[i].m_Allocation, nullptr);
+        TEST(res == VK_SUCCESS && allocs[i].m_Buffer != VK_NULL_HANDLE && allocs[i].m_Allocation != VK_NULL_HANDLE);
+    }
+
+    // Check that there are really 3 blocks.
+    VmaPoolStats poolStats2 = {};
+    vmaGetPoolStats(g_hAllocator, pool, &poolStats2);
+    TEST(poolStats2.blockCount == 3 && poolStats2.allocationCount == BUF_COUNT && poolStats2.size == BLOCK_SIZE * 3);
+
+    // Free two first allocations to make one block empty.
+    allocs[0].Destroy();
+    allocs[1].Destroy();
+
+    // Check that there are still 3 blocks due to hysteresis.
+    VmaPoolStats poolStats3 = {};
+    vmaGetPoolStats(g_hAllocator, pool, &poolStats3);
+    TEST(poolStats3.blockCount == 3 && poolStats3.allocationCount == BUF_COUNT - 2 && poolStats2.size == BLOCK_SIZE * 3);
+
+    // Free the last allocation to make second block empty.
+    allocs[BUF_COUNT - 1].Destroy();
+
+    // Check that there are now 2 blocks only.
+    VmaPoolStats poolStats4 = {};
+    vmaGetPoolStats(g_hAllocator, pool, &poolStats4);
+    TEST(poolStats4.blockCount == 2 && poolStats4.allocationCount == BUF_COUNT - 3 && poolStats4.size == BLOCK_SIZE * 2);
+
+    // Cleanup.
+    for(size_t i = allocs.size(); i--; )
+    {
+        allocs[i].Destroy();
+    }
+    vmaDestroyPool(g_hAllocator, pool);
 }
 
 void TestHeapSizeLimit()
@@ -5392,6 +5469,7 @@ void Test()
     TestDebugMargin();
 #else
     TestPool_SameSize();
+    TestPool_MinBlockCount();
     TestHeapSizeLimit();
 #endif
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
