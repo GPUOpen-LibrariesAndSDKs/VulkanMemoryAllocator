@@ -1352,17 +1352,6 @@ static void InitializeApplication()
 
     if(VK_KHR_dedicated_allocation_enabled)
     {
-        /*
-        Comment out this line to make the app working with RenderDoc.
-    
-        Currently there is a problem with compatibility of this app with RenderDoc due
-        to a known bug in Vulkan validation layers:
-
-        https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/579
-
-        It occurs because this app uses Vulkan 1.0 and VK_KHR_dedicated_allocation
-        extension instead of equivalent functionality embedded into Vulkan 1.1.
-        */
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
     if(VK_KHR_bind_memory2_enabled)
