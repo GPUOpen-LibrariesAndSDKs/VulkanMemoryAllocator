@@ -109,6 +109,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="memItemLeft" align="right" valign="top">VkInstance&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">instance</a></td></tr>
 <tr class="memdesc:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional handle to Vulkan instance object.  <a href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">More...</a><br /></td></tr>
 <tr class="separator:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae0ffc55139b54520a6bb704b29ffc285"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285">vulkanApiVersion</a></td></tr>
+<tr class="memdesc:ae0ffc55139b54520a6bb704b29ffc285"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional. The highest version of Vulkan that the application is designed to use.  <a href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285">More...</a><br /></td></tr>
+<tr class="separator:ae0ffc55139b54520a6bb704b29ffc285"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Description of a Allocator to be created. </p>
@@ -178,7 +181,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Optional handle to Vulkan instance object. </p>
-<p>Optional, can be null. Must be set if <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0">VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT</a> flas is used. </p>
+<p>Optional, can be null. Must be set if <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0">VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT</a> flas is used or if <code>vulkanApiVersion &gt;= VK_MAKE_VERSION(1, 1, 0)</code>. </p>
 
 </div>
 </div>
@@ -306,6 +309,23 @@ Public Attributes</h2></td></tr>
 <p>Pointers to Vulkan functions. Can be null if you leave define <code>VMA_STATIC_VULKAN_FUNCTIONS 1</code>. </p>
 <p>If you leave define <code>VMA_STATIC_VULKAN_FUNCTIONS 1</code> in configuration section, you can pass null as this member, because the library will fetch pointers to Vulkan functions internally in a static way, like: </p><pre class="fragment">vulkanFunctions.vkAllocateMemory = &amp;vkAllocateMemory;
 </pre><p>Fill this member if you want to provide your own pointers to Vulkan functions, e.g. fetched using <code>vkGetInstanceProcAddr()</code> and <code>vkGetDeviceProcAddr()</code>. </p>
+
+</div>
+</div>
+<a id="ae0ffc55139b54520a6bb704b29ffc285"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae0ffc55139b54520a6bb704b29ffc285">&#9670;&nbsp;</a></span>vulkanApiVersion</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t VmaAllocatorCreateInfo::vulkanApiVersion</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Optional. The highest version of Vulkan that the application is designed to use. </p>
+<p>It must be a value in the format as created by macro <code>VK_MAKE_VERSION</code> or a constant like: <code>VK_API_VERSION_1_1</code>, <code>VK_API_VERSION_1_0</code>. The patch version number specified is ignored. Only the major and minor versions are considered. It must be less or euqal (preferably equal) to value as passed to <code>vkCreateInstance</code> as <code>VkApplicationInfo::apiVersion</code>. Only versions 1.0 and 1.1 are supported by the current implementation. Leaving it initialized to zero is equivalent to <code>VK_API_VERSION_1_0</code>. </p>
 
 </div>
 </div>

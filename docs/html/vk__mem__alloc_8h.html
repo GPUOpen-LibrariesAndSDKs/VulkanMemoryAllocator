@@ -125,6 +125,8 @@ Macros</h2></td></tr>
 <tr class="separator:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9f918755b601cf4bffca775992e6fb90"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a9f918755b601cf4bffca775992e6fb90">NOMINMAX</a></td></tr>
 <tr class="separator:a9f918755b601cf4bffca775992e6fb90"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a2407c283893638cc039bb31fcd74b6"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a1a2407c283893638cc039bb31fcd74b6">VMA_VULKAN_VERSION</a>&#160;&#160;&#160;1000000</td></tr>
+<tr class="separator:a1a2407c283893638cc039bb31fcd74b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
 <tr class="separator:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a88bef97f86d70a34a4c0746e09a2680d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a88bef97f86d70a34a4c0746e09a2680d">VMA_BIND_MEMORY2</a>&#160;&#160;&#160;0</td></tr>
@@ -502,6 +504,20 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define VMA_STATS_STRING_ENABLED&#160;&#160;&#160;1</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1a2407c283893638cc039bb31fcd74b6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a2407c283893638cc039bb31fcd74b6">&#9670;&nbsp;</a></span>VMA_VULKAN_VERSION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VMA_VULKAN_VERSION&#160;&#160;&#160;1000000</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1016,6 +1032,7 @@ Functions</h2></td></tr>
 <p>Using this flag may increase performance because internal mutexes are not used. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878"></a>VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_KHR_dedicated_allocation extension. </p>
+<p>The flag works only if <a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. The highest version of Vulkan that the application is designed to use.">VmaAllocatorCreateInfo::vulkanApiVersion</a> <code>== VK_API_VERSION_1_0</code>. When it's <code>VK_API_VERSION_1_1</code>, the flag is ignored because the extension has been promoted to Vulkan 1.1.</p>
 <p>Using this extenion will automatically allocate dedicated blocks of memory for some buffers and images instead of suballocating place for them out of bigger memory blocks (as if you explicitly used <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a> flag) when it is recommended by the driver. It may improve performance on some GPUs.</p>
 <p>You may set this flag only if you found out that following device extensions are supported, you enabled them while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>, and you want them to be used internally by this library:</p>
 <ul>
@@ -1028,11 +1045,12 @@ Functions</h2></td></tr>
 </blockquote>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee"></a>VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_KHR_bind_memory2 extension.</p>
+<p>The flag works only if <a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. The highest version of Vulkan that the application is designed to use.">VmaAllocatorCreateInfo::vulkanApiVersion</a> <code>== VK_API_VERSION_1_0</code>. When it's <code>VK_API_VERSION_1_1</code>, the flag is ignored because the extension has been promoted to Vulkan 1.1.</p>
 <p>You may set this flag only if you found out that this device extension is supported, you enabled it while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>, and you want it to be used internally by this library.</p>
 <p>The extension provides functions <code>vkBindBufferMemory2KHR</code> and <code>vkBindImageMemory2KHR</code>, which allow to pass a chain of <code>pNext</code> structures while binding. This flag is required if you use <code>pNext</code> parameter in <a class="el" href="vk__mem__alloc_8h.html#a927c944f45e0f2941182abb6f608e64a" title="Binds buffer to allocation with additional parameters.">vmaBindBufferMemory2()</a> or <a class="el" href="vk__mem__alloc_8h.html#aa8251ee81b0045a443e35b8e8aa021bc" title="Binds image to allocation with additional parameters.">vmaBindImageMemory2()</a>. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0"></a>VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_EXT_memory_budget extension.</p>
-<p>You may set this flag only if you found out that this device extension is supported, you enabled it while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>, and you want it to be used internally by this library, along with another instance extension VK_KHR_get_physical_device_properties2, which is required by it.</p>
+<p>You may set this flag only if you found out that this device extension is supported, you enabled it while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>, and you want it to be used internally by this library, along with another instance extension VK_KHR_get_physical_device_properties2, which is required by it (or Vulkan 1.1, where this extension is promoted).</p>
 <p>The extension provides query for current memory usage and budget, which will probably be more accurate than an estimation used by the library otherwise. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c"></a>VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
@@ -1483,7 +1501,7 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <p>This function is similar to <a class="el" href="vk__mem__alloc_8h.html#a6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a>, but it provides additional parameters.</p>
-<p>If <code>pNext</code> is not null, <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must have been created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> flag. Otherwise the call fails. </p>
+<p>If <code>pNext</code> is not null, <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must have been created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> flag or with <a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. The highest version of Vulkan that the application is designed to use.">VmaAllocatorCreateInfo::vulkanApiVersion</a> <code>== VK_API_VERSION_1_1</code>. Otherwise the call fails. </p>
 
 </div>
 </div>
@@ -1578,7 +1596,7 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <p>This function is similar to <a class="el" href="vk__mem__alloc_8h.html#a3d3ca45799923aa5d138e9e5f9eb2da5" title="Binds image to allocation.">vmaBindImageMemory()</a>, but it provides additional parameters.</p>
-<p>If <code>pNext</code> is not null, <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must have been created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> flag. Otherwise the call fails. </p>
+<p>If <code>pNext</code> is not null, <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must have been created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca8fb75bf07cd184ab903596295e863dee">VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT</a> flag or with <a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. The highest version of Vulkan that the application is designed to use.">VmaAllocatorCreateInfo::vulkanApiVersion</a> <code>== VK_API_VERSION_1_1</code>. Otherwise the call fails. </p>
 
 </div>
 </div>

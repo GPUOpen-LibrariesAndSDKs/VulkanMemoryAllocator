@@ -1,3 +1,35 @@
+# 2.3.0-alpha.1 (2019-11-25)
+
+Major release after a year of development in "master" branch and feature branches. Notable new features: supporting Vulkan 1.1, supporting query for memory budget.
+
+Major changes:
+
+- Added support for Vulkan 1.1.
+    - Added member `VmaAllocatorCreateInfo::vulkanApiVersion`.
+    - When Vulkan 1.1 is used, there is no need to enable VK_KHR_dedicated_allocation or VK_KHR_bind_memory2 extensions, as they are promoted to Vulkan itself.
+- Added support for query for memory budget and staying withing the budget.
+    - Added function `vmaGetBudget`, structure `VmaBudget`. This can also serve as simple statistics, more efficient than `vmaCalculateStats`.
+    - By default the budget it is estimated based on memory heap sizes. It may be queried from the system using VK_EXT_memory_budget extension if you use `VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT` flag and `VmaAllocatorCreateInfo::instance` member.
+    - Added flag `VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT` that fails an allocation if it would exceed the budget.
+- Added new memory usage options:
+    - `VMA_MEMORY_USAGE_CPU_COPY` for memory that is preferably not `DEVICE_LOCAL` but not guaranteed to be `HOST_VISIBLE` (mostly for NVIDIA).
+    - `VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED` for memory that is `LAZILY_ALLOCATED` (mostly for mobile GPUs).
+- Added support for VK_KHR_bind_memory2 extension:
+    - Added `VMA_ALLOCATION_CREATE_DONT_BIND_BIT` flag that lets you create both buffer/image and allocation, but don't bind them together.
+    - Added flag `VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT`, functions `vmaBindBufferMemory2`, `vmaBindImageMemory2` that let you specify additional local offset and `pNext` pointer while binding.
+- Added functions `vmaSetPoolName`, `vmaGetPoolName` that let you assign string names to custom pools. JSON dump file format and VmaDumpVis tool is updated to show these names.
+- Defragmentation is legal only on buffers and images in `VK_IMAGE_TILING_LINEAR`. This is due to the way it is currently implemented in the library and the restrictions of the Vulkan specification. Clarified documentation in this regard. See discussion in #59.
+
+Minor changes:
+
+- Made `vmaResizeAllocation` function deprecated, always returning failure.
+- Made changes in the internal algorithm for the choice of memory type. Be careful! You may now get a type that is not `HOST_VISIBLE` or `HOST_COHERENT` if it's not stated as always ensured by some `VMA_MEMORY_USAGE_*` flag.
+- Extended VmaReplay application with more detailed statistics printed at the end.
+- Added macros `VMA_CALL_PRE`, `VMA_CALL_POST` that let you decorate declarations of all library functions if you want to e.g. export/import them as dynamically linked library.
+- Optimized `VmaAllocation` objects to be allocated out of an internal free-list allocator. This makes allocation and deallocation causing 0 dynamic CPU heap allocations on average.
+- Updated recording CSV file format version to 1.8, to support new functions.
+- Many additions and fixes in documentation. Many compatibility fixes for various compilers and platforms. Other internal bugfixes, optimizations, updates, refactoring...
+
 # 2.2.0 (2018-12-13)
 
 Major release after many months of development in "master" branch and feature branches. Notable new features: defragmentation of GPU memory, buddy algorithm, convenience functions for sparse binding.
