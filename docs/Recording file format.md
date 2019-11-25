@@ -23,7 +23,7 @@ Formats with only minor version incremented are backward compatible.
 VmaReplay application supports all older versions.
 Current version is:
 
-    1,7
+    1,8
 
 # Configuration
 
@@ -37,6 +37,8 @@ And ends with line:
 
 Between them there can be zero or more lines with configuration options. They store values of various variables from the current environment from the time of recording, like properties and limits of Vulkan physical device, available memory heaps and types, enabled Vulkan extensions, as well macros that configure VMA internals. Supported configuration options are:
 
+    VulkanApiVersion,<uint32>,<uint32>
+    
     PhysicalDevice,apiVersion,<uint32>
     PhysicalDevice,driverVersion,<uint32>
     PhysicalDevice,vendorID,<uint32>
@@ -56,6 +58,8 @@ Between them there can be zero or more lines with configuration options. They st
     PhysicalDeviceMemory,Type,<index:uint32>,propertyFlags,<uint32>
     
     Extension,VK_KHR_dedicated_allocation,<bool>
+    Extension,VK_KHR_bind_memory2,<bool>
+    Extension,VK_EXT_memory_budget,<bool>
     
     Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,<bool>
     Macro,VMA_DEBUG_ALIGNMENT,<uint64>
@@ -276,8 +280,9 @@ An ordered sequence of values of some type, separated by single space.
 # Example file
 
     Vulkan Memory Allocator,Calls recording
-    1,7
+    1,8
     Config,Begin
+    VulkanApiVersion,1,1
     PhysicalDevice,apiVersion,4198477
     PhysicalDevice,driverVersion,8388653
     PhysicalDevice,vendorID,4098

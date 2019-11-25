@@ -6846,6 +6846,7 @@ public:
     void WriteConfiguration(
         const VkPhysicalDeviceProperties& devProps,
         const VkPhysicalDeviceMemoryProperties& memProps,
+        uint32_t vulkanApiVersion,
         bool dedicatedAllocationExtensionEnabled,
         bool bindMemory2ExtensionEnabled,
         bool memoryBudgetExtensionEnabled);
@@ -13951,7 +13952,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,7");
+    fprintf(m_File, "%s\n", "1,8");
 
     return VK_SUCCESS;
 }
@@ -14420,11 +14421,14 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
 void VmaRecorder::WriteConfiguration(
     const VkPhysicalDeviceProperties& devProps,
     const VkPhysicalDeviceMemoryProperties& memProps,
+    uint32_t vulkanApiVersion,
     bool dedicatedAllocationExtensionEnabled,
     bool bindMemory2ExtensionEnabled,
     bool memoryBudgetExtensionEnabled)
 {
     fprintf(m_File, "Config,Begin\n");
+
+    fprintf(m_File, "VulkanApiVersion,%u,%u\n", VK_VERSION_MAJOR(vulkanApiVersion), VK_VERSION_MINOR(vulkanApiVersion));
 
     fprintf(m_File, "PhysicalDevice,apiVersion,%u\n", devProps.apiVersion);
     fprintf(m_File, "PhysicalDevice,driverVersion,%u\n", devProps.driverVersion);
@@ -14668,6 +14672,7 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
         m_pRecorder->WriteConfiguration(
             m_PhysicalDeviceProperties,
             m_MemProps,
+            m_VulkanApiVersion,
             m_UseKhrDedicatedAllocation,
             m_UseKhrBindMemory2,
             m_UseExtMemoryBudget);
