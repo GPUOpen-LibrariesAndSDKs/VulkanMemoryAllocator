@@ -12,8 +12,8 @@ Major changes:
     - By default the budget it is estimated based on memory heap sizes. It may be queried from the system using VK_EXT_memory_budget extension if you use `VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT` flag and `VmaAllocatorCreateInfo::instance` member.
     - Added flag `VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT` that fails an allocation if it would exceed the budget.
 - Added new memory usage options:
-    - `VMA_MEMORY_USAGE_CPU_COPY` for memory that is preferably not `DEVICE_LOCAL` but not guaranteed to be `HOST_VISIBLE` (mostly for NVIDIA).
-    - `VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED` for memory that is `LAZILY_ALLOCATED` (mostly for mobile GPUs).
+    - `VMA_MEMORY_USAGE_CPU_COPY` for memory that is preferably not `DEVICE_LOCAL` but not guaranteed to be `HOST_VISIBLE`.
+    - `VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED` for memory that is `LAZILY_ALLOCATED`.
 - Added support for VK_KHR_bind_memory2 extension:
     - Added `VMA_ALLOCATION_CREATE_DONT_BIND_BIT` flag that lets you create both buffer/image and allocation, but don't bind them together.
     - Added flag `VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT`, functions `vmaBindBufferMemory2`, `vmaBindImageMemory2` that let you specify additional local offset and `pNext` pointer while binding.
