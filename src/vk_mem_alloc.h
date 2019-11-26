@@ -6265,7 +6265,7 @@ public:
 
     void GetPoolStats(VmaPoolStats* pStats);
 
-    bool IsEmpty() const { return m_Blocks.empty(); }
+    bool IsEmpty();
     bool IsCorruptionDetectionEnabled() const;
 
     VkResult Allocate(
@@ -11812,6 +11812,12 @@ void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
         VMA_HEAVY_ASSERT(pBlock->Validate());
         pBlock->m_pMetadata->AddPoolStats(*pStats);
     }
+}
+
+bool VmaBlockVector::IsEmpty()
+{
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
+    return m_Blocks.empty();
 }
 
 bool VmaBlockVector::IsCorruptionDetectionEnabled() const
