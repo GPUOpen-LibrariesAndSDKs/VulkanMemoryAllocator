@@ -15849,9 +15849,9 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
     if((m_HeapSizeLimitMask & (1u << heapIndex)) != 0)
     {
         const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
-        VkDeviceSize blockBytes = m_Budget.m_BlockBytes[heapIndex];
         for(;;)
         {
+            VkDeviceSize blockBytes = m_Budget.m_BlockBytes[heapIndex];
             const VkDeviceSize blockBytesAfterAllocation = blockBytes + pAllocateInfo->allocationSize;
             if(blockBytesAfterAllocation > heapSize)
             {
