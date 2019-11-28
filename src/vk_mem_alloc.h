@@ -15857,7 +15857,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
             {
                 return VK_ERROR_OUT_OF_DEVICE_MEMORY;
             }
-            if(m_Budget.m_BlockBytes->compare_exchange_strong(blockBytes, blockBytesAfterAllocation))
+            if(m_Budget.m_BlockBytes[heapIndex].compare_exchange_strong(blockBytes, blockBytesAfterAllocation))
             {
                 break;
             }
