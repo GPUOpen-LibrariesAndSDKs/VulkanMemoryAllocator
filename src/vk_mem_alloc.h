@@ -1948,6 +1948,7 @@ typedef struct VmaVulkanFunctions {
     PFN_vkCreateImage vkCreateImage;
     PFN_vkDestroyImage vkDestroyImage;
     PFN_vkCmdCopyBuffer vkCmdCopyBuffer;
+    PFN_vkCmdCopyImage vkCmdCopyImage;
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
     PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
     PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
@@ -2676,9 +2677,9 @@ typedef struct VmaPoolStats {
 @param[out] pPool Handle to created pool.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreatePool(
-	VmaAllocator allocator,
-	const VmaPoolCreateInfo* pCreateInfo,
-	VmaPool* pPool);
+    VmaAllocator allocator,
+    const VmaPoolCreateInfo* pCreateInfo,
+    VmaPool* pPool);
 
 /** \brief Destroys #VmaPool object and frees Vulkan device memory.
 */
@@ -3099,6 +3100,147 @@ typedef enum VmaDefragmentationFlagBits {
 } VmaDefragmentationFlagBits;
 typedef VkFlags VmaDefragmentationFlags;
 
+typedef enum VmaAllocationType {
+    VMA_ALLOCATION_TYPE_UNKNOWN,
+    VMA_ALLOCATION_TYPE_IMAGE,
+    VMA_ALLOCATION_TYPE_BUFFER
+} VmaAllocationType;
+
+typedef struct VmaImageIntrospection {
+    VkImage image;
+    VkImageCreateInfo createInfo;
+    VkImageLayout layout;
+    VkAccessFlags accessMask;
+    VkPipelineStageFlags stageMask;
+} VmaImageIntrospection;
+
+typedef struct VmaBufferIntrospection {
+    VkBuffer buffer;
+    VkBufferCreateInfo createInfo;
+    VkAccessFlags accessFlags;
+    VkPipelineStageFlags pipelineStage;
+} VmaBufferIntrospection;
+    
+/// Callback function to get the type of an allocation
+typedef VmaAllocationType (VKAPI_PTR *PFN_vmaAllocationTypeFunction)(
+    VmaAllocation     allocation,
+    void             *pUserData);
+/// Callback function to get information about images
+typedef VmaImageIntrospection(VKAPI_PTR *PFN_vmaAllocationImageIntrospection)(
+    VmaAllocation     allocation,
+    void             *pUserData);
+/// Callback function to update the VkImage bound to a specific allocation
+typedef void(VKAPI_PTR *PFN_vmaAllocationUpdateImage)(
+    VmaAllocation     allocation,
+    void             *pUserData,
+    VkImage           image);
+/// Callback function to get information about buffers
+typedef VmaBufferIntrospection(VKAPI_PTR *PFN_vmaAllocationBufferIntrospection)(
+    VmaAllocation     allocation,
+    void             *pUserData);
+/// Callback function to update the VkBuffer bound to a specific allocation
+typedef void(VKAPI_PTR *PFN_vmaAllocationUpdateBuffer)(
+    VmaAllocation     allocation,
+    void             *pUserData,
+    VkBuffer          buffer);
+    
+/** \brief Set of callbacks that the library will call to request information about existing allocations
+
+This gives the library information to recreate and move allocations correctly,
+while also giving it the opportunity to provide correct pipeline and memory barriers.
+Without these functions, only buffer allocations can be moved during defragmentation operations.
+
+Used in VmaDefragmentationInfo3::allocationIntrospectionCallback.
+*/
+typedef struct VmaAllocationIntrospectionCallbacks {
+    /// Optional, can be null.
+    PFN_vmaAllocationTypeFunction pfnFunctionType;
+    
+    /// Optional, can be null. But if pfnFunctionType is provided, this must be provided as well!
+    PFN_vmaAllocationImageIntrospection pfnImageIntrospection;
+    /// Optional, can be null. But if pfnFunctionType is provided, this must be provided as well!
+    PFN_vmaAllocationUpdateImage pfnUpdateImage;
+    
+    /// Optional, can be null. But if pfnFunctionType is provided, this must be provided as well!
+    PFN_vmaAllocationBufferIntrospection pfnBufferIntrospection;
+    /// Optional, can be null. But if pfnFunctionType is provided, this must be provided as well!
+    PFN_vmaAllocationUpdateBuffer pfnUpdateBuffer;
+} VmaAllocationIntrospectionCallbacks;
+
+typedef struct VmaDefragmentationInfo3 {
+    /** \brief Reserved for future use. Should be 0.
+ */
+    VmaDefragmentationFlags flags;
+    /** \brief Number of allocations in `pAllocations` array.
+    */
+    uint32_t allocationCount;
+    /** \brief Pointer to array of allocations that can be defragmented.
+
+    The array should have `allocationCount` elements.
+    The array should not contain nulls.
+    Elements in the array should be unique - same allocation cannot occur twice.
+    It is safe to pass allocations that are in the lost state - they are ignored.
+    All allocations not present in this array are considered non-moveable during this defragmentation.
+    */
+    VmaAllocation *pAllocations;
+    /** \brief Optional, output. Pointer to array that will be filled with information whether the allocation at certain index has been changed during defragmentation.
+
+    The array should have `allocationCount` elements.
+    You can pass null if you are not interested in this information.
+    */
+    VkBool32 *pAllocationsChanged;
+    /** \brief Numer of pools in `pPools` array.
+    */
+    uint32_t poolCount;
+    /** \brief Either null or pointer to array of pools to be defragmented.
+
+    All the allocations in the specified pools can be moved during defragmentation
+    and there is no way to check if they were really moved as in `pAllocationsChanged`,
+    so you must query all the allocations in all these pools for new `VkDeviceMemory`
+    and offset using vmaGetAllocationInfo() if you might need to recreate buffers
+    and images bound to them.
+
+    The array should have `poolCount` elements.
+    The array should not contain nulls.
+    Elements in the array should be unique - same pool cannot occur twice.
+
+    Using this array is equivalent to specifying all allocations from the pools in `pAllocations`.
+    It might be more efficient.
+    */
+    VmaPool *pPools;
+    /** \brief Maximum total numbers of bytes that can be copied while moving allocations to different places using transfers on CPU side, like `memcpy()`, `memmove()`.
+
+    `VK_WHOLE_SIZE` means no limit.
+    */
+    VkDeviceSize maxCpuBytesToMove;
+    /** \brief Maximum number of allocations that can be moved to a different place using transfers on CPU side, like `memcpy()`, `memmove()`.
+
+    `UINT32_MAX` means no limit.
+    */
+    uint32_t maxCpuAllocationsToMove;
+    /** \brief Maximum total numbers of bytes that can be copied while moving allocations to different places using transfers on GPU side, posted to `commandBuffer`.
+
+    `VK_WHOLE_SIZE` means no limit.
+    */
+    VkDeviceSize maxGpuBytesToMove;
+    /** \brief Maximum number of allocations that can be moved to a different place using transfers on GPU side, posted to `commandBuffer`.
+
+    `UINT32_MAX` means no limit.
+    */
+    uint32_t maxGpuAllocationsToMove;
+    /** \brief Optional. Command buffer where GPU copy commands will be posted.
+
+    If not null, it must be a valid command buffer handle that supports Transfer queue type.
+    It must be in the recording state and outside of a render pass instance.
+    You need to submit it and make sure it finished execution before calling vmaDefragmentationEnd().
+
+    Passing null means that only CPU defragmentation will be performed.
+    */
+    VkCommandBuffer commandBuffer;
+
+    VmaAllocationIntrospectionCallbacks allocationIntrospectionCallback;
+} VmaDefragmentationInfo3;
+    
 /** \brief Parameters for defragmentation.
 
 To be used with function vmaDefragmentationBegin().
@@ -3237,6 +3379,12 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin(
     VmaAllocator allocator,
     const VmaDefragmentationInfo2* pInfo,
     VmaDefragmentationStats* pStats,
+    VmaDefragmentationContext *pContext);
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin2(
+    VmaAllocator allocator,
+    const VmaDefragmentationInfo3 *pInfo,
+    VmaDefragmentationStats *pStats,
     VmaDefragmentationContext *pContext);
 
 /** \brief Ends defragmentation process.
@@ -6297,10 +6445,12 @@ public:
         VmaDefragmentationStats* pStats,
         VkDeviceSize& maxCpuBytesToMove, uint32_t& maxCpuAllocationsToMove,
         VkDeviceSize& maxGpuBytesToMove, uint32_t& maxGpuAllocationsToMove,
-        VkCommandBuffer commandBuffer);
+        VkCommandBuffer commandBuffer,
+        const VmaAllocationIntrospectionCallbacks* pAllocationCallbacks);
     void DefragmentationEnd(
         class VmaBlockVectorDefragmentationContext* pCtx,
-        VmaDefragmentationStats* pStats);
+        VmaDefragmentationStats* pStats,
+        const VmaAllocationIntrospectionCallbacks* pCallbacks);
 
     ////////////////////////////////////////////////////////////////////////////////
     // To be used only while the m_Mutex is locked. Used during defragmentation.
@@ -6334,6 +6484,8 @@ private:
 
     VkDeviceSize CalcMaxBlockSize() const;
 
+    static VkImageAspectFlags ImageAspectMaskForFormat(VkFormat format);
+    
     // Finds and removes given block from vector.
     void Remove(VmaDeviceMemoryBlock* pBlock);
 
@@ -6370,8 +6522,9 @@ private:
     // Saves result to pCtx->res.
     void ApplyDefragmentationMovesGpu(
         class VmaBlockVectorDefragmentationContext* pDefragCtx,
-        const VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
-        VkCommandBuffer commandBuffer);
+        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
+        VkCommandBuffer commandBuffer,
+        const VmaAllocationIntrospectionCallbacks *pCallbacks);
 
     /*
     Used during defragmentation. pDefragmentationStats is optional. It's in/out
@@ -6439,7 +6592,8 @@ public:
     virtual VkResult Defragment(
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
-        uint32_t maxAllocationsToMove) = 0;
+        uint32_t maxAllocationsToMove,
+        const VmaAllocationIntrospectionCallbacks *pCallbacks) = 0;
 
     virtual VkDeviceSize GetBytesMoved() const = 0;
     virtual uint32_t GetAllocationsMoved() const = 0;
@@ -6484,7 +6638,8 @@ public:
     virtual VkResult Defragment(
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
-        uint32_t maxAllocationsToMove);
+        uint32_t maxAllocationsToMove,
+        const VmaAllocationIntrospectionCallbacks *pCallbacks);
 
     virtual VkDeviceSize GetBytesMoved() const { return m_BytesMoved; }
     virtual uint32_t GetAllocationsMoved() const { return m_AllocationsMoved; }
@@ -6585,7 +6740,8 @@ private:
     VkResult DefragmentRound(
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
-        uint32_t maxAllocationsToMove);
+        uint32_t maxAllocationsToMove,
+        const VmaAllocationIntrospectionCallbacks *pCallbacks);
 
     size_t CalcBlocksWithNonMovableCount() const;
 
@@ -6611,7 +6767,8 @@ public:
     virtual VkResult Defragment(
         VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
         VkDeviceSize maxBytesToMove,
-        uint32_t maxAllocationsToMove);
+        uint32_t maxAllocationsToMove,
+        const VmaAllocationIntrospectionCallbacks *pCallbacks);
 
     virtual VkDeviceSize GetBytesMoved() const { return m_BytesMoved; }
     virtual uint32_t GetAllocationsMoved() const { return m_AllocationsMoved; }
@@ -6759,18 +6916,21 @@ public:
     VkResult res;
     bool mutexLocked;
     VmaVector< VmaBlockDefragmentationContext, VmaStlAllocator<VmaBlockDefragmentationContext> > blockContexts;
+    VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> > defragmentationMoves;
 
     VmaBlockVectorDefragmentationContext(
         VmaAllocator hAllocator,
         VmaPool hCustomPool, // Optional.
         VmaBlockVector* pBlockVector,
-        uint32_t currFrameIndex);
+        uint32_t currFrameIndex,
+        const VmaAllocationIntrospectionCallbacks* pCallbacks);
     ~VmaBlockVectorDefragmentationContext();
 
     VmaPool GetCustomPool() const { return m_hCustomPool; }
     VmaBlockVector* GetBlockVector() const { return m_pBlockVector; }
     VmaDefragmentationAlgorithm* GetAlgorithm() const { return m_pAlgorithm; }
-
+    const VmaAllocationIntrospectionCallbacks* GetIntrospectionCallbacks() { return &m_IntrospectionCallback; }
+    
     void AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged);
     void AddAll() { m_AllAllocations = true; }
 
@@ -6786,10 +6946,13 @@ private:
     // Owner of this object.
     VmaDefragmentationAlgorithm* m_pAlgorithm;
 
+    VmaAllocationIntrospectionCallbacks m_IntrospectionCallback;
+
     struct AllocInfo
     {
         VmaAllocation hAlloc;
         VkBool32* pChanged;
+        void** pNewHandle;
     };
     // Used between constructor and Begin.
     VmaVector< AllocInfo, VmaStlAllocator<AllocInfo> > m_Allocations;
@@ -6808,11 +6971,13 @@ public:
         VmaDefragmentationStats* pStats);
     ~VmaDefragmentationContext_T();
 
-    void AddPools(uint32_t poolCount, VmaPool* pPools);
+    void AddPools(uint32_t poolCount, VmaPool* pPools,
+        const VmaAllocationIntrospectionCallbacks *pIntrospectionCallbacks);
     void AddAllocations(
         uint32_t allocationCount,
         VmaAllocation* pAllocations,
-        VkBool32* pAllocationsChanged);
+        VkBool32* pAllocationsChanged,
+        const VmaAllocationIntrospectionCallbacks* pIntrospectionCallbacks);
 
     /*
     Returns:
@@ -6823,7 +6988,8 @@ public:
     VkResult Defragment(
         VkDeviceSize maxCpuBytesToMove, uint32_t maxCpuAllocationsToMove,
         VkDeviceSize maxGpuBytesToMove, uint32_t maxGpuAllocationsToMove,
-        VkCommandBuffer commandBuffer, VmaDefragmentationStats* pStats);
+        VkCommandBuffer commandBuffer, VmaDefragmentationStats* pStats,
+        const VmaAllocationIntrospectionCallbacks *pAllocationCallbacks);
 
 private:
     const VmaAllocator m_hAllocator;
@@ -7163,7 +7329,7 @@ public:
 #endif
 
     VkResult DefragmentationBegin(
-        const VmaDefragmentationInfo2& info,
+        const VmaDefragmentationInfo3& info,
         VmaDefragmentationStats* pStats,
         VmaDefragmentationContext* pContext);
     VkResult DefragmentationEnd(
@@ -12600,10 +12766,33 @@ void VmaBlockVector::ApplyDefragmentationMovesCpu(
     }
 }
 
+VkImageAspectFlags VmaBlockVector::ImageAspectMaskForFormat(VkFormat format)
+{
+    switch(format)
+    {
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D32_SFLOAT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        case VK_FORMAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+}
+
 void VmaBlockVector::ApplyDefragmentationMovesGpu(
     class VmaBlockVectorDefragmentationContext* pDefragCtx,
-    const VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
-    VkCommandBuffer commandBuffer)
+    VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
+    VkCommandBuffer commandBuffer,
+    const VmaAllocationIntrospectionCallbacks* pCallbacks)
 {
     const size_t blockCount = m_Blocks.size();
 
@@ -12615,8 +12804,13 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
     for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
     {
         const VmaDefragmentationMove& move = moves[moveIndex];
-        pDefragCtx->blockContexts[move.srcBlockIndex].flags |= VmaBlockDefragmentationContext::BLOCK_FLAG_USED;
-        pDefragCtx->blockContexts[move.dstBlockIndex].flags |= VmaBlockDefragmentationContext::BLOCK_FLAG_USED;
+
+        if(move.type == VMA_ALLOCATION_TYPE_UNKNOWN)
+        {
+            // Old school move still require us to map the whole block
+            pDefragCtx->blockContexts[move.srcBlockIndex].flags |= VmaBlockDefragmentationContext::BLOCK_FLAG_USED;
+            pDefragCtx->blockContexts[move.dstBlockIndex].flags |= VmaBlockDefragmentationContext::BLOCK_FLAG_USED;
+        }
     }
 
     VMA_ASSERT(pDefragCtx->res == VK_SUCCESS);
@@ -12644,24 +12838,182 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
         }
     }
 
+    // Go over all moves and create new VkImage/VkBuffer objects necessary, as well as build the necessary pipeline barriers
+    VmaVector< VkImageMemoryBarrier, VmaStlAllocator<VkImageMemoryBarrier> > beginImageBarriers = 
+        VmaVector< VkImageMemoryBarrier, VmaStlAllocator<VkImageMemoryBarrier> >(VmaStlAllocator<VkImageMemoryBarrier>(m_hAllocator->GetAllocationCallbacks()));
+
+    VmaVector< VkImageMemoryBarrier, VmaStlAllocator<VkImageMemoryBarrier> > finalizeImageBarriers =
+        VmaVector< VkImageMemoryBarrier, VmaStlAllocator<VkImageMemoryBarrier> >(VmaStlAllocator<VkImageMemoryBarrier>(m_hAllocator->GetAllocationCallbacks()));
+
+    VkPipelineStageFlags beginSrcStageMask = 0;
+    VkPipelineStageFlags beginDstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+    VkPipelineStageFlags finalizeSrcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    VkPipelineStageFlags finalizeDstStageMask = 0;
+    
+    if(pDefragCtx->res == VK_SUCCESS)
+    {
+        // Go over all of our moves and figure out what barriers we need to insert
+        for(size_t moveIndex = 0; pDefragCtx->res == VK_SUCCESS && moveIndex < moveCount; ++moveIndex)
+        {
+            VmaDefragmentationMove &move = moves[moveIndex];
+            
+            if(move.allocation)
+            {
+                VmaDeviceMemoryBlock *pBlock = m_Blocks[move.dstBlockIndex];
+                
+                switch(move.type)
+                {
+                    case VMA_ALLOCATION_TYPE_IMAGE:
+                    {
+                        move.imageIntrospection = pCallbacks->pfnImageIntrospection(move.allocation, move.allocation->GetUserData());
+
+                        VkImage image;
+                        pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkCreateImage)(
+                            m_hAllocator->m_hDevice, &move.imageIntrospection.createInfo, m_hAllocator->GetAllocationCallbacks(), &image);
+
+                        if(pDefragCtx->res == VK_SUCCESS)
+                        {
+                            move.handle = image;
+                            
+                            pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkBindImageMemory)(
+                                m_hAllocator->m_hDevice, image, pBlock->GetDeviceMemory(), move.dstOffset);
+
+                            // Keep track of our pipeline stages that we need to wait/signal on
+                            beginSrcStageMask |= move.imageIntrospection.stageMask;
+                            finalizeDstStageMask |= move.imageIntrospection.stageMask;
+
+                            // We need one pipeline barrier and two image layout transitions here
+                            // First we'll have to turn our newly created image into VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                            // And the second one is turning the old image into VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+
+                            VkImageSubresourceRange subresourceRange = {
+                                ImageAspectMaskForFormat(move.imageIntrospection.createInfo.format),
+                                0, VK_REMAINING_MIP_LEVELS,
+                                0, VK_REMAINING_ARRAY_LAYERS
+                            };
+
+                            VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+                            barrier.srcAccessMask = 0;
+                            barrier.dstAccessMask = 0;
+                            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                            barrier.image = image;
+                            barrier.subresourceRange = subresourceRange;
+
+                            beginImageBarriers.push_back(barrier);
+
+                            // Second barrier to convert the existing image. This one actually needs a real barrier                         
+                            barrier.srcAccessMask = move.imageIntrospection.accessMask;
+                            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                            barrier.oldLayout = move.imageIntrospection.layout;
+                            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                            barrier.image = move.imageIntrospection.image;
+
+                            beginImageBarriers.push_back(barrier);
+
+                            // And lastly we need a barrier that turns our new image into the layout of the old one
+                            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                            
+                            std::swap(barrier.srcAccessMask, barrier.dstAccessMask);
+                            std::swap(barrier.oldLayout, barrier.newLayout);
+
+                            finalizeImageBarriers.push_back(barrier);
+                        }
+                        break;
+                    }
+
+                    case VMA_ALLOCATION_TYPE_BUFFER:
+                    {
+                        
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     // Go over all moves. Post data transfer commands to command buffer.
     if(pDefragCtx->res == VK_SUCCESS)
     {
+        if(!beginImageBarriers.empty())
+        {
+            vkCmdPipelineBarrier(commandBuffer, beginSrcStageMask, beginDstStageMask, 0,
+                0, nullptr,
+                0, nullptr,
+                (uint32_t)beginImageBarriers.size(), beginImageBarriers.data());
+        }
+
+        VmaVector< VkImageCopy, VmaStlAllocator<VkImageCopy> > imageCopies =
+            VmaVector< VkImageCopy, VmaStlAllocator<VkImageCopy> >(VmaStlAllocator<VkImageCopy>(m_hAllocator->GetAllocationCallbacks()));
+        
         for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
         {
             const VmaDefragmentationMove& move = moves[moveIndex];
 
-            const VmaBlockDefragmentationContext& srcBlockCtx = pDefragCtx->blockContexts[move.srcBlockIndex];
-            const VmaBlockDefragmentationContext& dstBlockCtx = pDefragCtx->blockContexts[move.dstBlockIndex];
+            if(move.type != VMA_ALLOCATION_TYPE_UNKNOWN)
+            {
+                // Copy all mips of the source image into the target image
+                VkOffset3D offset = { 0, 0, 0 };
+                VkExtent3D extent = move.imageIntrospection.createInfo.extent;
 
-            VMA_ASSERT(srcBlockCtx.hBuffer && dstBlockCtx.hBuffer);
+                VkImageSubresourceLayers subresourceLayers = {
+                    ImageAspectMaskForFormat(move.imageIntrospection.createInfo.format),
+                    0,
+                    0, move.imageIntrospection.createInfo.arrayLayers
+                };
+                
+                for(uint32_t mip = 0; mip < move.imageIntrospection.createInfo.mipLevels; ++ mip)
+                {
+                    subresourceLayers.mipLevel = mip;
+                    
+                    VkImageCopy imageCopy {
+                        subresourceLayers,
+                        offset,
+                        subresourceLayers,
+                        offset,
+                        extent
+                    };
+                    
+                    imageCopies.push_back(imageCopy);
+                    
+                    extent.width = std::max(uint32_t(1), extent.width >> 1);
+                    extent.height = std::max(uint32_t(1), extent.height >> 1);
+                    extent.depth = std::max(uint32_t(1), extent.depth >> 1);
+                }
 
-            VkBufferCopy region = {
-                move.srcOffset,
-                move.dstOffset,
-                move.size };
-            (*m_hAllocator->GetVulkanFunctions().vkCmdCopyBuffer)(
-                commandBuffer, srcBlockCtx.hBuffer, dstBlockCtx.hBuffer, 1, &region);
+                (*m_hAllocator->GetVulkanFunctions().vkCmdCopyImage)(
+                    commandBuffer,
+                    move.imageIntrospection.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                    (VkImage)move.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+                    (uint32_t)imageCopies.size(), imageCopies.data());
+
+                imageCopies.clear();
+            }
+            else
+            {
+                const VmaBlockDefragmentationContext &srcBlockCtx = pDefragCtx->blockContexts[move.srcBlockIndex];
+                const VmaBlockDefragmentationContext &dstBlockCtx = pDefragCtx->blockContexts[move.dstBlockIndex];
+
+                VMA_ASSERT(srcBlockCtx.hBuffer && dstBlockCtx.hBuffer);
+
+                VkBufferCopy region = {
+                    move.srcOffset,
+                    move.dstOffset,
+                    move.size };
+                (*m_hAllocator->GetVulkanFunctions().vkCmdCopyBuffer)(
+                    commandBuffer, srcBlockCtx.hBuffer, dstBlockCtx.hBuffer, 1, &region);
+            }
+        }
+
+        if(!finalizeImageBarriers.empty())
+        {
+            vkCmdPipelineBarrier(commandBuffer, finalizeSrcStageMask, finalizeDstStageMask, 0,
+                0, nullptr,
+                0, nullptr,
+                (uint32_t)finalizeImageBarriers.size(), finalizeImageBarriers.data());
         }
     }
 
@@ -12793,7 +13145,8 @@ void VmaBlockVector::Defragment(
     VmaDefragmentationStats* pStats,
     VkDeviceSize& maxCpuBytesToMove, uint32_t& maxCpuAllocationsToMove,
     VkDeviceSize& maxGpuBytesToMove, uint32_t& maxGpuAllocationsToMove,
-    VkCommandBuffer commandBuffer)
+    VkCommandBuffer commandBuffer,
+    const VmaAllocationIntrospectionCallbacks *pAllocationCallbacks)
 {
     pCtx->res = VK_SUCCESS;
     
@@ -12837,9 +13190,7 @@ void VmaBlockVector::Defragment(
 
         const VkDeviceSize maxBytesToMove = defragmentOnGpu ? maxGpuBytesToMove : maxCpuBytesToMove;
         const uint32_t maxAllocationsToMove = defragmentOnGpu ? maxGpuAllocationsToMove : maxCpuAllocationsToMove;
-        VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> > moves = 
-            VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >(VmaStlAllocator<VmaDefragmentationMove>(m_hAllocator->GetAllocationCallbacks()));
-        pCtx->res = pCtx->GetAlgorithm()->Defragment(moves, maxBytesToMove, maxAllocationsToMove);
+        pCtx->res = pCtx->GetAlgorithm()->Defragment(pCtx->defragmentationMoves, maxBytesToMove, maxAllocationsToMove, pAllocationCallbacks);
 
         // Accumulate statistics.
         if(pStats != VMA_NULL)
@@ -12866,11 +13217,11 @@ void VmaBlockVector::Defragment(
         {
             if(defragmentOnGpu)
             {
-                ApplyDefragmentationMovesGpu(pCtx, moves, commandBuffer);
+                ApplyDefragmentationMovesGpu(pCtx, pCtx->defragmentationMoves, commandBuffer, pAllocationCallbacks);
             }
             else
             {
-                ApplyDefragmentationMovesCpu(pCtx, moves);
+                ApplyDefragmentationMovesCpu(pCtx, pCtx->defragmentationMoves);
             }
         }
     }
@@ -12878,7 +13229,8 @@ void VmaBlockVector::Defragment(
 
 void VmaBlockVector::DefragmentationEnd(
     class VmaBlockVectorDefragmentationContext* pCtx,
-    VmaDefragmentationStats* pStats)
+    VmaDefragmentationStats* pStats,
+    const VmaAllocationIntrospectionCallbacks* pCallbacks)
 {
     // Destroy buffers.
     for(size_t blockIndex = pCtx->blockContexts.size(); blockIndex--; )
@@ -12894,6 +13246,65 @@ void VmaBlockVector::DefragmentationEnd(
     if(pCtx->res >= VK_SUCCESS)
     {
         FreeEmptyBlocks(pStats);
+    }
+
+    // If the allocation failed, delete the newly created objects. Otherwise tell our callback about them
+    {
+        // Go over all of our moves and figure out what barriers we need to insert
+        const size_t moveCount = pCtx->defragmentationMoves.size();
+        
+        for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
+        {
+            VmaDefragmentationMove &move = pCtx->defragmentationMoves[moveIndex];
+            if(move.allocation)
+            {
+                switch(move.type)
+                {
+                    case VMA_ALLOCATION_TYPE_IMAGE:
+                    {
+                        if(pCtx->res >= VK_SUCCESS)
+                        {
+                            // Tell our host application that we have changed the image
+                            pCallbacks->pfnUpdateImage(move.allocation, move.allocation->GetUserData(), (VkImage)move.handle);
+                            
+                            // Delete the old image
+                            (*m_hAllocator->GetVulkanFunctions().vkDestroyImage)(
+                                m_hAllocator->m_hDevice, (VkImage)move.imageIntrospection.image, m_hAllocator->GetAllocationCallbacks());
+                        }
+                        else
+                        {
+                            (*m_hAllocator->GetVulkanFunctions().vkDestroyImage)(
+                                m_hAllocator->m_hDevice, (VkImage)move.handle, m_hAllocator->GetAllocationCallbacks());
+                        }
+                        
+                        break;
+                    }
+
+                    case VMA_ALLOCATION_TYPE_BUFFER:
+                    {
+                        if(pCtx->res >= VK_SUCCESS)
+                        {
+                            // Tell our host application that we have changed the image
+                            pCallbacks->pfnUpdateBuffer(move.allocation, move.allocation->GetUserData(), (VkBuffer)move.handle);
+
+                            // Delete the old image
+                            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
+                                m_hAllocator->m_hDevice, move.bufferIntrospection.buffer, m_hAllocator->GetAllocationCallbacks());
+                        }
+                        else
+                        {
+                            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
+                                m_hAllocator->m_hDevice, (VkBuffer)move.handle, m_hAllocator->GetAllocationCallbacks());
+                        }
+                        
+                        break;
+                    }
+
+                    default:
+                        break;
+                }
+            }
+        }
     }
 
     if(pCtx->mutexLocked)
@@ -13053,7 +13464,8 @@ void VmaDefragmentationAlgorithm_Generic::AddAllocation(VmaAllocation hAlloc, Vk
 VkResult VmaDefragmentationAlgorithm_Generic::DefragmentRound(
     VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
-    uint32_t maxAllocationsToMove)
+    uint32_t maxAllocationsToMove,
+    const VmaAllocationIntrospectionCallbacks *pCallbacks)
 {
     if(m_Blocks.empty())
     {
@@ -13145,12 +13557,21 @@ VkResult VmaDefragmentationAlgorithm_Generic::DefragmentRound(
                     return VK_SUCCESS;
                 }
 
-                VmaDefragmentationMove move;
+                VmaDefragmentationMove move = {};
                 move.srcBlockIndex = pSrcBlockInfo->m_OriginalBlockIndex;
                 move.dstBlockIndex = pDstBlockInfo->m_OriginalBlockIndex;
                 move.srcOffset = srcOffset;
                 move.dstOffset = dstAllocRequest.offset;
                 move.size = size;
+                
+                if(pCallbacks->pfnFunctionType)
+                {
+                    move.allocation = allocInfo.m_hAllocation;
+                    move.type = pCallbacks->pfnFunctionType(allocInfo.m_hAllocation, allocInfo.m_hAllocation->GetUserData());
+                    
+                    VMA_ASSERT(move.type == VMA_ALLOCATION_TYPE_IMAGE || move.type == VMA_ALLOCATION_TYPE_BUFFER);
+                }
+
                 moves.push_back(move);
 
                 pDstBlockInfo->m_pBlock->m_pMetadata->Alloc(
@@ -13213,7 +13634,8 @@ size_t VmaDefragmentationAlgorithm_Generic::CalcBlocksWithNonMovableCount() cons
 VkResult VmaDefragmentationAlgorithm_Generic::Defragment(
     VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
-    uint32_t maxAllocationsToMove)
+    uint32_t maxAllocationsToMove,
+    const VmaAllocationIntrospectionCallbacks *pCallbacks)
 {
     if(!m_AllAllocations && m_AllocationCount == 0)
     {
@@ -13259,7 +13681,7 @@ VkResult VmaDefragmentationAlgorithm_Generic::Defragment(
     VkResult result = VK_SUCCESS;
     for(uint32_t round = 0; (round < roundCount) && (result == VK_SUCCESS); ++round)
     {
-        result = DefragmentRound(moves, maxBytesToMove, maxAllocationsToMove);
+        result = DefragmentRound(moves, maxBytesToMove, maxAllocationsToMove, pCallbacks);
     }
 
     return result;
@@ -13311,7 +13733,8 @@ VmaDefragmentationAlgorithm_Fast::~VmaDefragmentationAlgorithm_Fast()
 VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
     VmaVector< VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove> >& moves,
     VkDeviceSize maxBytesToMove,
-    uint32_t maxAllocationsToMove)
+    uint32_t maxAllocationsToMove,
+    const VmaAllocationIntrospectionCallbacks *pCallbacks)
 {
     VMA_ASSERT(m_AllAllocations || m_pBlockVector->CalcAllocationCount() == m_AllocationCount);
 
@@ -13367,6 +13790,16 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
             }
             const VkDeviceSize srcAllocOffset = srcSuballocIt->offset;
 
+            VmaDefragmentationMove move = {};
+            
+            if(pCallbacks->pfnFunctionType)
+            {
+                move.allocation = pAlloc;
+                move.type = pCallbacks->pfnFunctionType(pAlloc, pAlloc->GetUserData());
+
+                VMA_ASSERT(move.type == VMA_ALLOCATION_TYPE_IMAGE || move.type == VMA_ALLOCATION_TYPE_BUFFER);
+            }
+            
             // Try to place it in one of free spaces from the database.
             size_t freeSpaceInfoIndex;
             VkDeviceSize dstAllocOffset;
@@ -13397,10 +13830,12 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
 
                     InsertSuballoc(pFreeSpaceMetadata, suballoc);
 
-                    VmaDefragmentationMove move = {
-                        srcOrigBlockIndex, freeSpaceOrigBlockIndex,
-                        srcAllocOffset, dstAllocOffset,
-                        srcAllocSize };
+                    move.srcBlockIndex = srcOrigBlockIndex;
+                    move.dstBlockIndex = freeSpaceOrigBlockIndex;
+                    move.srcOffset = srcAllocOffset;
+                    move.dstOffset = dstAllocOffset;
+                    move.size = srcAllocSize;
+                    
                     moves.push_back(move);
                 }
                 // Different block
@@ -13423,10 +13858,12 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
 
                     InsertSuballoc(pFreeSpaceMetadata, suballoc);
 
-                    VmaDefragmentationMove move = {
-                        srcOrigBlockIndex, freeSpaceOrigBlockIndex,
-                        srcAllocOffset, dstAllocOffset,
-                        srcAllocSize };
+                    move.srcBlockIndex = srcOrigBlockIndex;
+                    move.dstBlockIndex = freeSpaceOrigBlockIndex;
+                    move.srcOffset = srcAllocOffset;
+                    move.dstOffset = dstAllocOffset;
+                    move.size = srcAllocSize;
+                    
                     moves.push_back(move);
                 }
             }
@@ -13481,10 +13918,13 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
                         m_BytesMoved += srcAllocSize;
                         ++m_AllocationsMoved;
                         ++srcSuballocIt;
-                        VmaDefragmentationMove move = {
-                            srcOrigBlockIndex, dstOrigBlockIndex,
-                            srcAllocOffset, dstAllocOffset,
-                            srcAllocSize };
+                        
+                        move.srcBlockIndex = srcOrigBlockIndex;
+                        move.dstBlockIndex = dstOrigBlockIndex;
+                        move.srcOffset = srcAllocOffset;
+                        move.dstOffset = dstAllocOffset;
+                        move.size = srcAllocSize;
+                        
                         moves.push_back(move);
                     }
                 }
@@ -13510,10 +13950,12 @@ VkResult VmaDefragmentationAlgorithm_Fast::Defragment(
 
                     pDstMetadata->m_Suballocations.push_back(suballoc);
 
-                    VmaDefragmentationMove move = {
-                        srcOrigBlockIndex, dstOrigBlockIndex,
-                        srcAllocOffset, dstAllocOffset,
-                        srcAllocSize };
+                    move.srcBlockIndex = srcOrigBlockIndex;
+                    move.dstBlockIndex = dstOrigBlockIndex;
+                    move.srcOffset = srcAllocOffset;
+                    move.dstOffset = dstAllocOffset;
+                    move.size = srcAllocSize;
+                    
                     moves.push_back(move);
                 }
             }
@@ -13659,15 +14101,18 @@ VmaBlockVectorDefragmentationContext::VmaBlockVectorDefragmentationContext(
     VmaAllocator hAllocator,
     VmaPool hCustomPool,
     VmaBlockVector* pBlockVector,
-    uint32_t currFrameIndex) :
+    uint32_t currFrameIndex,
+    const VmaAllocationIntrospectionCallbacks* pCallbacks) :
     res(VK_SUCCESS),
     mutexLocked(false),
     blockContexts(VmaStlAllocator<VmaBlockDefragmentationContext>(hAllocator->GetAllocationCallbacks())),
+    defragmentationMoves(VmaStlAllocator<VmaDefragmentationMove>(hAllocator->GetAllocationCallbacks())),
     m_hAllocator(hAllocator),
     m_hCustomPool(hCustomPool),
     m_pBlockVector(pBlockVector),
     m_CurrFrameIndex(currFrameIndex),
     m_pAlgorithm(VMA_NULL),
+    m_IntrospectionCallback(*pCallbacks),
     m_Allocations(VmaStlAllocator<AllocInfo>(hAllocator->GetAllocationCallbacks())),
     m_AllAllocations(false)
 {
@@ -13680,7 +14125,7 @@ VmaBlockVectorDefragmentationContext::~VmaBlockVectorDefragmentationContext()
 
 void VmaBlockVectorDefragmentationContext::AddAllocation(VmaAllocation hAlloc, VkBool32* pChanged)
 {
-    AllocInfo info = { hAlloc, pChanged };
+    AllocInfo info = { hAlloc, pChanged, nullptr };
     m_Allocations.push_back(info);
 }
 
@@ -13747,7 +14192,7 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
     for(size_t i = m_CustomPoolContexts.size(); i--; )
     {
         VmaBlockVectorDefragmentationContext* pBlockVectorCtx = m_CustomPoolContexts[i];
-        pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats);
+        pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats, pBlockVectorCtx->GetIntrospectionCallbacks());
         vma_delete(m_hAllocator, pBlockVectorCtx);
     }
     for(size_t i = m_hAllocator->m_MemProps.memoryTypeCount; i--; )
@@ -13755,13 +14200,14 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
         VmaBlockVectorDefragmentationContext* pBlockVectorCtx = m_DefaultPoolContexts[i];
         if(pBlockVectorCtx)
         {
-            pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats);
+            pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats, pBlockVectorCtx->GetIntrospectionCallbacks());
             vma_delete(m_hAllocator, pBlockVectorCtx);
         }
     }
 }
 
-void VmaDefragmentationContext_T::AddPools(uint32_t poolCount, VmaPool* pPools)
+void VmaDefragmentationContext_T::AddPools(uint32_t poolCount, VmaPool* pPools,
+    const VmaAllocationIntrospectionCallbacks *pIntrospectionCallbacks)
 {
     for(uint32_t poolIndex = 0; poolIndex < poolCount; ++poolIndex)
     {
@@ -13787,7 +14233,7 @@ void VmaDefragmentationContext_T::AddPools(uint32_t poolCount, VmaPool* pPools)
                     m_hAllocator,
                     pool,
                     &pool->m_BlockVector,
-                    m_CurrFrameIndex);
+                    m_CurrFrameIndex, pIntrospectionCallbacks);
                 m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
             }
 
@@ -13799,7 +14245,8 @@ void VmaDefragmentationContext_T::AddPools(uint32_t poolCount, VmaPool* pPools)
 void VmaDefragmentationContext_T::AddAllocations(
     uint32_t allocationCount,
     VmaAllocation* pAllocations,
-    VkBool32* pAllocationsChanged)
+    VkBool32* pAllocationsChanged,
+    const VmaAllocationIntrospectionCallbacks *pIntrospectionCallbacks)
 {
     // Dispatch pAllocations among defragmentators. Create them when necessary.
     for(uint32_t allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
@@ -13834,7 +14281,7 @@ void VmaDefragmentationContext_T::AddAllocations(
                             m_hAllocator,
                             hAllocPool,
                             &hAllocPool->m_BlockVector,
-                            m_CurrFrameIndex);
+                            m_CurrFrameIndex, pIntrospectionCallbacks);
                         m_CustomPoolContexts.push_back(pBlockVectorDefragCtx);
                     }
                 }
@@ -13850,7 +14297,7 @@ void VmaDefragmentationContext_T::AddAllocations(
                         m_hAllocator,
                         VMA_NULL, // hCustomPool
                         m_hAllocator->m_pBlockVectors[memTypeIndex],
-                        m_CurrFrameIndex);
+                        m_CurrFrameIndex, pIntrospectionCallbacks);
                     m_DefaultPoolContexts[memTypeIndex] = pBlockVectorDefragCtx;
                 }
             }
@@ -13868,7 +14315,8 @@ void VmaDefragmentationContext_T::AddAllocations(
 VkResult VmaDefragmentationContext_T::Defragment(
     VkDeviceSize maxCpuBytesToMove, uint32_t maxCpuAllocationsToMove,
     VkDeviceSize maxGpuBytesToMove, uint32_t maxGpuAllocationsToMove,
-    VkCommandBuffer commandBuffer, VmaDefragmentationStats* pStats)
+    VkCommandBuffer commandBuffer, VmaDefragmentationStats* pStats,
+    const VmaAllocationIntrospectionCallbacks* pAllocationCallbacks)
 {
     if(pStats)
     {
@@ -13897,7 +14345,8 @@ VkResult VmaDefragmentationContext_T::Defragment(
                 pStats,
                 maxCpuBytesToMove, maxCpuAllocationsToMove,
                 maxGpuBytesToMove, maxGpuAllocationsToMove,
-                commandBuffer);
+                commandBuffer,
+                pAllocationCallbacks);
             if(pBlockVectorCtx->res != VK_SUCCESS)
             {
                 res = pBlockVectorCtx->res;
@@ -13917,7 +14366,8 @@ VkResult VmaDefragmentationContext_T::Defragment(
             pStats,
             maxCpuBytesToMove, maxCpuAllocationsToMove,
             maxGpuBytesToMove, maxGpuAllocationsToMove,
-            commandBuffer);
+            commandBuffer,
+            pAllocationCallbacks);
         if(pBlockVectorCtx->res != VK_SUCCESS)
         {
             res = pBlockVectorCtx->res;
@@ -14743,6 +15193,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     m_VulkanFunctions.vkCreateImage = (PFN_vkCreateImage)vkCreateImage;
     m_VulkanFunctions.vkDestroyImage = (PFN_vkDestroyImage)vkDestroyImage;
     m_VulkanFunctions.vkCmdCopyBuffer = (PFN_vkCmdCopyBuffer)vkCmdCopyBuffer;
+    m_VulkanFunctions.vkCmdCopyImage = (PFN_vkCmdCopyImage)vkCmdCopyImage;
 #if VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
@@ -14809,6 +15260,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         VMA_COPY_IF_NOT_NULL(vkCreateImage);
         VMA_COPY_IF_NOT_NULL(vkDestroyImage);
         VMA_COPY_IF_NOT_NULL(vkCmdCopyBuffer);
+        VMA_COPY_IF_NOT_NULL(vkCmdCopyImage);
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
         VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements2KHR);
         VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements2KHR);
@@ -14843,6 +15295,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     VMA_ASSERT(m_VulkanFunctions.vkCreateImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkDestroyImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkCmdCopyBuffer != VMA_NULL);
+    VMA_ASSERT(m_VulkanFunctions.vkCmdCopyImage != VMA_NULL);
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0) || m_UseKhrDedicatedAllocation)
     {
@@ -15543,7 +15996,7 @@ void VmaAllocator_T::GetBudget(VmaBudget* outBudget, uint32_t firstHeap, uint32_
 static const uint32_t VMA_VENDOR_ID_AMD = 4098;
 
 VkResult VmaAllocator_T::DefragmentationBegin(
-    const VmaDefragmentationInfo2& info,
+    const VmaDefragmentationInfo3& info,
     VmaDefragmentationStats* pStats,
     VmaDefragmentationContext* pContext)
 {
@@ -15555,14 +16008,14 @@ VkResult VmaAllocator_T::DefragmentationBegin(
     *pContext = vma_new(this, VmaDefragmentationContext_T)(
         this, m_CurrentFrameIndex.load(), info.flags, pStats);
 
-    (*pContext)->AddPools(info.poolCount, info.pPools);
+    (*pContext)->AddPools(info.poolCount, info.pPools, &info.allocationIntrospectionCallback);
     (*pContext)->AddAllocations(
-        info.allocationCount, info.pAllocations, info.pAllocationsChanged);
+        info.allocationCount, info.pAllocations, info.pAllocationsChanged, &info.allocationIntrospectionCallback);
 
     VkResult res = (*pContext)->Defragment(
         info.maxCpuBytesToMove, info.maxCpuAllocationsToMove,
         info.maxGpuBytesToMove, info.maxGpuAllocationsToMove,
-        info.commandBuffer, pStats);
+        info.commandBuffer, pStats, &info.allocationIntrospectionCallback);
 
     if(res != VK_NOT_READY)
     {
@@ -17336,7 +17789,29 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragment(
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin(
     VmaAllocator allocator,
-    const VmaDefragmentationInfo2* pInfo,
+    const VmaDefragmentationInfo2 *pInfo,
+    VmaDefragmentationStats *pStats,
+    VmaDefragmentationContext *pContext)
+{
+    VmaDefragmentationInfo3 info = {};
+    info.flags = pInfo->flags;
+    info.allocationCount = pInfo->allocationCount;
+    info.pAllocations = pInfo->pAllocations;
+    info.pAllocationsChanged = pInfo->pAllocationsChanged;
+    info.poolCount = pInfo->poolCount;
+    info.pPools = pInfo->pPools;
+    info.maxCpuBytesToMove = pInfo->maxCpuBytesToMove;
+    info.maxCpuAllocationsToMove = pInfo->maxCpuAllocationsToMove;
+    info.maxGpuBytesToMove = pInfo->maxGpuBytesToMove;
+    info.maxGpuAllocationsToMove = pInfo->maxGpuAllocationsToMove;
+    info.commandBuffer = pInfo->commandBuffer;
+
+    return vmaDefragmentationBegin2(allocator, &info, pStats, pContext);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin2(
+    VmaAllocator allocator,
+    const VmaDefragmentationInfo3* pInfo,
     VmaDefragmentationStats* pStats,
     VmaDefragmentationContext *pContext)
 {
@@ -17352,7 +17827,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin(
     VMA_ASSERT(pInfo->poolCount == 0 || pInfo->pPools != VMA_NULL);
     VMA_HEAVY_ASSERT(VmaValidatePointerArray(pInfo->allocationCount, pInfo->pAllocations));
     VMA_HEAVY_ASSERT(VmaValidatePointerArray(pInfo->poolCount, pInfo->pPools));
-
+    
     VMA_DEBUG_LOG("vmaDefragmentationBegin");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK

@@ -688,6 +688,7 @@ struct AllocInfo
     VmaAllocation m_Allocation = VK_NULL_HANDLE;
     VkBuffer m_Buffer = VK_NULL_HANDLE;
     VkImage m_Image = VK_NULL_HANDLE;
+    VkImageLayout m_ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     uint32_t m_StartValue = 0;
     union
     {
@@ -698,6 +699,10 @@ struct AllocInfo
     void CreateBuffer(
         const VkBufferCreateInfo& bufCreateInfo,
         const VmaAllocationCreateInfo& allocCreateInfo);
+    void CreateImage(
+        const VkImageCreateInfo& imageCreateInfo,
+        const VmaAllocationCreateInfo& allocCreateInfo,
+        VkImageLayout layout);
     void Destroy();
 };
 
@@ -707,6 +712,16 @@ void AllocInfo::CreateBuffer(
 {
     m_BufferInfo = bufCreateInfo;
     VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &m_Buffer, &m_Allocation, nullptr);
+    TEST(res == VK_SUCCESS);
+}
+void AllocInfo::CreateImage(
+    const VkImageCreateInfo& imageCreateInfo,
+    const VmaAllocationCreateInfo& allocCreateInfo,
+    VkImageLayout layout)
+{
+    m_ImageInfo = imageCreateInfo;
+    m_ImageLayout = layout;
+    VkResult res = vmaCreateImage(g_hAllocator, &imageCreateInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
     TEST(res == VK_SUCCESS);
 }
 
@@ -904,7 +919,88 @@ static void UploadGpuData(const AllocInfo* allocInfo, size_t allocInfoCount)
         }
         else
         {
-            TEST(0 && "Images not currently supported.");
+            TEST(currAllocInfo.m_ImageInfo.format == VK_FORMAT_R8G8B8A8_UNORM && "Only RGBA8 images are currently supported.");
+            TEST(currAllocInfo.m_ImageInfo.mipLevels == 1 && "Only single mip images are currently supported.");
+
+            const VkDeviceSize size = currAllocInfo.m_ImageInfo.extent.width * currAllocInfo.m_ImageInfo.extent.height * sizeof(uint32_t);
+
+            VkBuffer stagingBuf = VK_NULL_HANDLE;
+            void* stagingBufMappedPtr = nullptr;
+            if(!stagingBufs.AcquireBuffer(size, stagingBuf, stagingBufMappedPtr))
+            {
+                TEST(cmdBufferStarted);
+                EndSingleTimeCommands();
+                stagingBufs.ReleaseAllBuffers();
+                cmdBufferStarted = false;
+
+                bool ok = stagingBufs.AcquireBuffer(size, stagingBuf, stagingBufMappedPtr);
+                TEST(ok);
+            }
+
+            // Fill staging buffer.
+            {
+                assert(size % sizeof(uint32_t) == 0);
+                uint32_t *stagingValPtr = (uint32_t *)stagingBufMappedPtr;
+                uint32_t val = currAllocInfo.m_StartValue;
+                for(size_t i = 0; i < size / sizeof(uint32_t); ++i)
+                {
+                    *stagingValPtr = val;
+                    ++stagingValPtr;
+                    ++val;
+                }
+            }
+            
+            // Issue copy command from staging buffer to destination buffer.
+            if(!cmdBufferStarted)
+            {
+                cmdBufferStarted = true;
+                BeginSingleTimeCommands();
+            }
+
+            
+            // Transfer to transfer dst layout
+            VkImageSubresourceRange subresourceRange = {
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                0, VK_REMAINING_MIP_LEVELS,
+                0, VK_REMAINING_ARRAY_LAYERS
+            };
+            
+            VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = 0;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = currAllocInfo.m_Image;
+            barrier.subresourceRange = subresourceRange;
+
+            vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
+
+            // Copy image date
+            VkBufferImageCopy copy = {};
+            copy.bufferOffset = 0;
+            copy.bufferRowLength = 0;
+            copy.bufferImageHeight = 0;
+            copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copy.imageSubresource.layerCount = 1;
+            copy.imageExtent = currAllocInfo.m_ImageInfo.extent;
+
+            vkCmdCopyBufferToImage(g_hTemporaryCommandBuffer, stagingBuf, currAllocInfo.m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+
+            // Transfer to desired layout
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = currAllocInfo.m_ImageLayout;
+
+            vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         }
     }
 
@@ -1743,6 +1839,206 @@ static void TestDefragmentationGpu()
     ValidateGpuData(allocations.data(), allocations.size());
 
     swprintf_s(fileName, L"GPU_defragmentation_B_after.json");
+    SaveAllocatorStatsToFile(fileName);
+
+    // Destroy all remaining buffers.
+    for(size_t i = allocations.size(); i--; )
+    {
+        allocations[i].Destroy();
+    }
+
+    g_MemoryAliasingWarningEnabled = true;
+}
+
+static VmaAllocationType TestDefragmentationImagesGpu_AllocationType(VmaAllocation allocation, void *pUserData)
+{
+    AllocInfo *pAlloc = reinterpret_cast<AllocInfo *>(pUserData);
+    return (pAlloc->m_Buffer) ? VMA_ALLOCATION_TYPE_BUFFER : VMA_ALLOCATION_TYPE_IMAGE;
+}
+static VmaImageIntrospection TestDefragmentationImagesGpu_ImageIntrospection(VmaAllocation allocation, void *pUserData)
+{
+    AllocInfo *pAlloc = reinterpret_cast<AllocInfo *>(pUserData);
+    TEST(pAlloc->m_Image && "AllocInfo must be for an image!");
+
+    const VmaImageIntrospection introspection = {
+        pAlloc->m_Image,
+        pAlloc->m_ImageInfo,
+        pAlloc->m_ImageLayout,
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+    };
+    
+    return introspection;
+}
+static void TestDefragmentationImagesGpu_UpdateImage(VmaAllocation allocation, void *pUserData, VkImage image)
+{
+    AllocInfo *pAlloc = reinterpret_cast<AllocInfo *>(pUserData);
+    TEST(pAlloc->m_Image && "AllocInfo must be for an image!");
+    
+    pAlloc->m_Image = image;
+    pAlloc->m_StartValue ++;
+}
+static VmaBufferIntrospection TestDefragmentationImagesGpu_BufferIntrospection(VmaAllocation allocation, void *pUserData)
+{
+    AllocInfo *pAlloc = reinterpret_cast<AllocInfo *>(pUserData);
+    TEST(pAlloc->m_Buffer && "AllocInfo must be for a buffer!");
+
+    const VmaBufferIntrospection introspection = {
+        pAlloc->m_Buffer,
+        pAlloc->m_BufferInfo,
+        VK_ACCESS_UNIFORM_READ_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+    };
+
+    return introspection;
+}
+/// Callback function to update the VkBuffer bound to a specific allocation
+static void TestDefragmentationImagesGpu_UpdateBuffer(VmaAllocation allocation, void *pUserData, VkBuffer buffer)
+{
+    AllocInfo *pAlloc = reinterpret_cast<AllocInfo *>(pUserData);
+    TEST(pAlloc->m_Buffer && "AllocInfo must be for a buffer!");
+
+    pAlloc->m_Buffer = buffer;
+    pAlloc->m_StartValue ++;
+}
+
+static void TestDefragmentationImagesGpu()
+{
+    wprintf(L"Test defragmentation images GPU\n");
+    g_MemoryAliasingWarningEnabled = false;
+
+    std::vector<AllocInfo> allocations;
+
+    // Create that many allocations to surely fill 3 new blocks of 256 MB.
+    const uint32_t imageSizeMin = 256;
+    const uint32_t imageSizeMax = 512;
+    const VkDeviceSize totalSize = 3ull * 256 * 1024 * 1024;
+    const size_t imageCount = (size_t)(totalSize / (imageSizeMin * imageSizeMin * 4));
+    const size_t percentToLeave = 30;
+    RandomNumberGenerator rand = { 234522 };
+
+    VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.flags = 0;
+
+    // Create all intended images.
+    for(size_t i = 0; i < imageCount; ++i)
+    {
+        const uint32_t size = 512; //align_up(rand.Generate() % (imageSizeMax - imageSizeMin) + imageSizeMin, uint32_t(256));
+
+        imageInfo.extent.width = size;
+        imageInfo.extent.height = size;
+
+        AllocInfo alloc;
+        alloc.CreateImage(imageInfo, allocCreateInfo, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        alloc.m_StartValue = 0;
+
+        allocations.push_back(alloc);
+    }
+
+    // Destroy some percentage of them.
+    {
+        const size_t imagesToDestroy = round_div<size_t>(imageCount * (100 - percentToLeave), 100);
+        for(size_t i = 0; i < imagesToDestroy; ++i)
+        {
+            const size_t index = rand.Generate() % allocations.size();
+            allocations[index].Destroy();
+            allocations.erase(allocations.begin() + index);
+        }
+    }
+
+    {
+        // Set our user data pointers. A real application should probably be more clever here
+        const size_t allocationCount = allocations.size();
+        for(size_t i = 0; i < allocationCount; ++i)
+        {
+            AllocInfo &alloc = allocations[i];
+            vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
+        }
+    }
+
+    // Fill them with meaningful data.
+    UploadGpuData(allocations.data(), allocations.size());
+
+    wchar_t fileName[MAX_PATH];
+    swprintf_s(fileName, L"GPU_defragmentation_images_A_before.json");
+    SaveAllocatorStatsToFile(fileName);
+
+    // Defragment using GPU only.
+    {
+        const size_t allocCount = allocations.size();
+
+        std::vector<VmaAllocation> allocationPtrs;
+
+        for(size_t i = 0; i < allocCount; ++i)
+        {
+            VmaAllocationInfo allocInfo = {};
+            vmaGetAllocationInfo(g_hAllocator, allocations[i].m_Allocation, &allocInfo);
+            
+            allocationPtrs.push_back(allocations[i].m_Allocation);
+        }
+
+        const size_t movableAllocCount = allocationPtrs.size();
+
+        BeginSingleTimeCommands();
+
+        VmaDefragmentationInfo3 defragInfo = {};
+        defragInfo.flags = 0;
+        defragInfo.allocationCount = (uint32_t)movableAllocCount;
+        defragInfo.pAllocations = allocationPtrs.data();
+        defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
+        defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
+        defragInfo.commandBuffer = g_hTemporaryCommandBuffer;
+        defragInfo.allocationIntrospectionCallback = {
+            &TestDefragmentationImagesGpu_AllocationType,
+            &TestDefragmentationImagesGpu_ImageIntrospection,
+            &TestDefragmentationImagesGpu_UpdateImage,
+            &TestDefragmentationImagesGpu_BufferIntrospection,
+            &TestDefragmentationImagesGpu_UpdateBuffer
+        };
+
+        VmaDefragmentationStats stats = {};
+        VmaDefragmentationContext ctx = VK_NULL_HANDLE;
+        VkResult res = vmaDefragmentationBegin2(g_hAllocator, &defragInfo, &stats, &ctx);
+        TEST(res >= VK_SUCCESS);
+
+        EndSingleTimeCommands();
+
+        vmaDefragmentationEnd(g_hAllocator, ctx);
+
+        uint32_t movedAllocations = 0;
+        
+        for(size_t i = 0; i < allocCount; ++i)
+        {
+            const AllocInfo &alloc = allocations[i];
+            
+            if(alloc.m_StartValue == 1)
+                movedAllocations ++;
+        }
+
+        // If corruption detection is enabled, GPU defragmentation may not work on
+        // memory types that have this detection active, e.g. on Intel.
+#if !defined(VMA_DEBUG_DETECT_CORRUPTION) || VMA_DEBUG_DETECT_CORRUPTION == 0
+        TEST(stats.allocationsMoved > 0 && stats.bytesMoved > 0);
+        TEST(stats.deviceMemoryBlocksFreed > 0 && stats.bytesFreed > 0);
+        TEST(stats.allocationsMoved  == movedAllocations);
+#endif
+    }
+    
+    //ValidateGpuData(allocations.data(), allocations.size());
+
+    swprintf_s(fileName, L"GPU_defragmentation_images_B_after.json");
     SaveAllocatorStatsToFile(fileName);
 
     // Destroy all remaining buffers.
@@ -5499,6 +5795,7 @@ void Test()
     TestDefragmentationFull();
     TestDefragmentationWholePool();
     TestDefragmentationGpu();
+    TestDefragmentationImagesGpu();
 
     // # Detailed tests
     FILE* file;
