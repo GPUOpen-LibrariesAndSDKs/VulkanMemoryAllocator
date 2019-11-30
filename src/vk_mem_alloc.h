@@ -6373,14 +6373,14 @@ struct VmaDefragmentationMove
     VkDeviceSize srcOffset;
     VkDeviceSize dstOffset;
     VkDeviceSize size;
-	VmaAllocation allocation;
-	VmaAllocationType type;
-	void *handle; // VkImage or VkBuffer
-	union
-	{
-		VmaImageIntrospection imageIntrospection;
-		VmaBufferIntrospection bufferIntrospection;
-	};
+    VmaAllocation allocation;
+    VmaAllocationType type;
+    void *handle; // VkImage or VkBuffer
+    union
+    {
+    	VmaImageIntrospection imageIntrospection;
+    	VmaBufferIntrospection bufferIntrospection;
+    };
 };
 
 class VmaDefragmentationAlgorithm;
