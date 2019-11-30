@@ -3117,8 +3117,8 @@ typedef struct VmaImageIntrospection {
 typedef struct VmaBufferIntrospection {
     VkBuffer buffer;
     VkBufferCreateInfo createInfo;
-    VkAccessFlags accessFlags;
-    VkPipelineStageFlags pipelineStage;
+    VkAccessFlags accessMask;
+    VkPipelineStageFlags stageMask;
 } VmaBufferIntrospection;
     
 /// Callback function to get the type of an allocation
@@ -12858,6 +12858,11 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
 
     VkPipelineStageFlags finalizeSrcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     VkPipelineStageFlags finalizeDstStageMask = 0;
+
+    bool wantsMemoryBarrier = false;
+
+    VkMemoryBarrier beginMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+    VkMemoryBarrier finalizeMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
     
     if(pDefragCtx->res == VK_SUCCESS)
     {
@@ -12865,79 +12870,102 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
         for(size_t moveIndex = 0; pDefragCtx->res == VK_SUCCESS && moveIndex < moveCount; ++moveIndex)
         {
             VmaDefragmentationMove &move = moves[moveIndex];
-            
-            if(move.allocation)
-            {
-                VmaDeviceMemoryBlock *pBlock = m_Blocks[move.dstBlockIndex];
+            VmaDeviceMemoryBlock *pBlock = m_Blocks[move.dstBlockIndex];
                 
-                switch(move.type)
+            switch(move.type)
+            {
+                case VMA_ALLOCATION_TYPE_UNKNOWN:
+                    break;
+
+                case VMA_ALLOCATION_TYPE_IMAGE:
                 {
-                    case VMA_ALLOCATION_TYPE_IMAGE:
+                    move.imageIntrospection = pCallbacks->pfnImageIntrospection(move.allocation, move.allocation->GetUserData());
+
+                    VkImage image;
+                    pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkCreateImage)(
+                        m_hAllocator->m_hDevice, &move.imageIntrospection.createInfo, m_hAllocator->GetAllocationCallbacks(), &image);
+
+                    if(pDefragCtx->res == VK_SUCCESS)
                     {
-                        move.imageIntrospection = pCallbacks->pfnImageIntrospection(move.allocation, move.allocation->GetUserData());
-
-                        VkImage image;
-                        pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkCreateImage)(
-                            m_hAllocator->m_hDevice, &move.imageIntrospection.createInfo, m_hAllocator->GetAllocationCallbacks(), &image);
-
-                        if(pDefragCtx->res == VK_SUCCESS)
-                        {
-                            move.handle = image;
-                            
-                            pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkBindImageMemory)(
-                                m_hAllocator->m_hDevice, image, pBlock->GetDeviceMemory(), move.dstOffset);
-
-                            // Keep track of our pipeline stages that we need to wait/signal on
-                            beginSrcStageMask |= move.imageIntrospection.stageMask;
-                            finalizeDstStageMask |= move.imageIntrospection.stageMask;
-
-                            // We need one pipeline barrier and two image layout transitions here
-                            // First we'll have to turn our newly created image into VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-                            // And the second one is turning the old image into VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-
-                            VkImageSubresourceRange subresourceRange = {
-                                ImageAspectMaskForFormat(move.imageIntrospection.createInfo.format),
-                                0, VK_REMAINING_MIP_LEVELS,
-                                0, VK_REMAINING_ARRAY_LAYERS
-                            };
-
-                            VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-                            barrier.srcAccessMask = 0;
-                            barrier.dstAccessMask = 0;
-                            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-                            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                            barrier.image = image;
-                            barrier.subresourceRange = subresourceRange;
-
-                            beginImageBarriers.push_back(barrier);
-
-                            // Second barrier to convert the existing image. This one actually needs a real barrier                         
-                            barrier.srcAccessMask = move.imageIntrospection.accessMask;
-                            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-                            barrier.oldLayout = move.imageIntrospection.layout;
-                            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-                            barrier.image = move.imageIntrospection.image;
-
-                            beginImageBarriers.push_back(barrier);
-
-                            // And lastly we need a barrier that turns our new image into the layout of the old one
-                            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                            
-                            std::swap(barrier.srcAccessMask, barrier.dstAccessMask);
-                            std::swap(barrier.oldLayout, barrier.newLayout);
-
-                            finalizeImageBarriers.push_back(barrier);
-                        }
-                        break;
-                    }
-
-                    case VMA_ALLOCATION_TYPE_BUFFER:
-                    {
+                        move.handle = image;
                         
-                        break;
+                        pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkBindImageMemory)(
+                            m_hAllocator->m_hDevice, image, pBlock->GetDeviceMemory(), move.dstOffset);
+
+                        // Keep track of our pipeline stages that we need to wait/signal on
+                        beginSrcStageMask |= move.imageIntrospection.stageMask;
+                        finalizeDstStageMask |= move.imageIntrospection.stageMask;
+
+                        // We need one pipeline barrier and two image layout transitions here
+                        // First we'll have to turn our newly created image into VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                        // And the second one is turning the old image into VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+
+                        VkImageSubresourceRange subresourceRange = {
+                            ImageAspectMaskForFormat(move.imageIntrospection.createInfo.format),
+                            0, VK_REMAINING_MIP_LEVELS,
+                            0, VK_REMAINING_ARRAY_LAYERS
+                        };
+
+                        VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+                        barrier.srcAccessMask = 0;
+                        barrier.dstAccessMask = 0;
+                        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        barrier.image = image;
+                        barrier.subresourceRange = subresourceRange;
+
+                        beginImageBarriers.push_back(barrier);
+
+                        // Second barrier to convert the existing image. This one actually needs a real barrier                         
+                        barrier.srcAccessMask = move.imageIntrospection.accessMask;
+                        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                        barrier.oldLayout = move.imageIntrospection.layout;
+                        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                        barrier.image = move.imageIntrospection.image;
+
+                        beginImageBarriers.push_back(barrier);
+
+                        // And lastly we need a barrier that turns our new image into the layout of the old one
+                        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                        
+                        std::swap(barrier.srcAccessMask, barrier.dstAccessMask);
+                        std::swap(barrier.oldLayout, barrier.newLayout);
+
+                        finalizeImageBarriers.push_back(barrier);
                     }
+                    break;
+                }
+
+                case VMA_ALLOCATION_TYPE_BUFFER:
+                {
+                    move.bufferIntrospection = pCallbacks->pfnBufferIntrospection(move.allocation, move.allocation->GetUserData());
+
+                    VkBuffer buffer;
+                    pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkCreateBuffer)(
+                        m_hAllocator->m_hDevice, &move.bufferIntrospection.createInfo, m_hAllocator->GetAllocationCallbacks(), &buffer);
+
+                    if(pDefragCtx->res == VK_SUCCESS)
+                    {
+                        move.handle = buffer;
+
+                        pDefragCtx->res = (*m_hAllocator->GetVulkanFunctions().vkBindBufferMemory)(
+                            m_hAllocator->m_hDevice, buffer, pBlock->GetDeviceMemory(), move.dstOffset);
+
+                        // Keep track of our pipeline stages that we need to wait/signal on
+                        beginSrcStageMask |= move.bufferIntrospection.stageMask;
+                        finalizeDstStageMask |= move.bufferIntrospection.stageMask;
+
+                        beginMemoryBarrier.srcAccessMask |= move.bufferIntrospection.accessMask;
+                        beginMemoryBarrier.dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+
+                        finalizeMemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+                        finalizeMemoryBarrier.dstAccessMask |= move.bufferIntrospection.accessMask;
+
+                        wantsMemoryBarrier = true;
+                    }
+                    break;
                 }
             }
         }
@@ -12946,10 +12974,10 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
     // Go over all moves. Post data transfer commands to command buffer.
     if(pDefragCtx->res == VK_SUCCESS)
     {
-        if(!beginImageBarriers.empty())
+        if(!beginImageBarriers.empty() || wantsMemoryBarrier)
         {
             vkCmdPipelineBarrier(commandBuffer, beginSrcStageMask, beginDstStageMask, 0,
-                0, nullptr,
+                1, &beginMemoryBarrier,
                 0, nullptr,
                 (uint32_t)beginImageBarriers.size(), beginImageBarriers.data());
         }
@@ -12961,65 +12989,85 @@ void VmaBlockVector::ApplyDefragmentationMovesGpu(
         {
             const VmaDefragmentationMove& move = moves[moveIndex];
 
-            if(move.type != VMA_ALLOCATION_TYPE_UNKNOWN)
+            switch(move.type)
             {
-                // Copy all mips of the source image into the target image
-                VkOffset3D offset = { 0, 0, 0 };
-                VkExtent3D extent = move.imageIntrospection.createInfo.extent;
-
-                VkImageSubresourceLayers subresourceLayers = {
-                    ImageAspectMaskForFormat(move.imageIntrospection.createInfo.format),
-                    0,
-                    0, move.imageIntrospection.createInfo.arrayLayers
-                };
-                
-                for(uint32_t mip = 0; mip < move.imageIntrospection.createInfo.mipLevels; ++ mip)
+                case VMA_ALLOCATION_TYPE_UNKNOWN:
                 {
-                    subresourceLayers.mipLevel = mip;
-                    
-                    VkImageCopy imageCopy {
-                        subresourceLayers,
-                        offset,
-                        subresourceLayers,
-                        offset,
-                        extent
-                    };
-                    
-                    imageCopies.push_back(imageCopy);
-                    
-                    extent.width = std::max(uint32_t(1), extent.width >> 1);
-                    extent.height = std::max(uint32_t(1), extent.height >> 1);
-                    extent.depth = std::max(uint32_t(1), extent.depth >> 1);
+                    const VmaBlockDefragmentationContext &srcBlockCtx = pDefragCtx->blockContexts[move.srcBlockIndex];
+                    const VmaBlockDefragmentationContext &dstBlockCtx = pDefragCtx->blockContexts[move.dstBlockIndex];
+
+                    VMA_ASSERT(srcBlockCtx.hBuffer &&dstBlockCtx.hBuffer);
+
+                    VkBufferCopy region = {
+                        move.srcOffset,
+                        move.dstOffset,
+                        move.size };
+                    (*m_hAllocator->GetVulkanFunctions().vkCmdCopyBuffer)(
+                        commandBuffer, srcBlockCtx.hBuffer, dstBlockCtx.hBuffer, 1, &region);
+
+                    break;
                 }
 
-                (*m_hAllocator->GetVulkanFunctions().vkCmdCopyImage)(
-                    commandBuffer,
-                    move.imageIntrospection.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-                    (VkImage)move.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-                    (uint32_t)imageCopies.size(), imageCopies.data());
+                case VMA_ALLOCATION_TYPE_IMAGE:
+                {
+                    // Copy all mips of the source image into the target image
+                    VkOffset3D offset = { 0, 0, 0 };
+                    VkExtent3D extent = move.imageIntrospection.createInfo.extent;
 
-                imageCopies.clear();
-            }
-            else
-            {
-                const VmaBlockDefragmentationContext &srcBlockCtx = pDefragCtx->blockContexts[move.srcBlockIndex];
-                const VmaBlockDefragmentationContext &dstBlockCtx = pDefragCtx->blockContexts[move.dstBlockIndex];
+                    VkImageSubresourceLayers subresourceLayers = {
+                        ImageAspectMaskForFormat(move.imageIntrospection.createInfo.format),
+                        0,
+                        0, move.imageIntrospection.createInfo.arrayLayers
+                    };
 
-                VMA_ASSERT(srcBlockCtx.hBuffer && dstBlockCtx.hBuffer);
+                    for(uint32_t mip = 0; mip < move.imageIntrospection.createInfo.mipLevels; ++ mip)
+                    {
+                        subresourceLayers.mipLevel = mip;
 
-                VkBufferCopy region = {
-                    move.srcOffset,
-                    move.dstOffset,
-                    move.size };
-                (*m_hAllocator->GetVulkanFunctions().vkCmdCopyBuffer)(
-                    commandBuffer, srcBlockCtx.hBuffer, dstBlockCtx.hBuffer, 1, &region);
+                        VkImageCopy imageCopy{
+                            subresourceLayers,
+                            offset,
+                            subresourceLayers,
+                            offset,
+                            extent
+                        };
+
+                        imageCopies.push_back(imageCopy);
+
+                        extent.width = std::max(uint32_t(1), extent.width >> 1);
+                        extent.height = std::max(uint32_t(1), extent.height >> 1);
+                        extent.depth = std::max(uint32_t(1), extent.depth >> 1);
+                    }
+
+                    (*m_hAllocator->GetVulkanFunctions().vkCmdCopyImage)(
+                        commandBuffer,
+                        move.imageIntrospection.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        (VkImage)move.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        (uint32_t)imageCopies.size(), imageCopies.data());
+
+                    imageCopies.clear();
+
+                    break;
+                }
+                
+                case VMA_ALLOCATION_TYPE_BUFFER:
+                {
+                    VkBufferCopy region = {
+                        0,
+                        0,
+                        move.bufferIntrospection.createInfo.size };
+                    (*m_hAllocator->GetVulkanFunctions().vkCmdCopyBuffer)(
+                        commandBuffer, move.bufferIntrospection.buffer, (VkBuffer)move.handle, 1, &region);
+
+                    break;
+                }
             }
         }
 
-        if(!finalizeImageBarriers.empty())
+        if(!finalizeImageBarriers.empty() || wantsMemoryBarrier)
         {
             vkCmdPipelineBarrier(commandBuffer, finalizeSrcStageMask, finalizeDstStageMask, 0,
-                0, nullptr,
+                1, &finalizeMemoryBarrier,
                 0, nullptr,
                 (uint32_t)finalizeImageBarriers.size(), finalizeImageBarriers.data());
         }
@@ -13258,58 +13306,55 @@ void VmaBlockVector::DefragmentationEnd(
 
     // If the allocation failed, delete the newly created objects. Otherwise tell our callback about them
     {
-        // Go over all of our moves and figure out what barriers we need to insert
         const size_t moveCount = pCtx->defragmentationMoves.size();
         
         for(size_t moveIndex = 0; moveIndex < moveCount; ++moveIndex)
         {
             VmaDefragmentationMove &move = pCtx->defragmentationMoves[moveIndex];
-            if(move.allocation)
+
+            switch(move.type)
             {
-                switch(move.type)
+                case VMA_ALLOCATION_TYPE_UNKNOWN:
+                    break;
+
+                case VMA_ALLOCATION_TYPE_IMAGE:
                 {
-                    case VMA_ALLOCATION_TYPE_IMAGE:
+                    if(pCtx->res >= VK_SUCCESS)
                     {
-                        if(pCtx->res >= VK_SUCCESS)
-                        {
-                            // Tell our host application that we have changed the image
-                            pCallbacks->pfnUpdateImage(move.allocation, move.allocation->GetUserData(), (VkImage)move.handle);
-                            
-                            // Delete the old image
-                            (*m_hAllocator->GetVulkanFunctions().vkDestroyImage)(
-                                m_hAllocator->m_hDevice, (VkImage)move.imageIntrospection.image, m_hAllocator->GetAllocationCallbacks());
-                        }
-                        else
-                        {
-                            (*m_hAllocator->GetVulkanFunctions().vkDestroyImage)(
-                                m_hAllocator->m_hDevice, (VkImage)move.handle, m_hAllocator->GetAllocationCallbacks());
-                        }
+                        // Tell our host application that we have changed the image
+                        pCallbacks->pfnUpdateImage(move.allocation, move.allocation->GetUserData(), (VkImage)move.handle);
                         
-                        break;
+                        // Delete the old image
+                        (*m_hAllocator->GetVulkanFunctions().vkDestroyImage)(
+                            m_hAllocator->m_hDevice, (VkImage)move.imageIntrospection.image, m_hAllocator->GetAllocationCallbacks());
                     }
-
-                    case VMA_ALLOCATION_TYPE_BUFFER:
+                    else
                     {
-                        if(pCtx->res >= VK_SUCCESS)
-                        {
-                            // Tell our host application that we have changed the image
-                            pCallbacks->pfnUpdateBuffer(move.allocation, move.allocation->GetUserData(), (VkBuffer)move.handle);
-
-                            // Delete the old image
-                            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
-                                m_hAllocator->m_hDevice, move.bufferIntrospection.buffer, m_hAllocator->GetAllocationCallbacks());
-                        }
-                        else
-                        {
-                            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
-                                m_hAllocator->m_hDevice, (VkBuffer)move.handle, m_hAllocator->GetAllocationCallbacks());
-                        }
-                        
-                        break;
+                        (*m_hAllocator->GetVulkanFunctions().vkDestroyImage)(
+                            m_hAllocator->m_hDevice, (VkImage)move.handle, m_hAllocator->GetAllocationCallbacks());
                     }
+                    
+                    break;
+                }
 
-                    default:
-                        break;
+                case VMA_ALLOCATION_TYPE_BUFFER:
+                {
+                    if(pCtx->res >= VK_SUCCESS)
+                    {
+                        // Tell our host application that we have changed the image
+                        pCallbacks->pfnUpdateBuffer(move.allocation, move.allocation->GetUserData(), (VkBuffer)move.handle);
+
+                        // Delete the old image
+                        (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
+                            m_hAllocator->m_hDevice, move.bufferIntrospection.buffer, m_hAllocator->GetAllocationCallbacks());
+                    }
+                    else
+                    {
+                        (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
+                            m_hAllocator->m_hDevice, (VkBuffer)move.handle, m_hAllocator->GetAllocationCallbacks());
+                    }
+                    
+                    break;
                 }
             }
         }

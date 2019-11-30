@@ -1910,10 +1910,12 @@ static void TestDefragmentationImagesGpu()
     std::vector<AllocInfo> allocations;
 
     // Create that many allocations to surely fill 3 new blocks of 256 MB.
-    const uint32_t imageSizeMin = 256;
-    const uint32_t imageSizeMax = 512;
+    const std::array<uint32_t, 3> imageSizes = { 256, 512, 1024 };
+    const VkDeviceSize bufSizeMin = 5ull * 1024 * 1024;
+    const VkDeviceSize bufSizeMax = 10ull * 1024 * 1024;
     const VkDeviceSize totalSize = 3ull * 256 * 1024 * 1024;
-    const size_t imageCount = (size_t)(totalSize / (imageSizeMin * imageSizeMin * 4));
+    const size_t imageCount = (size_t)(totalSize / (imageSizes[0] * imageSizes[0] * 4)) / 2;
+    const size_t bufCount = (size_t)(totalSize / bufSizeMin) / 2;
     const size_t percentToLeave = 30;
     RandomNumberGenerator rand = { 234522 };
 
@@ -1935,7 +1937,7 @@ static void TestDefragmentationImagesGpu()
     // Create all intended images.
     for(size_t i = 0; i < imageCount; ++i)
     {
-        const uint32_t size = 512; //align_up(rand.Generate() % (imageSizeMax - imageSizeMin) + imageSizeMin, uint32_t(256));
+        const uint32_t size = imageSizes[rand.Generate() % 3];
 
         imageInfo.extent.width = size;
         imageInfo.extent.height = size;
@@ -1947,10 +1949,25 @@ static void TestDefragmentationImagesGpu()
         allocations.push_back(alloc);
     }
 
+    // And all buffers
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+
+    for(size_t i = 0; i < bufCount; ++i)
+    {
+        bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+        bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+        AllocInfo alloc;
+        alloc.CreateBuffer(bufCreateInfo, allocCreateInfo);
+        alloc.m_StartValue = 0;
+
+        allocations.push_back(alloc);
+    }
+
     // Destroy some percentage of them.
     {
-        const size_t imagesToDestroy = round_div<size_t>(imageCount * (100 - percentToLeave), 100);
-        for(size_t i = 0; i < imagesToDestroy; ++i)
+        const size_t allocationsToDestroy = round_div<size_t>((imageCount + bufCount) * (100 - percentToLeave), 100);
+        for(size_t i = 0; i < allocationsToDestroy; ++i)
         {
             const size_t index = rand.Generate() % allocations.size();
             allocations[index].Destroy();
