@@ -6278,7 +6278,7 @@ public:
 
     void GetPoolStats(VmaPoolStats* pStats);
 
-    bool IsEmpty() const { return m_Blocks.empty(); }
+    bool IsEmpty();
     bool IsCorruptionDetectionEnabled() const;
 
     VkResult Allocate(
@@ -11827,6 +11827,12 @@ void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
     }
 }
 
+bool VmaBlockVector::IsEmpty()
+{
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
+    return m_Blocks.empty();
+}
+
 bool VmaBlockVector::IsCorruptionDetectionEnabled() const
 {
     const uint32_t requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
@@ -15864,7 +15870,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
             {
                 return VK_ERROR_OUT_OF_DEVICE_MEMORY;
             }
-            if(m_Budget.m_BlockBytes->compare_exchange_strong(blockBytes, blockBytesAfterAllocation))
+            if(m_Budget.m_BlockBytes[heapIndex].compare_exchange_strong(blockBytes, blockBytesAfterAllocation))
             {
                 break;
             }
