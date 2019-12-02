@@ -7,7 +7,7 @@ Major changes:
 - Added support for Vulkan 1.1.
     - Added member `VmaAllocatorCreateInfo::vulkanApiVersion`.
     - When Vulkan 1.1 is used, there is no need to enable VK_KHR_dedicated_allocation or VK_KHR_bind_memory2 extensions, as they are promoted to Vulkan itself.
-- Added support for query for memory budget and staying withing the budget.
+- Added support for query for memory budget and staying within the budget.
     - Added function `vmaGetBudget`, structure `VmaBudget`. This can also serve as simple statistics, more efficient than `vmaCalculateStats`.
     - By default the budget it is estimated based on memory heap sizes. It may be queried from the system using VK_EXT_memory_budget extension if you use `VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT` flag and `VmaAllocatorCreateInfo::instance` member.
     - Added flag `VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT` that fails an allocation if it would exceed the budget.
