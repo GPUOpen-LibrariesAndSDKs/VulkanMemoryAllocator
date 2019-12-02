@@ -2472,7 +2472,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Flushes memory of given allocation. </p>
-<p>Calls <code>vkFlushMappedMemoryRanges()</code> for memory associated with given range of given allocation.</p>
+<p>Calls <code>vkFlushMappedMemoryRanges()</code> for memory associated with given range of given allocation. It needs to be called after writing to a mapped memory for memory types that are not <code>HOST_COHERENT</code>. Unmap operation doesn't do that automatically.</p>
 <ul>
 <li><code>offset</code> must be relative to the beginning of allocation.</li>
 <li><code>size</code> can be <code>VK_WHOLE_SIZE</code>. It means all memory from <code>offset</code> the the end of given allocation.</li>
@@ -2877,7 +2877,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Invalidates memory of given allocation. </p>
-<p>Calls <code>vkInvalidateMappedMemoryRanges()</code> for memory associated with given range of given allocation.</p>
+<p>Calls <code>vkInvalidateMappedMemoryRanges()</code> for memory associated with given range of given allocation. It needs to be called before reading from a mapped memory for memory types that are not <code>HOST_COHERENT</code>. Map operation doesn't do that automatically.</p>
 <ul>
 <li><code>offset</code> must be relative to the beginning of allocation.</li>
 <li><code>size</code> can be <code>VK_WHOLE_SIZE</code>. It means all memory from <code>offset</code> the the end of given allocation.</li>
@@ -2972,7 +2972,8 @@ Functions</h2></td></tr>
 <p>It also safe to call this function multiple times on the same allocation. You must call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> same number of times as you called <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>.</p>
 <p>It is also safe to call this function on allocation created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag. Its memory stays mapped all the time. You must still call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> same number of times as you called <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>. You must not call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> additional time to free the "0-th" mapping made automatically due to <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag.</p>
 <p>This function fails when used on allocation made in memory type that is not <code>HOST_VISIBLE</code>.</p>
-<p>This function always fails when called for allocation that was created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag. Such allocations cannot be mapped. </p>
+<p>This function always fails when called for allocation that was created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag. Such allocations cannot be mapped.</p>
+<p>This function doesn't automatically flush or invalidate caches. If the allocation is made from a memory types that is not <code>HOST_COHERENT</code>, you also need to use <a class="el" href="vk__mem__alloc_8h.html#a0d0eb0c1102268fa9a476d12ecbe4006" title="Invalidates memory of given allocation.">vmaInvalidateAllocation()</a> / <a class="el" href="vk__mem__alloc_8h.html#abc34ee6f021f459aff885f3758c435de" title="Flushes memory of given allocation.">vmaFlushAllocation()</a>, as required by Vulkan specification. </p>
 
 </div>
 </div>
@@ -3179,7 +3180,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Unmaps memory represented by given allocation, mapped previously using <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>. </p>
-<p>For details, see description of <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>. </p>
+<p>For details, see description of <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>.</p>
+<p>This function doesn't automatically flush or invalidate caches. If the allocation is made from a memory types that is not <code>HOST_COHERENT</code>, you also need to use <a class="el" href="vk__mem__alloc_8h.html#a0d0eb0c1102268fa9a476d12ecbe4006" title="Invalidates memory of given allocation.">vmaInvalidateAllocation()</a> / <a class="el" href="vk__mem__alloc_8h.html#abc34ee6f021f459aff885f3758c435de" title="Flushes memory of given allocation.">vmaFlushAllocation()</a>, as required by Vulkan specification. </p>
 
 </div>
 </div>

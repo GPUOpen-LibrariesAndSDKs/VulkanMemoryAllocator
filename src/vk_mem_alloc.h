@@ -52,7 +52,7 @@ Documentation of all members: vk_mem_alloc.h
   - \subpage memory_mapping
     - [Mapping functions](@ref memory_mapping_mapping_functions)
     - [Persistently mapped memory](@ref memory_mapping_persistently_mapped_memory)
-    - [Cache control](@ref memory_mapping_cache_control)
+    - [Cache flush and invalidate](@ref memory_mapping_cache_control)
     - [Finding out if memory is mappable](@ref memory_mapping_finding_if_memory_mappable)
   - \subpage staying_within_budget
     - [Querying for budget](@ref staying_within_budget_querying_for_budget)
@@ -426,12 +426,13 @@ There are some exceptions though, when you should consider mapping memory only f
   which requires unmapping before GPU can see updated texture.
 - Keeping many large memory blocks mapped may impact performance or stability of some debugging tools.
 
-\section memory_mapping_cache_control Cache control
+\section memory_mapping_cache_control Cache flush and invalidate
   
 Memory in Vulkan doesn't need to be unmapped before using it on GPU,
 but unless a memory types has `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` flag set,
-you need to manually invalidate cache before reading of mapped pointer
-and flush cache after writing to mapped pointer.
+you need to manually **invalidate** cache before reading of mapped pointer
+and **flush** cache after writing to mapped pointer.
+Map/unmap operations don't do that automatically.
 Vulkan provides following functions for this purpose `vkFlushMappedMemoryRanges()`,
 `vkInvalidateMappedMemoryRanges()`, but this library provides more convenient
 functions that refer to given allocation object: vmaFlushAllocation(),
@@ -445,7 +446,7 @@ within blocks are aligned to this value, so their offsets are always multiply of
 
 Please note that memory allocated with #VMA_MEMORY_USAGE_CPU_ONLY is guaranteed to be `HOST_COHERENT`.
 
-Also, Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA)
+Also, Windows drivers from all 3 **PC** GPU vendors (AMD, Intel, NVIDIA)
 currently provide `HOST_COHERENT` flag on all memory types that are
 `HOST_VISIBLE`, so on this platform you may not need to bother.
 
@@ -3017,6 +3018,10 @@ This function fails when used on allocation made in memory type that is not
 This function always fails when called for allocation that was created with
 #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag. Such allocations cannot be
 mapped.
+
+This function doesn't automatically flush or invalidate caches.
+If the allocation is made from a memory types that is not `HOST_COHERENT`,
+you also need to use vmaInvalidateAllocation() / vmaFlushAllocation(), as required by Vulkan specification.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapMemory(
     VmaAllocator allocator,
@@ -3026,6 +3031,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapMemory(
 /** \brief Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().
 
 For details, see description of vmaMapMemory().
+
+This function doesn't automatically flush or invalidate caches.
+If the allocation is made from a memory types that is not `HOST_COHERENT`,
+you also need to use vmaInvalidateAllocation() / vmaFlushAllocation(), as required by Vulkan specification.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaUnmapMemory(
     VmaAllocator allocator,
@@ -3034,6 +3043,8 @@ VMA_CALL_PRE void VMA_CALL_POST vmaUnmapMemory(
 /** \brief Flushes memory of given allocation.
 
 Calls `vkFlushMappedMemoryRanges()` for memory associated with given range of given allocation.
+It needs to be called after writing to a mapped memory for memory types that are not `HOST_COHERENT`.
+Unmap operation doesn't do that automatically.
 
 - `offset` must be relative to the beginning of allocation.
 - `size` can be `VK_WHOLE_SIZE`. It means all memory from `offset` the the end of given allocation.
@@ -3052,6 +3063,8 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, VmaAl
 /** \brief Invalidates memory of given allocation.
 
 Calls `vkInvalidateMappedMemoryRanges()` for memory associated with given range of given allocation.
+It needs to be called before reading from a mapped memory for memory types that are not `HOST_COHERENT`.
+Map operation doesn't do that automatically.
 
 - `offset` must be relative to the beginning of allocation.
 - `size` can be `VK_WHOLE_SIZE`. It means all memory from `offset` the the end of given allocation.
