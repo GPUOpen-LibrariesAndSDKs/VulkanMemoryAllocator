@@ -1,4 +1,4 @@
-# 2.3.0-alpha.1 (2019-11-25)
+# 2.3.0 (2019-12-04)
 
 Major release after a year of development in "master" branch and feature branches. Notable new features: supporting Vulkan 1.1, supporting query for memory budget.
 
