@@ -1514,7 +1514,7 @@ void TestDefragmentationSimple()
     Allocation that must be move to an overlapping place using memmove().
     Create 2 buffers, second slightly bigger than the first. Delete first. Then defragment.
     */
-    if(VMA_DEBUG_MARGIN) // FAST algorithm works only when DEBUG_MARGIN disabled.
+    if(VMA_DEBUG_MARGIN == 0) // FAST algorithm works only when DEBUG_MARGIN disabled.
     {
         AllocInfo allocInfo[2];
 
@@ -6107,13 +6107,6 @@ void Test()
     }
 
     // # Simple tests
-
-#if 1
-    TestDefragmentationIncrementalBasic();
-    TestDefragmentationIncrementalComplex();
-    return;
-#endif
-
     TestBasics();
     //TestGpuData(); // Not calling this because it's just testing the testing environment.
 #if VMA_DEBUG_MARGIN
