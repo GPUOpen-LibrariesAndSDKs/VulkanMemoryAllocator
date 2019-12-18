@@ -1268,6 +1268,9 @@ printf("Image name: %s\n", imageName);
 
 That string is also printed in JSON report created by vmaBuildStatsString().
 
+\note Passing string name to VMA allocation doesn't automatically set it to the Vulkan buffer or image created with it.
+You must do it manually using an extension like VK_EXT_debug_utils, which is independent of this library.
+
 
 \page debugging_memory_usage Debugging incorrect memory usage
 
