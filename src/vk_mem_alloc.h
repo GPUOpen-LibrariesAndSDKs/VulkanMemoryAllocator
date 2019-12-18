@@ -3584,20 +3584,20 @@ void *aligned_alloc(size_t alignment, size_t size)
 
 // Normal assert to check for programmer's errors, especially in Debug configuration.
 #ifndef VMA_ASSERT
-   #ifdef _DEBUG
-       #define VMA_ASSERT(expr)         assert(expr)
-   #else
+   #ifdef NDEBUG
        #define VMA_ASSERT(expr)
+   #else
+       #define VMA_ASSERT(expr)         assert(expr)
    #endif
 #endif
 
 // Assert that will be called very often, like inside data structures e.g. operator[].
 // Making it non-empty can make program slow.
 #ifndef VMA_HEAVY_ASSERT
-   #ifdef _DEBUG
-       #define VMA_HEAVY_ASSERT(expr)   //VMA_ASSERT(expr)
-   #else
+   #ifdef NDEBUG
        #define VMA_HEAVY_ASSERT(expr)
+   #else
+       #define VMA_HEAVY_ASSERT(expr)   //VMA_ASSERT(expr)
    #endif
 #endif
 
