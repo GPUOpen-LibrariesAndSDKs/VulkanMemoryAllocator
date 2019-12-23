@@ -1952,7 +1952,6 @@ typedef struct VmaVulkanFunctions {
     PFN_vkCreateImage vkCreateImage;
     PFN_vkDestroyImage vkDestroyImage;
     PFN_vkCmdCopyBuffer vkCmdCopyBuffer;
-    PFN_vkCmdCopyImage vkCmdCopyImage;
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
     PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
     PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
@@ -3193,20 +3192,20 @@ typedef struct VmaDefragmentationInfo2 {
     VkCommandBuffer commandBuffer;
 } VmaDefragmentationInfo2;
 
-typedef struct VmaDefragmentationStepMoveInfo {
+typedef struct VmaDefragmentationPassMoveInfo {
     VmaAllocation allocation;
     VkDeviceMemory memory;
     VkDeviceSize offset;
-} VmaDefragmentationStepMoveInfo;
+} VmaDefragmentationPassMoveInfo;
 
 /** \brief Parameters for incremental defragmentation steps.
 
-To be used with function vmaDefragmentationStepBegin().
+To be used with function vmaBeginDefragmentationPass().
 */
-typedef struct VmaDefragmentationStepInfo {
+typedef struct VmaDefragmentationPassInfo {
     uint32_t moveCount;
-    VmaDefragmentationStepMoveInfo* pMoves;
-} VmaDefragmentationStepInfo;
+    VmaDefragmentationPassMoveInfo* pMoves;
+} VmaDefragmentationPassInfo;
 
 /** \brief Deprecated. Optional configuration parameters to be passed to function vmaDefragment().
 
@@ -3281,12 +3280,12 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationEnd(
     VmaAllocator allocator,
     VmaDefragmentationContext context);
 
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationStepBegin(
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
     VmaAllocator allocator,
-    VmaDefragmentationStepInfo* pInfo,
-    VmaDefragmentationContext context
+    VmaDefragmentationContext context,
+    VmaDefragmentationPassInfo* pInfo
 );
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationStepEnd(
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
     VmaAllocator allocator,
     VmaDefragmentationContext context
 );
@@ -3733,10 +3732,10 @@ void *aligned_alloc(size_t alignment, size_t size)
             VmaRWMutex() { InitializeSRWLock(&m_Lock); }
             void LockRead() { AcquireSRWLockShared(&m_Lock); }
             void UnlockRead() { ReleaseSRWLockShared(&m_Lock); }
-            bool TryLockRead() { return TryAcquireSRWLockShared(&m_Lock); }
+            bool TryLockRead() { return TryAcquireSRWLockShared(&m_Lock) != FALSE; }
             void LockWrite() { AcquireSRWLockExclusive(&m_Lock); }
             void UnlockWrite() { ReleaseSRWLockExclusive(&m_Lock); }
-            bool TryLockWrite() { return TryAcquireSRWLockExclusive(&m_Lock); }
+            bool TryLockWrite() { return TryAcquireSRWLockExclusive(&m_Lock) != FALSE; }
         private:
             SRWLOCK m_Lock;
         };
@@ -6357,7 +6356,7 @@ public:
 
     uint32_t ProcessDefragmentations(
         class VmaBlockVectorDefragmentationContext *pCtx,
-        VmaDefragmentationStepMoveInfo* pMove, uint32_t maxMoves);
+        VmaDefragmentationPassMoveInfo* pMove, uint32_t maxMoves);
 
     void CommitDefragmentations(
         class VmaBlockVectorDefragmentationContext *pCtx,
@@ -6395,8 +6394,6 @@ private:
 
     VkDeviceSize CalcMaxBlockSize() const;
 
-    static VkImageAspectFlags ImageAspectMaskForFormat(VkFormat format);
-    
     // Finds and removes given block from vector.
     void Remove(VmaDeviceMemoryBlock* pBlock);
 
@@ -6896,8 +6893,8 @@ public:
         VkDeviceSize maxGpuBytesToMove, uint32_t maxGpuAllocationsToMove,
         VkCommandBuffer commandBuffer, VmaDefragmentationStats* pStats, VmaDefragmentationFlags flags);
 
-    VkResult DefragmentStepBegin(VmaDefragmentationStepInfo* pInfo);
-    VkResult DefragmentStepEnd();
+    VkResult DefragmentPassBegin(VmaDefragmentationPassInfo* pInfo);
+    VkResult DefragmentPassEnd();
 
 private:
     const VmaAllocator m_hAllocator;
@@ -7249,10 +7246,10 @@ public:
     VkResult DefragmentationEnd(
         VmaDefragmentationContext context);
 
-    VkResult DefragmentationStepBegin(
-        VmaDefragmentationStepInfo* pInfo,
+    VkResult DefragmentationPassBegin(
+        VmaDefragmentationPassInfo* pInfo,
         VmaDefragmentationContext context);
-    VkResult DefragmentationStepEnd(
+    VkResult DefragmentationPassEnd(
         VmaDefragmentationContext context);
 
     void GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationInfo* pAllocationInfo);
@@ -13016,7 +13013,7 @@ void VmaBlockVector::DefragmentationEnd(
 
 uint32_t VmaBlockVector::ProcessDefragmentations(
     class VmaBlockVectorDefragmentationContext *pCtx,
-    VmaDefragmentationStepMoveInfo* pMove, uint32_t maxMoves)
+    VmaDefragmentationPassMoveInfo* pMove, uint32_t maxMoves)
 {
     VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
     
@@ -14123,9 +14120,9 @@ VkResult VmaDefragmentationContext_T::Defragment(
     return res;
 }
 
-VkResult VmaDefragmentationContext_T::DefragmentStepBegin(VmaDefragmentationStepInfo* pInfo)
+VkResult VmaDefragmentationContext_T::DefragmentPassBegin(VmaDefragmentationPassInfo* pInfo)
 {
-    VmaDefragmentationStepMoveInfo* pCurrentMove = pInfo->pMoves;
+    VmaDefragmentationPassMoveInfo* pCurrentMove = pInfo->pMoves;
     uint32_t movesLeft = pInfo->moveCount;
 
     // Process default pools.
@@ -14197,7 +14194,7 @@ VkResult VmaDefragmentationContext_T::DefragmentStepBegin(VmaDefragmentationStep
 
     return VK_SUCCESS;
 }
-VkResult VmaDefragmentationContext_T::DefragmentStepEnd()
+VkResult VmaDefragmentationContext_T::DefragmentPassEnd()
 {
     VkResult res = VK_SUCCESS;
 
@@ -15065,7 +15062,6 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     m_VulkanFunctions.vkCreateImage = (PFN_vkCreateImage)vkCreateImage;
     m_VulkanFunctions.vkDestroyImage = (PFN_vkDestroyImage)vkDestroyImage;
     m_VulkanFunctions.vkCmdCopyBuffer = (PFN_vkCmdCopyBuffer)vkCmdCopyBuffer;
-    m_VulkanFunctions.vkCmdCopyImage = (PFN_vkCmdCopyImage)vkCmdCopyImage;
 #if VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
@@ -15132,7 +15128,6 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         VMA_COPY_IF_NOT_NULL(vkCreateImage);
         VMA_COPY_IF_NOT_NULL(vkDestroyImage);
         VMA_COPY_IF_NOT_NULL(vkCmdCopyBuffer);
-        VMA_COPY_IF_NOT_NULL(vkCmdCopyImage);
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
         VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements2KHR);
         VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements2KHR);
@@ -15167,7 +15162,6 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     VMA_ASSERT(m_VulkanFunctions.vkCreateImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkDestroyImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkCmdCopyBuffer != VMA_NULL);
-    VMA_ASSERT(m_VulkanFunctions.vkCmdCopyImage != VMA_NULL);
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0) || m_UseKhrDedicatedAllocation)
     {
@@ -15905,16 +15899,16 @@ VkResult VmaAllocator_T::DefragmentationEnd(
     return VK_SUCCESS;
 }
 
-VkResult VmaAllocator_T::DefragmentationStepBegin(
-    VmaDefragmentationStepInfo* pInfo,
+VkResult VmaAllocator_T::DefragmentationPassBegin(
+    VmaDefragmentationPassInfo* pInfo,
     VmaDefragmentationContext context)
 {
-    return context->DefragmentStepBegin(pInfo);
+    return context->DefragmentPassBegin(pInfo);
 }
-VkResult VmaAllocator_T::DefragmentationStepEnd(
+VkResult VmaAllocator_T::DefragmentationPassEnd(
     VmaDefragmentationContext context)
 {
-    return context->DefragmentStepEnd();
+    return context->DefragmentPassEnd();
     
 }
 
@@ -17736,16 +17730,17 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationEnd(
     }
 }
 
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationStepBegin(
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
     VmaAllocator allocator,
-    VmaDefragmentationStepInfo* pInfo,
-    VmaDefragmentationContext context)
+    VmaDefragmentationContext context,
+    VmaDefragmentationPassInfo* pInfo
+    )
 {
     VMA_ASSERT(allocator);
     VMA_ASSERT(pInfo);
     VMA_HEAVY_ASSERT(VmaValidatePointerArray(pInfo->moveCount, pInfo->pMoves));
 
-    VMA_DEBUG_LOG("vmaDefragmentationStepBegin");
+    VMA_DEBUG_LOG("vmaBeginDefragmentationPass");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -17755,21 +17750,21 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationStepBegin(
         return VK_SUCCESS;
     }
 
-    return allocator->DefragmentationStepBegin(pInfo, context);
+    return allocator->DefragmentationPassBegin(pInfo, context);
 }
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationStepEnd(
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
     VmaAllocator allocator,
     VmaDefragmentationContext context)
 {
     VMA_ASSERT(allocator);
 
-    VMA_DEBUG_LOG("vmaDefragmentationStepEnd");
+    VMA_DEBUG_LOG("vmaEndDefragmentationPass");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     if(context == VK_NULL_HANDLE)
         return VK_SUCCESS;
 
-    return allocator->DefragmentationStepEnd(context);
+    return allocator->DefragmentationPassEnd(context);
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindBufferMemory(

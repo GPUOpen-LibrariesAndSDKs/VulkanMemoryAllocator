@@ -696,6 +696,10 @@ struct AllocInfo
         VkImageCreateInfo m_ImageInfo;
     };
 
+    // After defragmentation.
+    VkBuffer m_NewBuffer = VK_NULL_HANDLE;
+    VkImage m_NewImage = VK_NULL_HANDLE;
+
     void CreateBuffer(
         const VkBufferCreateInfo& bufCreateInfo,
         const VmaAllocationCreateInfo& allocCreateInfo);
@@ -729,11 +733,13 @@ void AllocInfo::Destroy()
 {
     if(m_Image)
     {
+        assert(!m_Buffer);
         vkDestroyImage(g_hDevice, m_Image, g_Allocs);
         m_Image = VK_NULL_HANDLE;
     }
     if(m_Buffer)
     {
+        assert(!m_Image);
         vkDestroyBuffer(g_hDevice, m_Buffer, g_Allocs);
         m_Buffer = VK_NULL_HANDLE;
     }
@@ -922,7 +928,7 @@ static void UploadGpuData(const AllocInfo* allocInfo, size_t allocInfoCount)
             TEST(currAllocInfo.m_ImageInfo.format == VK_FORMAT_R8G8B8A8_UNORM && "Only RGBA8 images are currently supported.");
             TEST(currAllocInfo.m_ImageInfo.mipLevels == 1 && "Only single mip images are currently supported.");
 
-            const VkDeviceSize size = currAllocInfo.m_ImageInfo.extent.width * currAllocInfo.m_ImageInfo.extent.height * sizeof(uint32_t);
+            const VkDeviceSize size = (VkDeviceSize)currAllocInfo.m_ImageInfo.extent.width * currAllocInfo.m_ImageInfo.extent.height * sizeof(uint32_t);
 
             VkBuffer stagingBuf = VK_NULL_HANDLE;
             void* stagingBufMappedPtr = nullptr;
@@ -1850,7 +1856,7 @@ static void TestDefragmentationGpu()
     g_MemoryAliasingWarningEnabled = true;
 }
 
-static void ProcessDefragmentationStepInfo(VmaDefragmentationStepInfo &stepInfo)
+static void ProcessDefragmentationStepInfo(VmaDefragmentationPassInfo &stepInfo)
 {
     std::vector<VkImageMemoryBarrier> beginImageBarriers;
     std::vector<VkImageMemoryBarrier> finalizeImageBarriers;
@@ -1866,9 +1872,7 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationStepInfo &stepInfo)
     VkMemoryBarrier beginMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
     VkMemoryBarrier finalizeMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
 
-    std::vector<void *> newHandles;
-
-    for(uint32_t i = 0; i < stepInfo.moveCount; ++ i)
+    for(uint32_t i = 0; i < stepInfo.moveCount; ++i)
     {
         VmaAllocationInfo info;
         vmaGetAllocationInfo(g_hAllocator, stepInfo.pMoves[i].allocation, &info);
@@ -1883,7 +1887,7 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationStepInfo &stepInfo)
             TEST(result >= VK_SUCCESS);
 
             vkBindImageMemory(g_hDevice, newImage, stepInfo.pMoves[i].memory, stepInfo.pMoves[i].offset);
-            newHandles.push_back(newImage);
+            allocInfo->m_NewImage = newImage;
 
             // Keep track of our pipeline stages that we need to wait/signal on
             beginSrcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -1937,7 +1941,7 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationStepInfo &stepInfo)
             TEST(result >= VK_SUCCESS);
 
             vkBindBufferMemory(g_hDevice, newBuffer, stepInfo.pMoves[i].memory, stepInfo.pMoves[i].offset);
-            newHandles.push_back(newBuffer);
+            allocInfo->m_NewBuffer = newBuffer;
 
             // Keep track of our pipeline stages that we need to wait/signal on
             beginSrcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -2006,13 +2010,8 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationStepInfo &stepInfo)
             vkCmdCopyImage(
                 g_hTemporaryCommandBuffer,
                 allocInfo->m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                (VkImage)newHandles[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                allocInfo->m_NewImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 (uint32_t)imageCopies.size(), imageCopies.data());
-
-            imageCopies.clear();
-
-            // Update our alloc info with the new resource to be used
-            allocInfo->m_Image = (VkImage)newHandles[i];
         }
         else if(allocInfo->m_Buffer)
         {
@@ -2022,15 +2021,10 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationStepInfo &stepInfo)
                 allocInfo->m_BufferInfo.size };
 
             vkCmdCopyBuffer(g_hTemporaryCommandBuffer, 
-                allocInfo->m_Buffer, (VkBuffer)newHandles[i],
+                allocInfo->m_Buffer, allocInfo->m_NewBuffer,
                 1, &region);
-
-
-            // Update our alloc info with the new resource to be used
-            allocInfo->m_Buffer = (VkBuffer)newHandles[i];
         }
     }
-
 
     if(!finalizeImageBarriers.empty() || wantsMemoryBarrier)
     {
@@ -2056,7 +2050,7 @@ static void TestDefragmentationIncrementalBasic()
     const VkDeviceSize bufSizeMin = 5ull * 1024 * 1024;
     const VkDeviceSize bufSizeMax = 10ull * 1024 * 1024;
     const VkDeviceSize totalSize = 3ull * 256 * 1024 * 1024;
-    const size_t imageCount = (size_t)(totalSize / (imageSizes[0] * imageSizes[0] * 4)) / 2;
+    const size_t imageCount = totalSize / ((size_t)imageSizes[0] * imageSizes[0] * 4) / 2;
     const size_t bufCount = (size_t)(totalSize / bufSizeMin) / 2;
     const size_t percentToLeave = 30;
     RandomNumberGenerator rand = { 234522 };
@@ -2142,9 +2136,6 @@ static void TestDefragmentationIncrementalBasic()
 
         for(size_t i = 0; i < allocCount; ++i)
         {
-            VmaAllocationInfo allocInfo = {};
-            vmaGetAllocationInfo(g_hAllocator, allocations[i].m_Allocation, &allocInfo);
-
             allocationPtrs.push_back(allocations[i].m_Allocation);
         }
 
@@ -2164,23 +2155,49 @@ static void TestDefragmentationIncrementalBasic()
 
         res = VK_NOT_READY;
 
-        std::vector<VmaDefragmentationStepMoveInfo> moveInfo;
+        std::vector<VmaDefragmentationPassMoveInfo> moveInfo;
         moveInfo.resize(movableAllocCount);
 
         while(res == VK_NOT_READY)
         {
-            VmaDefragmentationStepInfo stepInfo = {};
+            VmaDefragmentationPassInfo stepInfo = {};
             stepInfo.pMoves = moveInfo.data();
             stepInfo.moveCount = (uint32_t)moveInfo.size();
 
-            res = vmaDefragmentationStepBegin(g_hAllocator, &stepInfo, ctx);
+            res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &stepInfo);
             TEST(res >= VK_SUCCESS);
 
             BeginSingleTimeCommands();
+            std::vector<void*> newHandles;
             ProcessDefragmentationStepInfo(stepInfo);
             EndSingleTimeCommands();
 
-            res = vmaDefragmentationStepEnd(g_hAllocator, ctx);
+            res = vmaEndDefragmentationPass(g_hAllocator, ctx);
+            
+            // Destroy old buffers/images and replace them with new handles.
+            for(size_t i = 0; i < stepInfo.moveCount; ++i)
+            {
+                VmaAllocation const alloc = stepInfo.pMoves[i].allocation;
+                VmaAllocationInfo vmaAllocInfo;
+                vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+                if(allocInfo->m_Buffer)
+                {
+                    assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                    vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                    allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                    allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                }
+                else if(allocInfo->m_Image)
+                {
+                    assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                    vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                    allocInfo->m_Image = allocInfo->m_NewImage;
+                    allocInfo->m_NewImage = VK_NULL_HANDLE;
+                }
+                else
+                    assert(0);
+            }
         }
 
         TEST(res >= VK_SUCCESS);
@@ -2199,7 +2216,7 @@ static void TestDefragmentationIncrementalBasic()
     swprintf_s(fileName, L"GPU_defragmentation_incremental_basic_B_after.json");
     SaveAllocatorStatsToFile(fileName);
 
-    // Destroy all remaining buffers.
+    // Destroy all remaining buffers and images.
     for(size_t i = allocations.size(); i--; )
     {
         allocations[i].Destroy();
@@ -2343,18 +2360,18 @@ void TestDefragmentationIncrementalComplex()
 
         res = VK_NOT_READY;
 
-        std::vector<VmaDefragmentationStepMoveInfo> moveInfo;
+        std::vector<VmaDefragmentationPassMoveInfo> moveInfo;
         moveInfo.resize(movableAllocCount);
 
         MakeAdditionalAllocation();
 
         while(res == VK_NOT_READY)
         {
-            VmaDefragmentationStepInfo stepInfo = {};
+            VmaDefragmentationPassInfo stepInfo = {};
             stepInfo.pMoves = moveInfo.data();
             stepInfo.moveCount = (uint32_t)moveInfo.size();
 
-            res = vmaDefragmentationStepBegin(g_hAllocator, &stepInfo, ctx);
+            res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &stepInfo);
             TEST(res >= VK_SUCCESS);
 
             MakeAdditionalAllocation();
@@ -2363,7 +2380,32 @@ void TestDefragmentationIncrementalComplex()
             ProcessDefragmentationStepInfo(stepInfo);
             EndSingleTimeCommands();
 
-            res = vmaDefragmentationStepEnd(g_hAllocator, ctx);
+            res = vmaEndDefragmentationPass(g_hAllocator, ctx);
+
+            // Destroy old buffers/images and replace them with new handles.
+            for(size_t i = 0; i < stepInfo.moveCount; ++i)
+            {
+                VmaAllocation const alloc = stepInfo.pMoves[i].allocation;
+                VmaAllocationInfo vmaAllocInfo;
+                vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+                if(allocInfo->m_Buffer)
+                {
+                    assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                    vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                    allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                    allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                }
+                else if(allocInfo->m_Image)
+                {
+                    assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                    vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                    allocInfo->m_Image = allocInfo->m_NewImage;
+                    allocInfo->m_NewImage = VK_NULL_HANDLE;
+                }
+                else
+                    assert(0);
+            }
 
             MakeAdditionalAllocation();
         }
