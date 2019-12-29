@@ -3715,7 +3715,7 @@ void *aligned_alloc(size_t alignment, size_t size)
         public:
             void LockRead() { m_Mutex.lock_shared(); }
             void UnlockRead() { m_Mutex.unlock_shared(); }
-            bool TryLockRead() { return m_Mutex.try_shared_lock(); }
+            bool TryLockRead() { return m_Mutex.try_lock_shared(); }
             void LockWrite() { m_Mutex.lock(); }
             void UnlockWrite() { m_Mutex.unlock(); }
             bool TryLockWrite() { return m_Mutex.try_lock(); }
