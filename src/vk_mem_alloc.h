@@ -13019,9 +13019,9 @@ uint32_t VmaBlockVector::ProcessDefragmentations(
     
     const uint32_t moveCount = std::min(uint32_t(pCtx->defragmentationMoves.size()) - pCtx->defragmentationMovesProcessed, maxMoves);
 
-    for(uint32_t i = pCtx->defragmentationMovesProcessed; i < moveCount; ++ i)
+    for(uint32_t i = 0; i < moveCount; ++ i)
     {
-        VmaDefragmentationMove& move = pCtx->defragmentationMoves[i];
+        VmaDefragmentationMove& move = pCtx->defragmentationMoves[pCtx->defragmentationMovesProcessed + i];
 
         pMove->allocation = move.hAllocation;
         pMove->memory = move.pDstBlock->GetDeviceMemory();
