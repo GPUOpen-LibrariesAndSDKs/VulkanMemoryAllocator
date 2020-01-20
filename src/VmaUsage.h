@@ -59,6 +59,7 @@ include all public interface declarations. Example:
 //#define VMA_DEBUG_GLOBAL_MUTEX 1
 //#define VMA_MEMORY_BUDGET 0
 
+//#define VMA_VULKAN_VERSION 1002000 // Vulkan 1.2
 #define VMA_VULKAN_VERSION 1001000 // Vulkan 1.1
 //#define VMA_VULKAN_VERSION 1000000 // Vulkan 1.0
 

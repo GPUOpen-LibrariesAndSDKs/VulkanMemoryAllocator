@@ -1172,7 +1172,15 @@ static void InitializeApplication()
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Adam Sawicki Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VMA_VULKAN_VERSION == 1001000 ? VK_API_VERSION_1_1 : VK_API_VERSION_1_0;
+#if VMA_VULKAN_VERSION == 1002000
+    appInfo.apiVersion = VK_API_VERSION_1_2;
+#elif VMA_VULKAN_VERSION == 1001000
+    appInfo.apiVersion = VK_API_VERSION_1_1;
+#elif VMA_VULKAN_VERSION == 1000000
+    appInfo.apiVersion = VK_API_VERSION_1_0;
+#else
+    #error Invalid VMA_VULKAN_VERSION.
+#endif
 
     VkInstanceCreateInfo instInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     instInfo.pApplicationInfo = &appInfo;
