@@ -4660,7 +4660,7 @@ class VmaPoolAllocator
 public:
     VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, uint32_t firstBlockCapacity);
     ~VmaPoolAllocator();
-    T* Alloc();
+    template<typename... Types> T* Alloc(Types... args);
     void Free(T* ptr);
 
 private:
@@ -4702,7 +4702,7 @@ VmaPoolAllocator<T>::~VmaPoolAllocator()
 }
 
 template<typename T>
-T* VmaPoolAllocator<T>::Alloc()
+template<typename... Types> T* VmaPoolAllocator<T>::Alloc(Types... args)
 {
     for(size_t i = m_ItemBlocks.size(); i--; )
     {
@@ -4713,7 +4713,7 @@ T* VmaPoolAllocator<T>::Alloc()
             Item* const pItem = &block.pItems[block.FirstFreeIndex];
             block.FirstFreeIndex = pItem->NextFreeIndex;
             T* result = (T*)&pItem->Value;
-            new(result)T(); // Explicit constructor call.
+            new(result)T(args...); // Explicit constructor call.
             return result;
         }
     }
@@ -4723,7 +4723,7 @@ T* VmaPoolAllocator<T>::Alloc()
     Item* const pItem = &newBlock.pItems[0];
     newBlock.FirstFreeIndex = pItem->NextFreeIndex;
     T* result = (T*)&pItem->Value;
-    new(result)T(); // Explicit constructor call.
+    new(result)T(args...); // Explicit constructor call.
     return result;
 }
 
@@ -5374,25 +5374,24 @@ public:
     This struct is allocated using VmaPoolAllocator.
     */
 
-    void Ctor(uint32_t currentFrameIndex, bool userDataString)
+    VmaAllocation_T(uint32_t currentFrameIndex, bool userDataString) :
+        m_Alignment{1},
+        m_Size{0},
+        m_pUserData{VMA_NULL},
+        m_LastUseFrameIndex{currentFrameIndex},
+        m_MemoryTypeIndex{0},
+        m_Type{(uint8_t)ALLOCATION_TYPE_NONE},
+        m_SuballocationType{(uint8_t)VMA_SUBALLOCATION_TYPE_UNKNOWN},
+        m_MapCount{0},
+        m_Flags{userDataString ? (uint8_t)FLAG_USER_DATA_STRING : (uint8_t)0}
     {
-        m_Alignment = 1;
-        m_Size = 0;
-        m_MemoryTypeIndex = 0;
-        m_pUserData = VMA_NULL;
-        m_LastUseFrameIndex = currentFrameIndex;
-        m_Type = (uint8_t)ALLOCATION_TYPE_NONE;
-        m_SuballocationType = (uint8_t)VMA_SUBALLOCATION_TYPE_UNKNOWN;
-        m_MapCount = 0;
-        m_Flags = userDataString ? (uint8_t)FLAG_USER_DATA_STRING : 0;
-
 #if VMA_STATS_STRING_ENABLED
         m_CreationFrameIndex = currentFrameIndex;
         m_BufferImageUsage = 0;
 #endif
     }
 
-    void Dtor()
+    ~VmaAllocation_T()
     {
         VMA_ASSERT((m_MapCount & ~MAP_COUNT_FLAG_PERSISTENT_MAP) == 0 && "Allocation was not unmapped before destruction.");
 
@@ -7057,7 +7056,7 @@ class VmaAllocationObjectAllocator
 public:
     VmaAllocationObjectAllocator(const VkAllocationCallbacks* pAllocationCallbacks);
 
-    VmaAllocation Allocate();
+    template<typename... Types> VmaAllocation Allocate(Types... args);
     void Free(VmaAllocation hAlloc);
 
 private:
@@ -12295,8 +12294,7 @@ VkResult VmaBlockVector::AllocatePage(
                     &bestRequest))
                 {
                     // Allocate from this pBlock.
-                    *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate();
-                    (*pAllocation)->Ctor(currentFrameIndex, isUserDataString);
+                    *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate(currentFrameIndex, isUserDataString);
                     pBestRequestBlock->m_pMetadata->Alloc(bestRequest, suballocType, size, *pAllocation);
                     UpdateHasEmptyBlock();
                     (*pAllocation)->InitBlockAllocation(
@@ -12500,8 +12498,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
             }
         }
             
-        *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate();
-        (*pAllocation)->Ctor(currentFrameIndex, isUserDataString);
+        *pAllocation = m_hAllocator->m_AllocationObjectAllocator.Allocate(currentFrameIndex, isUserDataString);
         pBlock->m_pMetadata->Alloc(currRequest, suballocType, size, *pAllocation);
         UpdateHasEmptyBlock();
         (*pAllocation)->InitBlockAllocation(
@@ -14835,10 +14832,10 @@ VmaAllocationObjectAllocator::VmaAllocationObjectAllocator(const VkAllocationCal
 {
 }
 
-VmaAllocation VmaAllocationObjectAllocator::Allocate()
+template<typename... Types> VmaAllocation VmaAllocationObjectAllocator::Allocate(Types... args)
 {
     VmaMutexLock mutexLock(m_Mutex);
-    return m_Allocator.Alloc();
+    return m_Allocator.Alloc(args...);
 }
 
 void VmaAllocationObjectAllocator::Free(VmaAllocation hAlloc)
@@ -15413,7 +15410,6 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
             FreeVulkanMemory(memTypeIndex, currAlloc->GetSize(), hMemory);
             m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), currAlloc->GetSize());
             currAlloc->SetUserData(this, VMA_NULL);
-            currAlloc->Dtor();
             m_AllocationObjectAllocator.Free(currAlloc);
         }
 
@@ -15459,8 +15455,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
         }
     }
 
-    *pAllocation = m_AllocationObjectAllocator.Allocate();
-    (*pAllocation)->Ctor(m_CurrentFrameIndex.load(), isUserDataString);
+    *pAllocation = m_AllocationObjectAllocator.Allocate(m_CurrentFrameIndex.load(), isUserDataString);
     (*pAllocation)->InitDedicatedAllocation(memTypeIndex, hMemory, suballocType, pMappedData, size);
     (*pAllocation)->SetUserData(this, pUserData);
     m_Budget.AddAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), size);
@@ -15734,7 +15729,6 @@ void VmaAllocator_T::FreeMemory(
             // Do this regardless of whether the allocation is lost. Lost allocations still account to Budget.AllocationBytes.
             m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex()), allocation->GetSize());
             allocation->SetUserData(this, VMA_NULL);
-            allocation->Dtor();
             m_AllocationObjectAllocator.Free(allocation);
         }
     }
@@ -16168,8 +16162,7 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
 
 void VmaAllocator_T::CreateLostAllocation(VmaAllocation* pAllocation)
 {
-    *pAllocation = m_AllocationObjectAllocator.Allocate();
-    (*pAllocation)->Ctor(VMA_FRAME_INDEX_LOST, false);
+    *pAllocation = m_AllocationObjectAllocator.Allocate(VMA_FRAME_INDEX_LOST, false);
     (*pAllocation)->InitLost();
 }
 
