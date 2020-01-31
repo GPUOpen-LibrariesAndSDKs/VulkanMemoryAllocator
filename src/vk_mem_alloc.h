@@ -3498,6 +3498,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
 
 /*******************************************************************************
 CONFIGURATION SECTION
@@ -4713,7 +4714,7 @@ template<typename... Types> T* VmaPoolAllocator<T>::Alloc(Types... args)
             Item* const pItem = &block.pItems[block.FirstFreeIndex];
             block.FirstFreeIndex = pItem->NextFreeIndex;
             T* result = (T*)&pItem->Value;
-            new(result)T(args...); // Explicit constructor call.
+            new(result)T(std::forward<Types>(args)...); // Explicit constructor call.
             return result;
         }
     }
@@ -4723,7 +4724,7 @@ template<typename... Types> T* VmaPoolAllocator<T>::Alloc(Types... args)
     Item* const pItem = &newBlock.pItems[0];
     newBlock.FirstFreeIndex = pItem->NextFreeIndex;
     T* result = (T*)&pItem->Value;
-    new(result)T(args...); // Explicit constructor call.
+    new(result)T(std::forward<Types>(args)...); // Explicit constructor call.
     return result;
 }
 
@@ -14835,7 +14836,7 @@ VmaAllocationObjectAllocator::VmaAllocationObjectAllocator(const VkAllocationCal
 template<typename... Types> VmaAllocation VmaAllocationObjectAllocator::Allocate(Types... args)
 {
     VmaMutexLock mutexLock(m_Mutex);
-    return m_Allocator.Alloc(args...);
+    return m_Allocator.Alloc<Types...>(std::forward<Types>(args)...);
 }
 
 void VmaAllocationObjectAllocator::Free(VmaAllocation hAlloc)
