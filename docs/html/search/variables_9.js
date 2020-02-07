@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['requiredflags_336',['requiredFlags',['../struct_vma_allocation_create_info.html#a9166390303ff42d783305bc31c2b6b90',1,'VmaAllocationCreateInfo']]]
+  ['requiredflags_355',['requiredFlags',['../struct_vma_allocation_create_info.html#a9166390303ff42d783305bc31c2b6b90',1,'VmaAllocationCreateInfo']]]
 ];

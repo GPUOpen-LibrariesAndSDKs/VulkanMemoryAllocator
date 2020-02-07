@@ -92,6 +92,7 @@ Documentation of all members: vk_mem_alloc.h
   - [Device memory allocation callbacks](@ref allocation_callbacks)
   - [Device heap memory limit](@ref heap_memory_limit)
   - \subpage vk_khr_dedicated_allocation
+  - \subpage vk_amd_device_coherent_memory
 - \subpage general_considerations
   - [Thread safety](@ref general_considerations_thread_safety)
   - [Validation layer warnings](@ref general_considerations_validation_layer_warnings)
@@ -1673,9 +1674,66 @@ unaware of it.
 
 To learn more about this extension, see:
 
-- [VK_KHR_dedicated_allocation in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.0-extensions/html/vkspec.html#VK_KHR_dedicated_allocation)
+- [VK_KHR_dedicated_allocation in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap44.html#VK_KHR_dedicated_allocation)
 - [VK_KHR_dedicated_allocation unofficial manual](http://asawicki.info/articles/VK_KHR_dedicated_allocation.php5)
 
+
+
+\page vk_amd_device_coherent_memory VK_AMD_device_coherent_memory
+
+VK_AMD_device_coherent_memory is a device extension that enables access to
+additional memory types with `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` and
+`VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD` flag. It is useful mostly for
+allocation of buffers intended for writing "breadcrumb markers" in between passes
+or draw calls, which in turn are useful for debugging GPU crash/hang/TDR cases.
+
+When the extension is available but has not been enabled, Vulkan physical device
+still exposes those memory types, but their usage is forbidden. VMA automatically
+takes care of that - it returns `VK_ERROR_FEATURE_NOT_PRESENT` when an attempt
+to allocate memory of such type is made.
+
+If you want to use this extension in connection with VMA, follow these steps:
+
+\section vk_amd_device_coherent_memory_initialization Initialization
+
+1) Call `vkEnumerateDeviceExtensionProperties` for the physical device.
+Check if the extension is supported - if returned array of `VkExtensionProperties` contains "VK_AMD_device_coherent_memory".
+
+2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
+Attach additional structure `VkPhysicalDeviceCoherentMemoryFeaturesAMD` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
+Check if the device feature is really supported - check if `VkPhysicalDeviceCoherentMemoryFeaturesAMD::deviceCoherentMemory` is true.
+
+3) While creating device with `vkCreateDevice`, enable this extension - add "VK_AMD_device_coherent_memory"
+to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
+
+4) While creating the device, also don't set `VkDeviceCreateInfo::pEnabledFeatures`.
+Fill in `VkPhysicalDeviceFeatures2` structure instead and pass it as `VkDeviceCreateInfo::pNext`.
+Enable this device feature - attach additional structure `VkPhysicalDeviceCoherentMemoryFeaturesAMD` to
+`VkPhysicalDeviceFeatures2::pNext` and set its member `deviceCoherentMemory` to `VK_TRUE`.
+
+5) While creating #VmaAllocator with vmaCreateAllocator() inform VMA that you
+have enabled this extension and feature - add #VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT
+to VmaAllocatorCreateInfo::flags.
+
+\section vk_amd_device_coherent_memory_usage Usage
+
+After following steps described above, you can create VMA allocations and custom pools
+out of the special `DEVICE_COHERENT` and `DEVICE_UNCACHED` memory types on eligible
+devices. There are multiple ways to do it, for example:
+
+- You can request or prefer to allocate out of such memory types by adding
+  `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` to VmaAllocationCreateInfo::requiredFlags
+  or VmaAllocationCreateInfo::preferredFlags. Those flags can be freely mixed with
+  other ways of \ref choosing_memory_type, like setting VmaAllocationCreateInfo::usage.
+- If you manually found memory type index to use for this purpose, force allocation
+  from this specific index by setting VmaAllocationCreateInfo::memoryTypeBits `= 1u << index`.
+
+\section vk_amd_device_coherent_memory_more_information More information
+
+To learn more about this extension, see [VK_AMD_device_coherent_memory in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap44.html#VK_AMD_device_coherent_memory)
+
+Example use of this extension can be found in the code of the sample and test suite
+accompanying this library.
 
 
 \page general_considerations General considerations

@@ -82,13 +82,13 @@ $(function() {
 </pre><p>It is OK, you should just ignore it. It happens because you use function <code>vkGetBufferMemoryRequirements2KHR()</code> instead of standard <code>vkGetBufferMemoryRequirements()</code>, while the validation layer seems to be unaware of it.</p>
 <p>To learn more about this extension, see:</p>
 <ul>
-<li><a href="https://www.khronos.org/registry/vulkan/specs/1.0-extensions/html/vkspec.html#VK_KHR_dedicated_allocation">VK_KHR_dedicated_allocation in Vulkan specification</a></li>
+<li><a href="https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap44.html#VK_KHR_dedicated_allocation">VK_KHR_dedicated_allocation in Vulkan specification</a></li>
 <li><a href="http://asawicki.info/articles/VK_KHR_dedicated_allocation.php5">VK_KHR_dedicated_allocation unofficial manual</a> </li>
 </ul>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
-<div class="ttc" id="avk__mem__alloc_8h_html_a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878"><div class="ttname"><a href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878">VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT</a></div><div class="ttdoc">Enables usage of VK_KHR_dedicated_allocation extension.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1900</div></div>
-<div class="ttc" id="astruct_vma_allocator_create_info_html_a392ea2ecbaff93f91a7c49f735ad4346"><div class="ttname"><a href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">VmaAllocatorCreateInfo::flags</a></div><div class="ttdeci">VmaAllocatorCreateFlags flags</div><div class="ttdoc">Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:2000</div></div>
+<div class="ttc" id="avk__mem__alloc_8h_html_a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878"><div class="ttname"><a href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878">VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT</a></div><div class="ttdoc">Enables usage of VK_KHR_dedicated_allocation extension.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1958</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_a392ea2ecbaff93f91a7c49f735ad4346"><div class="ttname"><a href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">VmaAllocatorCreateInfo::flags</a></div><div class="ttdeci">VmaAllocatorCreateFlags flags</div><div class="ttdoc">Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:2076</div></div>
 <div class="ttc" id="avk__mem__alloc_8h_html_a200692051ddb34240248234f5f4c17bb"><div class="ttname"><a href="vk__mem__alloc_8h.html#a200692051ddb34240248234f5f4c17bb">vmaCreateAllocator</a></div><div class="ttdeci">VkResult vmaCreateAllocator(const VmaAllocatorCreateInfo *pCreateInfo, VmaAllocator *pAllocator)</div><div class="ttdoc">Creates Allocator object.</div></div>
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

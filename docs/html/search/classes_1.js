@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['vmaallocation_231',['VmaAllocation',['../struct_vma_allocation.html',1,'']]],
-  ['vmaallocationcreateinfo_232',['VmaAllocationCreateInfo',['../struct_vma_allocation_create_info.html',1,'']]],
+  ['vmaallocation_232',['VmaAllocation',['../struct_vma_allocation.html',1,'']]],
   ['vmaallocationinfo_233',['VmaAllocationInfo',['../struct_vma_allocation_info.html',1,'']]],
   ['vmaallocator_234',['VmaAllocator',['../struct_vma_allocator.html',1,'']]],
   ['vmaallocatorcreateinfo_235',['VmaAllocatorCreateInfo',['../struct_vma_allocator_create_info.html',1,'']]],

@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['vulkan_20memory_20allocator_83',['Vulkan Memory Allocator',['../index.html',1,'']]],
-  ['vk_5famd_5fdevice_5fcoherent_5fmemory_84',['VK_AMD_device_coherent_memory',['../vk_amd_device_coherent_memory.html',1,'']]],
+  ['vulkan_20memory_20allocator_84',['Vulkan Memory Allocator',['../index.html',1,'']]],
   ['vk_5fkhr_5fdedicated_5fallocation_85',['VK_KHR_dedicated_allocation',['../vk_khr_dedicated_allocation.html',1,'']]],
   ['vk_5fmem_5falloc_2eh_86',['vk_mem_alloc.h',['../vk__mem__alloc_8h.html',1,'']]],
   ['vkallocatememory_87',['vkAllocateMemory',['../struct_vma_vulkan_functions.html#a2943bf99dfd784a0e8f599d987e22e6c',1,'VmaVulkanFunctions']]],
@@ -74,7 +73,7 @@ var searchData=
   ['vmaallocation_154',['VmaAllocation',['../struct_vma_allocation.html',1,'']]],
   ['vmaallocationcreateflagbits_155',['VmaAllocationCreateFlagBits',['../vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597',1,'VmaAllocationCreateFlagBits():&#160;vk_mem_alloc.h'],['../vk__mem__alloc_8h.html#abf6bf6748c7a9fe7ce5b7835c0f56af4',1,'VmaAllocationCreateFlagBits():&#160;vk_mem_alloc.h']]],
   ['vmaallocationcreateflags_156',['VmaAllocationCreateFlags',['../vk__mem__alloc_8h.html#a5225e5e11f8376f6a31a1791f3d6e817',1,'vk_mem_alloc.h']]],
-  ['vmaallocationcreateinfo_157',['VmaAllocationCreateInfo',['../struct_vma_allocation_create_info.html',1,'VmaAllocationCreateInfo'],['../vk__mem__alloc_8h.html#a86c44f9950b40d50088ed93a17870a7a',1,'VmaAllocationCreateInfo():&#160;vk_mem_alloc.h']]],
+  ['vmaallocationcreateinfo_157',['VmaAllocationCreateInfo',['../vk__mem__alloc_8h.html#aca4da9d3526fe9e2d7fd6497809180cd',1,'vk_mem_alloc.h']]],
   ['vmaallocationinfo_158',['VmaAllocationInfo',['../struct_vma_allocation_info.html',1,'VmaAllocationInfo'],['../vk__mem__alloc_8h.html#a795e6ff02a21d5486c0565f403dd9255',1,'VmaAllocationInfo():&#160;vk_mem_alloc.h']]],
   ['vmaallocator_159',['VmaAllocator',['../struct_vma_allocator.html',1,'']]],
   ['vmaallocatorcreateflagbits_160',['VmaAllocatorCreateFlagBits',['../vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7c',1,'VmaAllocatorCreateFlagBits():&#160;vk_mem_alloc.h'],['../vk__mem__alloc_8h.html#a4ddf381b6ce795bdfbc6c614640b9915',1,'VmaAllocatorCreateFlagBits():&#160;vk_mem_alloc.h']]],

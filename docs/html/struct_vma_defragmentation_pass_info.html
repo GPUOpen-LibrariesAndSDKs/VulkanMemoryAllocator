@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.16"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Vulkan Memory Allocator: VmaDefragmentationInfo Struct Reference</title>
+<title>Vulkan Memory Allocator: VmaDefragmentationPassInfo Struct Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -63,61 +63,53 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-attribs">Public Attributes</a> &#124;
-<a href="struct_vma_defragmentation_info-members.html">List of all members</a>  </div>
+<a href="struct_vma_defragmentation_pass_info-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">VmaDefragmentationInfo Struct Reference</div>  </div>
+<div class="title">VmaDefragmentationPassInfo Struct Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p>Deprecated. Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a>.  
- <a href="struct_vma_defragmentation_info.html#details">More...</a></p>
+<p>Parameters for incremental defragmentation steps.  
+ <a href="struct_vma_defragmentation_pass_info.html#details">More...</a></p>
 
 <p><code>#include &lt;<a class="el" href="vk__mem__alloc_8h_source.html">vk_mem_alloc.h</a>&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:acb311c940a777270e67e1b81c5ab6a1d"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info.html#acb311c940a777270e67e1b81c5ab6a1d">maxBytesToMove</a></td></tr>
-<tr class="memdesc:acb311c940a777270e67e1b81c5ab6a1d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum total numbers of bytes that can be copied while moving allocations to different places.  <a href="struct_vma_defragmentation_info.html#acb311c940a777270e67e1b81c5ab6a1d">More...</a><br /></td></tr>
-<tr class="separator:acb311c940a777270e67e1b81c5ab6a1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa7c7304e13c71f604c907196c4e28fbc"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info.html#aa7c7304e13c71f604c907196c4e28fbc">maxAllocationsToMove</a></td></tr>
-<tr class="memdesc:aa7c7304e13c71f604c907196c4e28fbc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of allocations that can be moved to different place.  <a href="struct_vma_defragmentation_info.html#aa7c7304e13c71f604c907196c4e28fbc">More...</a><br /></td></tr>
-<tr class="separator:aa7c7304e13c71f604c907196c4e28fbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac1086e657ba995f8d1f4e49b83dcfb6c"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_pass_info.html#ac1086e657ba995f8d1f4e49b83dcfb6c">moveCount</a></td></tr>
+<tr class="separator:ac1086e657ba995f8d1f4e49b83dcfb6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acbd42d4a3357999da130a95cd99a3792"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_vma_defragmentation_pass_move_info.html">VmaDefragmentationPassMoveInfo</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_pass_info.html#acbd42d4a3357999da130a95cd99a3792">pMoves</a></td></tr>
+<tr class="separator:acbd42d4a3357999da130a95cd99a3792"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Deprecated. Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a>. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000002">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation.">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a> instead. </dd></dl>
+<div class="textblock"><p>Parameters for incremental defragmentation steps. </p>
+<p>To be used with function <a class="el" href="vk__mem__alloc_8h.html#ac0f01545b6262f7d4d128fc8f8e5c77b">vmaBeginDefragmentationPass()</a>. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
-<a id="aa7c7304e13c71f604c907196c4e28fbc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa7c7304e13c71f604c907196c4e28fbc">&#9670;&nbsp;</a></span>maxAllocationsToMove</h2>
+<a id="ac1086e657ba995f8d1f4e49b83dcfb6c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac1086e657ba995f8d1f4e49b83dcfb6c">&#9670;&nbsp;</a></span>moveCount</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">uint32_t VmaDefragmentationInfo::maxAllocationsToMove</td>
+          <td class="memname">uint32_t VmaDefragmentationPassInfo::moveCount</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Maximum number of allocations that can be moved to different place. </p>
-<p>Default is <code>UINT32_MAX</code>, which means no limit. </p>
-
 </div>
 </div>
-<a id="acb311c940a777270e67e1b81c5ab6a1d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acb311c940a777270e67e1b81c5ab6a1d">&#9670;&nbsp;</a></span>maxBytesToMove</h2>
+<a id="acbd42d4a3357999da130a95cd99a3792"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acbd42d4a3357999da130a95cd99a3792">&#9670;&nbsp;</a></span>pMoves</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">VkDeviceSize VmaDefragmentationInfo::maxBytesToMove</td>
+          <td class="memname"><a class="el" href="struct_vma_defragmentation_pass_move_info.html">VmaDefragmentationPassMoveInfo</a>* VmaDefragmentationPassInfo::pMoves</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Maximum total numbers of bytes that can be copied while moving allocations to different places. </p>
-<p>Default is <code>VK_WHOLE_SIZE</code>, which means no limit. </p>
 
 </div>
 </div>
