@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2017-2020 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -4831,6 +4831,93 @@ static void TestMemoryUsage()
     }
 }
 
+static uint32_t FindDeviceCoherentMemoryTypeBits()
+{
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(g_hPhysicalDevice, &memProps);
+
+    uint32_t memTypeBits = 0;
+    for(uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
+    {
+        if(memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD)
+            memTypeBits |= 1u << i;
+    }
+    return memTypeBits;
+}
+
+static void TestDeviceCoherentMemory()
+{
+    if(!VK_AMD_device_coherent_memory_enabled)
+        return;
+
+    uint32_t deviceCoherentMemoryTypeBits = FindDeviceCoherentMemoryTypeBits();
+    // Extension is enabled, feature is enabled, and the device still doesn't support any such memory type?
+    // OK then, so it's just fake!
+    if(deviceCoherentMemoryTypeBits == 0)
+        return;
+
+    wprintf(L"Testing device coherent memory...\n");
+
+    // 1. Try to allocate buffer from a memory type that is DEVICE_COHERENT.
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 0x10000;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD;
+
+    AllocInfo alloc = {};
+    VmaAllocationInfo allocInfo = {};
+    VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &alloc.m_Buffer, &alloc.m_Allocation, &allocInfo);
+
+    // Make sure it succeeded and was really created in such memory type.
+    TEST(res == VK_SUCCESS);
+    TEST((1u << allocInfo.memoryType) & deviceCoherentMemoryTypeBits);
+
+    alloc.Destroy();
+
+    // 2. Try to create a pool in such memory type.
+    {
+        VmaPoolCreateInfo poolCreateInfo = {};
+
+        res = vmaFindMemoryTypeIndex(g_hAllocator, UINT32_MAX, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+        TEST(res == VK_SUCCESS);
+        TEST((1u << poolCreateInfo.memoryTypeIndex) & deviceCoherentMemoryTypeBits);
+
+        VmaPool pool = VK_NULL_HANDLE;
+        res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+        TEST(res == VK_SUCCESS);
+
+        vmaDestroyPool(g_hAllocator, pool);
+    }
+
+    // 3. Try the same with a local allocator created without VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT.
+
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    SetAllocatorCreateInfo(allocatorCreateInfo);
+    allocatorCreateInfo.flags &= ~VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT;
+    
+    VmaAllocator localAllocator = VK_NULL_HANDLE;
+    res = vmaCreateAllocator(&allocatorCreateInfo, &localAllocator);
+    TEST(res == VK_SUCCESS && localAllocator);
+
+    res = vmaCreateBuffer(localAllocator, &bufCreateInfo, &allocCreateInfo, &alloc.m_Buffer, &alloc.m_Allocation, &allocInfo);
+
+    // Make sure it failed.
+    TEST(res != VK_SUCCESS && !alloc.m_Buffer && !alloc.m_Allocation);
+
+    // 4. Try to find memory type.
+    {
+        uint32_t memTypeIndex = UINT_MAX;
+        res = vmaFindMemoryTypeIndex(localAllocator, UINT32_MAX, &allocCreateInfo, &memTypeIndex);
+        TEST(res != VK_SUCCESS);
+    }
+
+    vmaDestroyAllocator(localAllocator);
+}
+
 static void TestBudget()
 {
     wprintf(L"Testing budget...\n");
@@ -6163,6 +6250,7 @@ void Test()
     TestAllocationsInitialization();
 #endif
     TestMemoryUsage();
+    TestDeviceCoherentMemory();
     TestBudget();
     TestMapping();
     TestDeviceLocalMapped();

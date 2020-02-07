@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2017-2020 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -64,11 +64,15 @@ typedef std::chrono::high_resolution_clock::duration duration;
 
 #define ERR_GUARD_VULKAN(expr) TEST((expr) >= 0)
 
+extern VkInstance g_hVulkanInstance;
 extern VkPhysicalDevice g_hPhysicalDevice;
 extern VkDevice g_hDevice;
 extern VkInstance g_hVulkanInstance;
 extern VmaAllocator g_hAllocator;
 extern bool g_MemoryAliasingWarningEnabled;
+extern bool VK_AMD_device_coherent_memory_enabled;
+
+void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo);
 
 inline float ToFloatSeconds(duration d)
 {

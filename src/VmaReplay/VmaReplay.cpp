@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2018-2019 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2018-2020 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -672,6 +672,7 @@ static bool g_UserDataEnabled = true;
 static bool g_MemStatsEnabled = false;
 VULKAN_EXTENSION_REQUEST g_VK_LAYER_LUNARG_standard_validation = VULKAN_EXTENSION_REQUEST::DEFAULT;
 VULKAN_EXTENSION_REQUEST g_VK_EXT_memory_budget_request        = VULKAN_EXTENSION_REQUEST::DEFAULT;
+VULKAN_EXTENSION_REQUEST g_VK_AMD_device_coherent_memory_request = VULKAN_EXTENSION_REQUEST::DEFAULT;
 
 struct StatsAfterLineEntry
 {
@@ -1084,6 +1085,7 @@ private:
         Extension_VK_KHR_dedicated_allocation,
         Extension_VK_KHR_bind_memory2,
         Extension_VK_EXT_memory_budget,
+        Extension_VK_AMD_device_coherent_memory,
         Macro_VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,
         Macro_VMA_DEBUG_ALIGNMENT,
         Macro_VMA_DEBUG_MARGIN,
@@ -1218,6 +1220,8 @@ bool ConfigurationParser::Parse(LineSplit& lineSplit)
                     SetOption(currLineNumber, OPTION::Extension_VK_KHR_bind_memory2, csvSplit.GetRange(2));
                 else if(StrRangeEq(subOptionName, "VK_EXT_memory_budget"))
                     SetOption(currLineNumber, OPTION::Extension_VK_EXT_memory_budget, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VK_AMD_device_coherent_memory"))
+                    SetOption(currLineNumber, OPTION::Extension_VK_AMD_device_coherent_memory, csvSplit.GetRange(2));
                 else
                     printf("Line %zu: Unrecognized configuration option.\n", currLineNumber);
             }
@@ -2221,6 +2225,11 @@ int Player::InitVulkan()
         }
         break;
     default: assert(0);
+    }
+
+    if(g_VK_AMD_device_coherent_memory_request == VULKAN_EXTENSION_REQUEST::ENABLED)
+    {
+        printf("WARNING: AMD_device_coherent_memory requested but not currently supported by the player.\n");
     }
 
     if(m_MemoryBudgetEnabled)

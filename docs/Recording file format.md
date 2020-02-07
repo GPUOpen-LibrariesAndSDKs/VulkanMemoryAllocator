@@ -60,6 +60,7 @@ Between them there can be zero or more lines with configuration options. They st
     Extension,VK_KHR_dedicated_allocation,<bool>
     Extension,VK_KHR_bind_memory2,<bool>
     Extension,VK_EXT_memory_budget,<bool>
+    Extension,VK_AMD_device_coherent_memory,<bool>
     
     Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,<bool>
     Macro,VMA_DEBUG_ALIGNMENT,<uint64>
