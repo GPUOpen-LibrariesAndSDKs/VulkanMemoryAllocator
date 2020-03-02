@@ -2626,9 +2626,22 @@ static void TestMemoryRequirements()
 
 }
 
+static void TestGetAllocatorInfo()
+{
+    wprintf(L"Test vnaGetAllocatorInfo\n");
+
+    VmaAllocatorInfo allocInfo = {};
+    vmaGetAllocatorInfo(g_hAllocator, &allocInfo);
+    TEST(allocInfo.instance == g_hVulkanInstance);
+    TEST(allocInfo.physicalDevice == g_hPhysicalDevice);
+    TEST(allocInfo.device == g_hDevice);
+}
+
 static void TestBasics()
 {
     VkResult res;
+
+    TestGetAllocatorInfo();
 
     TestMemoryRequirements();
 

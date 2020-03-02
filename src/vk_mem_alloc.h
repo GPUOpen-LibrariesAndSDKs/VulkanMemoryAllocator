@@ -2173,6 +2173,34 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyAllocator(
     VmaAllocator allocator);
 
+/** \brief Information about existing #VmaAllocator object.
+*/
+typedef struct VmaAllocatorInfo
+{
+    /** \brief Handle to Vulkan instance object.
+
+    This is the same value as has been passed through VmaAllocatorCreateInfo::instance.
+    */
+    VkInstance instance;
+    /** \brief Handle to Vulkan physical device object.
+
+    This is the same value as has been passed through VmaAllocatorCreateInfo::physicalDevice.
+    */
+    VkPhysicalDevice physicalDevice;
+    /** \brief Handle to Vulkan device object.
+
+    This is the same value as has been passed through VmaAllocatorCreateInfo::device.
+    */
+    VkDevice device;
+} VmaAllocatorInfo;
+
+/** \brief Returns information about existing #VmaAllocator object - handle to Vulkan device etc.
+
+It might be useful if you want to keep just the #VmaAllocator handle and fetch other required handles to
+`VkPhysicalDevice`, `VkDevice` etc. every time using this function.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocatorInfo(VmaAllocator allocator, VmaAllocatorInfo* pAllocatorInfo);
+
 /**
 PhysicalDeviceProperties are fetched from physicalDevice by the allocator.
 You can access it here, without fetching it again on your own.
@@ -7244,6 +7272,8 @@ public:
     {
         return m_VulkanFunctions;
     }
+
+    VkPhysicalDevice GetPhysicalDevice() const { return m_PhysicalDevice; }
 
     VkDeviceSize GetBufferImageGranularity() const
     {
@@ -16823,6 +16853,14 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyAllocator(
         VkAllocationCallbacks allocationCallbacks = allocator->m_AllocationCallbacks;
         vma_delete(&allocationCallbacks, allocator);
     }
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocatorInfo(VmaAllocator allocator, VmaAllocatorInfo* pAllocatorInfo)
+{
+    VMA_ASSERT(allocator && pAllocatorInfo);
+    pAllocatorInfo->instance = allocator->m_hInstance;
+    pAllocatorInfo->physicalDevice = allocator->GetPhysicalDevice();
+    pAllocatorInfo->device = allocator->m_hDevice;
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPhysicalDeviceProperties(
