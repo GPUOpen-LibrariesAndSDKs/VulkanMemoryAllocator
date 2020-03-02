@@ -15216,27 +15216,42 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
 #if VMA_DEDICATED_ALLOCATION
     if(m_UseKhrDedicatedAllocation)
     {
-        m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR =
-            (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements2KHR");
-        m_VulkanFunctions.vkGetImageMemoryRequirements2KHR =
-            (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2KHR");
+        if(m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR == nullptr)
+        {
+            m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR =
+                (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements2KHR");
+        }
+        if(m_VulkanFunctions.vkGetImageMemoryRequirements2KHR == nullptr)
+        {
+            m_VulkanFunctions.vkGetImageMemoryRequirements2KHR =
+                (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2KHR");
+        }
     }
 #endif
 #if VMA_BIND_MEMORY2
     if(m_UseKhrBindMemory2)
     {
-        m_VulkanFunctions.vkBindBufferMemory2KHR =
-            (PFN_vkBindBufferMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory2KHR");
-        m_VulkanFunctions.vkBindImageMemory2KHR =
-            (PFN_vkBindImageMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory2KHR");
+        if(m_VulkanFunctions.vkBindBufferMemory2KHR == nullptr)
+        {
+            m_VulkanFunctions.vkBindBufferMemory2KHR =
+                (PFN_vkBindBufferMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory2KHR");
+        }
+        if(m_VulkanFunctions.vkBindImageMemory2KHR == nullptr)
+        {
+            m_VulkanFunctions.vkBindImageMemory2KHR =
+                (PFN_vkBindImageMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory2KHR");
+        }
     }
 #endif // #if VMA_BIND_MEMORY2
 #if VMA_MEMORY_BUDGET
     if(m_UseExtMemoryBudget && m_VulkanApiVersion < VK_MAKE_VERSION(1, 1, 0))
     {
         VMA_ASSERT(m_hInstance != VK_NULL_HANDLE);
-        m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR =
-            (PFN_vkGetPhysicalDeviceMemoryProperties2KHR)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceMemoryProperties2KHR");
+        if(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR == nullptr)
+        {
+            m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR =
+                (PFN_vkGetPhysicalDeviceMemoryProperties2KHR)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceMemoryProperties2KHR");
+        }
     }
 #endif // #if VMA_MEMORY_BUDGET
 #endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
