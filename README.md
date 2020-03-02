@@ -46,7 +46,7 @@ Additional features:
 - Support for sparse binding and sparse residency: Convenience functions that allocate or free multiple memory pages at once.
 - Custom memory pools: Create a pool with desired parameters (e.g. fixed or limited maximum size) and allocate memory out of it.
 - Linear allocator: Create a pool with linear algorithm and use it for much faster allocations and deallocations in free-at-once, stack, double stack, or ring buffer fashion.
-- Support for Vulkan 1.0 as well as 1.1.
+- Support for Vulkan 1.0, 1.1, 1.2.
 - Support for VK_KHR_dedicated_allocation extension: Just enable it and it will be used automatically by the library.
 - Support for VK_AMD_device_coherent_memory extension.
 - Defragmentation of GPU and CPU memory: Let the library move data around to free some memory blocks and make your allocations better compacted.

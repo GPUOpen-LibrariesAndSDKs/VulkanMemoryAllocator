@@ -1843,7 +1843,9 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 // where AAA = major, BBB = minor, CCC = patch.
 // If you want to use version > 1.0, it still needs to be enabled via VmaAllocatorCreateInfo::vulkanApiVersion.
 #if !defined(VMA_VULKAN_VERSION)
-    #if defined(VK_VERSION_1_1)
+    #if defined(VK_VERSION_1_2)
+        #define VMA_VULKAN_VERSION 1002000
+    #elif defined(VK_VERSION_1_1)
         #define VMA_VULKAN_VERSION 1001000
     #else
         #define VMA_VULKAN_VERSION 1000000
@@ -15032,6 +15034,12 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT set but required extension is disabled by preprocessor macros.");
     }
 #endif
+#if VMA_VULKAN_VERSION < 1002000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 2, 0))
+    {
+        VMA_ASSERT(0 && "vulkanApiVersion >= VK_API_VERSION_1_2 but required Vulkan version is disabled by preprocessor macros.");
+    }
+#endif
 #if VMA_VULKAN_VERSION < 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
@@ -16838,7 +16846,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
 {
     VMA_ASSERT(pCreateInfo && pAllocator);
     VMA_ASSERT(pCreateInfo->vulkanApiVersion == 0 ||
-        (VK_VERSION_MAJOR(pCreateInfo->vulkanApiVersion) == 1 && VK_VERSION_MINOR(pCreateInfo->vulkanApiVersion) <= 1));
+        (VK_VERSION_MAJOR(pCreateInfo->vulkanApiVersion) == 1 && VK_VERSION_MINOR(pCreateInfo->vulkanApiVersion) <= 2));
     VMA_DEBUG_LOG("vmaCreateAllocator");
     *pAllocator = vma_new(pCreateInfo->pAllocationCallbacks, VmaAllocator_T)(pCreateInfo);
     return (*pAllocator)->Init(pCreateInfo);

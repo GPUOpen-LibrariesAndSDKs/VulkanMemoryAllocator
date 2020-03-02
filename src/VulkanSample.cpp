@@ -32,8 +32,8 @@ static const char* const SHADER_PATH1 = "./";
 static const char* const SHADER_PATH2 = "../bin/";
 static const wchar_t* const WINDOW_CLASS_NAME = L"VULKAN_MEMORY_ALLOCATOR_SAMPLE";
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_LUNARG_standard_validation";
-static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 2.3.0";
-static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 2.3.0";
+static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 2.4.0";
+static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 2.4.0";
 
 static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;
@@ -1118,7 +1118,16 @@ static void DestroySwapchain(bool destroyActualSwapchain)
 
 static constexpr uint32_t GetVulkanApiVersion()
 {
-    return VMA_VULKAN_VERSION == 1001000 ? VK_API_VERSION_1_1 : VK_API_VERSION_1_0;
+#if VMA_VULKAN_VERSION == 1002000
+    return VK_API_VERSION_1_2;
+#elif VMA_VULKAN_VERSION == 1001000
+    return VK_API_VERSION_1_1;
+#elif VMA_VULKAN_VERSION == 1000000
+    return VK_API_VERSION_1_0;
+#else
+    #error Invalid VMA_VULKAN_VERSION.
+    return UINT32_MAX;
+#endif
 }
 
 void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
