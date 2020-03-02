@@ -29,9 +29,9 @@ extern "C" {
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 2.3.0</b> (2019-12-04)
+<b>Version 2.4.0-development</b> (2020-03-02)
 
-Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved. \n
+Copyright (c) 2017-2020 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
 
 Documentation of all members: vk_mem_alloc.h
