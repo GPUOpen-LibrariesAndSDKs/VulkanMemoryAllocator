@@ -1132,17 +1132,17 @@ static constexpr uint32_t GetVulkanApiVersion()
 
 static void PrintEnabledFeatures()
 {
-    printf("Validation layer: %d\n", g_EnableValidationLayer ? 1 : 0);
-    printf("Sparse binding: %d\n", g_SparseBindingEnabled ? 1 : 0);
+    wprintf(L"Validation layer: %d\n", g_EnableValidationLayer ? 1 : 0);
+    wprintf(L"Sparse binding: %d\n", g_SparseBindingEnabled ? 1 : 0);
     if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
     {
-        printf("VK_KHR_get_memory_requirements2: %d\n", VK_KHR_get_memory_requirements2_enabled ? 1 : 0);
-        printf("VK_KHR_get_physical_device_properties2: %d\n", VK_KHR_get_physical_device_properties2_enabled ? 1 : 0);
-        printf("VK_KHR_dedicated_allocation: %d\n", VK_KHR_dedicated_allocation_enabled ? 1 : 0);
-        printf("VK_KHR_bind_memory2: %d\n", VK_KHR_bind_memory2_enabled ? 1 : 0);
+        wprintf(L"VK_KHR_get_memory_requirements2: %d\n", VK_KHR_get_memory_requirements2_enabled ? 1 : 0);
+        wprintf(L"VK_KHR_get_physical_device_properties2: %d\n", VK_KHR_get_physical_device_properties2_enabled ? 1 : 0);
+        wprintf(L"VK_KHR_dedicated_allocation: %d\n", VK_KHR_dedicated_allocation_enabled ? 1 : 0);
+        wprintf(L"VK_KHR_bind_memory2: %d\n", VK_KHR_bind_memory2_enabled ? 1 : 0);
     }
-    printf("VK_EXT_memory_budget: %d\n", VK_EXT_memory_budget_enabled ? 1 : 0);
-    printf("VK_AMD_device_coherent_memory: %d\n", VK_AMD_device_coherent_memory_enabled ? 1 : 0);
+    wprintf(L"VK_EXT_memory_budget: %d\n", VK_EXT_memory_budget_enabled ? 1 : 0);
+    wprintf(L"VK_AMD_device_coherent_memory: %d\n", VK_AMD_device_coherent_memory_enabled ? 1 : 0);
 }
 
 void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
@@ -1194,6 +1194,16 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     */
 }
 
+static void PrintPhysicalDeviceProperties(const VkPhysicalDeviceProperties& properties)
+{
+    wprintf(L"Physical device:\n");
+    wprintf(L"    Driver version: 0x%X\n", properties.driverVersion);
+    wprintf(L"    Vendor ID: 0x%X\n", properties.vendorID);
+    wprintf(L"    Device ID: 0x%X\n", properties.deviceID);
+    wprintf(L"    Device type: %u\n", properties.deviceType);
+    wprintf(L"    Device name: %hs\n", properties.deviceName);
+}
+
 static void InitializeApplication()
 {
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
@@ -1213,7 +1223,7 @@ static void InitializeApplication()
     {
         if(IsLayerSupported(instanceLayerProps.data(), instanceLayerProps.size(), VALIDATION_LAYER_NAME) == false)
         {
-            printf("Layer \"%s\" not supported.", VALIDATION_LAYER_NAME);
+            wprintf(L"Layer \"%hs\" not supported.", VALIDATION_LAYER_NAME);
             g_EnableValidationLayer = false;
         }
     }
@@ -1263,12 +1273,12 @@ static void InitializeApplication()
     instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
     instInfo.ppEnabledLayerNames = instanceLayers.data();
 
-    printf("Vulkan API version: ");
+    wprintf(L"Vulkan API version: ");
     switch(appInfo.apiVersion)
     {
-    case VK_API_VERSION_1_0: printf("1.0\n"); break;
-    case VK_API_VERSION_1_1: printf("1.1\n"); break;
-    case VK_API_VERSION_1_2: printf("1.2\n"); break;
+    case VK_API_VERSION_1_0: wprintf(L"1.0\n"); break;
+    case VK_API_VERSION_1_1: wprintf(L"1.1\n"); break;
+    case VK_API_VERSION_1_2: wprintf(L"1.2\n"); break;
     default: assert(0);
     }
 
@@ -1342,6 +1352,8 @@ static void InitializeApplication()
 
     VkPhysicalDeviceProperties physicalDeviceProperties = {};
     vkGetPhysicalDeviceProperties(g_hPhysicalDevice, &physicalDeviceProperties);
+
+    PrintPhysicalDeviceProperties(physicalDeviceProperties);
 
     VkPhysicalDeviceFeatures2 physicalDeviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     VkPhysicalDeviceCoherentMemoryFeaturesAMD physicalDeviceCoherentMemoryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD };
