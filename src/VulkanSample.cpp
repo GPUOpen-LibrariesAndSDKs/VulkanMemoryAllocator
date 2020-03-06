@@ -1130,6 +1130,21 @@ static constexpr uint32_t GetVulkanApiVersion()
 #endif
 }
 
+static void PrintEnabledFeatures()
+{
+    printf("Validation layer: %d\n", g_EnableValidationLayer ? 1 : 0);
+    printf("Sparse binding: %d\n", g_SparseBindingEnabled ? 1 : 0);
+    if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
+    {
+        printf("VK_KHR_get_memory_requirements2: %d\n", VK_KHR_get_memory_requirements2_enabled ? 1 : 0);
+        printf("VK_KHR_get_physical_device_properties2: %d\n", VK_KHR_get_physical_device_properties2_enabled ? 1 : 0);
+        printf("VK_KHR_dedicated_allocation: %d\n", VK_KHR_dedicated_allocation_enabled ? 1 : 0);
+        printf("VK_KHR_bind_memory2: %d\n", VK_KHR_bind_memory2_enabled ? 1 : 0);
+    }
+    printf("VK_EXT_memory_budget: %d\n", VK_EXT_memory_budget_enabled ? 1 : 0);
+    printf("VK_AMD_device_coherent_memory: %d\n", VK_AMD_device_coherent_memory_enabled ? 1 : 0);
+}
+
 void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
 {
     outInfo = {};
@@ -1226,8 +1241,11 @@ static void InitializeApplication()
     {
         if(strcmp(extensionProperties.extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0)
         {
-            enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-            VK_KHR_get_physical_device_properties2_enabled = true;
+            if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
+            {   
+                enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+                VK_KHR_get_physical_device_properties2_enabled = true;
+            }
         }
     }
 
@@ -1244,6 +1262,15 @@ static void InitializeApplication()
     instInfo.ppEnabledExtensionNames = enabledInstanceExtensions.data();
     instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
     instInfo.ppEnabledLayerNames = instanceLayers.data();
+
+    printf("Vulkan API version: ");
+    switch(appInfo.apiVersion)
+    {
+    case VK_API_VERSION_1_0: printf("1.0\n"); break;
+    case VK_API_VERSION_1_1: printf("1.1\n"); break;
+    case VK_API_VERSION_1_2: printf("1.2\n"); break;
+    default: assert(0);
+    }
 
     ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, g_Allocs, &g_hVulkanInstance) );
 
@@ -1285,11 +1312,26 @@ static void InitializeApplication()
     for(uint32_t i = 0; i < physicalDeviceExtensionPropertyCount; ++i)
     {
         if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME) == 0)
-            VK_KHR_get_memory_requirements2_enabled = true;
+        {
+            if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
+            {
+                VK_KHR_get_memory_requirements2_enabled = true;
+            }
+        }
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME) == 0)
-            VK_KHR_dedicated_allocation_enabled = true;
+        {
+            if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
+            {
+                VK_KHR_dedicated_allocation_enabled = true;
+            }
+        }
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_BIND_MEMORY_2_EXTENSION_NAME) == 0)
-            VK_KHR_bind_memory2_enabled = true;
+        {
+            if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
+            {
+                VK_KHR_bind_memory2_enabled = true;
+            }
+        }
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME) == 0)
             VK_EXT_memory_budget_enabled = true;
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME) == 0)
@@ -1431,6 +1473,8 @@ static void InitializeApplication()
     VmaAllocatorCreateInfo allocatorInfo = {};
     SetAllocatorCreateInfo(allocatorInfo);
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
+
+    PrintEnabledFeatures();
 
     // Retrieve queues (don't need to be destroyed).
 
