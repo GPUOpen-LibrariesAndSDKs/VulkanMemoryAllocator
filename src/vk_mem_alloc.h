@@ -2159,7 +2159,7 @@ typedef struct VmaAllocatorCreateInfo
     
     It must be a value in the format as created by macro `VK_MAKE_VERSION` or a constant like: `VK_API_VERSION_1_1`, `VK_API_VERSION_1_0`.
     The patch version number specified is ignored. Only the major and minor versions are considered.
-    It must be less or euqal (preferably equal) to value as passed to `vkCreateInstance` as `VkApplicationInfo::apiVersion`.
+    It must be less or equal (preferably equal) to value as passed to `vkCreateInstance` as `VkApplicationInfo::apiVersion`.
     Only versions 1.0 and 1.1 are supported by the current implementation.
     Leaving it initialized to zero is equivalent to `VK_API_VERSION_1_0`.
     */
