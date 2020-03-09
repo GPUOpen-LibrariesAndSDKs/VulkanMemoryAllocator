@@ -4935,8 +4935,11 @@ static void TestBudget()
 {
     wprintf(L"Testing budget...\n");
 
-    static const VkDeviceSize BUF_SIZE = 100ull * 1024 * 1024;
+    static const VkDeviceSize BUF_SIZE = 10ull * 1024 * 1024;
     static const uint32_t BUF_COUNT = 4;
+
+    const VkPhysicalDeviceMemoryProperties* memProps = {};
+    vmaGetMemoryProperties(g_hAllocator, &memProps);
 
     for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
     {
@@ -4945,8 +4948,10 @@ static void TestBudget()
         VmaBudget budgetBeg[VK_MAX_MEMORY_HEAPS] = {};
         vmaGetBudget(g_hAllocator, budgetBeg);
 
-        for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
+        for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
         {
+            TEST(budgetBeg[i].budget > 0);
+            TEST(budgetBeg[i].budget <= memProps->memoryHeaps[i].size);
             TEST(budgetBeg[i].allocationBytes <= budgetBeg[i].blockBytes);
         }
 
@@ -4994,7 +4999,7 @@ static void TestBudget()
         vmaGetBudget(g_hAllocator, budgetEnd);
 
         // CHECK
-        for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
+        for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
         {
             TEST(budgetEnd[i].allocationBytes <= budgetEnd[i].blockBytes);
             if(i == heapIndex)
