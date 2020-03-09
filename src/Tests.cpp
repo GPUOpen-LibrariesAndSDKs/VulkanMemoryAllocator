@@ -2765,8 +2765,8 @@ static void TestPool_MinBlockCount()
 
 void TestHeapSizeLimit()
 {
-    const VkDeviceSize HEAP_SIZE_LIMIT = 200ull * 1024 * 1024; // 200 MB
-    const VkDeviceSize BLOCK_SIZE      =  20ull * 1024 * 1024; // 20 MB
+    const VkDeviceSize HEAP_SIZE_LIMIT = 100ull * 1024 * 1024; // 100 MB
+    const VkDeviceSize BLOCK_SIZE      =  10ull * 1024 * 1024; // 10 MB
 
     VkDeviceSize heapSizeLimit[VK_MAX_MEMORY_HEAPS];
     for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
