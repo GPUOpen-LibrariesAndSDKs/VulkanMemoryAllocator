@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['lost_20allocations_479',['Lost allocations',['../lost_allocations.html',1,'index']]]
+  ['general_20considerations_484',['General considerations',['../general_considerations.html',1,'index']]]
 ];

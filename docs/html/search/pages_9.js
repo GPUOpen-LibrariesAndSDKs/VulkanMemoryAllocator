@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['vulkan_20memory_20allocator_486',['Vulkan Memory Allocator',['../index.html',1,'']]],
-  ['vk_5famd_5fdevice_5fcoherent_5fmemory_487',['VK_AMD_device_coherent_memory',['../vk_amd_device_coherent_memory.html',1,'index']]],
-  ['vk_5fkhr_5fdedicated_5fallocation_488',['VK_KHR_dedicated_allocation',['../vk_khr_dedicated_allocation.html',1,'index']]]
+  ['statistics_490',['Statistics',['../statistics.html',1,'index']]],
+  ['staying_20within_20budget_491',['Staying within budget',['../staying_within_budget.html',1,'index']]]
 ];

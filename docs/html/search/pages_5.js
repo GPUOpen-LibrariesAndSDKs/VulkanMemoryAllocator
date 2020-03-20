@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['memory_20mapping_480',['Memory mapping',['../memory_mapping.html',1,'index']]]
+  ['lost_20allocations_485',['Lost allocations',['../lost_allocations.html',1,'index']]]
 ];

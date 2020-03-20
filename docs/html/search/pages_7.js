@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['record_20and_20replay_482',['Record and replay',['../record_and_replay.html',1,'index']]],
-  ['recommended_20usage_20patterns_483',['Recommended usage patterns',['../usage_patterns.html',1,'index']]]
+  ['quick_20start_487',['Quick start',['../quick_start.html',1,'index']]]
 ];
