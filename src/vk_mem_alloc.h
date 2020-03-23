@@ -3671,6 +3671,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 /*******************************************************************************
 CONFIGURATION SECTION
 
+Define some of these macros before each #include of this header or change them
+here if you need other then default behavior depending on your environment.
+*/
+
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
 //#define VMA_USE_STL_CONTAINERS 1
 
