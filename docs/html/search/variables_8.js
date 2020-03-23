@@ -17,6 +17,6 @@ var searchData=
   ['precordsettings_357',['pRecordSettings',['../struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee',1,'VmaAllocatorCreateInfo']]],
   ['preferredflags_358',['preferredFlags',['../struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d',1,'VmaAllocationCreateInfo']]],
   ['preferredlargeheapblocksize_359',['preferredLargeHeapBlockSize',['../struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a',1,'VmaAllocatorCreateInfo']]],
-  ['puserdata_360',['pUserData',['../struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19',1,'VmaAllocationCreateInfo::pUserData()'],['../struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13',1,'VmaAllocationInfo::pUserData()']]],
+  ['puserdata_360',['pUserData',['../struct_vma_device_memory_callbacks.html#a24052de0937ddd54015a2df0363903c6',1,'VmaDeviceMemoryCallbacks::pUserData()'],['../struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19',1,'VmaAllocationCreateInfo::pUserData()'],['../struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13',1,'VmaAllocationInfo::pUserData()']]],
   ['pvulkanfunctions_361',['pVulkanFunctions',['../struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd',1,'VmaAllocatorCreateInfo']]]
 ];

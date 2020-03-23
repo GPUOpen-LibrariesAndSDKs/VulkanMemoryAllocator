@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['pfn_5fvmaallocatedevicememoryfunction_391',['PFN_vmaAllocateDeviceMemoryFunction',['../vk__mem__alloc_8h.html#ab6a6477cda1ce775b30bde96d766203b',1,'vk_mem_alloc.h']]],
-  ['pfn_5fvmafreedevicememoryfunction_392',['PFN_vmaFreeDeviceMemoryFunction',['../vk__mem__alloc_8h.html#aef2545dc2e9dd4f29ab9ba6ac6fe2f49',1,'vk_mem_alloc.h']]]
+  ['pfn_5fvmaallocatedevicememoryfunction_391',['PFN_vmaAllocateDeviceMemoryFunction',['../vk__mem__alloc_8h.html#a7e1ed85f7799600b03ad51a77acc21f3',1,'vk_mem_alloc.h']]],
+  ['pfn_5fvmafreedevicememoryfunction_392',['PFN_vmaFreeDeviceMemoryFunction',['../vk__mem__alloc_8h.html#a154ccaaf53dc2c36378f80f0c4f3679b',1,'vk_mem_alloc.h']]]
 ];

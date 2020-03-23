@@ -148,12 +148,12 @@ Macros</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:ab6a6477cda1ce775b30bde96d766203b"><td class="memItemLeft" align="right" valign="top">typedef void(VKAPI_PTR *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ab6a6477cda1ce775b30bde96d766203b">PFN_vmaAllocateDeviceMemoryFunction</a>) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td></tr>
-<tr class="memdesc:ab6a6477cda1ce775b30bde96d766203b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called after successful vkAllocateMemory.  <a href="vk__mem__alloc_8h.html#ab6a6477cda1ce775b30bde96d766203b">More...</a><br /></td></tr>
-<tr class="separator:ab6a6477cda1ce775b30bde96d766203b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="memItemLeft" align="right" valign="top">typedef void(VKAPI_PTR *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aef2545dc2e9dd4f29ab9ba6ac6fe2f49">PFN_vmaFreeDeviceMemoryFunction</a>) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td></tr>
-<tr class="memdesc:aef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called before vkFreeMemory.  <a href="vk__mem__alloc_8h.html#aef2545dc2e9dd4f29ab9ba6ac6fe2f49">More...</a><br /></td></tr>
-<tr class="separator:aef2545dc2e9dd4f29ab9ba6ac6fe2f49"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7e1ed85f7799600b03ad51a77acc21f3"><td class="memItemLeft" align="right" valign="top">typedef void(VKAPI_PTR *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a7e1ed85f7799600b03ad51a77acc21f3">PFN_vmaAllocateDeviceMemoryFunction</a>) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void *pUserData)</td></tr>
+<tr class="memdesc:a7e1ed85f7799600b03ad51a77acc21f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called after successful vkAllocateMemory.  <a href="vk__mem__alloc_8h.html#a7e1ed85f7799600b03ad51a77acc21f3">More...</a><br /></td></tr>
+<tr class="separator:a7e1ed85f7799600b03ad51a77acc21f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a154ccaaf53dc2c36378f80f0c4f3679b"><td class="memItemLeft" align="right" valign="top">typedef void(VKAPI_PTR *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a154ccaaf53dc2c36378f80f0c4f3679b">PFN_vmaFreeDeviceMemoryFunction</a>) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void *pUserData)</td></tr>
+<tr class="memdesc:a154ccaaf53dc2c36378f80f0c4f3679b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function called before vkFreeMemory.  <a href="vk__mem__alloc_8h.html#a154ccaaf53dc2c36378f80f0c4f3679b">More...</a><br /></td></tr>
+<tr class="separator:a154ccaaf53dc2c36378f80f0c4f3679b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77692d3c8770ea8882d573206bd27b2b"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a77692d3c8770ea8882d573206bd27b2b">VmaDeviceMemoryCallbacks</a></td></tr>
 <tr class="memdesc:a77692d3c8770ea8882d573206bd27b2b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set of callbacks that the library will call for <code>vkAllocateMemory</code> and <code>vkFreeMemory</code>.  <a href="vk__mem__alloc_8h.html#a77692d3c8770ea8882d573206bd27b2b">More...</a><br /></td></tr>
 <tr class="separator:a77692d3c8770ea8882d573206bd27b2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -567,14 +567,14 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Typedef Documentation</h2>
-<a id="ab6a6477cda1ce775b30bde96d766203b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab6a6477cda1ce775b30bde96d766203b">&#9670;&nbsp;</a></span>PFN_vmaAllocateDeviceMemoryFunction</h2>
+<a id="a7e1ed85f7799600b03ad51a77acc21f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7e1ed85f7799600b03ad51a77acc21f3">&#9670;&nbsp;</a></span>PFN_vmaAllocateDeviceMemoryFunction</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef void(VKAPI_PTR * PFN_vmaAllocateDeviceMemoryFunction) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td>
+          <td class="memname">typedef void(VKAPI_PTR * PFN_vmaAllocateDeviceMemoryFunction) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void *pUserData)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -583,14 +583,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="aef2545dc2e9dd4f29ab9ba6ac6fe2f49"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aef2545dc2e9dd4f29ab9ba6ac6fe2f49">&#9670;&nbsp;</a></span>PFN_vmaFreeDeviceMemoryFunction</h2>
+<a id="a154ccaaf53dc2c36378f80f0c4f3679b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a154ccaaf53dc2c36378f80f0c4f3679b">&#9670;&nbsp;</a></span>PFN_vmaFreeDeviceMemoryFunction</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef void(VKAPI_PTR * PFN_vmaFreeDeviceMemoryFunction) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size)</td>
+          <td class="memname">typedef void(VKAPI_PTR * PFN_vmaFreeDeviceMemoryFunction) (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void *pUserData)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1033,7 +1033,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pointers to some Vulkan functions - a subset used by the library. </p>
-<p>Used in <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null if you leave define VMA_STATIC_VULKAN_FUNCTIONS 1.">VmaAllocatorCreateInfo::pVulkanFunctions</a>. </p>
+<p>Used in <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null.">VmaAllocatorCreateInfo::pVulkanFunctions</a>. </p>
 
 </div>
 </div>

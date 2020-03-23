@@ -5,8 +5,8 @@ var searchData=
   ['pallocationschanged_49',['pAllocationsChanged',['../struct_vma_defragmentation_info2.html#a76d51a644dc7f5405d0cdd0025ecd0cc',1,'VmaDefragmentationInfo2']]],
   ['pdevicememorycallbacks_50',['pDeviceMemoryCallbacks',['../struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e',1,'VmaAllocatorCreateInfo']]],
   ['pfilepath_51',['pFilePath',['../struct_vma_record_settings.html#a6cb1fdbf6bcb610b68f2010dd629e89d',1,'VmaRecordSettings']]],
-  ['pfn_5fvmaallocatedevicememoryfunction_52',['PFN_vmaAllocateDeviceMemoryFunction',['../vk__mem__alloc_8h.html#ab6a6477cda1ce775b30bde96d766203b',1,'vk_mem_alloc.h']]],
-  ['pfn_5fvmafreedevicememoryfunction_53',['PFN_vmaFreeDeviceMemoryFunction',['../vk__mem__alloc_8h.html#aef2545dc2e9dd4f29ab9ba6ac6fe2f49',1,'vk_mem_alloc.h']]],
+  ['pfn_5fvmaallocatedevicememoryfunction_52',['PFN_vmaAllocateDeviceMemoryFunction',['../vk__mem__alloc_8h.html#a7e1ed85f7799600b03ad51a77acc21f3',1,'vk_mem_alloc.h']]],
+  ['pfn_5fvmafreedevicememoryfunction_53',['PFN_vmaFreeDeviceMemoryFunction',['../vk__mem__alloc_8h.html#a154ccaaf53dc2c36378f80f0c4f3679b',1,'vk_mem_alloc.h']]],
   ['pfnallocate_54',['pfnAllocate',['../struct_vma_device_memory_callbacks.html#a4f17f7b255101e733b44d5633aceabfb',1,'VmaDeviceMemoryCallbacks']]],
   ['pfnfree_55',['pfnFree',['../struct_vma_device_memory_callbacks.html#abe8a3328bbc916f6f712fdb6b299444c',1,'VmaDeviceMemoryCallbacks']]],
   ['pheapsizelimit_56',['pHeapSizeLimit',['../struct_vma_allocator_create_info.html#a31c192aa6cbffa33279f6d9f0c47c44b',1,'VmaAllocatorCreateInfo']]],
@@ -19,6 +19,6 @@ var searchData=
   ['precordsettings_63',['pRecordSettings',['../struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee',1,'VmaAllocatorCreateInfo']]],
   ['preferredflags_64',['preferredFlags',['../struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d',1,'VmaAllocationCreateInfo']]],
   ['preferredlargeheapblocksize_65',['preferredLargeHeapBlockSize',['../struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a',1,'VmaAllocatorCreateInfo']]],
-  ['puserdata_66',['pUserData',['../struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19',1,'VmaAllocationCreateInfo::pUserData()'],['../struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13',1,'VmaAllocationInfo::pUserData()']]],
+  ['puserdata_66',['pUserData',['../struct_vma_device_memory_callbacks.html#a24052de0937ddd54015a2df0363903c6',1,'VmaDeviceMemoryCallbacks::pUserData()'],['../struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19',1,'VmaAllocationCreateInfo::pUserData()'],['../struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13',1,'VmaAllocationInfo::pUserData()']]],
   ['pvulkanfunctions_67',['pVulkanFunctions',['../struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd',1,'VmaAllocatorCreateInfo']]]
 ];

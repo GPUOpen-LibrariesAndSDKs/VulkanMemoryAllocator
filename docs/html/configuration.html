@@ -71,13 +71,6 @@ $(function() {
 <div class="contents">
 <div class="textblock"><p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each include of this file or change directly in this file to provide your own implementation of basic facilities like assert, <code>min()</code> and <code>max()</code> functions, mutex, atomic etc. The library uses its own implementation of containers by default, but you can switch to using STL containers instead.</p>
 <p>For example, define <code>VMA_ASSERT(expr)</code> before including the library to provide custom implementation of the assertion, compatible with your project. By default it is defined to standard C <code>assert(expr)</code> in <code>_DEBUG</code> configuration and empty otherwise.</p>
-<h1><a class="anchor" id="config_Vulkan_functions"></a>
-Pointers to Vulkan functions</h1>
-<p>The library uses Vulkan functions straight from the <code>vulkan.h</code> header by default. If you want to provide your own pointers to these functions, e.g. fetched using <code>vkGetInstanceProcAddr()</code> and <code>vkGetDeviceProcAddr()</code>:</p>
-<ol type="1">
-<li>Define <code>VMA_STATIC_VULKAN_FUNCTIONS 0</code>.</li>
-<li>Provide valid pointers through <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null if you leave define VMA_STATIC_VULKAN_FUNCTIONS 1.">VmaAllocatorCreateInfo::pVulkanFunctions</a>.</li>
-</ol>
 <h1><a class="anchor" id="custom_memory_allocator"></a>
 Custom host memory allocator</h1>
 <p>If you use custom allocator for CPU memory rather than default operator <code>new</code> and <code>delete</code> from C++, you can make this library using your allocator as well by filling optional member <a class="el" href="struct_vma_allocator_create_info.html#a6e409087e3be55400d0e4ccbe43c608d" title="Custom CPU memory allocation callbacks. Optional.">VmaAllocatorCreateInfo::pAllocationCallbacks</a>. These functions will be passed to Vulkan, as well as used by the library itself to make any CPU-side allocations.</p>
