@@ -87,7 +87,6 @@ Documentation of all members: vk_mem_alloc.h
   - [Simple patterns](@ref usage_patterns_simple)
   - [Advanced patterns](@ref usage_patterns_advanced)
 - \subpage configuration
-  - [Pointers to Vulkan functions](@ref config_Vulkan_functions)
   - [Custom host memory allocator](@ref custom_memory_allocator)
   - [Device memory allocation callbacks](@ref allocation_callbacks)
   - [Device heap memory limit](@ref heap_memory_limit)
@@ -1588,15 +1587,6 @@ custom implementation of the assertion, compatible with your project.
 By default it is defined to standard C `assert(expr)` in `_DEBUG` configuration
 and empty otherwise.
 
-\section config_Vulkan_functions Pointers to Vulkan functions
-
-The library uses Vulkan functions straight from the `vulkan.h` header by default.
-If you want to provide your own pointers to these functions, e.g. fetched using
-`vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`:
-
--# Define `VMA_STATIC_VULKAN_FUNCTIONS 0`.
--# Provide valid pointers through VmaAllocatorCreateInfo::pVulkanFunctions.
-
 \section custom_memory_allocator Custom host memory allocator
 
 If you use custom allocator for CPU memory rather than default operator `new`
@@ -2205,14 +2195,10 @@ typedef struct VmaAllocatorCreateInfo
     VK_AMD_memory_overallocation_behavior extension.
     */
     const VkDeviceSize* pHeapSizeLimit;
-    /** \brief Pointers to Vulkan functions. Can be null if you leave define `VMA_STATIC_VULKAN_FUNCTIONS 1`.
+    /** \brief Pointers to Vulkan functions. Can be null.
 
-    If you leave define `VMA_STATIC_VULKAN_FUNCTIONS 1` in configuration section,
-    you can pass null as this member, because the library will fetch pointers to
-    Vulkan functions internally in a static way, like:
-
-        vulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
-
+    You can pass null as this member, because the library will fetch pointers to
+    Vulkan functions internally.
     Fill this member if you want to provide your own pointers to Vulkan functions,
     e.g. fetched using `vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`.
     */
@@ -3684,23 +3670,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 
 /*******************************************************************************
 CONFIGURATION SECTION
-
-Define some of these macros before each #include of this header or change them
-here if you need other then default behavior depending on your environment.
-*/
-
-/*
-Define this macro to 1 to make the library fetch pointers to Vulkan functions
-internally, like:
-
-    vulkanFunctions. = &vkAllocateMemory;
-
-Define to 0 if you are going to provide you own pointers to Vulkan functions via
-VmaAllocatorCreateInfo::pVulkanFunctions.
-*/
-#if !defined(VMA_STATIC_VULKAN_FUNCTIONS) && !defined(VK_NO_PROTOTYPES)
-#define VMA_STATIC_VULKAN_FUNCTIONS 1
-#endif
 
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
 //#define VMA_USE_STL_CONTAINERS 1
@@ -15282,24 +15251,40 @@ VmaAllocator_T::~VmaAllocator_T()
 
 void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions)
 {
-#if VMA_STATIC_VULKAN_FUNCTIONS == 1
-    m_VulkanFunctions.vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)vkGetPhysicalDeviceProperties;
-    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vkGetPhysicalDeviceMemoryProperties;
-    m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
-    m_VulkanFunctions.vkFreeMemory = (PFN_vkFreeMemory)vkFreeMemory;
-    m_VulkanFunctions.vkMapMemory = (PFN_vkMapMemory)vkMapMemory;
-    m_VulkanFunctions.vkUnmapMemory = (PFN_vkUnmapMemory)vkUnmapMemory;
-    m_VulkanFunctions.vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)vkFlushMappedMemoryRanges;
-    m_VulkanFunctions.vkInvalidateMappedMemoryRanges = (PFN_vkInvalidateMappedMemoryRanges)vkInvalidateMappedMemoryRanges;
-    m_VulkanFunctions.vkBindBufferMemory = (PFN_vkBindBufferMemory)vkBindBufferMemory;
-    m_VulkanFunctions.vkBindImageMemory = (PFN_vkBindImageMemory)vkBindImageMemory;
-    m_VulkanFunctions.vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)vkGetBufferMemoryRequirements;
-    m_VulkanFunctions.vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)vkGetImageMemoryRequirements;
-    m_VulkanFunctions.vkCreateBuffer = (PFN_vkCreateBuffer)vkCreateBuffer;
-    m_VulkanFunctions.vkDestroyBuffer = (PFN_vkDestroyBuffer)vkDestroyBuffer;
-    m_VulkanFunctions.vkCreateImage = (PFN_vkCreateImage)vkCreateImage;
-    m_VulkanFunctions.vkDestroyImage = (PFN_vkDestroyImage)vkDestroyImage;
-    m_VulkanFunctions.vkCmdCopyBuffer = (PFN_vkCmdCopyBuffer)vkCmdCopyBuffer;
+    m_VulkanFunctions.vkGetPhysicalDeviceProperties =
+        (PFN_vkGetPhysicalDeviceProperties)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceProperties");
+    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties =
+    (PFN_vkGetPhysicalDeviceMemoryProperties)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceMemoryProperties");
+    m_VulkanFunctions.vkAllocateMemory =
+        (PFN_vkAllocateMemory)vkGetDeviceProcAddr(m_hDevice, "vkAllocateMemory");
+    m_VulkanFunctions.vkFreeMemory =
+        (PFN_vkFreeMemory)vkGetDeviceProcAddr(m_hDevice, "vkFreeMemory");
+    m_VulkanFunctions.vkMapMemory =
+        (PFN_vkMapMemory)vkGetDeviceProcAddr(m_hDevice, "vkMapMemory");
+    m_VulkanFunctions.vkUnmapMemory =
+        (PFN_vkUnmapMemory)vkGetDeviceProcAddr(m_hDevice, "vkUnmapMemory");
+    m_VulkanFunctions.vkFlushMappedMemoryRanges =
+        (PFN_vkFlushMappedMemoryRanges)vkGetDeviceProcAddr(m_hDevice, "vkFlushMappedMemoryRanges");
+    m_VulkanFunctions.vkInvalidateMappedMemoryRanges =
+        (PFN_vkInvalidateMappedMemoryRanges)vkGetDeviceProcAddr(m_hDevice, "vkInvalidateMappedMemoryRanges");
+    m_VulkanFunctions.vkBindBufferMemory =
+        (PFN_vkBindBufferMemory)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory");
+    m_VulkanFunctions.vkBindImageMemory =
+        (PFN_vkBindImageMemory)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory");
+    m_VulkanFunctions.vkGetBufferMemoryRequirements =
+        (PFN_vkGetBufferMemoryRequirements)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements");
+    m_VulkanFunctions.vkGetImageMemoryRequirements =
+        (PFN_vkGetImageMemoryRequirements)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements");
+    m_VulkanFunctions.vkCreateBuffer =
+        (PFN_vkCreateBuffer)vkGetDeviceProcAddr(m_hDevice, "vkCreateBuffer");
+    m_VulkanFunctions.vkDestroyBuffer =
+        (PFN_vkDestroyBuffer)vkGetDeviceProcAddr(m_hDevice, "vkDestroyBuffer");
+    m_VulkanFunctions.vkCreateImage =
+        (PFN_vkCreateImage)vkGetDeviceProcAddr(m_hDevice, "vkCreateImage");
+    m_VulkanFunctions.vkDestroyImage =
+        (PFN_vkDestroyImage)vkGetDeviceProcAddr(m_hDevice, "vkDestroyImage");
+    m_VulkanFunctions.vkCmdCopyBuffer =
+        (PFN_vkCmdCopyBuffer)vkGetDeviceProcAddr(m_hDevice, "vkCmdCopyBuffer");
 #if VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
@@ -15357,7 +15342,6 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         }
     }
 #endif // #if VMA_MEMORY_BUDGET
-#endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
 
 #define VMA_COPY_IF_NOT_NULL(funcName) \
     if(pVulkanFunctions->funcName != VMA_NULL) m_VulkanFunctions.funcName = pVulkanFunctions->funcName;
