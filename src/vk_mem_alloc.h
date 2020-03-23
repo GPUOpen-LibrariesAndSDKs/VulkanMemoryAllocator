@@ -15631,7 +15631,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
         }
         if(canContainBufferWithDeviceAddress)
         {
-            allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+            allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
             VmaPnextChainPushFront(&allocInfo, &allocFlagsInfo);
         }
     }
