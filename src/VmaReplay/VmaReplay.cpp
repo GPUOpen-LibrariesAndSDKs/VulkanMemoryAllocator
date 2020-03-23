@@ -809,7 +809,8 @@ static void VKAPI_CALL AllocateDeviceMemoryCallback(
     VmaAllocator      allocator,
     uint32_t          memoryType,
     VkDeviceMemory    memory,
-    VkDeviceSize      size)
+    VkDeviceSize      size,
+    void*             pUserData)
 {
     g_Statistics->RegisterDeviceMemoryAllocation(memoryType, size);
 }
@@ -819,7 +820,8 @@ static void VKAPI_CALL FreeDeviceMemoryCallback(
     VmaAllocator      allocator,
     uint32_t          memoryType,
     VkDeviceMemory    memory,
-    VkDeviceSize      size)
+    VkDeviceSize      size,
+    void*             pUserData)
 {
     // Nothing.
 }
