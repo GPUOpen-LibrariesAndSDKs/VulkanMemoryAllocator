@@ -2214,10 +2214,9 @@ typedef struct VmaAllocatorCreateInfo
     creation of the allocator object fails with `VK_ERROR_FEATURE_NOT_PRESENT`.
     */
     const VmaRecordSettings* pRecordSettings;
-    /** \brief Optional handle to Vulkan instance object.
+    /** \brief Handle to Vulkan instance object.
 
-    Optional, can be null. Must be set if #VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT flas is used
-    or if `vulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0)`.
+    Starting from version 3.0.0 this member is no longer optional, it must be set!
     */
     VkInstance instance;
     /** \brief Optional. The highest version of Vulkan that the application is designed to use.
@@ -15085,7 +15084,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         VMA_ASSERT(VMA_DEBUG_MARGIN % sizeof(uint32_t) == 0);
     }
 
-    VMA_ASSERT(pCreateInfo->physicalDevice && pCreateInfo->device);
+    VMA_ASSERT(pCreateInfo->physicalDevice && pCreateInfo->device && pCreateInfo->instance);
 
     if(m_VulkanApiVersion < VK_MAKE_VERSION(1, 1, 0))
     {
