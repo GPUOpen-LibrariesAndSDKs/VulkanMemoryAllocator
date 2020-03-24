@@ -15389,8 +15389,6 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
 
 #undef VMA_COPY_IF_NOT_NULL
 
-    // If these asserts are hit, you must either #define VMA_STATIC_VULKAN_FUNCTIONS 1
-    // or pass valid pointers as VmaAllocatorCreateInfo::pVulkanFunctions.
     VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceProperties != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkAllocateMemory != VMA_NULL);
