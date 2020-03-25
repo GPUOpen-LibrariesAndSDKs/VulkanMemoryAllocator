@@ -1729,24 +1729,24 @@ accompanying this library.
 
 \page enabling_buffer_device_address Enabling buffer device address
 
-Device extensions VK_EXT_buffer_device_address / VK_KHR_buffer_device_address
+Device extension VK_KHR_buffer_device_address
 allow to fetch raw GPU pointer to a buffer and pass it for usage in a shader code.
-They are promoted to core Vulkan 1.2.
+It is promoted to core Vulkan 1.2.
 
 If you want to use this feature in connection with VMA, follow these steps:
 
 \section enabling_buffer_device_address_initialization Initialization
 
 1) (For Vulkan version < 1.2) Call `vkEnumerateDeviceExtensionProperties` for the physical device.
-Check if the extension is supported - if returned array of `VkExtensionProperties` contains "VK_EXT_buffer_device_address"
-or "VK_KHR_buffer_device_address".
+Check if the extension is supported - if returned array of `VkExtensionProperties` contains
+"VK_KHR_buffer_device_address".
 
 2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
 Attach additional structure `VkPhysicalDeviceBufferDeviceAddressFeatures*` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
 Check if the device feature is really supported - check if `VkPhysicalDeviceBufferDeviceAddressFeatures*::bufferDeviceAddress` is true.
 
-3) (For Vulkan version < 1.2) While creating device with `vkCreateDevice`, enable this extension - add "VK_EXT_buffer_device_address"
-or "VK_KHR_buffer_device_address" to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
+3) (For Vulkan version < 1.2) While creating device with `vkCreateDevice`, enable this extension - add
+"VK_KHR_buffer_device_address" to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
 
 4) While creating the device, also don't set `VkDeviceCreateInfo::pEnabledFeatures`.
 Fill in `VkPhysicalDeviceFeatures2` structure instead and pass it as `VkDeviceCreateInfo::pNext`.
@@ -1759,11 +1759,11 @@ to VmaAllocatorCreateInfo::flags.
 
 \section enabling_buffer_device_address_usage Usage
 
-After following steps described above, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT` using VMA.
-The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR` to
+After following steps described above, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*` using VMA.
+The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT*` to
 allocated memory blocks wherever it might be needed.
 
-Please note that the library supports only `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT`.
+Please note that the library supports only `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*`.
 The second part of this functionality related to "capture and replay" is not supported,
 as it is intended for usage in debugging tools like RenderDoc, not in everyday Vulkan usage.
 
@@ -1916,7 +1916,7 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 
 // Defined to 1 when VK_KHR_buffer_device_address device extension or equivalent core Vulkan 1.2 feature is defined in its headers.
 #if !defined(VMA_BUFFER_DEVICE_ADDRESS)
-    #if VK_KHR_buffer_device_address || VK_EXT_buffer_device_address || VMA_VULKAN_VERSION >= 1002000
+    #if VK_KHR_buffer_device_address || VMA_VULKAN_VERSION >= 1002000
         #define VMA_BUFFER_DEVICE_ADDRESS 1
     #else
         #define VMA_BUFFER_DEVICE_ADDRESS 0
@@ -2061,12 +2061,12 @@ typedef enum VmaAllocatorCreateFlagBits {
     You may set this flag only if you:
 
     1. (For Vulkan version < 1.2) Found as available and enabled device extension
-    VK_EXT_buffer_device_address or VK_KHR_buffer_device_address.
-    Those extensions are promoted to core Vulkan 1.2.
+    VK_KHR_buffer_device_address.
+    This extension is promoted to core Vulkan 1.2.
     2. Found as available and enabled device feature `VkPhysicalDeviceBufferDeviceAddressFeatures*::bufferDeviceAddress`.
 
-    When this flag is set, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT` using VMA.
-    The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR` to
+    When this flag is set, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*` using VMA.
+    The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT*` to
     allocated memory blocks wherever it might be needed.
 
     For more information, see documentation chapter \ref enabling_buffer_device_address.
