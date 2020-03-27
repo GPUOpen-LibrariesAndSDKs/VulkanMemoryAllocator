@@ -6523,6 +6523,7 @@ public:
         VkCommandBuffer commandBuffer);
     void DefragmentationEnd(
         class VmaBlockVectorDefragmentationContext* pCtx,
+        uint32_t flags,
         VmaDefragmentationStats* pStats);
 
     uint32_t ProcessDefragmentations(
@@ -13180,22 +13181,36 @@ void VmaBlockVector::Defragment(
 
 void VmaBlockVector::DefragmentationEnd(
     class VmaBlockVectorDefragmentationContext* pCtx,
+    uint32_t flags,
     VmaDefragmentationStats* pStats)
 {
-    // Destroy buffers.
-    for(size_t blockIndex = pCtx->blockContexts.size(); blockIndex--; )
+    if(flags & VMA_DEFRAGMENTATION_FLAG_INCREMENTAL && m_hAllocator->m_UseMutex)
     {
-        VmaBlockDefragmentationContext& blockCtx = pCtx->blockContexts[blockIndex];
-        if(blockCtx.hBuffer)
-        {
-            (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(
-                m_hAllocator->m_hDevice, blockCtx.hBuffer, m_hAllocator->GetAllocationCallbacks());
-        }
+        VMA_ASSERT(pCtx->mutexLocked == false);
+
+        // Incremental defragmentation doesn't hold the lock, so when we enter here we don't actually have any
+        // lock protecting us. Since we mutate state here, we have to take the lock out now
+        m_Mutex.LockWrite();
+        pCtx->mutexLocked = true;
     }
 
-    if(pCtx->res >= VK_SUCCESS)
+    // If the mutex isn't locked we didn't do any work and there is nothing to delete.
+    if(pCtx->mutexLocked || !m_hAllocator->m_UseMutex)
     {
-        FreeEmptyBlocks(pStats);
+        // Destroy buffers.
+        for(size_t blockIndex = pCtx->blockContexts.size(); blockIndex--;)
+        {
+            VmaBlockDefragmentationContext &blockCtx = pCtx->blockContexts[blockIndex];
+            if(blockCtx.hBuffer)
+            {
+                (*m_hAllocator->GetVulkanFunctions().vkDestroyBuffer)(m_hAllocator->m_hDevice, blockCtx.hBuffer, m_hAllocator->GetAllocationCallbacks());
+            }
+        }
+
+        if(pCtx->res >= VK_SUCCESS)
+        {
+            FreeEmptyBlocks(pStats);
+        }
     }
 
     if(pCtx->mutexLocked)
@@ -14117,7 +14132,7 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
     for(size_t i = m_CustomPoolContexts.size(); i--; )
     {
         VmaBlockVectorDefragmentationContext* pBlockVectorCtx = m_CustomPoolContexts[i];
-        pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats);
+        pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_Flags, m_pStats);
         vma_delete(m_hAllocator, pBlockVectorCtx);
     }
     for(size_t i = m_hAllocator->m_MemProps.memoryTypeCount; i--; )
@@ -14125,7 +14140,7 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
         VmaBlockVectorDefragmentationContext* pBlockVectorCtx = m_DefaultPoolContexts[i];
         if(pBlockVectorCtx)
         {
-            pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_pStats);
+            pBlockVectorCtx->GetBlockVector()->DefragmentationEnd(pBlockVectorCtx, m_Flags, m_pStats);
             vma_delete(m_hAllocator, pBlockVectorCtx);
         }
     }
