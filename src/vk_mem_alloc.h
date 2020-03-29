@@ -2629,6 +2629,11 @@ typedef struct VmaAllocationCreateInfo
     Set to 0 if no additional flags are prefered. \n
     If `pool` is not null, this member is ignored. */
     VkMemoryPropertyFlags preferredFlags;
+    /** \brief Flags that preferably should *not* be set in a memory type chosen for an allocation.
+
+    Set to 0 if any flags are okay. \n
+    If `pool` is not null, this member is ignored. */
+    VkMemoryPropertyFlags notPreferredFlags;
     /** \brief Bitmask containing one bit set for every memory type acceptable for this allocation.
 
     Value 0 is equivalent to `UINT32_MAX` - it means any memory type is accepted if
@@ -17253,7 +17258,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
     
     uint32_t requiredFlags = pAllocationCreateInfo->requiredFlags;
     uint32_t preferredFlags = pAllocationCreateInfo->preferredFlags;
-    uint32_t notPreferredFlags = 0;
+    uint32_t notPreferredFlags = pAllocationCreateInfo->notPreferredFlags;
 
     // Convert usage to requiredFlags and preferredFlags.
     switch(pAllocationCreateInfo->usage)
@@ -17297,6 +17302,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
     {
         notPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD_COPY;
     }
+
+	// Avoid requesting any of the non preferred flags
+    requiredFlags &= ~notPreferredFlags;
+    preferredFlags &= ~notPreferredFlags;
 
     *pMemoryTypeIndex = UINT32_MAX;
     uint32_t minCost = UINT32_MAX;
