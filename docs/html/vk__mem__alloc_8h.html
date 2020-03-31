@@ -1155,10 +1155,10 @@ Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7ca5f1b28b0414319d1687e1f2b30ab0089"></a>VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT&#160;</td><td class="fielddoc"><p>Enables usage of "buffer device address" feature, which allows you to use function <code>vkGetBufferDeviceAddress*</code> to get raw GPU pointer to a buffer and pass it for usage inside a shader.</p>
 <p>You may set this flag only if you:</p>
 <ol type="1">
-<li>(For Vulkan version &lt; 1.2) Found as available and enabled device extension VK_EXT_buffer_device_address or VK_KHR_buffer_device_address. Those extensions are promoted to core Vulkan 1.2.</li>
+<li>(For Vulkan version &lt; 1.2) Found as available and enabled device extension VK_KHR_buffer_device_address. This extension is promoted to core Vulkan 1.2.</li>
 <li>Found as available and enabled device feature <code>VkPhysicalDeviceBufferDeviceAddressFeatures*::bufferDeviceAddress</code>.</li>
 </ol>
-<p>When this flag is set, you can create buffers with <code>VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT</code> using VMA. The library automatically adds <code>VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR</code> to allocated memory blocks wherever it might be needed.</p>
+<p>When this flag is set, you can create buffers with <code>VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*</code> using VMA. The library automatically adds <code>VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT*</code> to allocated memory blocks wherever it might be needed.</p>
 <p>For more information, see documentation chapter <a class="el" href="enabling_buffer_device_address.html">Enabling buffer device address</a>. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c"></a>VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>

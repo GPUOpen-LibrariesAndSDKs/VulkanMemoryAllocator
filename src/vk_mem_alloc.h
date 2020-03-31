@@ -87,6 +87,7 @@ Documentation of all members: vk_mem_alloc.h
   - [Simple patterns](@ref usage_patterns_simple)
   - [Advanced patterns](@ref usage_patterns_advanced)
 - \subpage configuration
+  - [Pointers to Vulkan functions](@ref config_Vulkan_functions)
   - [Custom host memory allocator](@ref custom_memory_allocator)
   - [Device memory allocation callbacks](@ref allocation_callbacks)
   - [Device heap memory limit](@ref heap_memory_limit)
@@ -1587,6 +1588,34 @@ custom implementation of the assertion, compatible with your project.
 By default it is defined to standard C `assert(expr)` in `_DEBUG` configuration
 and empty otherwise.
 
+\section config_Vulkan_functions Pointers to Vulkan functions
+
+There are multiple ways to import pointers to Vulkan functions in the library.
+In the simplest case you don't need to do anything.
+If the compilation or linking of your program or the initialization of the #VmaAllocator
+doesn't work for you, you can try to reconfigure it.
+
+First, the allocator tries to fetch pointers to Vulkan functions linked statically,
+like this:
+
+\code
+m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
+\endcode
+
+If you want to disable this feature, set configuration macro: `#define VMA_STATIC_VULKAN_FUNCTIONS 0`.
+
+Second, you can provide the pointers yourself by setting member VmaAllocatorCreateInfo::pVulkanFunctions.
+You can fetch them e.g. using functions `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` or
+by using a helper library like [volk](https://github.com/zeux/volk).
+
+Third, VMA tries to fetch remaining pointers that are still null by calling
+`vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` on its own.
+If you want to disable this feature, set configuration macro: `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0`.
+
+Finally, all the function pointers required by the library (considering selected
+Vulkan version and enabled extensions) are checked with `VMA_ASSERT` if they are not null.
+
+
 \section custom_memory_allocator Custom host memory allocator
 
 If you use custom allocator for CPU memory rather than default operator `new`
@@ -1868,6 +1897,35 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 #ifndef NOMINMAX
     #define NOMINMAX // For windows.h
 #endif
+
+#if defined(__ANDROID__) && defined(VK_NO_PROTOTYPES) && VMA_STATIC_VULKAN_FUNCTIONS
+    extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
+    extern PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
+    extern PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties;
+    extern PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
+    extern PFN_vkAllocateMemory vkAllocateMemory;
+    extern PFN_vkFreeMemory vkFreeMemory;
+    extern PFN_vkMapMemory vkMapMemory;
+    extern PFN_vkUnmapMemory vkUnmapMemory;
+    extern PFN_vkFlushMappedMemoryRanges vkFlushMappedMemoryRanges;
+    extern PFN_vkInvalidateMappedMemoryRanges vkInvalidateMappedMemoryRanges;
+    extern PFN_vkBindBufferMemory vkBindBufferMemory;
+    extern PFN_vkBindImageMemory vkBindImageMemory;
+    extern PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
+    extern PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
+    extern PFN_vkCreateBuffer vkCreateBuffer;
+    extern PFN_vkDestroyBuffer vkDestroyBuffer;
+    extern PFN_vkCreateImage vkCreateImage;
+    extern PFN_vkDestroyImage vkDestroyImage;
+    extern PFN_vkCmdCopyBuffer vkCmdCopyBuffer;
+    #if VMA_VULKAN_VERSION >= 1001000
+        extern PFN_vkGetBufferMemoryRequirements2 vkGetBufferMemoryRequirements2;
+        extern PFN_vkGetImageMemoryRequirements2 vkGetImageMemoryRequirements2;
+        extern PFN_vkBindBufferMemory2 vkBindBufferMemory2;
+        extern PFN_vkBindImageMemory2 vkBindImageMemory2;
+        extern PFN_vkGetPhysicalDeviceMemoryProperties2 vkGetPhysicalDeviceMemoryProperties2;
+    #endif // #if VMA_VULKAN_VERSION >= 1001000
+#endif // #if defined(__ANDROID__) && VMA_STATIC_VULKAN_FUNCTIONS && VK_NO_PROTOTYPES
 
 #ifndef VULKAN_H_
     #include <vulkan/vulkan.h>
@@ -2201,10 +2259,7 @@ typedef struct VmaAllocatorCreateInfo
     const VkDeviceSize* pHeapSizeLimit;
     /** \brief Pointers to Vulkan functions. Can be null.
 
-    You can pass null as this member, because the library will fetch pointers to
-    Vulkan functions internally.
-    Fill this member if you want to provide your own pointers to Vulkan functions,
-    e.g. fetched using `vkGetInstanceProcAddr()` and `vkGetDeviceProcAddr()`.
+    For details see [Pointers to Vulkan functions](@ref config_Vulkan_functions).
     */
     const VmaVulkanFunctions* pVulkanFunctions;
     /** \brief Parameters for recording of VMA calls. Can be null.
@@ -3677,6 +3732,26 @@ CONFIGURATION SECTION
 Define some of these macros before each #include of this header or change them
 here if you need other then default behavior depending on your environment.
 */
+
+/*
+Define this macro to 1 to make the library fetch pointers to Vulkan functions
+internally, like:
+
+    vulkanFunctions.vkAllocateMemory = &vkAllocateMemory;
+*/
+#if !defined(VMA_STATIC_VULKAN_FUNCTIONS) && !defined(VK_NO_PROTOTYPES)
+    #define VMA_STATIC_VULKAN_FUNCTIONS 1
+#endif
+
+/*
+Define this macro to 1 to make the library fetch pointers to Vulkan functions
+internally, like:
+
+    vulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkGetDeviceProcAddr(m_hDevice, vkAllocateMemory);
+*/
+#if !defined(VMA_DYNAMIC_VULKAN_FUNCTIONS)
+    #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#endif
 
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
 //#define VMA_USE_STL_CONTAINERS 1
@@ -7516,6 +7591,10 @@ private:
 #endif
 
     void ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions);
+    void ImportVulkanFunctions_Static();
+    void ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVulkanFunctions);
+    void ImportVulkanFunctions_Dynamic();
+    void ValidateVulkanFunctions();
 
     VkDeviceSize CalcPreferredBlockSize(uint32_t memTypeIndex);
 
@@ -15274,135 +15353,160 @@ VmaAllocator_T::~VmaAllocator_T()
 
 void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions)
 {
-    m_VulkanFunctions.vkGetPhysicalDeviceProperties =
-        (PFN_vkGetPhysicalDeviceProperties)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceProperties");
-    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties =
-    (PFN_vkGetPhysicalDeviceMemoryProperties)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceMemoryProperties");
-    m_VulkanFunctions.vkAllocateMemory =
-        (PFN_vkAllocateMemory)vkGetDeviceProcAddr(m_hDevice, "vkAllocateMemory");
-    m_VulkanFunctions.vkFreeMemory =
-        (PFN_vkFreeMemory)vkGetDeviceProcAddr(m_hDevice, "vkFreeMemory");
-    m_VulkanFunctions.vkMapMemory =
-        (PFN_vkMapMemory)vkGetDeviceProcAddr(m_hDevice, "vkMapMemory");
-    m_VulkanFunctions.vkUnmapMemory =
-        (PFN_vkUnmapMemory)vkGetDeviceProcAddr(m_hDevice, "vkUnmapMemory");
-    m_VulkanFunctions.vkFlushMappedMemoryRanges =
-        (PFN_vkFlushMappedMemoryRanges)vkGetDeviceProcAddr(m_hDevice, "vkFlushMappedMemoryRanges");
-    m_VulkanFunctions.vkInvalidateMappedMemoryRanges =
-        (PFN_vkInvalidateMappedMemoryRanges)vkGetDeviceProcAddr(m_hDevice, "vkInvalidateMappedMemoryRanges");
-    m_VulkanFunctions.vkBindBufferMemory =
-        (PFN_vkBindBufferMemory)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory");
-    m_VulkanFunctions.vkBindImageMemory =
-        (PFN_vkBindImageMemory)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory");
-    m_VulkanFunctions.vkGetBufferMemoryRequirements =
-        (PFN_vkGetBufferMemoryRequirements)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements");
-    m_VulkanFunctions.vkGetImageMemoryRequirements =
-        (PFN_vkGetImageMemoryRequirements)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements");
-    m_VulkanFunctions.vkCreateBuffer =
-        (PFN_vkCreateBuffer)vkGetDeviceProcAddr(m_hDevice, "vkCreateBuffer");
-    m_VulkanFunctions.vkDestroyBuffer =
-        (PFN_vkDestroyBuffer)vkGetDeviceProcAddr(m_hDevice, "vkDestroyBuffer");
-    m_VulkanFunctions.vkCreateImage =
-        (PFN_vkCreateImage)vkGetDeviceProcAddr(m_hDevice, "vkCreateImage");
-    m_VulkanFunctions.vkDestroyImage =
-        (PFN_vkDestroyImage)vkGetDeviceProcAddr(m_hDevice, "vkDestroyImage");
-    m_VulkanFunctions.vkCmdCopyBuffer =
-        (PFN_vkCmdCopyBuffer)vkGetDeviceProcAddr(m_hDevice, "vkCmdCopyBuffer");
+#if VMA_STATIC_VULKAN_FUNCTIONS == 1
+    ImportVulkanFunctions_Static();
+#endif
+
+    if(pVulkanFunctions != VMA_NULL)
+    {
+        ImportVulkanFunctions_Custom(pVulkanFunctions);
+    }
+
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS == 1
+    ImportVulkanFunctions_Dynamic();
+#endif
+
+    ValidateVulkanFunctions();
+}
+
+#if VMA_STATIC_VULKAN_FUNCTIONS == 1
+
+void VmaAllocator_T::ImportVulkanFunctions_Static()
+{
+    // Vulkan 1.0
+    m_VulkanFunctions.vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)vkGetPhysicalDeviceProperties;
+    m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vkGetPhysicalDeviceMemoryProperties;
+    m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
+    m_VulkanFunctions.vkFreeMemory = (PFN_vkFreeMemory)vkFreeMemory;
+    m_VulkanFunctions.vkMapMemory = (PFN_vkMapMemory)vkMapMemory;
+    m_VulkanFunctions.vkUnmapMemory = (PFN_vkUnmapMemory)vkUnmapMemory;
+    m_VulkanFunctions.vkFlushMappedMemoryRanges = (PFN_vkFlushMappedMemoryRanges)vkFlushMappedMemoryRanges;
+    m_VulkanFunctions.vkInvalidateMappedMemoryRanges = (PFN_vkInvalidateMappedMemoryRanges)vkInvalidateMappedMemoryRanges;
+    m_VulkanFunctions.vkBindBufferMemory = (PFN_vkBindBufferMemory)vkBindBufferMemory;
+    m_VulkanFunctions.vkBindImageMemory = (PFN_vkBindImageMemory)vkBindImageMemory;
+    m_VulkanFunctions.vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)vkGetBufferMemoryRequirements;
+    m_VulkanFunctions.vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)vkGetImageMemoryRequirements;
+    m_VulkanFunctions.vkCreateBuffer = (PFN_vkCreateBuffer)vkCreateBuffer;
+    m_VulkanFunctions.vkDestroyBuffer = (PFN_vkDestroyBuffer)vkDestroyBuffer;
+    m_VulkanFunctions.vkCreateImage = (PFN_vkCreateImage)vkCreateImage;
+    m_VulkanFunctions.vkDestroyImage = (PFN_vkDestroyImage)vkDestroyImage;
+    m_VulkanFunctions.vkCmdCopyBuffer = (PFN_vkCmdCopyBuffer)vkCmdCopyBuffer;
+
+    // Vulkan 1.1
 #if VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
-        VMA_ASSERT(m_hInstance != VK_NULL_HANDLE);
-        m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR =
-            (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements2");
-        m_VulkanFunctions.vkGetImageMemoryRequirements2KHR =
-            (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2");
-        m_VulkanFunctions.vkBindBufferMemory2KHR =
-            (PFN_vkBindBufferMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory2");
-        m_VulkanFunctions.vkBindImageMemory2KHR =
-            (PFN_vkBindImageMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory2");
-        m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR =
-            (PFN_vkGetPhysicalDeviceMemoryProperties2KHR)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceMemoryProperties2");
+        m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR = (PFN_vkGetBufferMemoryRequirements2)vkGetBufferMemoryRequirements2;
+        m_VulkanFunctions.vkGetImageMemoryRequirements2KHR = (PFN_vkGetImageMemoryRequirements2)vkGetImageMemoryRequirements2;
+        m_VulkanFunctions.vkBindBufferMemory2KHR = (PFN_vkBindBufferMemory2)vkBindBufferMemory2;
+        m_VulkanFunctions.vkBindImageMemory2KHR = (PFN_vkBindImageMemory2)vkBindImageMemory2;
+        m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = (PFN_vkGetPhysicalDeviceMemoryProperties2)vkGetPhysicalDeviceMemoryProperties2;
     }
 #endif
-#if VMA_DEDICATED_ALLOCATION
-    if(m_UseKhrDedicatedAllocation)
-    {
-        if(m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR == nullptr)
-        {
-            m_VulkanFunctions.vkGetBufferMemoryRequirements2KHR =
-                (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetBufferMemoryRequirements2KHR");
-        }
-        if(m_VulkanFunctions.vkGetImageMemoryRequirements2KHR == nullptr)
-        {
-            m_VulkanFunctions.vkGetImageMemoryRequirements2KHR =
-                (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(m_hDevice, "vkGetImageMemoryRequirements2KHR");
-        }
-    }
-#endif
-#if VMA_BIND_MEMORY2
-    if(m_UseKhrBindMemory2)
-    {
-        if(m_VulkanFunctions.vkBindBufferMemory2KHR == nullptr)
-        {
-            m_VulkanFunctions.vkBindBufferMemory2KHR =
-                (PFN_vkBindBufferMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindBufferMemory2KHR");
-        }
-        if(m_VulkanFunctions.vkBindImageMemory2KHR == nullptr)
-        {
-            m_VulkanFunctions.vkBindImageMemory2KHR =
-                (PFN_vkBindImageMemory2KHR)vkGetDeviceProcAddr(m_hDevice, "vkBindImageMemory2KHR");
-        }
-    }
-#endif // #if VMA_BIND_MEMORY2
-#if VMA_MEMORY_BUDGET
-    if(m_UseExtMemoryBudget && m_VulkanApiVersion < VK_MAKE_VERSION(1, 1, 0))
-    {
-        VMA_ASSERT(m_hInstance != VK_NULL_HANDLE);
-        if(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR == nullptr)
-        {
-            m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR =
-                (PFN_vkGetPhysicalDeviceMemoryProperties2KHR)vkGetInstanceProcAddr(m_hInstance, "vkGetPhysicalDeviceMemoryProperties2KHR");
-        }
-    }
-#endif // #if VMA_MEMORY_BUDGET
+}
+
+#endif // #if VMA_STATIC_VULKAN_FUNCTIONS == 1
+
+void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVulkanFunctions)
+{
+    VMA_ASSERT(pVulkanFunctions != VMA_NULL);
 
 #define VMA_COPY_IF_NOT_NULL(funcName) \
     if(pVulkanFunctions->funcName != VMA_NULL) m_VulkanFunctions.funcName = pVulkanFunctions->funcName;
 
-    if(pVulkanFunctions != VMA_NULL)
-    {
-        VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceProperties);
-        VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties);
-        VMA_COPY_IF_NOT_NULL(vkAllocateMemory);
-        VMA_COPY_IF_NOT_NULL(vkFreeMemory);
-        VMA_COPY_IF_NOT_NULL(vkMapMemory);
-        VMA_COPY_IF_NOT_NULL(vkUnmapMemory);
-        VMA_COPY_IF_NOT_NULL(vkFlushMappedMemoryRanges);
-        VMA_COPY_IF_NOT_NULL(vkInvalidateMappedMemoryRanges);
-        VMA_COPY_IF_NOT_NULL(vkBindBufferMemory);
-        VMA_COPY_IF_NOT_NULL(vkBindImageMemory);
-        VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements);
-        VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements);
-        VMA_COPY_IF_NOT_NULL(vkCreateBuffer);
-        VMA_COPY_IF_NOT_NULL(vkDestroyBuffer);
-        VMA_COPY_IF_NOT_NULL(vkCreateImage);
-        VMA_COPY_IF_NOT_NULL(vkDestroyImage);
-        VMA_COPY_IF_NOT_NULL(vkCmdCopyBuffer);
+    VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceProperties);
+    VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties);
+    VMA_COPY_IF_NOT_NULL(vkAllocateMemory);
+    VMA_COPY_IF_NOT_NULL(vkFreeMemory);
+    VMA_COPY_IF_NOT_NULL(vkMapMemory);
+    VMA_COPY_IF_NOT_NULL(vkUnmapMemory);
+    VMA_COPY_IF_NOT_NULL(vkFlushMappedMemoryRanges);
+    VMA_COPY_IF_NOT_NULL(vkInvalidateMappedMemoryRanges);
+    VMA_COPY_IF_NOT_NULL(vkBindBufferMemory);
+    VMA_COPY_IF_NOT_NULL(vkBindImageMemory);
+    VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements);
+    VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements);
+    VMA_COPY_IF_NOT_NULL(vkCreateBuffer);
+    VMA_COPY_IF_NOT_NULL(vkDestroyBuffer);
+    VMA_COPY_IF_NOT_NULL(vkCreateImage);
+    VMA_COPY_IF_NOT_NULL(vkDestroyImage);
+    VMA_COPY_IF_NOT_NULL(vkCmdCopyBuffer);
+
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
-        VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements2KHR);
-        VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements2KHR);
+    VMA_COPY_IF_NOT_NULL(vkGetBufferMemoryRequirements2KHR);
+    VMA_COPY_IF_NOT_NULL(vkGetImageMemoryRequirements2KHR);
 #endif
+
 #if VMA_BIND_MEMORY2 || VMA_VULKAN_VERSION >= 1001000
-        VMA_COPY_IF_NOT_NULL(vkBindBufferMemory2KHR);
-        VMA_COPY_IF_NOT_NULL(vkBindImageMemory2KHR);
+    VMA_COPY_IF_NOT_NULL(vkBindBufferMemory2KHR);
+    VMA_COPY_IF_NOT_NULL(vkBindImageMemory2KHR);
 #endif
+
 #if VMA_MEMORY_BUDGET
-        VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties2KHR);
+    VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties2KHR);
 #endif
-    }
 
 #undef VMA_COPY_IF_NOT_NULL
+}
 
+void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
+{
+#define VMA_FETCH_INSTANCE_FUNC(memberName, functionPointerType, functionNameString) \
+    if(m_VulkanFunctions.memberName == VMA_NULL) \
+        m_VulkanFunctions.memberName = \
+            (functionPointerType)vkGetInstanceProcAddr(m_hInstance, functionNameString);
+#define VMA_FETCH_DEVICE_FUNC(memberName, functionPointerType, functionNameString) \
+    if(m_VulkanFunctions.memberName == VMA_NULL) \
+        m_VulkanFunctions.memberName = \
+            (functionPointerType)vkGetDeviceProcAddr(m_hDevice, functionNameString);
+
+    VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties, PFN_vkGetPhysicalDeviceProperties, "vkGetPhysicalDeviceProperties");
+    VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties, PFN_vkGetPhysicalDeviceMemoryProperties, "vkGetPhysicalDeviceMemoryProperties");
+    VMA_FETCH_DEVICE_FUNC(vkAllocateMemory, PFN_vkAllocateMemory, "vkAllocateMemory");
+    VMA_FETCH_DEVICE_FUNC(vkFreeMemory, PFN_vkFreeMemory, "vkFreeMemory");
+    VMA_FETCH_DEVICE_FUNC(vkMapMemory, PFN_vkMapMemory, "vkMapMemory");
+    VMA_FETCH_DEVICE_FUNC(vkUnmapMemory, PFN_vkUnmapMemory, "vkUnmapMemory");
+    VMA_FETCH_DEVICE_FUNC(vkFlushMappedMemoryRanges, PFN_vkFlushMappedMemoryRanges, "vkFlushMappedMemoryRanges");
+    VMA_FETCH_DEVICE_FUNC(vkInvalidateMappedMemoryRanges, PFN_vkInvalidateMappedMemoryRanges, "vkInvalidateMappedMemoryRanges");
+    VMA_FETCH_DEVICE_FUNC(vkBindBufferMemory, PFN_vkBindBufferMemory, "vkBindBufferMemory");
+    VMA_FETCH_DEVICE_FUNC(vkBindImageMemory, PFN_vkBindImageMemory, "vkBindImageMemory");
+    VMA_FETCH_DEVICE_FUNC(vkGetBufferMemoryRequirements, PFN_vkGetBufferMemoryRequirements, "vkGetBufferMemoryRequirements");
+    VMA_FETCH_DEVICE_FUNC(vkGetImageMemoryRequirements, PFN_vkGetImageMemoryRequirements, "vkGetImageMemoryRequirements");
+    VMA_FETCH_DEVICE_FUNC(vkCreateBuffer, PFN_vkCreateBuffer, "vkCreateBuffer");
+    VMA_FETCH_DEVICE_FUNC(vkDestroyBuffer, PFN_vkDestroyBuffer, "vkDestroyBuffer");
+    VMA_FETCH_DEVICE_FUNC(vkCreateImage, PFN_vkCreateImage, "vkCreateImage");
+    VMA_FETCH_DEVICE_FUNC(vkDestroyImage, PFN_vkDestroyImage, "vkDestroyImage");
+    VMA_FETCH_DEVICE_FUNC(vkCmdCopyBuffer, PFN_vkCmdCopyBuffer, "vkCmdCopyBuffer");
+
+#if VMA_DEDICATED_ALLOCATION
+    if(m_UseKhrDedicatedAllocation)
+    {
+        VMA_FETCH_DEVICE_FUNC(vkGetBufferMemoryRequirements2KHR, PFN_vkGetBufferMemoryRequirements2KHR, "vkGetBufferMemoryRequirements2KHR");
+        VMA_FETCH_DEVICE_FUNC(vkGetImageMemoryRequirements2KHR, PFN_vkGetImageMemoryRequirements2KHR, "vkGetImageMemoryRequirements2KHR");
+    }
+#endif
+
+#if VMA_BIND_MEMORY2
+    if(m_UseKhrBindMemory2)
+    {
+        VMA_FETCH_DEVICE_FUNC(vkBindBufferMemory2KHR, PFN_vkBindBufferMemory2KHR, "vkBindBufferMemory2KHR");
+        VMA_FETCH_DEVICE_FUNC(vkBindImageMemory2KHR, PFN_vkBindImageMemory2KHR, "vkBindImageMemory2KHR");
+    }
+#endif // #if VMA_BIND_MEMORY2
+
+#if VMA_MEMORY_BUDGET
+    if(m_UseExtMemoryBudget && m_VulkanApiVersion < VK_MAKE_VERSION(1, 1, 0))
+    {
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2KHR");
+    }
+#endif // #if VMA_MEMORY_BUDGET
+
+#undef VMA_FETCH_DEVICE_FUNC
+#undef VMA_FETCH_INSTANCE_FUNC
+}
+
+void VmaAllocator_T::ValidateVulkanFunctions()
+{
     VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceProperties != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkAllocateMemory != VMA_NULL);
@@ -15420,6 +15524,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
     VMA_ASSERT(m_VulkanFunctions.vkCreateImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkDestroyImage != VMA_NULL);
     VMA_ASSERT(m_VulkanFunctions.vkCmdCopyBuffer != VMA_NULL);
+
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0) || m_UseKhrDedicatedAllocation)
     {
@@ -15427,6 +15532,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         VMA_ASSERT(m_VulkanFunctions.vkGetImageMemoryRequirements2KHR != VMA_NULL);
     }
 #endif
+
 #if VMA_BIND_MEMORY2 || VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0) || m_UseKhrBindMemory2)
     {
@@ -15434,6 +15540,7 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
         VMA_ASSERT(m_VulkanFunctions.vkBindImageMemory2KHR != VMA_NULL);
     }
 #endif
+
 #if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
     if(m_UseExtMemoryBudget || m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {

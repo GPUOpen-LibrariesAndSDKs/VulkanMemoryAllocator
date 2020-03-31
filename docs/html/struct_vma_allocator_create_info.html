@@ -107,7 +107,7 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:ace2aa4877b16a42b0b7673d4e26000ee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording of VMA calls. Can be null.  <a href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee">More...</a><br /></td></tr>
 <tr class="separator:ace2aa4877b16a42b0b7673d4e26000ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="memItemLeft" align="right" valign="top">VkInstance&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">instance</a></td></tr>
-<tr class="memdesc:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional handle to Vulkan instance object.  <a href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">More...</a><br /></td></tr>
+<tr class="memdesc:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Handle to Vulkan instance object.  <a href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">More...</a><br /></td></tr>
 <tr class="separator:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae0ffc55139b54520a6bb704b29ffc285"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285">vulkanApiVersion</a></td></tr>
 <tr class="memdesc:ae0ffc55139b54520a6bb704b29ffc285"><td class="mdescLeft">&#160;</td><td class="mdescRight">Optional. The highest version of Vulkan that the application is designed to use.  <a href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285">More...</a><br /></td></tr>
@@ -180,8 +180,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Optional handle to Vulkan instance object. </p>
-<p>Optional, can be null. Must be set if <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0">VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT</a> flas is used or if <code>vulkanApiVersion &gt;= VK_MAKE_VERSION(1, 1, 0)</code>. </p>
+<p>Handle to Vulkan instance object. </p>
+<p>Starting from version 3.0.0 this member is no longer optional, it must be set! </p>
 
 </div>
 </div>
@@ -307,7 +307,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pointers to Vulkan functions. Can be null. </p>
-<p>You can pass null as this member, because the library will fetch pointers to Vulkan functions internally. Fill this member if you want to provide your own pointers to Vulkan functions, e.g. fetched using <code>vkGetInstanceProcAddr()</code> and <code>vkGetDeviceProcAddr()</code>. </p>
+<p>For details see <a class="el" href="configuration.html#config_Vulkan_functions">Pointers to Vulkan functions</a>. </p>
 
 </div>
 </div>
