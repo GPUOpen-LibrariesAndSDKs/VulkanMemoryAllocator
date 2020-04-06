@@ -3778,6 +3778,12 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 #ifdef VMA_IMPLEMENTATION
 #undef VMA_IMPLEMENTATION
 
+// Only the public API has nullability annotations, not the implementation
+#ifdef __clang__
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wnullability-completeness"
+#endif
+
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -18628,5 +18634,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
             &allocation);
     }
 }
+
+#ifdef __clang__
+    // -Wnullability-completeness
+    #pragma clang diagnostic pop
+#endif
 
 #endif // #ifdef VMA_IMPLEMENTATION
