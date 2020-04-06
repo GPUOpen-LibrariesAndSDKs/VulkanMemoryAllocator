@@ -2337,7 +2337,7 @@ typedef struct VmaAllocatorCreateInfo
 /// Creates Allocator object.
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
     const VmaAllocatorCreateInfo* VMA_NOT_NULL pCreateInfo,
-    VmaAllocator* VMA_NOT_NULL pAllocator);
+    VmaAllocator VMA_NULLABLE * VMA_NOT_NULL pAllocator);
 
 /// Destroys allocator object.
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyAllocator(
@@ -2377,7 +2377,7 @@ You can access it here, without fetching it again on your own.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPhysicalDeviceProperties(
     VmaAllocator VMA_NOT_NULL allocator,
-    const VkPhysicalDeviceProperties** VMA_NOT_NULL ppPhysicalDeviceProperties);
+    const VkPhysicalDeviceProperties* VMA_NULLABLE * VMA_NOT_NULL ppPhysicalDeviceProperties);
 
 /**
 PhysicalDeviceMemoryProperties are fetched from physicalDevice by the allocator.
@@ -2385,7 +2385,7 @@ You can access it here, without fetching it again on your own.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetMemoryProperties(
     VmaAllocator VMA_NOT_NULL allocator,
-    const VkPhysicalDeviceMemoryProperties** VMA_NOT_NULL ppPhysicalDeviceMemoryProperties);
+    const VkPhysicalDeviceMemoryProperties* VMA_NULLABLE * VMA_NOT_NULL ppPhysicalDeviceMemoryProperties);
 
 /**
 \brief Given Memory Type Index, returns Property Flags of this memory type.
@@ -2515,7 +2515,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
     VmaAllocator VMA_NOT_NULL allocator,
-    char** VMA_NOT_NULL ppStatsString,
+    char* VMA_NULLABLE * VMA_NOT_NULL ppStatsString,
     VkBool32 detailedMap);
 
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
@@ -2956,7 +2956,7 @@ typedef struct VmaPoolStats {
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreatePool(
 	VmaAllocator VMA_NOT_NULL allocator,
 	const VmaPoolCreateInfo* VMA_NOT_NULL pCreateInfo,
-	VmaPool* VMA_NOT_NULL pPool);
+	VmaPool VMA_NULLABLE * VMA_NOT_NULL pPool);
 
 /** \brief Destroys #VmaPool object and frees Vulkan device memory.
 */
@@ -3011,7 +3011,7 @@ destroyed or its name is changed using vmaSetPoolName().
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaPool VMA_NOT_NULL pool,
-    const char** VMA_NOT_NULL ppName);
+    const char* VMA_NULLABLE * VMA_NOT_NULL ppName);
 
 /** \brief Sets name of a custom pool.
 
@@ -3106,7 +3106,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
     VmaAllocator VMA_NOT_NULL allocator,
     const VkMemoryRequirements* VMA_NOT_NULL pVkMemoryRequirements,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
-    VmaAllocation* VMA_NOT_NULL pAllocation,
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
 /** \brief General purpose memory allocation for multiple allocation objects at once.
@@ -3133,7 +3133,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
     const VkMemoryRequirements* VMA_NOT_NULL pVkMemoryRequirements,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
     size_t allocationCount,
-    VmaAllocation* VMA_NOT_NULL pAllocations VMA_LEN_IF_NOT_NULL(allocationCount),
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocations VMA_LEN_IF_NOT_NULL(allocationCount),
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo VMA_LEN_IF_NOT_NULL(allocationCount));
 
 /**
@@ -3146,7 +3146,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
     VmaAllocator VMA_NOT_NULL allocator,
     VkBuffer VMA_NOT_NULL_NON_DISPATCHABLE buffer,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
-    VmaAllocation* VMA_NOT_NULL pAllocation,
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
 /// Function similar to vmaAllocateMemoryForBuffer().
@@ -3154,7 +3154,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
     VmaAllocator VMA_NOT_NULL allocator,
     VkImage VMA_NOT_NULL_NON_DISPATCHABLE image,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
-    VmaAllocation* VMA_NOT_NULL pAllocation,
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
 /** \brief Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(), or vmaAllocateMemoryForImage().
@@ -3261,7 +3261,7 @@ a real, non-empty allocation.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaCreateLostAllocation(
     VmaAllocator VMA_NOT_NULL allocator,
-    VmaAllocation* VMA_NOT_NULL pAllocation);
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation);
 
 /** \brief Maps memory represented by given allocation and returns pointer to it.
 
@@ -3304,7 +3304,7 @@ you also need to use vmaInvalidateAllocation() / vmaFlushAllocation(), as requir
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapMemory(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation,
-    void** VMA_NOT_NULL ppData);
+    void* VMA_NULLABLE * VMA_NOT_NULL ppData);
 
 /** \brief Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().
 
@@ -3552,7 +3552,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin(
     VmaAllocator VMA_NOT_NULL allocator,
     const VmaDefragmentationInfo2* VMA_NOT_NULL pInfo,
     VmaDefragmentationStats* VMA_NULLABLE pStats,
-    VmaDefragmentationContext* VMA_NOT_NULL pContext);
+    VmaDefragmentationContext VMA_NULLABLE * VMA_NOT_NULL pContext);
 
 /** \brief Ends defragmentation process.
 
@@ -3719,8 +3719,8 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
     VmaAllocator VMA_NOT_NULL allocator,
     const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pAllocationCreateInfo,
-    VkBuffer* VMA_NOT_NULL pBuffer,
-    VmaAllocation* VMA_NOT_NULL pAllocation,
+    VkBuffer VMA_NULLABLE_NON_DISPATCHABLE * VMA_NOT_NULL pBuffer,
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
 /** \brief Destroys Vulkan buffer and frees allocated memory.
@@ -3744,8 +3744,8 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
     VmaAllocator VMA_NOT_NULL allocator,
     const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pAllocationCreateInfo,
-    VkImage* VMA_NOT_NULL pImage,
-    VmaAllocation* VMA_NOT_NULL pAllocation,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE * VMA_NOT_NULL pImage,
+    VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
 /** \brief Destroys Vulkan image and frees allocated memory.
