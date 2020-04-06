@@ -1999,6 +1999,11 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 // The length may be one of
 // - The name of another parameter in the argument list where the pointer is declared
 // - The name of another member in the struct where the pointer is declared
+// - The name of a member of a struct type, meaning the value of that member in
+//   the context of the call. For example
+//   VMA_LEN_IF_NOT_NULL("VkPhysicalDeviceMemoryProperties::memoryHeapCount"),
+//   this means the number of memory heaps available in the device associated
+//   with the VmaAllocator being dealt with.
 #ifndef VMA_LEN_IF_NOT_NULL
     #define VMA_LEN_IF_NOT_NULL(len)
 #endif
@@ -2304,7 +2309,7 @@ typedef struct VmaAllocatorCreateInfo
     blocks to system RAM. This driver behavior can also be controlled using
     VK_AMD_memory_overallocation_behavior extension.
     */
-    const VkDeviceSize* VMA_NULLABLE pHeapSizeLimit;
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL("VkPhysicalDeviceMemoryProperties::memoryHeapCount") pHeapSizeLimit;
 
     /** \brief Pointers to Vulkan functions. Can be null.
 
