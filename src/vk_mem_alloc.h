@@ -7595,9 +7595,17 @@ private:
 #endif
 
     void ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions);
+
+#if VMA_STATIC_VULKAN_FUNCTIONS == 1
     void ImportVulkanFunctions_Static();
+#endif
+
     void ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVulkanFunctions);
+
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS == 1
     void ImportVulkanFunctions_Dynamic();
+#endif
+
     void ValidateVulkanFunctions();
 
     VkDeviceSize CalcPreferredBlockSize(uint32_t memTypeIndex);
@@ -15453,6 +15461,8 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
 #undef VMA_COPY_IF_NOT_NULL
 }
 
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS == 1
+
 void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
 {
 #define VMA_FETCH_INSTANCE_FUNC(memberName, functionPointerType, functionNameString) \
@@ -15508,6 +15518,8 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
 #undef VMA_FETCH_DEVICE_FUNC
 #undef VMA_FETCH_INSTANCE_FUNC
 }
+
+#endif // #if VMA_DYNAMIC_VULKAN_FUNCTIONS == 1
 
 void VmaAllocator_T::ValidateVulkanFunctions()
 {
