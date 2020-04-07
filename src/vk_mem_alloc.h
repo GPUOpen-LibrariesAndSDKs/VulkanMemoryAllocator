@@ -1932,7 +1932,11 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 #endif
 
 #if VMA_RECORDING_ENABLED
-    #include <windows.h>
+    #if defined(_WIN32)
+        #include <windows.h>
+    #else
+        #error "VMA Recording functionality is not yet available for non-Windows platforms"
+    #endif
 #endif
 
 // Define this macro to declare maximum supported Vulkan version in format AAABBBCCC,
