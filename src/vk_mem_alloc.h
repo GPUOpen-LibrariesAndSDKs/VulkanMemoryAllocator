@@ -1935,7 +1935,7 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #if defined(_WIN32)
         #include <windows.h>
     #else
-        #error "VMA Recording functionality is not yet available for non-Windows platforms"
+        #error VMA Recording functionality is not yet available for non-Windows platforms
     #endif
 #endif
 
