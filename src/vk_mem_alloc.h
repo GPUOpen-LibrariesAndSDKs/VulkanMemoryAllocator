@@ -2197,33 +2197,33 @@ typedef VkFlags VmaAllocatorCreateFlags;
 Used in VmaAllocatorCreateInfo::pVulkanFunctions.
 */
 typedef struct VmaVulkanFunctions {
-    PFN_vkGetPhysicalDeviceProperties VMA_NOT_NULL vkGetPhysicalDeviceProperties;
-    PFN_vkGetPhysicalDeviceMemoryProperties VMA_NOT_NULL vkGetPhysicalDeviceMemoryProperties;
-    PFN_vkAllocateMemory VMA_NOT_NULL vkAllocateMemory;
-    PFN_vkFreeMemory VMA_NOT_NULL vkFreeMemory;
-    PFN_vkMapMemory VMA_NOT_NULL vkMapMemory;
-    PFN_vkUnmapMemory VMA_NOT_NULL vkUnmapMemory;
-    PFN_vkFlushMappedMemoryRanges VMA_NOT_NULL vkFlushMappedMemoryRanges;
-    PFN_vkInvalidateMappedMemoryRanges VMA_NOT_NULL vkInvalidateMappedMemoryRanges;
-    PFN_vkBindBufferMemory VMA_NOT_NULL vkBindBufferMemory;
-    PFN_vkBindImageMemory VMA_NOT_NULL vkBindImageMemory;
-    PFN_vkGetBufferMemoryRequirements VMA_NOT_NULL vkGetBufferMemoryRequirements;
-    PFN_vkGetImageMemoryRequirements VMA_NOT_NULL vkGetImageMemoryRequirements;
-    PFN_vkCreateBuffer VMA_NOT_NULL vkCreateBuffer;
-    PFN_vkDestroyBuffer VMA_NOT_NULL vkDestroyBuffer;
-    PFN_vkCreateImage VMA_NOT_NULL vkCreateImage;
-    PFN_vkDestroyImage VMA_NOT_NULL vkDestroyImage;
-    PFN_vkCmdCopyBuffer VMA_NOT_NULL vkCmdCopyBuffer;
+    PFN_vkGetPhysicalDeviceProperties VMA_NULLABLE vkGetPhysicalDeviceProperties;
+    PFN_vkGetPhysicalDeviceMemoryProperties VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties;
+    PFN_vkAllocateMemory VMA_NULLABLE vkAllocateMemory;
+    PFN_vkFreeMemory VMA_NULLABLE vkFreeMemory;
+    PFN_vkMapMemory VMA_NULLABLE vkMapMemory;
+    PFN_vkUnmapMemory VMA_NULLABLE vkUnmapMemory;
+    PFN_vkFlushMappedMemoryRanges VMA_NULLABLE vkFlushMappedMemoryRanges;
+    PFN_vkInvalidateMappedMemoryRanges VMA_NULLABLE vkInvalidateMappedMemoryRanges;
+    PFN_vkBindBufferMemory VMA_NULLABLE vkBindBufferMemory;
+    PFN_vkBindImageMemory VMA_NULLABLE vkBindImageMemory;
+    PFN_vkGetBufferMemoryRequirements VMA_NULLABLE vkGetBufferMemoryRequirements;
+    PFN_vkGetImageMemoryRequirements VMA_NULLABLE vkGetImageMemoryRequirements;
+    PFN_vkCreateBuffer VMA_NULLABLE vkCreateBuffer;
+    PFN_vkDestroyBuffer VMA_NULLABLE vkDestroyBuffer;
+    PFN_vkCreateImage VMA_NULLABLE vkCreateImage;
+    PFN_vkDestroyImage VMA_NULLABLE vkDestroyImage;
+    PFN_vkCmdCopyBuffer VMA_NULLABLE vkCmdCopyBuffer;
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
-    PFN_vkGetBufferMemoryRequirements2KHR VMA_NOT_NULL vkGetBufferMemoryRequirements2KHR;
-    PFN_vkGetImageMemoryRequirements2KHR VMA_NOT_NULL vkGetImageMemoryRequirements2KHR;
+    PFN_vkGetBufferMemoryRequirements2KHR VMA_NULLABLE vkGetBufferMemoryRequirements2KHR;
+    PFN_vkGetImageMemoryRequirements2KHR VMA_NULLABLE vkGetImageMemoryRequirements2KHR;
 #endif
 #if VMA_BIND_MEMORY2 || VMA_VULKAN_VERSION >= 1001000
-    PFN_vkBindBufferMemory2KHR VMA_NOT_NULL vkBindBufferMemory2KHR;
-    PFN_vkBindImageMemory2KHR VMA_NOT_NULL vkBindImageMemory2KHR;
+    PFN_vkBindBufferMemory2KHR VMA_NULLABLE vkBindBufferMemory2KHR;
+    PFN_vkBindImageMemory2KHR VMA_NULLABLE vkBindImageMemory2KHR;
 #endif
 #if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
-    PFN_vkGetPhysicalDeviceMemoryProperties2KHR VMA_NOT_NULL vkGetPhysicalDeviceMemoryProperties2KHR;
+    PFN_vkGetPhysicalDeviceMemoryProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties2KHR;
 #endif
 } VmaVulkanFunctions;
 
@@ -2331,7 +2331,7 @@ typedef struct VmaAllocatorCreateInfo
 
     Starting from version 3.0.0 this member is no longer optional, it must be set!
     */
-    VkInstance VMA_NOT_NULL instance;
+    VkInstance VMA_NOT_NULL_NON_DISPATCHABLE instance;
     /** \brief Optional. The highest version of Vulkan that the application is designed to use.
     
     It must be a value in the format as created by macro `VK_MAKE_VERSION` or a constant like: `VK_API_VERSION_1_1`, `VK_API_VERSION_1_0`.
@@ -3427,7 +3427,7 @@ typedef struct VmaDefragmentationInfo2 {
     It is safe to pass allocations that are in the lost state - they are ignored.
     All allocations not present in this array are considered non-moveable during this defragmentation.
     */
-    const VmaAllocation VMA_NOT_NULL * VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(allocationCount) pAllocations;
+    const VmaAllocation VMA_NOT_NULL * VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) pAllocations;
     /** \brief Optional, output. Pointer to array that will be filled with information whether the allocation at certain index has been changed during defragmentation.
 
     The array should have `allocationCount` elements.
@@ -3481,7 +3481,7 @@ typedef struct VmaDefragmentationInfo2 {
 
     Passing null means that only CPU defragmentation will be performed.
     */
-    VkCommandBuffer VMA_NULLABLE commandBuffer;
+    VkCommandBuffer VMA_NULLABLE_NON_DISPATCHABLE commandBuffer;
 } VmaDefragmentationInfo2;
 
 typedef struct VmaDefragmentationPassMoveInfo {
@@ -3786,12 +3786,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 
 #ifdef VMA_IMPLEMENTATION
 #undef VMA_IMPLEMENTATION
-
-// Only the public API has nullability annotations, not the implementation
-#ifdef __clang__
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wnullability-completeness"
-#endif
 
 #include <cstdint>
 #include <cstdlib>
@@ -18655,10 +18649,5 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
             &allocation);
     }
 }
-
-#ifdef __clang__
-    // -Wnullability-completeness
-    #pragma clang diagnostic pop
-#endif
 
 #endif // #ifdef VMA_IMPLEMENTATION
