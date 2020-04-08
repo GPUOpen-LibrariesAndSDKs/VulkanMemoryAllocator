@@ -112,7 +112,7 @@ Public Attributes</h2></td></tr>
 
 <p>Handle to Vulkan memory object. </p>
 <p>Same memory object can be shared by multiple allocations.</p>
-<p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost.</p>
+<p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost.</p>
 <p>If the allocation is lost, it is equal to <code>VK_NULL_HANDLE</code>. </p>
 
 </div>
@@ -147,7 +147,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Offset into deviceMemory object to the beginning of this allocation, in bytes. (deviceMemory, offset) pair is unique to this allocation. </p>
-<p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost. </p>
+<p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost. </p>
 
 </div>
 </div>
@@ -164,8 +164,8 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pointer to the beginning of this allocation as mapped data. </p>
-<p>If the allocation hasn't been mapped using <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> and hasn't been created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag, this value null.</p>
-<p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a>. It can also change after call to <a class="el" href="vk__mem__alloc_8h.html#a6aced90fcc7b39882b6654a740a0b9bb" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p>If the allocation hasn't been mapped using <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> and hasn't been created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag, this value is null.</p>
+<p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a>. It can also change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
 
 </div>
 </div>
