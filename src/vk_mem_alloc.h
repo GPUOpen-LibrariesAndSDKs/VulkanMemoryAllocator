@@ -2331,7 +2331,7 @@ typedef struct VmaAllocatorCreateInfo
 
     Starting from version 3.0.0 this member is no longer optional, it must be set!
     */
-    VkInstance VMA_NOT_NULL_NON_DISPATCHABLE instance;
+    VkInstance VMA_NOT_NULL instance;
     /** \brief Optional. The highest version of Vulkan that the application is designed to use.
     
     It must be a value in the format as created by macro `VK_MAKE_VERSION` or a constant like: `VK_API_VERSION_1_1`, `VK_API_VERSION_1_0`.
@@ -3481,7 +3481,7 @@ typedef struct VmaDefragmentationInfo2 {
 
     Passing null means that only CPU defragmentation will be performed.
     */
-    VkCommandBuffer VMA_NULLABLE_NON_DISPATCHABLE commandBuffer;
+    VkCommandBuffer VMA_NULLABLE commandBuffer;
 } VmaDefragmentationInfo2;
 
 typedef struct VmaDefragmentationPassMoveInfo {
