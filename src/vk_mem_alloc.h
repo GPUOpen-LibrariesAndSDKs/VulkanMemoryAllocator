@@ -7330,11 +7330,11 @@ private:
     {
     public:
         UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData);
-        const char* GetString() const { return m_Str; }
+        const char* GetString() const { return m_Str.c_str(); }
 
     private:
         char m_PtrStr[17];
-        const char* m_Str;
+        std::string m_Str;
     };
 
     bool m_UseMutex;
@@ -15105,8 +15105,10 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
         }
         else
         {
-            sprintf_s(m_PtrStr, "%p", pUserData);
-            m_Str = m_PtrStr;
+            // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a std::string and store it.
+            std::stringstream user_data_address_to_string_converter;
+            user_data_address_to_string_converter << pUserData;
+            m_Str = user_data_address_to_string_converter.str();
         }
     }
     else
