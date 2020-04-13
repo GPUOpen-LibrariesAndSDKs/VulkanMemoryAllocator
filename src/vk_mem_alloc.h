@@ -7228,6 +7228,10 @@ private:
 
 #if VMA_RECORDING_ENABLED
 
+#include <sstream>
+#include <thread>
+#include <chrono>
+
 class VmaRecorder
 {
 public:
@@ -7337,8 +7341,7 @@ private:
     VmaRecordFlags m_Flags;
     FILE* m_File;
     VMA_MUTEX m_FileMutex;
-    int64_t m_Freq;
-    int64_t m_StartCounter;
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_RecordingStartTime;
 
     void GetBasicParams(CallParams& outParams);
 
@@ -14617,8 +14620,7 @@ VmaRecorder::VmaRecorder() :
     m_UseMutex(true),
     m_Flags(0),
     m_File(VMA_NULL),
-    m_Freq(INT64_MAX),
-    m_StartCounter(INT64_MAX)
+	m_RecordingStartTime(std::chrono::high_resolution_clock::now())
 {
 }
 
@@ -14626,9 +14628,6 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 {
     m_UseMutex = useMutex;
     m_Flags = settings.flags;
-
-    QueryPerformanceFrequency((LARGE_INTEGER*)&m_Freq);
-    QueryPerformanceCounter((LARGE_INTEGER*)&m_StartCounter);
 
     // Open file for writing.
     errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
@@ -15163,10 +15162,11 @@ void VmaRecorder::WriteConfiguration(
 void VmaRecorder::GetBasicParams(CallParams& outParams)
 {
     outParams.threadId = GetCurrentThreadId();
+	
+    auto current_time = std::chrono::high_resolution_clock::now();
+    auto time_duration = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
 
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    outParams.time = (double)(counter.QuadPart - m_StartCounter) / (double)m_Freq;
+    outParams.time = time_duration;
 }
 
 void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
