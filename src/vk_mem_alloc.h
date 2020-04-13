@@ -14629,12 +14629,23 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
     m_UseMutex = useMutex;
     m_Flags = settings.flags;
 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
     // Open file for writing.
-    errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
-    if(err != 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
+	errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
+
+	if(err != 0)
+	{
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+#else
+    // Open file for writing.
+	m_File = fopen(settings.pFilePath, "wb");
+
+	if(m_File == 0)
+	{
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+#endif
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
