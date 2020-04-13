@@ -15161,7 +15161,12 @@ void VmaRecorder::WriteConfiguration(
 
 void VmaRecorder::GetBasicParams(CallParams& outParams)
 {
-    outParams.threadId = GetCurrentThreadId();
+    // Use C++11 features to get thread id and convert it to uint32_t.
+    std::thread::id thread_id = std::this_thread::get_id();
+    stringstream thread_id_to_string_converter;
+    thread_id_to_string_converter << thread_id;
+    string thread_id_as_string = thread_id_to_string_converter.str();
+    outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
 	
     auto current_time = std::chrono::high_resolution_clock::now();
     auto time_duration = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
