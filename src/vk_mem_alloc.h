@@ -438,7 +438,8 @@ Map/unmap operations don't do that automatically.
 Vulkan provides following functions for this purpose `vkFlushMappedMemoryRanges()`,
 `vkInvalidateMappedMemoryRanges()`, but this library provides more convenient
 functions that refer to given allocation object: vmaFlushAllocation(),
-vmaInvalidateAllocation().
+vmaInvalidateAllocation(),
+or multiple objects at once: vmaFlushAllocations(), vmaInvalidateAllocations().
 
 Regions of memory specified for flush/invalidate must be aligned to
 `VkPhysicalDeviceLimits::nonCoherentAtomSize`. This is automatically ensured by the library.
@@ -3381,6 +3382,48 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(
     VkDeviceSize offset,
     VkDeviceSize size);
 
+/** \brief Flushes memory of given set of allocations.
+
+Calls `vkFlushMappedMemoryRanges()` for memory associated with given ranges of given allocations.
+For more information, see documentation of vmaFlushAllocation().
+
+\param allocator
+\param allocationCount
+\param allocations
+\param offsets If not null, it must point to an array of offsets of regions to flush, relative to the beginning of respective allocations. Null means all ofsets are zero.
+\param sizes If not null, it must point to an array of sizes of regions to flush in respective allocations. Null means `VK_WHOLE_SIZE` for all allocations.
+
+This function returns the `VkResult` from `vkFlushMappedMemoryRanges` if it is
+called, otherwise `VK_SUCCESS`.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocations(
+    VmaAllocator VMA_NOT_NULL allocator,
+    uint32_t allocationCount,
+    const VmaAllocation VMA_NOT_NULL * VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) allocations,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) offsets,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) sizes);
+
+/** \brief Invalidates memory of given set of allocations.
+
+Calls `vkInvalidateMappedMemoryRanges()` for memory associated with given ranges of given allocations.
+For more information, see documentation of vmaInvalidateAllocation().
+
+\param allocator
+\param allocationCount
+\param allocations
+\param offsets If not null, it must point to an array of offsets of regions to flush, relative to the beginning of respective allocations. Null means all ofsets are zero.
+\param sizes If not null, it must point to an array of sizes of regions to flush in respective allocations. Null means `VK_WHOLE_SIZE` for all allocations.
+
+This function returns the `VkResult` from `vkInvalidateMappedMemoryRanges` if it is
+called, otherwise `VK_SUCCESS`.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocations(
+    VmaAllocator VMA_NOT_NULL allocator,
+    uint32_t allocationCount,
+    const VmaAllocation VMA_NOT_NULL * VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) allocations,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) offsets,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) sizes);
+
 /** \brief Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions.
 
 @param memoryTypeBits Bit mask, where each bit set means that a memory type with that index should be checked.
@@ -4963,6 +5006,175 @@ bool VmaVectorRemoveSorted(VectorT& vector, const typename VectorT::value_type& 
     }
     return false;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// class VmaSmallVector
+
+/*
+This is a vector (a variable-sized array), optimized for the case when the array is small.
+
+It contains some number of elements in-place, which allows it to avoid heap allocation
+when the actual number of elements is below that threshold. This allows normal "small"
+cases to be fast without losing generality for large inputs.
+*/
+
+template<typename T, typename AllocatorT, size_t N>
+class VmaSmallVector
+{
+public:
+    typedef T value_type;
+
+    VmaSmallVector(const AllocatorT& allocator) :
+        m_Count(0),
+        m_DynamicArray(allocator)
+    {
+    }
+    VmaSmallVector(size_t count, const AllocatorT& allocator) :
+        m_Count(count),
+        m_DynamicArray(count > N ? count : 0, allocator)
+    {
+    }
+    template<typename SrcT, typename SrcAllocatorT, size_t SrcN>
+    VmaSmallVector(const VmaSmallVector<SrcT, SrcAllocatorT, SrcN>& src) = delete;
+    template<typename SrcT, typename SrcAllocatorT, size_t SrcN>
+    VmaSmallVector<T, AllocatorT, N>& operator=(const VmaSmallVector<SrcT, SrcAllocatorT, SrcN>& rhs) = delete;
+
+    bool empty() const { return m_Count == 0; }
+    size_t size() const { return m_Count; }
+    T* data() { return m_Count > N ? m_DynamicArray.data() : m_StaticArray; }
+    const T* data() const { return m_Count > N ? m_DynamicArray.data() : m_StaticArray; }
+
+    T& operator[](size_t index)
+    {
+        VMA_HEAVY_ASSERT(index < m_Count);
+        return data()[index];
+    }
+    const T& operator[](size_t index) const
+    {
+        VMA_HEAVY_ASSERT(index < m_Count);
+        return data()[index];
+    }
+
+    T& front()
+    {
+        VMA_HEAVY_ASSERT(m_Count > 0);
+        return data()[0];
+    }
+    const T& front() const
+    {
+        VMA_HEAVY_ASSERT(m_Count > 0);
+        return data()[0];
+    }
+    T& back()
+    {
+        VMA_HEAVY_ASSERT(m_Count > 0);
+        return data()[m_Count - 1];
+    }
+    const T& back() const
+    {
+        VMA_HEAVY_ASSERT(m_Count > 0);
+        return data()[m_Count - 1];
+    }
+
+    void resize(size_t newCount, bool freeMemory = false)
+    {
+        if(newCount > N && m_Count > N)
+        {
+            // Any direction, staying in m_DynamicArray
+            m_DynamicArray.resize(newCount, freeMemory);
+        }
+        else if(newCount > N && m_Count <= N)
+        {
+            // Growing, moving from m_StaticArray to m_DynamicArray
+            m_DynamicArray.resize(newCount, freeMemory);
+            if(m_Count > 0)
+            {
+                memcpy(m_DynamicArray.data(), m_StaticArray, m_Count * sizeof(T));
+            }
+        }
+        else if(newCount <= N && m_Count > N)
+        {
+            // Shrinking, moving from m_DynamicArray to m_StaticArray
+            if(newCount > 0)
+            {
+                memcpy(m_StaticArray, m_DynamicArray.data(), newCount * sizeof(T));
+            }
+            m_DynamicArray.resize(0, freeMemory);
+        }
+        else
+        {
+            // Any direction, staying in m_StaticArray - nothing to do here
+        }
+        m_Count = newCount;
+    }
+
+    void clear(bool freeMemory = false)
+    {
+        m_DynamicArray.clear(freeMemory);
+        m_Count = 0;
+    }
+
+    void insert(size_t index, const T& src)
+    {
+        VMA_HEAVY_ASSERT(index <= m_Count);
+        const size_t oldCount = size();
+        resize(oldCount + 1);
+        T* const dataPtr = data();
+        if(index < oldCount)
+        {
+            //  I know, this could be more optimal for case where memmove can be memcpy directly from m_StaticArray to m_DynamicArray.
+            memmove(dataPtr + (index + 1), dataPtr + index, (oldCount - index) * sizeof(T));
+        }
+        dataPtr[index] = src;
+    }
+
+    void remove(size_t index)
+    {
+        VMA_HEAVY_ASSERT(index < m_Count);
+        const size_t oldCount = size();
+        if(index < oldCount - 1)
+        {
+            //  I know, this could be more optimal for case where memmove can be memcpy directly from m_DynamicArray to m_StaticArray.
+            T* const dataPtr = data();
+            memmove(dataPtr + index, dataPtr + (index + 1), (oldCount - index - 1) * sizeof(T));
+        }
+        resize(oldCount - 1);
+    }
+
+    void push_back(const T& src)
+    {
+        const size_t newIndex = size();
+        resize(newIndex + 1);
+        data()[newIndex] = src;
+    }
+
+    void pop_back()
+    {
+        VMA_HEAVY_ASSERT(m_Count > 0);
+        resize(size() - 1);
+    }
+
+    void push_front(const T& src)
+    {
+        insert(0, src);
+    }
+
+    void pop_front()
+    {
+        VMA_HEAVY_ASSERT(m_Count > 0);
+        remove(0);
+    }
+
+    typedef T* iterator;
+
+    iterator begin() { return data(); }
+    iterator end() { return data() + m_Count; }
+
+private:
+    size_t m_Count;
+    T m_StaticArray[N]; // Used when m_Size <= N
+    VmaVector<T, AllocatorT> m_DynamicArray; // Used when m_Size > N
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // class VmaPoolAllocator
@@ -7632,6 +7844,11 @@ public:
         VmaAllocation hAllocation,
         VkDeviceSize offset, VkDeviceSize size,
         VMA_CACHE_OPERATION op);
+    VkResult FlushOrInvalidateAllocations(
+        uint32_t allocationCount,
+        const VmaAllocation* allocations,
+        const VkDeviceSize* offsets, const VkDeviceSize* sizes,
+        VMA_CACHE_OPERATION op);
 
     void FillAllocation(const VmaAllocation hAllocation, uint8_t pattern);
 
@@ -7726,6 +7943,11 @@ private:
     uint32_t CalculateGpuDefragmentationMemoryTypeBits() const;
 
     uint32_t CalculateGlobalMemoryTypeBits() const;
+
+    bool GetFlushOrInvalidateRange(
+        VmaAllocation allocation,
+        VkDeviceSize offset, VkDeviceSize size,
+        VkMappedMemoryRange& outRange) const;
 
 #if VMA_MEMORY_BUDGET
     void UpdateVulkanBudget();
@@ -16882,63 +17104,11 @@ VkResult VmaAllocator_T::FlushOrInvalidateAllocation(
     VkDeviceSize offset, VkDeviceSize size,
     VMA_CACHE_OPERATION op)
 {
-    const uint32_t memTypeIndex = hAllocation->GetMemoryTypeIndex();
     VkResult res = VK_SUCCESS;
-    if(size > 0 && IsMemoryTypeNonCoherent(memTypeIndex))
+
+    VkMappedMemoryRange memRange = {};
+    if(GetFlushOrInvalidateRange(hAllocation, offset, size, memRange))
     {
-        const VkDeviceSize allocationSize = hAllocation->GetSize();
-        VMA_ASSERT(offset <= allocationSize);
-
-        const VkDeviceSize nonCoherentAtomSize = m_PhysicalDeviceProperties.limits.nonCoherentAtomSize;
-
-        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-        memRange.memory = hAllocation->GetMemory();
-        
-        switch(hAllocation->GetType())
-        {
-        case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
-            memRange.offset = VmaAlignDown(offset, nonCoherentAtomSize);
-            if(size == VK_WHOLE_SIZE)
-            {
-                memRange.size = allocationSize - memRange.offset;
-            }
-            else
-            {
-                VMA_ASSERT(offset + size <= allocationSize);
-                memRange.size = VMA_MIN(
-                    VmaAlignUp(size + (offset - memRange.offset), nonCoherentAtomSize),
-                    allocationSize - memRange.offset);
-            }
-            break;
-
-        case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
-        {
-            // 1. Still within this allocation.
-            memRange.offset = VmaAlignDown(offset, nonCoherentAtomSize);
-            if(size == VK_WHOLE_SIZE)
-            {
-                size = allocationSize - offset;
-            }
-            else
-            {
-                VMA_ASSERT(offset + size <= allocationSize);
-            }
-            memRange.size = VmaAlignUp(size + (offset - memRange.offset), nonCoherentAtomSize);
-
-            // 2. Adjust to whole block.
-            const VkDeviceSize allocationOffset = hAllocation->GetOffset();
-            VMA_ASSERT(allocationOffset % nonCoherentAtomSize == 0);
-            const VkDeviceSize blockSize = hAllocation->GetBlock()->m_pMetadata->GetSize();
-            memRange.offset += allocationOffset;
-            memRange.size = VMA_MIN(memRange.size, blockSize - memRange.offset);
-            
-            break;
-        }
-        
-        default:
-            VMA_ASSERT(0);
-        }
-
         switch(op)
         {
         case VMA_CACHE_FLUSH:
@@ -16946,6 +17116,47 @@ VkResult VmaAllocator_T::FlushOrInvalidateAllocation(
             break;
         case VMA_CACHE_INVALIDATE:
             res = (*GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hDevice, 1, &memRange);
+            break;
+        default:
+            VMA_ASSERT(0);
+        }
+    }
+    // else: Just ignore this call.
+    return res;
+}
+
+VkResult VmaAllocator_T::FlushOrInvalidateAllocations(
+    uint32_t allocationCount,
+    const VmaAllocation* allocations,
+    const VkDeviceSize* offsets, const VkDeviceSize* sizes,
+    VMA_CACHE_OPERATION op)
+{
+    typedef VmaStlAllocator<VkMappedMemoryRange> RangeAllocator;
+    typedef VmaSmallVector<VkMappedMemoryRange, RangeAllocator, 16> RangeVector;
+    RangeVector ranges = RangeVector(RangeAllocator(GetAllocationCallbacks()));
+    
+    for(uint32_t allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
+    {
+        const VmaAllocation alloc = allocations[allocIndex];
+        const VkDeviceSize offset = offsets != VMA_NULL ? offsets[allocIndex] : 0;
+        const VkDeviceSize size = sizes != VMA_NULL ? sizes[allocIndex] : VK_WHOLE_SIZE;
+        VkMappedMemoryRange newRange;
+        if(GetFlushOrInvalidateRange(alloc, offset, size, newRange))
+        {
+            ranges.push_back(newRange);
+        }
+    }
+
+    VkResult res = VK_SUCCESS;
+    if(!ranges.empty())
+    {
+        switch(op)
+        {
+        case VMA_CACHE_FLUSH:
+            res = (*GetVulkanFunctions().vkFlushMappedMemoryRanges)(m_hDevice, (uint32_t)ranges.size(), ranges.data());
+            break;
+        case VMA_CACHE_INVALIDATE:
+            res = (*GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hDevice, (uint32_t)ranges.size(), ranges.data());
             break;
         default:
             VMA_ASSERT(0);
@@ -17030,6 +17241,69 @@ uint32_t VmaAllocator_T::CalculateGlobalMemoryTypeBits() const
     }
 
     return memoryTypeBits;
+}
+
+bool VmaAllocator_T::GetFlushOrInvalidateRange(
+    VmaAllocation allocation,
+    VkDeviceSize offset, VkDeviceSize size,
+    VkMappedMemoryRange& outRange) const
+{
+    const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
+    if(size > 0 && IsMemoryTypeNonCoherent(memTypeIndex))
+    {
+        const VkDeviceSize nonCoherentAtomSize = m_PhysicalDeviceProperties.limits.nonCoherentAtomSize;
+        const VkDeviceSize allocationSize = allocation->GetSize();
+        VMA_ASSERT(offset <= allocationSize);
+
+        outRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        outRange.pNext = VMA_NULL;
+        outRange.memory = allocation->GetMemory();
+
+        switch(allocation->GetType())
+        {
+        case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
+            outRange.offset = VmaAlignDown(offset, nonCoherentAtomSize);
+            if(size == VK_WHOLE_SIZE)
+            {
+                outRange.size = allocationSize - outRange.offset;
+            }
+            else
+            {
+                VMA_ASSERT(offset + size <= allocationSize);
+                outRange.size = VMA_MIN(
+                    VmaAlignUp(size + (offset - outRange.offset), nonCoherentAtomSize),
+                    allocationSize - outRange.offset);
+            }
+            break;
+        case VmaAllocation_T::ALLOCATION_TYPE_BLOCK:
+        {
+            // 1. Still within this allocation.
+            outRange.offset = VmaAlignDown(offset, nonCoherentAtomSize);
+            if(size == VK_WHOLE_SIZE)
+            {
+                size = allocationSize - offset;
+            }
+            else
+            {
+                VMA_ASSERT(offset + size <= allocationSize);
+            }
+            outRange.size = VmaAlignUp(size + (offset - outRange.offset), nonCoherentAtomSize);
+
+            // 2. Adjust to whole block.
+            const VkDeviceSize allocationOffset = allocation->GetOffset();
+            VMA_ASSERT(allocationOffset % nonCoherentAtomSize == 0);
+            const VkDeviceSize blockSize = allocation->GetBlock()->m_pMetadata->GetSize();
+            outRange.offset += allocationOffset;
+            outRange.size = VMA_MIN(outRange.size, blockSize - outRange.offset);
+
+            break;
+        }
+        default:
+            VMA_ASSERT(0);
+        }
+        return true;
+    }
+    return false;
 }
 
 #if VMA_MEMORY_BUDGET
@@ -18139,7 +18413,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, V
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
+    const VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
 
 #if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
@@ -18161,7 +18435,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocat
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_INVALIDATE);
+    const VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_INVALIDATE);
 
 #if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
@@ -18169,6 +18443,70 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocat
         allocator->GetRecorder()->RecordInvalidateAllocation(
             allocator->GetCurrentFrameIndex(),
             allocation, offset, size);
+    }
+#endif
+
+    return res;
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocations(
+    VmaAllocator allocator,
+    uint32_t allocationCount,
+    const VmaAllocation* allocations,
+    const VkDeviceSize* offsets,
+    const VkDeviceSize* sizes)
+{
+    VMA_ASSERT(allocator);
+
+    if(allocationCount == 0)
+    {
+        return VK_SUCCESS;
+    }
+
+    VMA_ASSERT(allocations);
+
+    VMA_DEBUG_LOG("vmaFlushAllocations");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    const VkResult res = allocator->FlushOrInvalidateAllocations(allocationCount, allocations, offsets, sizes, VMA_CACHE_FLUSH);
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        //TODO
+    }
+#endif
+
+    return res;
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocations(
+    VmaAllocator allocator,
+    uint32_t allocationCount,
+    const VmaAllocation* allocations,
+    const VkDeviceSize* offsets,
+    const VkDeviceSize* sizes)
+{
+    VMA_ASSERT(allocator);
+
+    if(allocationCount == 0)
+    {
+        return VK_SUCCESS;
+    }
+
+    VMA_ASSERT(allocations);
+
+    VMA_DEBUG_LOG("vmaInvalidateAllocations");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    const VkResult res = allocator->FlushOrInvalidateAllocations(allocationCount, allocations, offsets, sizes, VMA_CACHE_INVALIDATE);
+
+#if VMA_RECORDING_ENABLED
+    if(allocator->GetRecorder() != VMA_NULL)
+    {
+        //TODO
     }
 #endif
 
