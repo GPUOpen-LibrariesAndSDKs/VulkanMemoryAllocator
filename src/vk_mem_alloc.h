@@ -3139,8 +3139,8 @@ returned result is not `VK_SUCCESS`, `pAllocation` array is always entirely fill
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
     VmaAllocator VMA_NOT_NULL allocator,
-    const VkMemoryRequirements* VMA_NOT_NULL pVkMemoryRequirements,
-    const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
+    const VkMemoryRequirements* VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(allocationCount) pVkMemoryRequirements,
+    const VmaAllocationCreateInfo* VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(allocationCount) pCreateInfo,
     size_t allocationCount,
     VmaAllocation VMA_NULLABLE * VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(allocationCount) pAllocations,
     VmaAllocationInfo* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) pAllocationInfo);
