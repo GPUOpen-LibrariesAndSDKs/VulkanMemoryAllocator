@@ -66,6 +66,20 @@ def GetDataForMemoryType(iMemTypeIndex):
         return newMemTypeData
 
 
+def IsDataEmpty():
+    global data
+    for dictMemType in data.values():
+        if 'DedicatedAllocations' in dictMemType and len(dictMemType['DedicatedAllocations']) > 0:
+            return False
+        if 'DefaultPoolBlocks' in dictMemType and len(dictMemType['DefaultPoolBlocks']) > 0:
+            return False
+        if 'CustomPools' in dictMemType:
+            for lBlockList in dictMemType['CustomPools'].values():
+                if len(lBlockList) > 0:
+                    return False
+    return True
+
+
 # Returns tuple:
 # [0] image height : integer
 # [1] pixels per byte : float
@@ -203,6 +217,10 @@ if 'Pools' in jsonSrc:
         typeData['CustomPools'][sFullName] = dstBlockArray
         for sBlockId, objBlock in objBlocks.items():
             ProcessBlock(dstBlockArray, int(sBlockId), objBlock, sAlgorithm)
+
+if IsDataEmpty():
+    print("There is nothing to put on the image. Please make sure you generated the stats string with detailed map enabled.")
+    exit(1)
 
 iImgSizeY, fPixelsPerByte = CalcParams()
 
