@@ -3344,8 +3344,11 @@ Unmap operation doesn't do that automatically.
 Warning! `offset` and `size` are relative to the contents of given `allocation`.
 If you mean whole allocation, you can pass 0 and `VK_WHOLE_SIZE`, respectively.
 Do not pass allocation's offset as `offset`!!!
+
+This function returns the `VkResult` from `vkFlushMappedMemoryRanges` if it is
+called, otherwise `VK_SUCCESS`.
 */
-VMA_CALL_PRE void VMA_CALL_POST vmaFlushAllocation(
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocation(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation,
     VkDeviceSize offset,
@@ -3368,8 +3371,11 @@ Map operation doesn't do that automatically.
 Warning! `offset` and `size` are relative to the contents of given `allocation`.
 If you mean whole allocation, you can pass 0 and `VK_WHOLE_SIZE`, respectively.
 Do not pass allocation's offset as `offset`!!!
+
+This function returns the `VkResult` from `vkInvalidateMappedMemoryRanges` if
+it is called, otherwise `VK_SUCCESS`.
 */
-VMA_CALL_PRE void VMA_CALL_POST vmaInvalidateAllocation(
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation,
     VkDeviceSize offset,
@@ -7622,7 +7628,7 @@ public:
         VkImage hImage,
         const void* pNext);
 
-    void FlushOrInvalidateAllocation(
+    VkResult FlushOrInvalidateAllocation(
         VmaAllocation hAllocation,
         VkDeviceSize offset, VkDeviceSize size,
         VMA_CACHE_OPERATION op);
@@ -16871,12 +16877,13 @@ VkResult VmaAllocator_T::BindImageMemory(
     return res;
 }
 
-void VmaAllocator_T::FlushOrInvalidateAllocation(
+VkResult VmaAllocator_T::FlushOrInvalidateAllocation(
     VmaAllocation hAllocation,
     VkDeviceSize offset, VkDeviceSize size,
     VMA_CACHE_OPERATION op)
 {
     const uint32_t memTypeIndex = hAllocation->GetMemoryTypeIndex();
+    VkResult res = VK_SUCCESS;
     if(size > 0 && IsMemoryTypeNonCoherent(memTypeIndex))
     {
         const VkDeviceSize allocationSize = hAllocation->GetSize();
@@ -16935,16 +16942,17 @@ void VmaAllocator_T::FlushOrInvalidateAllocation(
         switch(op)
         {
         case VMA_CACHE_FLUSH:
-            (*GetVulkanFunctions().vkFlushMappedMemoryRanges)(m_hDevice, 1, &memRange);
+            res = (*GetVulkanFunctions().vkFlushMappedMemoryRanges)(m_hDevice, 1, &memRange);
             break;
         case VMA_CACHE_INVALIDATE:
-            (*GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hDevice, 1, &memRange);
+            res = (*GetVulkanFunctions().vkInvalidateMappedMemoryRanges)(m_hDevice, 1, &memRange);
             break;
         default:
             VMA_ASSERT(0);
         }
     }
     // else: Just ignore this call.
+    return res;
 }
 
 void VmaAllocator_T::FreeDedicatedMemory(const VmaAllocation allocation)
@@ -18123,7 +18131,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaUnmapMemory(
     allocator->Unmap(allocation);
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
 {
     VMA_ASSERT(allocator && allocation);
 
@@ -18131,7 +18139,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, VmaAl
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
+    VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
 
 #if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
@@ -18141,9 +18149,11 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, VmaAl
             allocation, offset, size);
     }
 #endif
+
+    return res;
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
 {
     VMA_ASSERT(allocator && allocation);
 
@@ -18151,7 +18161,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocator, 
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_INVALIDATE);
+    VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_INVALIDATE);
 
 #if VMA_RECORDING_ENABLED
     if(allocator->GetRecorder() != VMA_NULL)
@@ -18161,6 +18171,8 @@ VMA_CALL_PRE void VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocator, 
             allocation, offset, size);
     }
 #endif
+
+    return res;
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckCorruption(VmaAllocator allocator, uint32_t memoryTypeBits)
