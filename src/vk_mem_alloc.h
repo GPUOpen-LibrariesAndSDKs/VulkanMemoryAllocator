@@ -1932,10 +1932,12 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 #endif
 
 #if VMA_RECORDING_ENABLED
+    #include <chrono>
     #if defined(_WIN32)
         #include <windows.h>
     #else
-        #error VMA Recording functionality is not yet available for non-Windows platforms
+        #include <sstream>
+        #include <thread>
     #endif
 #endif
 
@@ -7228,9 +7230,6 @@ private:
 
 #if VMA_RECORDING_ENABLED
 
-#include <sstream>
-#include <thread>
-#include <chrono>
 
 class VmaRecorder
 {
@@ -14629,7 +14628,7 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
     m_UseMutex = useMutex;
     m_Flags = settings.flags;
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#if defined(_WIN32)
     // Open file for writing.
 	errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
 
@@ -15106,9 +15105,8 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
         else
         {
             // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a std::string and store it.
-            std::stringstream user_data_address_to_string_converter;
-            user_data_address_to_string_converter << pUserData;
-            m_Str = user_data_address_to_string_converter.str();
+			snprintf(m_PtrStr, 17, "%p", pUserData);
+			m_Str = m_PtrStr;
         }
     }
     else
@@ -15174,17 +15172,22 @@ void VmaRecorder::WriteConfiguration(
 
 void VmaRecorder::GetBasicParams(CallParams& outParams)
 {
-    // Use C++11 features to get thread id and convert it to uint32_t.
-    std::thread::id thread_id = std::this_thread::get_id();
-    stringstream thread_id_to_string_converter;
-    thread_id_to_string_converter << thread_id;
-    string thread_id_as_string = thread_id_to_string_converter.str();
-    outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
+	#if defined(_WIN32)
+	    outParams.threadId = GetCurrentThreadId();
+	#else
+		// Use C++11 features to get thread id and convert it to uint32_t.
+	    // There is room for optimization since sstream is quite slow.
+		// Is there a better way to convert std::this_thread::get_id() to uint32_t?
+		std::thread::id thread_id = std::this_thread::get_id();
+		stringstream thread_id_to_string_converter;
+		thread_id_to_string_converter << thread_id;
+		string thread_id_as_string = thread_id_to_string_converter.str();
+		outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
+	#endif
 	
     auto current_time = std::chrono::high_resolution_clock::now();
-    auto time_duration = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
 
-    outParams.time = time_duration;
+    outParams.time = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
 }
 
 void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
