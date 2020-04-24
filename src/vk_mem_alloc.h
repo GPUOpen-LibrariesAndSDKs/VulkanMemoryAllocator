@@ -62,10 +62,10 @@ Documentation of all members: vk_mem_alloc.h
       - [Ring buffer](@ref linear_algorithm_ring_buffer)
     - [Buddy allocation algorithm](@ref buddy_algorithm)
   - \subpage defragmentation
-  	- [Defragmenting CPU memory](@ref defragmentation_cpu)
-  	- [Defragmenting GPU memory](@ref defragmentation_gpu)
-  	- [Additional notes](@ref defragmentation_additional_notes)
-  	- [Writing custom allocation algorithm](@ref defragmentation_custom_algorithm)
+      - [Defragmenting CPU memory](@ref defragmentation_cpu)
+      - [Defragmenting GPU memory](@ref defragmentation_gpu)
+      - [Additional notes](@ref defragmentation_additional_notes)
+      - [Writing custom allocation algorithm](@ref defragmentation_custom_algorithm)
   - \subpage lost_allocations
   - \subpage statistics
     - [Numeric statistics](@ref statistics_numeric_statistics)
@@ -2966,9 +2966,9 @@ typedef struct VmaPoolStats {
 @param[out] pPool Handle to created pool.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreatePool(
-	VmaAllocator VMA_NOT_NULL allocator,
-	const VmaPoolCreateInfo* VMA_NOT_NULL pCreateInfo,
-	VmaPool VMA_NULLABLE * VMA_NOT_NULL pPool);
+    VmaAllocator VMA_NOT_NULL allocator,
+    const VmaPoolCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaPool VMA_NULLABLE * VMA_NOT_NULL pPool);
 
 /** \brief Destroys #VmaPool object and frees Vulkan device memory.
 */
@@ -4222,12 +4222,12 @@ static VkAllocationCallbacks VmaEmptyAllocationCallbacks = {
 // Returns number of bits set to 1 in (v).
 static inline uint32_t VmaCountBitsSet(uint32_t v)
 {
-	uint32_t c = v - ((v >> 1) & 0x55555555);
-	c = ((c >>  2) & 0x33333333) + (c & 0x33333333);
-	c = ((c >>  4) + c) & 0x0F0F0F0F;
-	c = ((c >>  8) + c) & 0x00FF00FF;
-	c = ((c >> 16) + c) & 0x0000FFFF;
-	return c;
+    uint32_t c = v - ((v >> 1) & 0x55555555);
+    c = ((c >>  2) & 0x33333333) + (c & 0x33333333);
+    c = ((c >>  4) + c) & 0x0F0F0F0F;
+    c = ((c >>  8) + c) & 0x00FF00FF;
+    c = ((c >> 16) + c) & 0x0000FFFF;
+    return c;
 }
 
 // Aligns given value up to nearest multiply of align value. For example: VmaAlignUp(11, 8) = 16.
@@ -4235,7 +4235,7 @@ static inline uint32_t VmaCountBitsSet(uint32_t v)
 template <typename T>
 static inline T VmaAlignUp(T val, T align)
 {
-	return (val + align - 1) / align * align;
+    return (val + align - 1) / align * align;
 }
 // Aligns given value down to nearest multiply of align value. For example: VmaAlignUp(11, 8) = 8.
 // Use types like uint32_t, uint64_t as T.
@@ -4249,7 +4249,7 @@ static inline T VmaAlignDown(T val, T align)
 template <typename T>
 static inline T VmaRoundDiv(T x, T y)
 {
-	return (x + (y / (T)2)) / y;
+    return (x + (y / (T)2)) / y;
 }
 
 /*
@@ -4266,7 +4266,7 @@ inline bool VmaIsPow2(T x)
 // Returns smallest power of 2 greater or equal to v.
 static inline uint32_t VmaNextPow2(uint32_t v)
 {
-	v--;
+    v--;
     v |= v >> 1;
     v |= v >> 2;
     v |= v >> 4;
@@ -4277,7 +4277,7 @@ static inline uint32_t VmaNextPow2(uint32_t v)
 }
 static inline uint64_t VmaNextPow2(uint64_t v)
 {
-	v--;
+    v--;
     v |= v >> 1;
     v |= v >> 2;
     v |= v >> 4;
@@ -7557,7 +7557,7 @@ private:
     VmaRecordFlags m_Flags;
     FILE* m_File;
     VMA_MUTEX m_FileMutex;
-	std::chrono::time_point<std::chrono::high_resolution_clock> m_RecordingStartTime;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_RecordingStartTime;
 
     void GetBasicParams(CallParams& outParams);
 
@@ -14846,7 +14846,7 @@ VmaRecorder::VmaRecorder() :
     m_UseMutex(true),
     m_Flags(0),
     m_File(VMA_NULL),
-	m_RecordingStartTime(std::chrono::high_resolution_clock::now())
+    m_RecordingStartTime(std::chrono::high_resolution_clock::now())
 {
 }
 
@@ -14857,20 +14857,20 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
 
 #if defined(_WIN32)
     // Open file for writing.
-	errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
+    errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
 
-	if(err != 0)
-	{
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
+    if(err != 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
 #else
     // Open file for writing.
-	m_File = fopen(settings.pFilePath, "wb");
+    m_File = fopen(settings.pFilePath, "wb");
 
-	if(m_File == 0)
-	{
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
+    if(m_File == 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
 #endif
 
     // Write header.
@@ -15332,8 +15332,8 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
         else
         {
             // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a std::string and store it.
-			snprintf(m_PtrStr, 17, "%p", pUserData);
-			m_Str = m_PtrStr;
+            snprintf(m_PtrStr, 17, "%p", pUserData);
+            m_Str = m_PtrStr;
         }
     }
     else
@@ -15399,19 +15399,19 @@ void VmaRecorder::WriteConfiguration(
 
 void VmaRecorder::GetBasicParams(CallParams& outParams)
 {
-	#if defined(_WIN32)
-	    outParams.threadId = GetCurrentThreadId();
-	#else
-		// Use C++11 features to get thread id and convert it to uint32_t.
-	    // There is room for optimization since sstream is quite slow.
-		// Is there a better way to convert std::this_thread::get_id() to uint32_t?
-		std::thread::id thread_id = std::this_thread::get_id();
-		stringstream thread_id_to_string_converter;
-		thread_id_to_string_converter << thread_id;
-		string thread_id_as_string = thread_id_to_string_converter.str();
-		outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
-	#endif
-	
+    #if defined(_WIN32)
+        outParams.threadId = GetCurrentThreadId();
+    #else
+        // Use C++11 features to get thread id and convert it to uint32_t.
+        // There is room for optimization since sstream is quite slow.
+        // Is there a better way to convert std::this_thread::get_id() to uint32_t?
+        std::thread::id thread_id = std::this_thread::get_id();
+        stringstream thread_id_to_string_converter;
+        thread_id_to_string_converter << thread_id;
+        string thread_id_as_string = thread_id_to_string_converter.str();
+        outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
+    #endif
+    
     auto current_time = std::chrono::high_resolution_clock::now();
 
     outParams.time = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
@@ -17900,9 +17900,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreatePool(
-	VmaAllocator allocator,
-	const VmaPoolCreateInfo* pCreateInfo,
-	VmaPool* pPool)
+    VmaAllocator allocator,
+    const VmaPoolCreateInfo* pCreateInfo,
+    VmaPool* pPool)
 {
     VMA_ASSERT(allocator && pCreateInfo && pPool);
     
@@ -18037,7 +18037,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-	VkResult result = allocator->AllocateMemory(
+    VkResult result = allocator->AllocateMemory(
         *pVkMemoryRequirements,
         false, // requiresDedicatedAllocation
         false, // prefersDedicatedAllocation
@@ -18065,7 +18065,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
     }
 
-	return result;
+    return result;
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
@@ -18087,7 +18087,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-	VkResult result = allocator->AllocateMemory(
+    VkResult result = allocator->AllocateMemory(
         *pVkMemoryRequirements,
         false, // requiresDedicatedAllocation
         false, // prefersDedicatedAllocation
@@ -18119,7 +18119,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
         }
     }
 
-	return result;
+    return result;
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
@@ -18172,7 +18172,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
     }
 
-	return result;
+    return result;
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
@@ -18224,7 +18224,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
     }
 
-	return result;
+    return result;
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemory(
