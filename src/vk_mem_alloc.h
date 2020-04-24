@@ -23,10 +23,6 @@
 #ifndef AMD_VULKAN_MEMORY_ALLOCATOR_H
 #define AMD_VULKAN_MEMORY_ALLOCATOR_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /** \mainpage Vulkan Memory Allocator
 
 <b>Version 3.0.0-development</b> (2020-03-23)
@@ -1887,6 +1883,20 @@ Features deliberately excluded from the scope of this library:
 
 */
 
+#if VMA_RECORDING_ENABLED
+    #include <chrono>
+    #if defined(_WIN32)
+        #include <windows.h>
+    #else
+        #include <sstream>
+        #include <thread>
+    #endif
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 Define this macro to 0/1 to disable/enable support for recording functionality,
 available through VmaAllocatorCreateInfo::pRecordSettings.
@@ -1930,14 +1940,6 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 
 #ifndef VULKAN_H_
     #include <vulkan/vulkan.h>
-#endif
-
-#if VMA_RECORDING_ENABLED
-    #if defined(_WIN32)
-        #include <windows.h>
-    #else
-        #error VMA Recording functionality is not yet available for non-Windows platforms
-    #endif
 #endif
 
 // Define this macro to declare maximum supported Vulkan version in format AAABBBCCC,
@@ -7555,8 +7557,7 @@ private:
     VmaRecordFlags m_Flags;
     FILE* m_File;
     VMA_MUTEX m_FileMutex;
-    int64_t m_Freq;
-    int64_t m_StartCounter;
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_RecordingStartTime;
 
     void GetBasicParams(CallParams& outParams);
 
@@ -14845,8 +14846,7 @@ VmaRecorder::VmaRecorder() :
     m_UseMutex(true),
     m_Flags(0),
     m_File(VMA_NULL),
-    m_Freq(INT64_MAX),
-    m_StartCounter(INT64_MAX)
+	m_RecordingStartTime(std::chrono::high_resolution_clock::now())
 {
 }
 
@@ -14855,15 +14855,23 @@ VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
     m_UseMutex = useMutex;
     m_Flags = settings.flags;
 
-    QueryPerformanceFrequency((LARGE_INTEGER*)&m_Freq);
-    QueryPerformanceCounter((LARGE_INTEGER*)&m_StartCounter);
-
+#if defined(_WIN32)
     // Open file for writing.
-    errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
-    if(err != 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
+	errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
+
+	if(err != 0)
+	{
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+#else
+    // Open file for writing.
+	m_File = fopen(settings.pFilePath, "wb");
+
+	if(m_File == 0)
+	{
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+#endif
 
     // Write header.
     fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
@@ -15323,8 +15331,9 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
         }
         else
         {
-            sprintf_s(m_PtrStr, "%p", pUserData);
-            m_Str = m_PtrStr;
+            // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a std::string and store it.
+			snprintf(m_PtrStr, 17, "%p", pUserData);
+			m_Str = m_PtrStr;
         }
     }
     else
@@ -15390,11 +15399,22 @@ void VmaRecorder::WriteConfiguration(
 
 void VmaRecorder::GetBasicParams(CallParams& outParams)
 {
-    outParams.threadId = GetCurrentThreadId();
+	#if defined(_WIN32)
+	    outParams.threadId = GetCurrentThreadId();
+	#else
+		// Use C++11 features to get thread id and convert it to uint32_t.
+	    // There is room for optimization since sstream is quite slow.
+		// Is there a better way to convert std::this_thread::get_id() to uint32_t?
+		std::thread::id thread_id = std::this_thread::get_id();
+		stringstream thread_id_to_string_converter;
+		thread_id_to_string_converter << thread_id;
+		string thread_id_as_string = thread_id_to_string_converter.str();
+		outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
+	#endif
+	
+    auto current_time = std::chrono::high_resolution_clock::now();
 
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    outParams.time = (double)(counter.QuadPart - m_StartCounter) / (double)m_Freq;
+    outParams.time = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
 }
 
 void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
