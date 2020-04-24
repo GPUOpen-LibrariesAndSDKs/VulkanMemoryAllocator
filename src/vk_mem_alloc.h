@@ -7329,11 +7329,11 @@ private:
     {
     public:
         UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData);
-        const char* GetString() const { return m_Str.c_str(); }
+        const char* GetString() const { return m_Str; }
 
     private:
         char m_PtrStr[17];
-        std::string m_Str;
+        const char* m_Str;
     };
 
     bool m_UseMutex;
