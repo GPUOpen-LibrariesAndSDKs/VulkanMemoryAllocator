@@ -15331,7 +15331,7 @@ VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags,
         }
         else
         {
-            // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a std::string and store it.
+            // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a string and store it.
             snprintf(m_PtrStr, 17, "%p", pUserData);
             m_Str = m_PtrStr;
         }
