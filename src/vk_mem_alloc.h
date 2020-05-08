@@ -1503,6 +1503,7 @@ This is a more complex situation. Different solutions are possible,
 and the best one depends on specific GPU type, but you can use this simple approach for the start.
 Prefer to write to such resource sequentially (e.g. using `memcpy`).
 Don't perform random access or any reads from it on CPU, as it may be very slow.
+Also note that textures written directly from the host through a mapped pointer need to be in LINEAR not OPTIMAL layout.
 
 \subsection usage_patterns_readback Readback
 
@@ -1535,10 +1536,10 @@ directly instead of submitting explicit transfer (see below).
 For resources that you frequently write on CPU and read on GPU, many solutions are possible:
 
 -# Create one copy in video memory using #VMA_MEMORY_USAGE_GPU_ONLY,
-   second copy in system memory using #VMA_MEMORY_USAGE_CPU_ONLY and submit explicit tranfer each time.
--# Create just single copy using #VMA_MEMORY_USAGE_CPU_TO_GPU, map it and fill it on CPU,
+   second copy in system memory using #VMA_MEMORY_USAGE_CPU_ONLY and submit explicit transfer each time.
+-# Create just a single copy using #VMA_MEMORY_USAGE_CPU_TO_GPU, map it and fill it on CPU,
    read it directly on GPU.
--# Create just single copy using #VMA_MEMORY_USAGE_CPU_ONLY, map it and fill it on CPU,
+-# Create just a single copy using #VMA_MEMORY_USAGE_CPU_ONLY, map it and fill it on CPU,
    read it directly on GPU.
 
 Which solution is the most efficient depends on your resource and especially on the GPU.
@@ -1565,6 +1566,10 @@ solutions are possible:
 
 You should take some measurements to decide which option is faster in case of your specific
 resource.
+
+Note that textures accessed directly from the host through a mapped pointer need to be in LINEAR layout,
+which may slow down their usage on the device.
+Textures accessed only by the device and transfer operations can use OPTIMAL layout.
 
 If you don't want to specialize your code for specific types of GPUs, you can still make
 an simple optimization for cases when your resource ends up in mappable memory to use it
@@ -2584,7 +2589,7 @@ typedef enum VmaMemoryUsage
     Memory that is both mappable on host (guarantees to be `HOST_VISIBLE`) and preferably fast to access by GPU.
     CPU access is typically uncached. Writes may be write-combined.
 
-    Usage: Resources written frequently by host (dynamic), read by device. E.g. textures, vertex buffers, uniform buffers updated every frame or every draw call.
+    Usage: Resources written frequently by host (dynamic), read by device. E.g. textures (with LINEAR layout), vertex buffers, uniform buffers updated every frame or every draw call.
     */
     VMA_MEMORY_USAGE_CPU_TO_GPU = 3,
     /** Memory mappable on host (guarantees to be `HOST_VISIBLE`) and cached.
