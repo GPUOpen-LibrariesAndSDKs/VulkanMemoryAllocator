@@ -1880,6 +1880,7 @@ Features deliberately excluded from the scope of this library:
   objects in CPU memory (not Vulkan memory), allocation failures are not checked
   and handled gracefully, because that would complicate code significantly and
   is usually not needed in desktop PC applications anyway.
+  Success of an allocation is just checked with an assert.
 - Code free of any compiler warnings. Maintaining the library to compile and
   work correctly on so many different platforms is hard enough. Being free of 
   any warnings, on any version of any compiler, is simply not feasible.
@@ -4626,10 +4627,11 @@ static inline void VmaPnextChainPushFront(MainT* mainStruct, NewT* newStruct)
 
 static void* VmaMalloc(const VkAllocationCallbacks* pAllocationCallbacks, size_t size, size_t alignment)
 {
+    void* result = VMA_NULL;
     if((pAllocationCallbacks != VMA_NULL) &&
         (pAllocationCallbacks->pfnAllocation != VMA_NULL))
     {
-        return (*pAllocationCallbacks->pfnAllocation)(
+        result = (*pAllocationCallbacks->pfnAllocation)(
             pAllocationCallbacks->pUserData,
             size,
             alignment,
@@ -4637,8 +4639,10 @@ static void* VmaMalloc(const VkAllocationCallbacks* pAllocationCallbacks, size_t
     }
     else
     {
-        return VMA_SYSTEM_ALIGNED_MALLOC(size, alignment);
+        result = VMA_SYSTEM_ALIGNED_MALLOC(size, alignment);
     }
+    VMA_ASSERT(result != VMA_NULL && "CPU memory allocation failed.");
+    return result;
 }
 
 static void VmaFree(const VkAllocationCallbacks* pAllocationCallbacks, void* ptr)
