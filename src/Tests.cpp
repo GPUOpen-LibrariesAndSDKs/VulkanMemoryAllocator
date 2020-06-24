@@ -2641,6 +2641,8 @@ static void TestGetAllocatorInfo()
 
 static void TestBasics()
 {
+    wprintf(L"Test basics\n");
+
     VkResult res;
 
     TestGetAllocatorInfo();
@@ -2689,6 +2691,41 @@ static void TestBasics()
     TestUserData();
 
     TestInvalidAllocations();
+}
+
+static void TestAllocationVersusResourceSize()
+{
+    wprintf(L"Test allocation versus resource size\n");
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 22921; // Prime number
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    for(uint32_t i = 0; i < 2; ++i)
+    {
+        allocCreateInfo.flags = (i == 1) ? VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT : 0;
+
+        AllocInfo info;
+        info.CreateBuffer(bufCreateInfo, allocCreateInfo);
+        
+        VmaAllocationInfo allocInfo = {};
+        vmaGetAllocationInfo(g_hAllocator, info.m_Allocation, &allocInfo);
+        //wprintf(L"  Buffer size = %llu, allocation size = %llu\n", bufCreateInfo.size, allocInfo.size);
+
+        // Map and test accessing entire area of the allocation, not only the buffer.
+        void* mappedPtr = nullptr;
+        VkResult res = vmaMapMemory(g_hAllocator, info.m_Allocation, &mappedPtr);
+        TEST(res == VK_SUCCESS);
+
+        memset(mappedPtr, 0xCC, (size_t)allocInfo.size);
+
+        vmaUnmapMemory(g_hAllocator, info.m_Allocation);
+
+        info.Destroy();
+    }
 }
 
 static void TestPool_MinBlockCount()
@@ -6296,6 +6333,7 @@ void Test()
     // # Simple tests
 
     TestBasics();
+    TestAllocationVersusResourceSize();
     //TestGpuData(); // Not calling this because it's just testing the testing environment.
 #if VMA_DEBUG_MARGIN
     TestDebugMargin();

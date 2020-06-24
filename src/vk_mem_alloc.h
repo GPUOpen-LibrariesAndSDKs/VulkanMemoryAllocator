@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.0.0-development</b> (2020-03-23)
+<b>Version 3.0.0-development</b> (2020-06-24)
 
 Copyright (c) 2017-2020 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -3093,6 +3093,12 @@ typedef struct VmaAllocationInfo {
     /** \brief Size of this allocation, in bytes.
 
     It never changes, unless allocation is lost.
+
+    \note Allocation size returned in this variable may be greater than the size
+    requested for the resource e.g. as `VkBufferCreateInfo::size`. Whole size of the
+    allocation is accessible for operations on memory e.g. using a pointer after
+    mapping with vmaMapMemory(), but operations on the resource e.g. using
+    `vkCmdCopyBuffer` must be limited to the size of the resource.
     */
     VkDeviceSize size;
     /** \brief Pointer to the beginning of this allocation as mapped data.

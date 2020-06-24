@@ -199,7 +199,8 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Size of this allocation, in bytes. </p>
-<p>It never changes, unless allocation is lost. </p>
+<p>It never changes, unless allocation is lost.</p>
+<dl class="section note"><dt>Note</dt><dd>Allocation size returned in this variable may be greater than the size requested for the resource e.g. as <code>VkBufferCreateInfo::size</code>. Whole size of the allocation is accessible for operations on memory e.g. using a pointer after mapping with <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, but operations on the resource e.g. using <code>vkCmdCopyBuffer</code> must be limited to the size of the resource. </dd></dl>
 
 </div>
 </div>
