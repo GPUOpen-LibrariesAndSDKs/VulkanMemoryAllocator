@@ -3959,7 +3959,7 @@ void *vma_aligned_alloc(size_t alignment, size_t size)
 {
 #if defined(__APPLE__)
     if (__builtin_available(macOS 10.15, iOS 13, *))
-        return aligned_alloc(size, alignment);
+        return aligned_alloc(alignment, size);
 #endif
     // alignment must be >= sizeof(void*)
     if(alignment < sizeof(void*))
