@@ -3943,7 +3943,7 @@ remove them if not needed.
 
 #if defined(__ANDROID_API__) && (__ANDROID_API__ < 16)
 #include <cstdlib>
-void *aligned_alloc(size_t alignment, size_t size)
+void *vma_aligned_alloc(size_t alignment, size_t size)
 {
     // alignment must be >= sizeof(void*)
     if(alignment < sizeof(void*))
@@ -3955,8 +3955,12 @@ void *aligned_alloc(size_t alignment, size_t size)
 }
 #elif defined(__APPLE__) || defined(__ANDROID__) || (defined(__linux__) && defined(__GLIBCXX__) && !defined(_GLIBCXX_HAVE_ALIGNED_ALLOC))
 #include <cstdlib>
-void *aligned_alloc(size_t alignment, size_t size)
+void *vma_aligned_alloc(size_t alignment, size_t size)
 {
+#if defined(__APPLE__)
+    if (__builtin_available(macOS 10.15, iOS 13, *))
+        return aligned_alloc(size, alignment);
+#endif
     // alignment must be >= sizeof(void*)
     if(alignment < sizeof(void*))
     {
@@ -3967,6 +3971,16 @@ void *aligned_alloc(size_t alignment, size_t size)
     if(posix_memalign(&pointer, alignment, size) == 0)
         return pointer;
     return VMA_NULL;
+}
+#elif defined(_WIN32)
+void *vma_aligned_alloc(size_t alignment, size_t size)
+{
+    return _aligned_malloc(size, alignment);
+}
+#else
+void *vma_aligned_alloc(size_t alignment, size_t size)
+{
+    return aligned_alloc(alignment, size);
 }
 #endif
 
@@ -3999,11 +4013,7 @@ void *aligned_alloc(size_t alignment, size_t size)
 #endif
 
 #ifndef VMA_SYSTEM_ALIGNED_MALLOC
-   #if defined(_WIN32)
-       #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment)   (_aligned_malloc((size), (alignment)))
-   #else
-       #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment)   (aligned_alloc((alignment), (size) ))
-   #endif
+   #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment) vma_aligned_alloc((alignment), (size))
 #endif
 
 #ifndef VMA_SYSTEM_FREE
