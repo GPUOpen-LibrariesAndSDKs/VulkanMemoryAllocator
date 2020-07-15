@@ -45,7 +45,7 @@ void SetConsoleColor(CONSOLE_COLOR color)
     switch(color)
     {
     case CONSOLE_COLOR::INFO:
-        attr = FOREGROUND_INTENSITY;;
+        attr = FOREGROUND_INTENSITY;
         break;
     case CONSOLE_COLOR::NORMAL:
         attr = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
