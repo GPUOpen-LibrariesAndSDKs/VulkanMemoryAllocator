@@ -44,7 +44,6 @@ VkPhysicalDevice g_hPhysicalDevice;
 VkDevice g_hDevice;
 VmaAllocator g_hAllocator;
 VkInstance g_hVulkanInstance;
-bool g_MemoryAliasingWarningEnabled = true;
 
 bool g_EnableValidationLayer = true;
 bool VK_KHR_get_memory_requirements2_enabled = false;
@@ -1771,10 +1770,7 @@ static void FinalizeApplication()
         g_hSurface = VK_NULL_HANDLE;
     }
 
-    if(VK_EXT_debug_utils_enabled)
-    {
-        UnregisterDebugCallbacks();
-    }
+    UnregisterDebugCallbacks();
 
     if(g_hVulkanInstance != VK_NULL_HANDLE)
     {
