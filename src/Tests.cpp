@@ -1720,7 +1720,6 @@ void TestDefragmentationFull()
 static void TestDefragmentationGpu()
 {
     wprintf(L"Test defragmentation GPU\n");
-    g_MemoryAliasingWarningEnabled = false;
 
     std::vector<AllocInfo> allocations;
 
@@ -1854,8 +1853,6 @@ static void TestDefragmentationGpu()
     {
         allocations[i].Destroy();
     }
-
-    g_MemoryAliasingWarningEnabled = true;
 }
 
 static void ProcessDefragmentationStepInfo(VmaDefragmentationPassInfo &stepInfo)
@@ -2043,7 +2040,6 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationPassInfo &stepInfo)
 static void TestDefragmentationIncrementalBasic()
 {
     wprintf(L"Test defragmentation incremental basic\n");
-    g_MemoryAliasingWarningEnabled = false;
 
     std::vector<AllocInfo> allocations;
 
@@ -2223,15 +2219,12 @@ static void TestDefragmentationIncrementalBasic()
     {
         allocations[i].Destroy();
     }
-
-    g_MemoryAliasingWarningEnabled = true;
 }
 
 void TestDefragmentationIncrementalComplex()
 {
     wprintf(L"Test defragmentation incremental complex\n");
-    g_MemoryAliasingWarningEnabled = false;
-
+    
     std::vector<AllocInfo> allocations;
 
     // Create that many allocations to surely fill 3 new blocks of 256 MB.
@@ -2438,8 +2431,6 @@ void TestDefragmentationIncrementalComplex()
     {
         additionalAllocations[i].Destroy();
     }
-
-    g_MemoryAliasingWarningEnabled = true;
 }
 
 
@@ -5583,10 +5574,8 @@ static void PerformCustomPoolTest(FILE* file)
     config.TotalItemCount = config.UsedItemCountMax * 10;
     config.UsedItemCountMin = config.UsedItemCountMax * 80 / 100;
 
-    g_MemoryAliasingWarningEnabled = false;
     PoolTestResult result = {};
     TestPool_Benchmark(result, config);
-    g_MemoryAliasingWarningEnabled = true;
 
     WritePoolTestResult(file, "Code desc", "Test desc", config, result);
 }
@@ -6070,9 +6059,7 @@ static void PerformPoolTests(FILE* file)
                             printf("%s #%u\n", testDescription, (uint32_t)repeat);
 
                             PoolTestResult result{};
-                            g_MemoryAliasingWarningEnabled = false;
                             TestPool_Benchmark(result, config);
-                            g_MemoryAliasingWarningEnabled = true;
                             WritePoolTestResult(file, CODE_DESCRIPTION, testDescription, config, result);
                         }
                     }
