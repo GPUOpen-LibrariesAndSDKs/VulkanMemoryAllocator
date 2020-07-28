@@ -2644,7 +2644,7 @@ typedef enum VmaAllocationCreateFlagBits {
     
     Pointer to mapped memory will be returned through VmaAllocationInfo::pMappedData.
 
-    Is it valid to use this flag for allocation made from memory type that is not
+    It is valid to use this flag for allocation made from memory type that is not
     `HOST_VISIBLE`. This flag is then ignored and memory is not mapped. This is
     useful if you need an allocation that is efficient to use on GPU
     (`DEVICE_LOCAL`) and still want to map it directly if possible on platforms that
