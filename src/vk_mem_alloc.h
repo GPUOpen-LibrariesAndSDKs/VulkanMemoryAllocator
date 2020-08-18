@@ -513,7 +513,7 @@ VmaAllocation alloc;
 VmaAllocationInfo allocInfo;
 vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
 
-if(allocInfo.pUserData != nullptr)
+if(allocInfo.pMappedData != nullptr)
 {
     // Allocation ended up in mappable memory.
     // It's persistently mapped. You can access it directly.
