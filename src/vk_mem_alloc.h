@@ -2107,7 +2107,7 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 
 // Define these macros to decorate all public functions with additional code,
 // before and after returned type, appropriately. This may be useful for
-// exporing the functions when compiling VMA as a separate library. Example:
+// exporting the functions when compiling VMA as a separate library. Example:
 // #define VMA_CALL_PRE  __declspec(dllexport)
 // #define VMA_CALL_POST __cdecl
 #ifndef VMA_CALL_PRE
@@ -3991,6 +3991,10 @@ internally, like:
 */
 #if !defined(VMA_DYNAMIC_VULKAN_FUNCTIONS)
     #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+    #if defined(VK_NO_PROTOTYPES)
+        extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
+        extern PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
+    #endif
 #endif
 
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
