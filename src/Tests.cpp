@@ -5087,6 +5087,87 @@ static void TestBudget()
     }
 }
 
+static void TestAliasing()
+{
+    wprintf(L"Testing aliasing...\n");
+
+    /*
+    This is just a simple test, more like a code sample to demonstrate it's possible.
+    */
+
+    // A 512x512 texture to be sampled.
+    VkImageCreateInfo img1CreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    img1CreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    img1CreateInfo.extent.width = 512;
+    img1CreateInfo.extent.height = 512;
+    img1CreateInfo.extent.depth = 1;
+    img1CreateInfo.mipLevels = 10;
+    img1CreateInfo.arrayLayers = 1;
+    img1CreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    img1CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    img1CreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    img1CreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    img1CreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    // A full screen texture to be used as color attachment.
+    VkImageCreateInfo img2CreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    img2CreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    img2CreateInfo.extent.width = 1920;
+    img2CreateInfo.extent.height = 1080;
+    img2CreateInfo.extent.depth = 1;
+    img2CreateInfo.mipLevels = 1;
+    img2CreateInfo.arrayLayers = 1;
+    img2CreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    img2CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    img2CreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    img2CreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    img2CreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkImage img1 = VK_NULL_HANDLE;
+    ERR_GUARD_VULKAN(vkCreateImage(g_hDevice, &img1CreateInfo, g_Allocs, &img1));
+    VkImage img2 = VK_NULL_HANDLE;
+    ERR_GUARD_VULKAN(vkCreateImage(g_hDevice, &img2CreateInfo, g_Allocs, &img2));
+
+    VkMemoryRequirements img1MemReq = {};
+    vkGetImageMemoryRequirements(g_hDevice, img1, &img1MemReq);
+    VkMemoryRequirements img2MemReq = {};
+    vkGetImageMemoryRequirements(g_hDevice, img2, &img2MemReq);
+
+    VkMemoryRequirements finalMemReq = {};
+    finalMemReq.size = std::max(img1MemReq.size, img2MemReq.size);
+    finalMemReq.alignment = std::max(img1MemReq.alignment, img2MemReq.alignment);
+    finalMemReq.memoryTypeBits = img1MemReq.memoryTypeBits & img2MemReq.memoryTypeBits;
+    if(finalMemReq.memoryTypeBits != 0)
+    {
+        wprintf(L"  size: max(%llu, %llu) = %llu\n",
+            img1MemReq.size, img2MemReq.size, finalMemReq.size);
+        wprintf(L"  alignment: max(%llu, %llu) = %llu\n",
+            img1MemReq.alignment, img2MemReq.alignment, finalMemReq.alignment);
+        wprintf(L"  memoryTypeBits: %u & %u = %u\n",
+            img1MemReq.memoryTypeBits, img2MemReq.memoryTypeBits, finalMemReq.memoryTypeBits);
+
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        ERR_GUARD_VULKAN(vmaAllocateMemory(g_hAllocator, &finalMemReq, &allocCreateInfo, &alloc, nullptr));
+
+        ERR_GUARD_VULKAN(vmaBindImageMemory(g_hAllocator, alloc, img1));
+        ERR_GUARD_VULKAN(vmaBindImageMemory(g_hAllocator, alloc, img2));
+
+        // You can use img1, img2 here, but not at the same time!
+
+        vmaFreeMemory(g_hAllocator, alloc);
+    }
+    else
+    {
+        wprintf(L"  Textures cannot alias!\n");
+    }
+
+    vkDestroyImage(g_hDevice, img2, g_Allocs);
+    vkDestroyImage(g_hDevice, img1, g_Allocs);
+}
+
 static void TestMapping()
 {
     wprintf(L"Testing mapping...\n");
@@ -6335,6 +6416,7 @@ void Test()
     TestMemoryUsage();
     TestDeviceCoherentMemory();
     TestBudget();
+    TestAliasing();
     TestMapping();
     TestDeviceLocalMapped();
     TestMappingMultithreaded();
