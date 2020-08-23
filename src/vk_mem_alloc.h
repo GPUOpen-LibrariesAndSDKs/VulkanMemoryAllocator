@@ -2000,16 +2000,6 @@ Features deliberately excluded from the scope of this library:
 
 */
 
-#if VMA_RECORDING_ENABLED
-    #include <chrono>
-    #if defined(_WIN32)
-        #include <windows.h>
-    #else
-        #include <sstream>
-        #include <thread>
-    #endif
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -2022,7 +2012,7 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #define VMA_RECORDING_ENABLED 0
 #endif
 
-#ifndef NOMINMAX
+#if !defined(NOMINMAX) && defined(VMA_IMPLEMENTATION)
     #define NOMINMAX // For windows.h
 #endif
 
@@ -3965,6 +3955,16 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 #include <cstdlib>
 #include <cstring>
 #include <utility>
+
+#if VMA_RECORDING_ENABLED
+    #include <chrono>
+    #if defined(_WIN32)
+        #include <windows.h>
+    #else
+        #include <sstream>
+        #include <thread>
+    #endif
+#endif
 
 /*******************************************************************************
 CONFIGURATION SECTION
