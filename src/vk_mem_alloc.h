@@ -4156,7 +4156,12 @@ static void vma_aligned_free(void* ptr)
 #endif
 
 #ifndef VMA_SYSTEM_ALIGNED_FREE
-   #define VMA_SYSTEM_ALIGNED_FREE(ptr)     vma_aligned_free(ptr)
+   // VMA_SYSTEM_FREE is the old name, but might have been defined by the user
+   #if defined(VMA_SYSTEM_FREE)
+      #define VMA_SYSTEM_ALIGNED_FREE(ptr)     VMA_SYSTEM_FREE(ptr)
+   #else
+      #define VMA_SYSTEM_ALIGNED_FREE(ptr)     vma_aligned_free(ptr)
+    #endif
 #endif
 
 #ifndef VMA_MIN
