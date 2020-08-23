@@ -4111,6 +4111,18 @@ static void* vma_aligned_alloc(size_t alignment, size_t size)
 }
 #endif
 
+#if defined(_WIN32)
+static void vma_aligned_free(void* ptr)
+{
+    _aligned_free(ptr);
+}
+#else
+static void vma_aligned_free(void* ptr)
+{
+    free(ptr);
+}
+#endif
+
 // If your compiler is not compatible with C++11 and definition of
 // aligned_alloc() function is missing, uncommeting following line may help:
 
@@ -4143,12 +4155,8 @@ static void* vma_aligned_alloc(size_t alignment, size_t size)
    #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment) vma_aligned_alloc((alignment), (size))
 #endif
 
-#ifndef VMA_SYSTEM_FREE
-   #if defined(_WIN32)
-       #define VMA_SYSTEM_FREE(ptr)   _aligned_free(ptr)
-   #else
-       #define VMA_SYSTEM_FREE(ptr)   free(ptr)
-   #endif
+#ifndef VMA_SYSTEM_ALIGNED_FREE
+   #define VMA_SYSTEM_ALIGNED_FREE(ptr)     vma_aligned_free(ptr)
 #endif
 
 #ifndef VMA_MIN
@@ -4799,7 +4807,7 @@ static void VmaFree(const VkAllocationCallbacks* pAllocationCallbacks, void* ptr
     }
     else
     {
-        VMA_SYSTEM_FREE(ptr);
+        VMA_SYSTEM_ALIGNED_FREE(ptr);
     }
 }
 
