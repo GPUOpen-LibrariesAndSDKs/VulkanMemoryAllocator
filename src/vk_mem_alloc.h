@@ -1749,7 +1749,7 @@ VmaAllocatorCreateInfo::pDeviceMemoryCallbacks.
 When device memory of certain heap runs out of free space, new allocations may
 fail (returning error code) or they may succeed, silently pushing some existing
 memory blocks from GPU VRAM to system RAM (which degrades performance). This
-behavior is implementation-dependant - it depends on GPU vendor and graphics
+behavior is implementation-dependent - it depends on GPU vendor and graphics
 driver.
 
 On AMD cards it can be controlled while creating Vulkan device object by using
@@ -2859,7 +2859,7 @@ typedef struct VmaAllocationCreateInfo
     VkMemoryPropertyFlags requiredFlags;
     /** \brief Flags that preferably should be set in a memory type chosen for an allocation.
     
-    Set to 0 if no additional flags are prefered. \n
+    Set to 0 if no additional flags are preferred. \n
     If `pool` is not null, this member is ignored. */
     VkMemoryPropertyFlags preferredFlags;
     /** \brief Bitmask containing one bit set for every memory type acceptable for this allocation.
@@ -3329,7 +3329,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeAllocation(
 
 /** \brief Returns current information about specified allocation and atomically marks it as used in current frame.
 
-Current paramters of given allocation are returned in `pAllocationInfo`.
+Current paramteres of given allocation are returned in `pAllocationInfo`.
 
 This function also atomically "touches" allocation - marks it as used in current frame,
 just like vmaTouchAllocation().
