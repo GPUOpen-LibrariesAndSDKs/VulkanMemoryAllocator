@@ -4057,7 +4057,7 @@ remove them if not needed.
 
 #if defined(__ANDROID_API__) && (__ANDROID_API__ < 16)
 #include <cstdlib>
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     // alignment must be >= sizeof(void*)
     if(alignment < sizeof(void*))
@@ -4074,7 +4074,7 @@ void *vma_aligned_alloc(size_t alignment, size_t size)
 #include <AvailabilityMacros.h>
 #endif
 
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
 #if defined(__APPLE__) && (defined(MAC_OS_X_VERSION_10_16) || defined(__IPHONE_14_0))
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_16 || __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
@@ -4100,14 +4100,26 @@ void *vma_aligned_alloc(size_t alignment, size_t size)
     return VMA_NULL;
 }
 #elif defined(_WIN32)
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     return _aligned_malloc(size, alignment);
 }
 #else
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     return aligned_alloc(alignment, size);
+}
+#endif
+
+#if defined(_WIN32)
+static void vma_aligned_free(void* ptr)
+{
+    _aligned_free(ptr);
+}
+#else
+static void vma_aligned_free(void* ptr)
+{
+    free(ptr);
 }
 #endif
 
@@ -4143,12 +4155,13 @@ void *vma_aligned_alloc(size_t alignment, size_t size)
    #define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment) vma_aligned_alloc((alignment), (size))
 #endif
 
-#ifndef VMA_SYSTEM_FREE
-   #if defined(_WIN32)
-       #define VMA_SYSTEM_FREE(ptr)   _aligned_free(ptr)
+#ifndef VMA_SYSTEM_ALIGNED_FREE
+   // VMA_SYSTEM_FREE is the old name, but might have been defined by the user
+   #if defined(VMA_SYSTEM_FREE)
+      #define VMA_SYSTEM_ALIGNED_FREE(ptr)     VMA_SYSTEM_FREE(ptr)
    #else
-       #define VMA_SYSTEM_FREE(ptr)   free(ptr)
-   #endif
+      #define VMA_SYSTEM_ALIGNED_FREE(ptr)     vma_aligned_free(ptr)
+    #endif
 #endif
 
 #ifndef VMA_MIN
@@ -4799,7 +4812,7 @@ static void VmaFree(const VkAllocationCallbacks* pAllocationCallbacks, void* ptr
     }
     else
     {
-        VMA_SYSTEM_FREE(ptr);
+        VMA_SYSTEM_ALIGNED_FREE(ptr);
     }
 }
 
