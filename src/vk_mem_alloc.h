@@ -13776,7 +13776,7 @@ uint32_t VmaBlockVector::ProcessDefragmentations(
 {
     VmaMutexLockWrite lock(m_Mutex, m_hAllocator->m_UseMutex);
     
-    const uint32_t moveCount = std::min(uint32_t(pCtx->defragmentationMoves.size()) - pCtx->defragmentationMovesProcessed, maxMoves);
+    const uint32_t moveCount = VMA_MIN(uint32_t(pCtx->defragmentationMoves.size()) - pCtx->defragmentationMovesProcessed, maxMoves);
 
     for(uint32_t i = 0; i < moveCount; ++ i)
     {
