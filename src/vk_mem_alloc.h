@@ -3037,6 +3037,9 @@ typedef struct VmaPoolCreateInfo {
     become lost, set this value to 0.
     */
     uint32_t frameInUseCount;
+    /** TODO
+    */
+    void* pMemoryAllocateNext;
 } VmaPoolCreateInfo;
 
 /** \brief Describes parameter of existing #VmaPool.
@@ -7001,7 +7004,8 @@ public:
         VkDeviceSize bufferImageGranularity,
         uint32_t frameInUseCount,
         bool explicitBlockSize,
-        uint32_t algorithm);
+        uint32_t algorithm,
+        void* pMemoryAllocateNext);
     ~VmaBlockVector();
 
     VkResult CreateMinBlocks();
@@ -7084,6 +7088,7 @@ private:
     const uint32_t m_FrameInUseCount;
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
+    void* const m_pMemoryAllocateNext;
     VMA_RW_MUTEX m_Mutex;
 
     /* There can be at most one allocation that is completely empty (except when minBlockCount > 0) -
@@ -12534,7 +12539,8 @@ VmaPool_T::VmaPool_T(
         (createInfo.flags & VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT) != 0 ? 1 : hAllocator->GetBufferImageGranularity(),
         createInfo.frameInUseCount,
         createInfo.blockSize != 0, // explicitBlockSize
-        createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK), // algorithm
+        createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK,
+        createInfo.pMemoryAllocateNext), // algorithm
     m_Id(0),
     m_Name(VMA_NULL)
 {
@@ -12573,7 +12579,8 @@ VmaBlockVector::VmaBlockVector(
     VkDeviceSize bufferImageGranularity,
     uint32_t frameInUseCount,
     bool explicitBlockSize,
-    uint32_t algorithm) :
+    uint32_t algorithm,
+    void* pMemoryAllocateNext) :
     m_hAllocator(hAllocator),
     m_hParentPool(hParentPool),
     m_MemoryTypeIndex(memoryTypeIndex),
@@ -12584,6 +12591,7 @@ VmaBlockVector::VmaBlockVector(
     m_FrameInUseCount(frameInUseCount),
     m_ExplicitBlockSize(explicitBlockSize),
     m_Algorithm(algorithm),
+    m_pMemoryAllocateNext(pMemoryAllocateNext),
     m_HasEmptyBlock(false),
     m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_NextBlockId(0)
@@ -13267,6 +13275,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
 VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIndex)
 {
     VkMemoryAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+    allocInfo.pNext = m_pMemoryAllocateNext;
     allocInfo.memoryTypeIndex = m_MemoryTypeIndex;
     allocInfo.allocationSize = blockSize;
 
@@ -15770,7 +15779,8 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             GetBufferImageGranularity(),
             pCreateInfo->frameInUseCount,
             false, // explicitBlockSize
-            false); // linearAlgorithm
+            false, // linearAlgorithm
+            VMA_NULL); // pMemoryAllocateNext
         // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
         // becase minBlockCount is 0.
         m_pDedicatedAllocations[memTypeIndex] = vma_new(this, AllocationVectorType)(VmaStlAllocator<VmaAllocation>(GetAllocationCallbacks()));
