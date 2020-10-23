@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['record_20and_20replay_69',['Record and replay',['../record_and_replay.html',1,'index']]],
-  ['requiredflags_70',['requiredFlags',['../struct_vma_allocation_create_info.html#a9166390303ff42d783305bc31c2b6b90',1,'VmaAllocationCreateInfo']]],
-  ['resource_20aliasing_20_28overlap_29_71',['Resource aliasing (overlap)',['../resource_aliasing.html',1,'index']]],
-  ['recommended_20usage_20patterns_72',['Recommended usage patterns',['../usage_patterns.html',1,'index']]]
+  ['size_72',['size',['../struct_vma_pool_stats.html#a326807b2de2b0931cee4ed9a5f2e420c',1,'VmaPoolStats::size()'],['../struct_vma_allocation_info.html#aac76d113a6a5ccbb09fea00fb25fd18f',1,'VmaAllocationInfo::size()']]],
+  ['statistics_73',['Statistics',['../statistics.html',1,'index']]],
+  ['staying_20within_20budget_74',['Staying within budget',['../staying_within_budget.html',1,'index']]]
 ];
