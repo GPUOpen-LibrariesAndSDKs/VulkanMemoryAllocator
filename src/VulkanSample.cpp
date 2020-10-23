@@ -1179,6 +1179,19 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     heapSizeLimit[0] = 512ull * 1024 * 1024;
     outInfo.pHeapSizeLimit = heapSizeLimit.data();
     */
+
+    // External memory test
+    VkPhysicalDeviceMemoryProperties memProps = {};
+    vkGetPhysicalDeviceMemoryProperties(g_hPhysicalDevice, &memProps);
+    static VkExternalMemoryHandleTypeFlagsKHR externalMemoryHandleTypes[VK_MAX_MEMORY_TYPES] = {};
+    for(uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
+    {
+        if(memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        {
+            externalMemoryHandleTypes[i] = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+        }
+    }
+    outInfo.pTypeExternalMemoryHandleTypes = externalMemoryHandleTypes;
 }
 
 static void PrintPhysicalDeviceProperties(const VkPhysicalDeviceProperties& properties)

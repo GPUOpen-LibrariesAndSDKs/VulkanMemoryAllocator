@@ -2451,6 +2451,17 @@ typedef struct VmaAllocatorCreateInfo
     Leaving it initialized to zero is equivalent to `VK_API_VERSION_1_0`.
     */
     uint32_t vulkanApiVersion;
+
+    /** \brief Either null or a pointer to an array of external memory handle types for each Vulkan memory type.
+
+    If not NULL, it must be a pointer to an array of `VkPhysicalDeviceMemoryProperties::memoryTypeCount`
+    elements, defining external memory handle types of particular Vulkan memory type,
+    to be passed using `VkExportMemoryAllocateInfoKHR`.
+
+    Any of the elements may be equal to 0, which means not to use `VkExportMemoryAllocateInfoKHR` on this memory type.\
+    This is also the default in case of `pTypeExternalMemoryHandleTypes` = NULL.
+    */
+    const VkExternalMemoryHandleTypeFlagsKHR* VMA_NULLABLE VMA_LEN_IF_NOT_NULL("VkPhysicalDeviceMemoryProperties::memoryTypeCount") pTypeExternalMemoryHandleTypes;
 } VmaAllocatorCreateInfo;
 
 /// Creates Allocator object.
@@ -8032,12 +8043,18 @@ public:
     */
     uint32_t GetGpuDefragmentationMemoryTypeBits();
 
+    VkExternalMemoryHandleTypeFlagsKHR GetExternalMemoryHandleTypeFlags(uint32_t memTypeIndex) const
+    {
+        return m_TypeExternalMemoryHandleTypes[memTypeIndex];
+    }
+
 private:
     VkDeviceSize m_PreferredLargeHeapBlockSize;
 
     VkPhysicalDevice m_PhysicalDevice;
     VMA_ATOMIC_UINT32 m_CurrentFrameIndex;
     VMA_ATOMIC_UINT32 m_GpuDefragmentationMemoryTypeBits; // UINT32_MAX means uninitialized.
+    VkExternalMemoryHandleTypeFlagsKHR m_TypeExternalMemoryHandleTypes[VK_MAX_MEMORY_TYPES];
     
     VMA_RW_MUTEX m_PoolsMutex;
     // Protected by m_PoolsMutex. Sorted by pointer value.
@@ -13289,6 +13306,14 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
     }
 #endif // #if VMA_BUFFER_DEVICE_ADDRESS
 
+    // Attach VkExportMemoryAllocateInfoKHR if necessary.
+    VkExportMemoryAllocateInfoKHR exportMemoryAllocInfo = { VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR };
+    exportMemoryAllocInfo.handleTypes = m_hAllocator->GetExternalMemoryHandleTypeFlags(m_MemoryTypeIndex);
+    if(exportMemoryAllocInfo.handleTypes != 0)
+    {
+        VmaPnextChainPushFront(&allocInfo, &exportMemoryAllocInfo);
+    }
+
     VkDeviceMemory mem = VK_NULL_HANDLE;
     VkResult res = m_hAllocator->AllocateVulkanMemory(&allocInfo, &mem);
     if(res < 0)
@@ -15727,6 +15752,8 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     memset(&m_pDedicatedAllocations, 0, sizeof(m_pDedicatedAllocations));
     memset(&m_VulkanFunctions, 0, sizeof(m_VulkanFunctions));
 
+    memset(&m_TypeExternalMemoryHandleTypes, 0, sizeof(m_TypeExternalMemoryHandleTypes));
+
     if(pCreateInfo->pDeviceMemoryCallbacks != VMA_NULL)
     {
         m_DeviceMemoryCallbacks.pUserData = pCreateInfo->pDeviceMemoryCallbacks->pUserData;
@@ -15748,6 +15775,12 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         pCreateInfo->preferredLargeHeapBlockSize : static_cast<VkDeviceSize>(VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
 
     m_GlobalMemoryTypeBits = CalculateGlobalMemoryTypeBits();
+
+    if(pCreateInfo->pTypeExternalMemoryHandleTypes != VMA_NULL)
+    {
+        memcpy(m_TypeExternalMemoryHandleTypes, pCreateInfo->pTypeExternalMemoryHandleTypes,
+            sizeof(VkExternalMemoryHandleTypeFlagsKHR) * GetMemoryTypeCount());
+    }
 
     if(pCreateInfo->pHeapSizeLimit != VMA_NULL)
     {
@@ -15784,7 +15817,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
         // becase minBlockCount is 0.
         m_pDedicatedAllocations[memTypeIndex] = vma_new(this, AllocationVectorType)(VmaStlAllocator<VmaAllocation>(GetAllocationCallbacks()));
-
     }
 }
 
@@ -16263,6 +16295,14 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
         }
     }
 #endif // #if VMA_BUFFER_DEVICE_ADDRESS
+
+    // Attach VkExportMemoryAllocateInfoKHR if necessary.
+    VkExportMemoryAllocateInfoKHR exportMemoryAllocInfo = { VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR };
+    exportMemoryAllocInfo.handleTypes = GetExternalMemoryHandleTypeFlags(memTypeIndex);
+    if(exportMemoryAllocInfo.handleTypes != 0)
+    {
+        VmaPnextChainPushFront(&allocInfo, &exportMemoryAllocInfo);
+    }
 
     size_t allocIndex;
     VkResult res = VK_SUCCESS;
