@@ -83,7 +83,7 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:ae0bfb7dfdf79a76ffefc9a94677a2f67"><td class="mdescLeft">&#160;</td><td class="mdescRight">Handle to Vulkan memory object.  <a href="struct_vma_allocation_info.html#ae0bfb7dfdf79a76ffefc9a94677a2f67">More...</a><br /></td></tr>
 <tr class="separator:ae0bfb7dfdf79a76ffefc9a94677a2f67"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a3c732388dbdc7a23f9365b00825268"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268">offset</a></td></tr>
-<tr class="memdesc:a4a3c732388dbdc7a23f9365b00825268"><td class="mdescLeft">&#160;</td><td class="mdescRight">Offset into deviceMemory object to the beginning of this allocation, in bytes. (deviceMemory, offset) pair is unique to this allocation.  <a href="struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268">More...</a><br /></td></tr>
+<tr class="memdesc:a4a3c732388dbdc7a23f9365b00825268"><td class="mdescLeft">&#160;</td><td class="mdescRight">Offset in <code>VkDeviceMemory</code> object to the beginning of this allocation, in bytes. <code>(deviceMemory, offset)</code> pair is unique to this allocation.  <a href="struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268">More...</a><br /></td></tr>
 <tr class="separator:a4a3c732388dbdc7a23f9365b00825268"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aac76d113a6a5ccbb09fea00fb25fd18f"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html#aac76d113a6a5ccbb09fea00fb25fd18f">size</a></td></tr>
 <tr class="memdesc:aac76d113a6a5ccbb09fea00fb25fd18f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of this allocation, in bytes.  <a href="struct_vma_allocation_info.html#aac76d113a6a5ccbb09fea00fb25fd18f">More...</a><br /></td></tr>
@@ -146,7 +146,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Offset into deviceMemory object to the beginning of this allocation, in bytes. (deviceMemory, offset) pair is unique to this allocation. </p>
+<p>Offset in <code>VkDeviceMemory</code> object to the beginning of this allocation, in bytes. <code>(deviceMemory, offset)</code> pair is unique to this allocation. </p>
+<p>You usually don't need to use this offset. If you create a buffer or an image together with the allocation using e.g. function <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, functions that operate on these resources refer to the beginning of the buffer or image, not entire device memory block. Functions like <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a> also refer to the beginning of the allocation and apply this offset automatically.</p>
 <p>It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function, or if allocation is lost. </p>
 
 </div>
