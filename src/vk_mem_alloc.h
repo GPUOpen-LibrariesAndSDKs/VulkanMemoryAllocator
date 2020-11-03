@@ -142,6 +142,15 @@ before including these headers (like `WIN32_LEAN_AND_MEAN` or
 `WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
 them before every `#include` of this library.
 
+You may need to configure the way you import Vulkan functions.
+
+- By default, VMA assumes you you link statically with Vulkan API. If this is not the case,
+  `#define VMA_STATIC_VULKAN_FUNCTIONS 0` before `#include` of the VMA implementation and use another way.
+- You can `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1` and make sure `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` globals are defined.
+  All the remaining Vulkan functions will be fetched automatically.
+- Finally, you can provide your own pointers to all Vulkan functions needed by VMA using structure member
+  VmaAllocatorCreateInfo::pVulkanFunctions, if you fetched them in some custom way e.g. using some loader like [Volk](https://github.com/zeux/volk).
+
 
 \section quick_start_initialization Initialization
 
@@ -153,6 +162,7 @@ At program startup:
 
 \code
 VmaAllocatorCreateInfo allocatorInfo = {};
+allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
 allocatorInfo.physicalDevice = physicalDevice;
 allocatorInfo.device = device;
 allocatorInfo.instance = instance;
@@ -160,6 +170,13 @@ allocatorInfo.instance = instance;
 VmaAllocator allocator;
 vmaCreateAllocator(&allocatorInfo, &allocator);
 \endcode
+
+Only members `physicalDevice`, `device`, `instance` are required.
+However, you should inform the library which Vulkan version do you use by setting
+VmaAllocatorCreateInfo::vulkanApiVersion and which extensions did you enable
+by setting VmaAllocatorCreateInfo::flags (like #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT for VK_KHR_buffer_device_address).
+Otherwise, VMA would use only features of Vulkan 1.0 core with no extensions.
+
 
 \section quick_start_resource_allocation Resource allocation
 
