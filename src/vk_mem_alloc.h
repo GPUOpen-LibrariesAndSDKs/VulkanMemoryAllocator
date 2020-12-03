@@ -15602,9 +15602,9 @@ void VmaRecorder::GetBasicParams(CallParams& outParams)
         // There is room for optimization since sstream is quite slow.
         // Is there a better way to convert std::this_thread::get_id() to uint32_t?
         std::thread::id thread_id = std::this_thread::get_id();
-        stringstream thread_id_to_string_converter;
+        std::stringstream thread_id_to_string_converter;
         thread_id_to_string_converter << thread_id;
-        string thread_id_as_string = thread_id_to_string_converter.str();
+        std::string thread_id_as_string = thread_id_to_string_converter.str();
         outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
     #endif
 
