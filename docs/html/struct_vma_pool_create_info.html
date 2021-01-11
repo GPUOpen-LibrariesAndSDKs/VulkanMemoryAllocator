@@ -94,6 +94,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a9437e43ffbb644dbbf7fc4e50cfad6aa"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#a9437e43ffbb644dbbf7fc4e50cfad6aa">frameInUseCount</a></td></tr>
 <tr class="memdesc:a9437e43ffbb644dbbf7fc4e50cfad6aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of additional frames that are in use at the same time as current frame.  <a href="struct_vma_pool_create_info.html#a9437e43ffbb644dbbf7fc4e50cfad6aa">More...</a><br /></td></tr>
 <tr class="separator:a9437e43ffbb644dbbf7fc4e50cfad6aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a16e686c688f6725f119ebf6e24ab5274"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274">priority</a></td></tr>
+<tr class="memdesc:a16e686c688f6725f119ebf6e24ab5274"><td class="mdescLeft">&#160;</td><td class="mdescRight">A floating-point value between 0 and 1, indicating the priority of the allocations in this pool relative to other memory allocations.  <a href="struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274">More...</a><br /></td></tr>
+<tr class="separator:a16e686c688f6725f119ebf6e24ab5274"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Describes parameter of created <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>. </p>
@@ -199,6 +202,23 @@ Public Attributes</h2></td></tr>
 
 <p>Minimum number of blocks to be always allocated in this pool, even if they stay empty. </p>
 <p>Set to 0 to have no preallocated blocks and allow the pool be completely empty. </p>
+
+</div>
+</div>
+<a id="a16e686c688f6725f119ebf6e24ab5274"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a16e686c688f6725f119ebf6e24ab5274">&#9670;&nbsp;</a></span>priority</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float VmaPoolCreateInfo::priority</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>A floating-point value between 0 and 1, indicating the priority of the allocations in this pool relative to other memory allocations. </p>
+<p>It is used only when <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a> flag was used during creation of the <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object. Otherwise, this variable is ignored. </p>
 
 </div>
 </div>

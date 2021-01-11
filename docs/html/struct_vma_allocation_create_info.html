@@ -94,6 +94,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a8259e85c272683434f4abb4ddddffe19"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19">pUserData</a></td></tr>
 <tr class="memdesc:a8259e85c272683434f4abb4ddddffe19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that will be stored in <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a>, can be read as <a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13" title="Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vma...">VmaAllocationInfo::pUserData</a> and changed using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a>.  <a href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19">More...</a><br /></td></tr>
 <tr class="separator:a8259e85c272683434f4abb4ddddffe19"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a983d39e1a2e63649d78a960aa2fdd0f7"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html#a983d39e1a2e63649d78a960aa2fdd0f7">priority</a></td></tr>
+<tr class="memdesc:a983d39e1a2e63649d78a960aa2fdd0f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">A floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.  <a href="struct_vma_allocation_create_info.html#a983d39e1a2e63649d78a960aa2fdd0f7">More...</a><br /></td></tr>
+<tr class="separator:a983d39e1a2e63649d78a960aa2fdd0f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="add09658ac14fe290ace25470ddd6d41b"></a>
@@ -162,6 +165,23 @@ If <code>pool</code> is not null, this member is ignored. </p>
 <p>Flags that preferably should be set in a memory type chosen for an allocation. </p>
 <p>Set to 0 if no additional flags are preferred. <br  />
 If <code>pool</code> is not null, this member is ignored. </p>
+
+</div>
+</div>
+<a id="a983d39e1a2e63649d78a960aa2fdd0f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a983d39e1a2e63649d78a960aa2fdd0f7">&#9670;&nbsp;</a></span>priority</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float VmaAllocationCreateInfo::priority</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>A floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations. </p>
+<p>It is used only when <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a> flag was used during creation of the <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object and this allocation ends up as dedicated or is explicitly forced as dedicated using <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a>. Otherwise, it has the priority of a memory block where it is placed and this variable is ignored. </p>
 
 </div>
 </div>

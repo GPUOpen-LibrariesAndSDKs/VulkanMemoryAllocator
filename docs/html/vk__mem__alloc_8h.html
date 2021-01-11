@@ -141,6 +141,8 @@ Macros</h2></td></tr>
 <tr class="separator:a05decf1cf4ebf767beba7acca6c1ec3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7f9d5e71b70dd1a137c303a8a8262c10"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a7f9d5e71b70dd1a137c303a8a8262c10">VMA_BUFFER_DEVICE_ADDRESS</a>&#160;&#160;&#160;0</td></tr>
 <tr class="separator:a7f9d5e71b70dd1a137c303a8a8262c10"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81af8a3a87e34bbb493848143cde43e4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a81af8a3a87e34bbb493848143cde43e4">VMA_MEMORY_PRIORITY</a>&#160;&#160;&#160;0</td></tr>
+<tr class="separator:a81af8a3a87e34bbb493848143cde43e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae25f0d55fd91cb166f002b63244800e1"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1">VMA_STATS_STRING_ENABLED</a>&#160;&#160;&#160;1</td></tr>
 <tr class="separator:ae25f0d55fd91cb166f002b63244800e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -239,6 +241,7 @@ Enumerations</h2></td></tr>
 <br />
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca2acce4886d8078552efa38878413970f">VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT</a> = 0x00000010, 
 <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca5f1b28b0414319d1687e1f2b30ab0089">VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT</a> = 0x00000020, 
+<a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a> = 0x00000040, 
 <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c">VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
@@ -508,6 +511,20 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define VMA_MEMORY_BUDGET&#160;&#160;&#160;0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a81af8a3a87e34bbb493848143cde43e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81af8a3a87e34bbb493848143cde43e4">&#9670;&nbsp;</a></span>VMA_MEMORY_PRIORITY</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VMA_MEMORY_PRIORITY&#160;&#160;&#160;0</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1150,6 +1167,11 @@ Functions</h2></td></tr>
 </ol>
 <p>When this flag is set, you can create buffers with <code>VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT</code> using VMA. The library automatically adds <code>VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT</code> to allocated memory blocks wherever it might be needed.</p>
 <p>For more information, see documentation chapter <a class="el" href="enabling_buffer_device_address.html">Enabling buffer device address</a>. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a"></a>VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_EXT_memory_priority extension in the library.</p>
+<p>You may set this flag only if you found available and enabled this device extension, along with <code>VkPhysicalDeviceMemoryPriorityFeaturesEXT::memoryPriority == VK_TRUE</code>, while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>.</p>
+<p>When this flag is used, <a class="el" href="struct_vma_allocation_create_info.html#a983d39e1a2e63649d78a960aa2fdd0f7" title="A floating-point value between 0 and 1, indicating the priority of the allocation relative to other m...">VmaAllocationCreateInfo::priority</a> and <a class="el" href="struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274" title="A floating-point value between 0 and 1, indicating the priority of the allocations in this pool relat...">VmaPoolCreateInfo::priority</a> are used to set priorities of allocated Vulkan memory. Without it, these variables are ignored.</p>
+<p>A priority must be a floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations. Larger values are higher priority. The granularity of the priorities is implementation-dependent. It is automatically passed to every call to <code>vkAllocateMemory</code> done by the library using structure <code>VkMemoryPriorityAllocateInfoEXT</code>. The value to be used for default priority is 0.5. For more details, see the documentation of the VK_EXT_memory_priority extension. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c"></a>VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>

@@ -35,6 +35,7 @@ static const char* CODE_DESCRIPTION = "Foo";
 extern VkCommandBuffer g_hTemporaryCommandBuffer;
 extern const VkAllocationCallbacks* g_Allocs;
 extern bool g_BufferDeviceAddressEnabled;
+extern bool VK_EXT_memory_priority_enabled;
 extern PFN_vkGetBufferDeviceAddressEXT g_vkGetBufferDeviceAddressEXT;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
@@ -3834,6 +3835,37 @@ static void TestBufferDeviceAddress()
     }
 }
 
+static void TestMemoryPriority()
+{
+    wprintf(L"Test memory priority\n");
+
+    assert(VK_EXT_memory_priority_enabled);
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 0x10000;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.priority = 1.f;
+
+    for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
+    {
+        // 1st is placed, 2nd is dedicated.
+        if(testIndex == 1)
+            allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        BufferInfo bufInfo = {};
+        VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &bufInfo.Buffer, &bufInfo.Allocation, nullptr);
+        TEST(res == VK_SUCCESS);
+
+        // There is nothing we can do to validate the priority.
+
+        vmaDestroyBuffer(g_hAllocator, bufInfo.Buffer, bufInfo.Allocation);
+    }
+}
+
 static void BenchmarkAlgorithms(FILE* file)
 {
     wprintf(L"Benchmark algorithms\n");
@@ -6429,6 +6461,8 @@ void Test()
 
     if(g_BufferDeviceAddressEnabled)
         TestBufferDeviceAddress();
+    if(VK_EXT_memory_priority_enabled)
+        TestMemoryPriority();
 
     {
         FILE* file;

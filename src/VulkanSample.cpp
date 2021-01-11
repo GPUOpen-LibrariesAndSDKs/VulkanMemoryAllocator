@@ -54,6 +54,7 @@ bool VK_EXT_memory_budget_enabled = false;
 bool VK_AMD_device_coherent_memory_enabled = false;
 bool VK_EXT_buffer_device_address_enabled = false;
 bool VK_KHR_buffer_device_address_enabled = false;
+bool VK_EXT_memory_priority_enabled = false;
 bool VK_EXT_debug_utils_enabled = false;
 bool g_SparseBindingEnabled = false;
 bool g_BufferDeviceAddressEnabled = false;
@@ -1125,6 +1126,7 @@ static void PrintEnabledFeatures()
     wprintf(L"VK_AMD_device_coherent_memory: %d\n", VK_AMD_device_coherent_memory_enabled ? 1 : 0);
     wprintf(L"VK_KHR_buffer_device_address: %d\n", VK_KHR_buffer_device_address_enabled ? 1 : 0);
     wprintf(L"VK_EXT_buffer_device_address: %d\n", VK_EXT_buffer_device_address_enabled ? 1 : 0);
+    wprintf(L"VK_EXT_memory_priority: %d\n", VK_EXT_memory_priority ? 1 : 0);
 }
 
 void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
@@ -1159,6 +1161,12 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     {
         outInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     }
+#if !defined(VMA_MEMORY_PRIORITY) || VMA_MEMORY_PRIORITY == 1
+    if(VK_EXT_memory_priority_enabled)
+    {
+        outInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+    }
+#endif
 
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
     {
@@ -1353,6 +1361,8 @@ static void InitializeApplication()
                 VK_EXT_buffer_device_address_enabled = true;
             }
         }
+        else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME) == 0)
+            VK_EXT_memory_priority_enabled = true;
     }
 
     if(VK_EXT_buffer_device_address_enabled && VK_KHR_buffer_device_address_enabled)
@@ -1379,6 +1389,12 @@ static void InitializeApplication()
         PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceBufferDeviceAddressFeatures);
     }
 
+    VkPhysicalDeviceMemoryPriorityFeaturesEXT physicalDeviceMemoryPriorityFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT };
+    if(VK_EXT_memory_priority_enabled)
+    {
+        PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceMemoryPriorityFeatures);
+    }
+
     vkGetPhysicalDeviceFeatures2(g_hPhysicalDevice, &physicalDeviceFeatures);
 
     g_SparseBindingEnabled = physicalDeviceFeatures.features.sparseBinding != 0;
@@ -1388,6 +1404,8 @@ static void InitializeApplication()
         VK_AMD_device_coherent_memory_enabled = false;
     if(VK_KHR_buffer_device_address_enabled || VK_EXT_buffer_device_address_enabled || GetVulkanApiVersion() >= VK_API_VERSION_1_2)
         g_BufferDeviceAddressEnabled = physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress != VK_FALSE;
+    if(VK_EXT_memory_priority_enabled && !physicalDeviceMemoryPriorityFeatures.memoryPriority)
+        VK_EXT_memory_priority_enabled = false;
 
     // Find queue family index
 
@@ -1480,6 +1498,8 @@ static void InitializeApplication()
         enabledDeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
     if(VK_EXT_buffer_device_address_enabled)
         enabledDeviceExtensions.push_back(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+    if(VK_EXT_memory_priority_enabled)
+        enabledDeviceExtensions.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 
     VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     deviceFeatures.features.samplerAnisotropy = VK_TRUE;
@@ -1495,6 +1515,10 @@ static void InitializeApplication()
         physicalDeviceBufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT };
         physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
         PnextChainPushBack(&deviceFeatures, &physicalDeviceBufferDeviceAddressFeatures);
+    }
+    if(VK_EXT_memory_priority_enabled)
+    {
+        PnextChainPushBack(&deviceFeatures, &physicalDeviceMemoryPriorityFeatures);
     }
 
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
