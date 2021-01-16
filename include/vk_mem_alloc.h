@@ -2917,7 +2917,7 @@ typedef struct VmaAllocationCreateInfo
     */
     void* VMA_NULLABLE pUserData;
     /** \brief A floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.
-    
+
     It is used only when #VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT flag was used during creation of the #VmaAllocator object
     and this allocation ends up as dedicated or is explicitly forced as dedicated using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
     Otherwise, it has the priority of a memory block where it is placed and this variable is ignored.
@@ -9377,12 +9377,7 @@ bool VmaBlockMetadata_Generic::Validate() const
     // True if previous visited suballocation was free.
     bool prevFree = false;
 
-    for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
-        suballocItem != m_Suballocations.cend();
-        ++suballocItem)
-    {
-        const VmaSuballocation& subAlloc = *suballocItem;
-
+    for(const auto& subAlloc : m_Suballocations){
         // Actual offset of this suballocation doesn't match expected one.
         VMA_VALIDATE(subAlloc.offset == calculatedOffset);
 
@@ -9476,10 +9471,7 @@ void VmaBlockMetadata_Generic::CalcAllocationStatInfo(VmaStatInfo& outInfo) cons
     outInfo.unusedRangeSizeMin = UINT64_MAX;
     outInfo.unusedRangeSizeMax = 0;
 
-    for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
-        suballocItem != m_Suballocations.cend();
-        ++suballocItem)
-    {
+    ){
         const VmaSuballocation& suballoc = *suballocItem;
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
@@ -9514,11 +9506,7 @@ void VmaBlockMetadata_Generic::PrintDetailedMap(class VmaJsonWriter& json) const
         m_Suballocations.size() - (size_t)m_FreeCount, // allocationCount
         m_FreeCount); // unusedRangeCount
 
-    size_t i = 0;
-    for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
-        suballocItem != m_Suballocations.cend();
-        ++suballocItem, ++i)
-    {
+    for(const auto& suballocItem : m_Suballocations){
         if(suballocItem->type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             PrintDetailedMap_UnusedRange(json, suballocItem->offset, suballocItem->size);
@@ -9750,18 +9738,15 @@ uint32_t VmaBlockMetadata_Generic::MakeAllocationsLost(uint32_t currentFrameInde
 
 VkResult VmaBlockMetadata_Generic::CheckCorruption(const void* pBlockData)
 {
-    for(VmaSuballocationList::iterator it = m_Suballocations.begin();
-        it != m_Suballocations.end();
-        ++it)
-    {
-        if(it->type != VMA_SUBALLOCATION_TYPE_FREE)
+    for(const auto& it : m_Suballocations){
+        if(it.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if(!VmaValidateMagicValue(pBlockData, it->offset - VMA_DEBUG_MARGIN))
+            if(!VmaValidateMagicValue(pBlockData, it.offset - VMA_DEBUG_MARGIN))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
                 return VK_ERROR_VALIDATION_FAILED_EXT;
             }
-            if(!VmaValidateMagicValue(pBlockData, it->offset + it->size))
+            if(!VmaValidateMagicValue(pBlockData, it.offset + it.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
                 return VK_ERROR_VALIDATION_FAILED_EXT;
@@ -10295,14 +10280,11 @@ bool VmaBlockMetadata_Generic::IsBufferImageGranularityConflictPossible(
 
     VkDeviceSize minAlignment = VK_WHOLE_SIZE;
     bool typeConflictFound = false;
-    for(VmaSuballocationList::const_iterator it = m_Suballocations.cbegin();
-        it != m_Suballocations.cend();
-        ++it)
-    {
-        const VmaSuballocationType suballocType = it->type;
+    for(const auto& it : m_Suballocations){
+        const VmaSuballocationType suballocType = it.type;
         if(suballocType != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            minAlignment = VMA_MIN(minAlignment, it->hAllocation->GetAlignment());
+            minAlignment = VMA_MIN(minAlignment, it.hAllocation->GetAlignment());
             if(VmaIsBufferImageGranularityConflict(inOutPrevSuballocType, suballocType))
             {
                 typeConflictFound = true;
@@ -14535,13 +14517,10 @@ VkResult VmaDefragmentationAlgorithm_Generic::Defragment(
         if(m_AllAllocations)
         {
             VmaBlockMetadata_Generic* pMetadata = (VmaBlockMetadata_Generic*)pBlockInfo->m_pBlock->m_pMetadata;
-            for(VmaSuballocationList::const_iterator it = pMetadata->m_Suballocations.begin();
-                it != pMetadata->m_Suballocations.end();
-                ++it)
-            {
-                if(it->type != VMA_SUBALLOCATION_TYPE_FREE)
+            for(const auto& it : pMetadata->m_Suballocations){
+                if(it.type != VMA_SUBALLOCATION_TYPE_FREE)
                 {
-                    AllocationInfo allocInfo = AllocationInfo(it->hAllocation, VMA_NULL);
+                    AllocationInfo allocInfo = AllocationInfo(it.hAllocation, VMA_NULL);
                     pBlockInfo->m_Allocations.push_back(allocInfo);
                 }
             }
@@ -14900,18 +14879,15 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
         {
             VkDeviceSize offset = 0;
             VmaSuballocationList::iterator it;
-            for(it = pMetadata->m_Suballocations.begin();
-                it != pMetadata->m_Suballocations.end();
-                ++it)
-            {
-                VMA_ASSERT(it->type != VMA_SUBALLOCATION_TYPE_FREE);
-                VMA_ASSERT(it->offset >= offset);
+            for(const auto& it : m_Suballocations){
+                VMA_ASSERT(it.type != VMA_SUBALLOCATION_TYPE_FREE);
+                VMA_ASSERT(it.offset >= offset);
 
                 // Need to insert preceding free space.
-                if(it->offset > offset)
+                if(it.offset > offset)
                 {
                     ++pMetadata->m_FreeCount;
-                    const VkDeviceSize freeSize = it->offset - offset;
+                    const VkDeviceSize freeSize = it.offset - offset;
                     VmaSuballocation suballoc = {
                         offset, // offset
                         freeSize, // size
@@ -14924,8 +14900,8 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                     }
                 }
 
-                pMetadata->m_SumFreeSize -= it->size;
-                offset = it->offset + it->size;
+                pMetadata->m_SumFreeSize -= it.size;
+                offset = it.offset + it.size;
             }
 
             // Need to insert trailing free space.
