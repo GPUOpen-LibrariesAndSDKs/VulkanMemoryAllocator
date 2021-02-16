@@ -13,7 +13,7 @@ Easy to integrate Vulkan memory allocation library.
 **Build status:**
 
 - Windows: [![Build status](https://ci.appveyor.com/api/projects/status/4vlcrb0emkaio2pn/branch/master?svg=true)](https://ci.appveyor.com/project/adam-sawicki-amd/vulkanmemoryallocator/branch/master)  
-- Linux: [![Build Status](https://travis-ci.org/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.svg?branch=master)](https://travis-ci.org/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- Linux: [![Build Status](https://travis-ci.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.svg?branch=master)](https://travis-ci.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 # Problem
 
