@@ -96,7 +96,7 @@ With this one function call:
 
 # Binaries
 
-The release comes with precompiled binary executables for "VulkanSample" application which contains test suite and "VmaReplay" tool. They are compiled using Visual Studio 2017, so they require appropriate libraries to work, including "vcruntime140.dll" and "msvcp140.dll". If their launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable for Visual Studio 2015, 2017 and 2019](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "x64" version.
+The release comes with precompiled binary executables for "VulkanSample" application which contains test suite and "VmaReplay" tool. They are compiled using Visual Studio 2019, so they require appropriate libraries to work, including "MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll". If their launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable for Visual Studio 2015, 2017 and 2019](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "x64" version.
 
 # Read more
 
