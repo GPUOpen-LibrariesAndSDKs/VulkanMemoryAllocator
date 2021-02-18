@@ -4414,13 +4414,22 @@ static void TestPool_Benchmark(
     poolCreateInfo.blockSize = config.PoolSize;
     poolCreateInfo.frameInUseCount = 1;
 
-    VmaAllocationCreateInfo dummyAllocCreateInfo = {};
-    dummyAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    vmaFindMemoryTypeIndex(g_hAllocator, memoryTypeBits, &dummyAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    VmaPool pool = VK_NULL_HANDLE;
+    VkResult res;
+    // Loop over memory types because we sometimes allocate a big block here,
+    // while the most eligible DEVICE_LOCAL heap may be only 256 MB on some GPUs.
+    while(memoryTypeBits)
+    {
+        VmaAllocationCreateInfo dummyAllocCreateInfo = {};
+        dummyAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        vmaFindMemoryTypeIndex(g_hAllocator, memoryTypeBits, &dummyAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
 
-    VmaPool pool;
-    VkResult res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
-    TEST(res == VK_SUCCESS);
+        res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+        if(res == VK_SUCCESS)
+            break;
+        memoryTypeBits &= ~(1u << poolCreateInfo.memoryTypeIndex);
+    }
+    TEST(pool);
 
     // Start time measurement - after creating pool and initializing data structures.
     time_point timeBeg = std::chrono::high_resolution_clock::now();

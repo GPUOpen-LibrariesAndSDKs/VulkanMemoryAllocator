@@ -588,6 +588,8 @@ void TestSparseBinding()
 
     // Free remaining images.
     images.clear();
+
+    wprintf(L"Done.\n");
 }
 
 #endif // #ifdef _WIN32
