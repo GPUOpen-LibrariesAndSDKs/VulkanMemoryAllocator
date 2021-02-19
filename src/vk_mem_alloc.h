@@ -4409,6 +4409,14 @@ If providing your own implementation, you need to implement a subset of std::ato
     #define VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY (1)
 #endif
 
+#ifndef VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT
+    /*
+    Set this to 1 to make VMA never exceed VkPhysicalDeviceLimits::maxMemoryAllocationCount
+    and return error instead of leaving up to Vulkan implementation what to do in such cases.
+    */
+    #define VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT (0)
+#endif
+
 #ifndef VMA_SMALL_HEAP_MAX_SIZE
    /// Maximum size of a memory heap in Vulkan to consider it "small".
    #define VMA_SMALL_HEAP_MAX_SIZE (1024ull * 1024 * 1024)
@@ -7919,6 +7927,7 @@ public:
     VMA_RW_MUTEX m_DedicatedAllocationsMutex[VK_MAX_MEMORY_TYPES];
 
     VmaCurrentBudgetData m_Budget;
+    VMA_ATOMIC_UINT32 m_DeviceMemoryCount; // Total number of VkDeviceMemory objects.
 
     VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo);
     VkResult Init(const VmaAllocatorCreateInfo* pCreateInfo);
@@ -15729,6 +15738,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         *pCreateInfo->pAllocationCallbacks : VmaEmptyAllocationCallbacks),
     m_AllocationObjectAllocator(&m_AllocationCallbacks),
     m_HeapSizeLimitMask(0),
+    m_DeviceMemoryCount(0),
     m_PreferredLargeHeapBlockSize(0),
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
@@ -16244,34 +16254,40 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
         {
             return VK_ERROR_OUT_OF_DEVICE_MEMORY;
         }
+
+        // Protection against creating each allocation as dedicated when we reach or exceed heap size/budget,
+        // which can quickly deplete maxMemoryAllocationCount: Don't try dedicated allocations when above
+        // 3/4 of the maximum allocation count.
+        if(m_DeviceMemoryCount.load() > m_PhysicalDeviceProperties.limits.maxMemoryAllocationCount * 3 / 4)
+        {
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+
+        res = AllocateDedicatedMemory(
+            size,
+            suballocType,
+            memTypeIndex,
+            (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT) != 0,
+            (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
+            (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0,
+            finalCreateInfo.pUserData,
+            finalCreateInfo.priority,
+            dedicatedBuffer,
+            dedicatedBufferUsage,
+            dedicatedImage,
+            allocationCount,
+            pAllocations);
+        if(res == VK_SUCCESS)
+        {
+            // Succeeded: AllocateDedicatedMemory function already filld pMemory, nothing more to do here.
+            VMA_DEBUG_LOG("    Allocated as DedicatedMemory");
+            return VK_SUCCESS;
+        }
         else
         {
-            res = AllocateDedicatedMemory(
-                size,
-                suballocType,
-                memTypeIndex,
-                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT) != 0,
-                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
-                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0,
-                finalCreateInfo.pUserData,
-                finalCreateInfo.priority,
-                dedicatedBuffer,
-                dedicatedBufferUsage,
-                dedicatedImage,
-                allocationCount,
-                pAllocations);
-            if(res == VK_SUCCESS)
-            {
-                // Succeeded: AllocateDedicatedMemory function already filld pMemory, nothing more to do here.
-                VMA_DEBUG_LOG("    Allocated as DedicatedMemory");
-                return VK_SUCCESS;
-            }
-            else
-            {
-                // Everything failed: Return error code.
-                VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
-                return res;
-            }
+            // Everything failed: Return error code.
+            VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
+            return res;
         }
     }
 }
@@ -17177,8 +17193,41 @@ void VmaAllocator_T::CreateLostAllocation(VmaAllocation* pAllocation)
     (*pAllocation)->InitLost();
 }
 
+// An object that increments given atomic but decrements it back in the destructor unless Commit() is called.
+template<typename AtomicT>
+struct AtomicTransactionalIncrement
+{
+public:
+    ~AtomicTransactionalIncrement()
+    {
+        if(m_Atomic)
+            --(*m_Atomic);
+    }
+    typename AtomicT::value_type Increment(AtomicT* atomic)
+    {
+        m_Atomic = atomic;
+        return m_Atomic->fetch_add(1);
+    }
+    void Commit()
+    {
+        m_Atomic = nullptr;
+    }
+
+private:
+    AtomicT* m_Atomic = nullptr;
+};
+
 VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory)
 {
+    AtomicTransactionalIncrement<VMA_ATOMIC_UINT32> deviceMemoryCountIncrement;
+    const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
+#if VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT
+    if(prevDeviceMemoryCount >= m_PhysicalDeviceProperties.limits.maxMemoryAllocationCount)
+    {
+        return VK_ERROR_TOO_MANY_OBJECTS;
+    }
+#endif
+
     const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(pAllocateInfo->memoryTypeIndex);
 
     // HeapSizeLimit is in effect for this heap.
@@ -17218,6 +17267,8 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
         {
             (*m_DeviceMemoryCallbacks.pfnAllocate)(this, pAllocateInfo->memoryTypeIndex, *pMemory, pAllocateInfo->allocationSize, m_DeviceMemoryCallbacks.pUserData);
         }
+
+        deviceMemoryCountIncrement.Commit();
     }
     else
     {
@@ -17239,6 +17290,8 @@ void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, Vk
     (*m_VulkanFunctions.vkFreeMemory)(m_hDevice, hMemory, GetAllocationCallbacks());
 
     m_Budget.m_BlockBytes[MemoryTypeIndexToHeapIndex(memoryType)] -= size;
+
+    --m_DeviceMemoryCount;
 }
 
 VkResult VmaAllocator_T::BindVulkanBuffer(
