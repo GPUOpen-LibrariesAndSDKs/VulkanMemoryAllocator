@@ -8,6 +8,7 @@ platforms { "x64", "Linux-x64" }
 location "../build"
 filename ("VulkanSample_" .. _SUFFIX)
 startproject "VulkanSample"
+cppdialect "C++14"
 
 filter "platforms:x64"
 system "Windows"
