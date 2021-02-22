@@ -17194,16 +17194,17 @@ void VmaAllocator_T::CreateLostAllocation(VmaAllocation* pAllocation)
 }
 
 // An object that increments given atomic but decrements it back in the destructor unless Commit() is called.
-template<typename AtomicT>
+template<typename T>
 struct AtomicTransactionalIncrement
 {
 public:
+    typedef std::atomic<T> AtomicT;
     ~AtomicTransactionalIncrement()
     {
         if(m_Atomic)
             --(*m_Atomic);
     }
-    typename AtomicT::value_type Increment(AtomicT* atomic)
+    T Increment(AtomicT* atomic)
     {
         m_Atomic = atomic;
         return m_Atomic->fetch_add(1);
@@ -17219,7 +17220,7 @@ private:
 
 VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory)
 {
-    AtomicTransactionalIncrement<VMA_ATOMIC_UINT32> deviceMemoryCountIncrement;
+    AtomicTransactionalIncrement<uint32_t> deviceMemoryCountIncrement;
     const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
 #if VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT
     if(prevDeviceMemoryCount >= m_PhysicalDeviceProperties.limits.maxMemoryAllocationCount)

@@ -8,6 +8,7 @@ platforms { "x64", "Linux-x64" }
 location "../build"
 filename ("VulkanSample_" .. _SUFFIX)
 startproject "VulkanSample"
+cppdialect "C++14"
 
 filter "platforms:x64"
 system "Windows"
@@ -50,7 +51,6 @@ defines { "WIN32", "_CONSOLE", "PROFILE", "_WINDOWS", "_WIN32_WINNT=0x0601" }
 links { "vulkan-1" }
 
 filter { "platforms:Linux-x64" }
-buildoptions { "-std=c++0x" }
 links { "vulkan" }
 
 filter { "configurations:Debug", "platforms:x64" }
@@ -89,7 +89,6 @@ defines { "WIN32", "_CONSOLE", "PROFILE", "_WINDOWS", "_WIN32_WINNT=0x0601" }
 links { "vulkan-1" }
 
 filter { "platforms:Linux-x64" }
-buildoptions { "-std=c++0x" }
 links { "vulkan" }
 
 filter { "configurations:Debug", "platforms:x64" }
