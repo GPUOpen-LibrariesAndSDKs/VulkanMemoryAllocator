@@ -11,8 +11,24 @@ compiler:
   - clang
   - gcc
 
+matrix:
+  include:
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-trusty-5.0
+          packages:
+            - g++-7
+            - clang-5.0
+      env:
+        - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+        - MATRIX_EVAL="CC=clang-5.0 && CXX=clang++-5.0"
+
 before_script:
-  - sudo apt-get install 
+  - sudo apt-get install
+  - eval "${MATRIX_EVAL}"
 
 install:
   - wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha15/premake-5.0.0-alpha15-linux.tar.gz -O premake-5.0.0-alpha15-linux.tar.gz
