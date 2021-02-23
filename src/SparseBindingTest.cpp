@@ -532,6 +532,8 @@ SparseBindingImage::~SparseBindingImage()
 
 void TestSparseBinding()
 {
+    wprintf(L"TESTING SPARSE BINDING:");
+
     struct ImageInfo
     {
         std::unique_ptr<BaseImage> image;

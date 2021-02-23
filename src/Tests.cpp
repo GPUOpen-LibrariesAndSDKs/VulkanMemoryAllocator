@@ -4408,11 +4408,13 @@ static void TestPool_Benchmark(
         TEST(0);
 
     VmaPoolCreateInfo poolCreateInfo = {};
-    poolCreateInfo.memoryTypeIndex = 0;
     poolCreateInfo.minBlockCount = 1;
     poolCreateInfo.maxBlockCount = 1;
     poolCreateInfo.blockSize = config.PoolSize;
     poolCreateInfo.frameInUseCount = 1;
+
+    const VkPhysicalDeviceMemoryProperties* memProps = nullptr;
+    vmaGetMemoryProperties(g_hAllocator, &memProps);
 
     VmaPool pool = VK_NULL_HANDLE;
     VkResult res;
@@ -4424,9 +4426,15 @@ static void TestPool_Benchmark(
         dummyAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         vmaFindMemoryTypeIndex(g_hAllocator, memoryTypeBits, &dummyAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
 
-        res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
-        if(res == VK_SUCCESS)
-            break;
+        const uint32_t heapIndex = memProps->memoryTypes[poolCreateInfo.memoryTypeIndex].heapIndex;
+        // Protection against validation layer error when trying to allocate a block larger than entire heap size,
+        // which may be only 256 MB on some platforms.
+        if(poolCreateInfo.blockSize * poolCreateInfo.minBlockCount < memProps->memoryHeaps[heapIndex].size)
+        {
+            res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+            if(res == VK_SUCCESS)
+                break;
+        }
         memoryTypeBits &= ~(1u << poolCreateInfo.memoryTypeIndex);
     }
     TEST(pool);
@@ -5704,6 +5712,8 @@ static void PerformCustomPoolTest(FILE* file)
 
 static void PerformMainTests(FILE* file)
 {
+    wprintf(L"MAIN TESTS:\n");
+
     uint32_t repeatCount = 1;
     if(ConfigType >= CONFIG_TYPE_MAXIMUM) repeatCount = 3;
 
@@ -5969,6 +5979,8 @@ static void PerformMainTests(FILE* file)
 
 static void PerformPoolTests(FILE* file)
 {
+    wprintf(L"POOL TESTS:\n");
+
     const size_t AVG_RESOURCES_PER_POOL = 300;
 
     uint32_t repeatCount = 1;
@@ -6503,7 +6515,7 @@ void Test()
     
     fclose(file);
     
-    wprintf(L"Done.\n");
+    wprintf(L"Done, all PASSED.\n");
 }
 
 #endif // #ifdef _WIN32
