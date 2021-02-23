@@ -12773,9 +12773,13 @@ VkResult VmaBlockVector::Allocate(
     if(res != VK_SUCCESS)
     {
         // Free all already created allocations.
+        const uint32_t heapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex);
         while(allocIndex--)
         {
-            Free(pAllocations[allocIndex]);
+            VmaAllocation_T* const alloc = pAllocations[allocIndex];
+            const VkDeviceSize allocSize = alloc->GetSize();
+            Free(alloc);
+            m_hAllocator->m_Budget.RemoveAllocation(heapIndex, allocSize);
         }
         memset(pAllocations, 0, sizeof(VmaAllocation) * allocationCount);
     }

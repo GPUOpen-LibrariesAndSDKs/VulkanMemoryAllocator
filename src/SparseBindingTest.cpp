@@ -547,7 +547,7 @@ void TestSparseBinding()
 
     RandomNumberGenerator rand(4652467);
 
-    for(uint32_t i = 0; i < frameCount; ++i)
+    for(uint32_t frameIndex = 0; frameIndex < frameCount; ++frameIndex)
     {
         // Bump frame index.
         ++g_FrameIndex;
@@ -562,11 +562,11 @@ void TestSparseBinding()
         images.push_back(std::move(imageInfo));
 
         // Delete all images that expired.
-        for(size_t i = images.size(); i--; )
+        for(size_t imageIndex = images.size(); imageIndex--; )
         {
-            if(g_FrameIndex >= images[i].endFrame)
+            if(g_FrameIndex >= images[imageIndex].endFrame)
             {
-                images.erase(images.begin() + i);
+                images.erase(images.begin() + imageIndex);
             }
         }
     }
