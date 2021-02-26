@@ -3683,7 +3683,8 @@ void Player::ExecuteResizeAllocation(size_t lineNumber, const CsvSplit& csvSplit
                 const auto it = m_Allocations.find(origPtr);
                 if(it != m_Allocations.end())
                 {
-                    vmaResizeAllocation(m_Allocator, it->second.allocation, newSize);
+                    // Do nothing - the function was deprecated and has been removed.
+                    //vmaResizeAllocation(m_Allocator, it->second.allocation, newSize);
                     UpdateMemStats();
                 }
                 else
