@@ -3368,18 +3368,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemoryPages(
     size_t allocationCount,
     const VmaAllocation VMA_NULLABLE * VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(allocationCount) pAllocations);
 
-/** \brief Deprecated.
-
-\deprecated
-In version 2.2.0 it used to try to change allocation's size without moving or reallocating it.
-In current version it returns `VK_SUCCESS` only if `newSize` equals current allocation's size.
-Otherwise returns `VK_ERROR_OUT_OF_POOL_MEMORY`, indicating that allocation's size could not be changed.
-*/
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeAllocation(
-    VmaAllocator VMA_NOT_NULL allocator,
-    VmaAllocation VMA_NOT_NULL allocation,
-    VkDeviceSize newSize);
-
 /** \brief Returns current information about specified allocation and atomically marks it as used in current frame.
 
 Current paramteres of given allocation are returned in `pAllocationInfo`.
@@ -8012,10 +8000,6 @@ public:
     void FreeMemory(
         size_t allocationCount,
         const VmaAllocation* pAllocations);
-
-    VkResult ResizeAllocation(
-        const VmaAllocation alloc,
-        VkDeviceSize newSize);
 
     void CalculateStats(VmaStats* pStats);
 
@@ -16759,22 +16743,6 @@ void VmaAllocator_T::FreeMemory(
     }
 }
 
-VkResult VmaAllocator_T::ResizeAllocation(
-    const VmaAllocation alloc,
-    VkDeviceSize newSize)
-{
-    // This function is deprecated and so it does nothing. It's left for backward compatibility.
-    if(newSize == 0 || alloc->GetLastUseFrameIndex() == VMA_FRAME_INDEX_LOST)
-    {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    if(newSize == alloc->GetSize())
-    {
-        return VK_SUCCESS;
-    }
-    return VK_ERROR_OUT_OF_POOL_MEMORY;
-}
-
 void VmaAllocator_T::CalculateStats(VmaStats* pStats)
 {
     // Initialize.
@@ -18015,18 +17983,22 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
                     {
                         json.WriteString("LAZILY_ALLOCATED");
                     }
+#if VMA_VULKAN_VERSION >= 1001000
                     if((flags & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0)
                     {
-                        json.WriteString(" PROTECTED");
+                        json.WriteString("PROTECTED");
                     }
+#endif // #if VMA_VULKAN_VERSION >= 1001000
+#if VK_AMD_device_coherent_memory
                     if((flags & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD_COPY) != 0)
                     {
-                        json.WriteString(" DEVICE_COHERENT");
+                        json.WriteString("DEVICE_COHERENT");
                     }
                     if((flags & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD_COPY) != 0)
                     {
-                        json.WriteString(" DEVICE_UNCACHED");
+                        json.WriteString("DEVICE_UNCACHED");
                     }
+#endif // #if VK_AMD_device_coherent_memory
                     json.EndArray();
 
                     if(stats.memoryType[typeIndex].blockCount > 0)
@@ -18623,20 +18595,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemoryPages(
 #endif
 
     allocator->FreeMemory(allocationCount, pAllocations);
-}
-
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeAllocation(
-    VmaAllocator allocator,
-    VmaAllocation allocation,
-    VkDeviceSize newSize)
-{
-    VMA_ASSERT(allocator && allocation);
-
-    VMA_DEBUG_LOG("vmaResizeAllocation");
-
-    VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
-    return allocator->ResizeAllocation(allocation, newSize);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo(
