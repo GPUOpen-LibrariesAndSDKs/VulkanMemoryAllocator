@@ -1112,6 +1112,7 @@ static constexpr uint32_t GetVulkanApiVersion()
 
 static void PrintEnabledFeatures()
 {
+    wprintf(L"Enabled extensions and features:\n");
     wprintf(L"Validation layer: %d\n", g_EnableValidationLayer ? 1 : 0);
     wprintf(L"Sparse binding: %d\n", g_SparseBindingEnabled ? 1 : 0);
     wprintf(L"Buffer device address: %d\n", g_BufferDeviceAddressEnabled ? 1 : 0);
@@ -1191,12 +1192,313 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
 
 static void PrintPhysicalDeviceProperties(const VkPhysicalDeviceProperties& properties)
 {
-    wprintf(L"Physical device:\n");
-    wprintf(L"    Driver version: 0x%X\n", properties.driverVersion);
-    wprintf(L"    Vendor ID: 0x%X\n", properties.vendorID);
-    wprintf(L"    Device ID: 0x%X\n", properties.deviceID);
-    wprintf(L"    Device type: %u\n", properties.deviceType);
-    wprintf(L"    Device name: %hs\n", properties.deviceName);
+    wprintf(L"physicalDeviceProperties:\n");
+    wprintf(L"    driverVersion: 0x%X\n", properties.driverVersion);
+    wprintf(L"    vendorID: 0x%X (%s)\n", properties.vendorID, VendorIDToStr(properties.vendorID));
+    wprintf(L"    deviceID: 0x%X\n", properties.deviceID);
+    wprintf(L"    deviceType: %u (%s)\n", properties.deviceType, PhysicalDeviceTypeToStr(properties.deviceType));
+    wprintf(L"    deviceName: %hs\n", properties.deviceName);
+    wprintf(L"    limits:\n");
+    wprintf(L"        maxMemoryAllocationCount: %u\n", properties.limits.maxMemoryAllocationCount);
+    wprintf(L"        bufferImageGranularity: %llu B\n", properties.limits.bufferImageGranularity);
+    wprintf(L"        nonCoherentAtomSize: %llu B\n", properties.limits.nonCoherentAtomSize);
+}
+
+#if VMA_VULKAN_VERSION >= 1002000
+static void PrintPhysicalDeviceVulkan11Properties(const VkPhysicalDeviceVulkan11Properties& properties)
+{
+    wprintf(L"physicalDeviceVulkan11Properties:\n");
+    std::wstring sizeStr = SizeToStr(properties.maxMemoryAllocationSize);
+    wprintf(L"    maxMemoryAllocationSize: %llu B (%s)\n", properties.maxMemoryAllocationSize, sizeStr.c_str());
+}
+static void PrintPhysicalDeviceVulkan12Properties(const VkPhysicalDeviceVulkan12Properties& properties)
+{
+    wprintf(L"physicalDeviceVulkan12Properties:\n");
+    std::wstring str = DriverIDToStr(properties.driverID);
+    wprintf(L"    driverID: %u (%s)\n", properties.driverID, str.c_str());
+    wprintf(L"    driverName: %hs\n", properties.driverName);
+    wprintf(L"    driverInfo: %hs\n", properties.driverInfo);
+}
+#endif // #if VMA_VULKAN_VERSION > 1002000
+
+static void AddFlagToStr(std::wstring& inout, const wchar_t* flagStr)
+{
+    if(!inout.empty())
+        inout += L", ";
+    inout += flagStr;
+}
+
+static std::wstring HeapFlagsToStr(VkMemoryHeapFlags flags)
+{
+    std::wstring result;
+    if(flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+        AddFlagToStr(result, L"DEVICE_LOCAL");
+    if(flags & VK_MEMORY_HEAP_MULTI_INSTANCE_BIT)
+        AddFlagToStr(result, L"MULTI_INSTANCE");
+    return result;
+}
+
+static std::wstring PropertyFlagsToStr(VkMemoryPropertyFlags flags)
+{
+    std::wstring result;
+    if(flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        AddFlagToStr(result, L"DEVICE_LOCAL");
+    if(flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+        AddFlagToStr(result, L"HOST_VISIBLE");
+    if(flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+        AddFlagToStr(result, L"HOST_COHERENT");
+    if(flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
+        AddFlagToStr(result, L"HOST_CACHED");
+    if(flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT)
+        AddFlagToStr(result, L"LAZILY_ALLOCATED");
+
+#if VMA_VULKAN_VERSION >= 1001000
+    if(flags & VK_MEMORY_PROPERTY_PROTECTED_BIT)
+        AddFlagToStr(result, L"PROTECTED");
+#endif
+
+#if VK_AMD_device_coherent_memory
+    if(flags & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD)
+        AddFlagToStr(result, L"DEVICE_COHERENT (AMD)");
+    if(flags & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD)
+        AddFlagToStr(result, L"DEVICE_UNCACHED (AMD)");
+#endif
+
+    return result;
+}
+
+static void PrintMemoryTypes()
+{
+    wprintf(L"MEMORY HEAPS:\n");
+    const VkPhysicalDeviceMemoryProperties* memProps = nullptr;
+    vmaGetMemoryProperties(g_hAllocator, &memProps);
+
+    wprintf(L"heapCount=%u, typeCount=%u\n", memProps->memoryHeapCount, memProps->memoryTypeCount);
+
+    std::wstring sizeStr, flagsStr;
+    for(uint32_t heapIndex = 0; heapIndex < memProps->memoryHeapCount; ++heapIndex)
+    {
+        const VkMemoryHeap& heap = memProps->memoryHeaps[heapIndex];
+        sizeStr = SizeToStr(heap.size);
+        flagsStr = HeapFlagsToStr(heap.flags);
+        wprintf(L"Heap %u: %llu B (%s) %s\n", heapIndex, heap.size, sizeStr.c_str(), flagsStr.c_str());
+        
+        for(uint32_t typeIndex = 0; typeIndex < memProps->memoryTypeCount; ++typeIndex)
+        {
+            const VkMemoryType& type = memProps->memoryTypes[typeIndex];
+            if(type.heapIndex == heapIndex)
+            {
+                flagsStr = PropertyFlagsToStr(type.propertyFlags);
+                wprintf(L"    Type %u: %s\n", typeIndex, flagsStr.c_str());
+            }
+        }
+    }
+}
+
+#if 0
+template<typename It, typename MapFunc>
+inline VkDeviceSize MapSum(It beg, It end, MapFunc mapFunc)
+{
+    VkDeviceSize result = 0;
+    for(It it = beg; it != end; ++it)
+        result += mapFunc(*it);
+    return result;
+}
+#endif
+
+static bool CanCreateVertexBuffer(uint32_t allowedMemoryTypeBits)
+{
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 0x10000;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VkBuffer buf = VK_NULL_HANDLE;
+    VkResult res = vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf);
+    assert(res == VK_SUCCESS);
+
+    VkMemoryRequirements memReq = {};
+    vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
+
+    vkDestroyBuffer(g_hDevice, buf, g_Allocs);
+
+    return (memReq.memoryTypeBits & allowedMemoryTypeBits) != 0;
+}
+
+static bool CanCreateOptimalSampledImage(uint32_t allowedMemoryTypeBits)
+{
+    VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imgCreateInfo.extent.width = 256;
+    imgCreateInfo.extent.height = 256;
+    imgCreateInfo.extent.depth = 1;
+    imgCreateInfo.mipLevels = 1;
+    imgCreateInfo.arrayLayers = 1;
+    imgCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imgCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkImage img = VK_NULL_HANDLE;
+    VkResult res = vkCreateImage(g_hDevice, &imgCreateInfo, g_Allocs, &img);
+    assert(res == VK_SUCCESS);
+
+    VkMemoryRequirements memReq = {};
+    vkGetImageMemoryRequirements(g_hDevice, img, &memReq);
+
+    vkDestroyImage(g_hDevice, img, g_Allocs);
+
+    return (memReq.memoryTypeBits & allowedMemoryTypeBits) != 0;
+}
+
+static void PrintMemoryConclusions()
+{
+    wprintf(L"Conclusions:\n");
+
+    const VkPhysicalDeviceProperties* props = nullptr;
+    const VkPhysicalDeviceMemoryProperties* memProps = nullptr;
+    vmaGetPhysicalDeviceProperties(g_hAllocator, &props);
+    vmaGetMemoryProperties(g_hAllocator, &memProps);
+
+    const uint32_t heapCount = memProps->memoryHeapCount;
+
+    uint32_t deviceLocalHeapCount = 0;
+    uint32_t hostVisibleHeapCount = 0;
+    uint32_t deviceLocalAndHostVisibleHeapCount = 0;
+    VkDeviceSize deviceLocalHeapSumSize = 0;
+    VkDeviceSize hostVisibleHeapSumSize = 0;
+    VkDeviceSize deviceLocalAndHostVisibleHeapSumSize = 0;
+
+    for(uint32_t heapIndex = 0; heapIndex < heapCount; ++heapIndex)
+    {
+        const VkMemoryHeap& heap = memProps->memoryHeaps[heapIndex];
+        const bool isDeviceLocal = (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
+        bool isHostVisible = false;
+        for(uint32_t typeIndex = 0; typeIndex < memProps->memoryTypeCount; ++typeIndex)
+        {
+            const VkMemoryType& type = memProps->memoryTypes[typeIndex];
+            if(type.heapIndex == heapIndex && (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
+            {
+                isHostVisible = true;
+                break;
+            }
+        }
+        if(isDeviceLocal)
+        {
+            ++deviceLocalHeapCount;
+            deviceLocalHeapSumSize += heap.size;
+        }
+        if(isHostVisible)
+        {
+            ++hostVisibleHeapCount;
+            hostVisibleHeapSumSize += heap.size;
+            if(isDeviceLocal)
+            {
+                ++deviceLocalAndHostVisibleHeapCount;
+                deviceLocalAndHostVisibleHeapSumSize += heap.size;
+            }
+        }
+    }
+
+    uint32_t hostVisibleNotHostCoherentTypeCount = 0;
+    uint32_t notDeviceLocalNotHostVisibleTypeCount = 0;
+    uint32_t amdSpecificTypeCount = 0;
+    uint32_t lazilyAllocatedTypeCount = 0;
+    uint32_t allTypeBits = 0;
+    uint32_t deviceLocalTypeBits = 0;
+    for(uint32_t typeIndex = 0; typeIndex < memProps->memoryTypeCount; ++typeIndex)
+    {
+        const VkMemoryType& type = memProps->memoryTypes[typeIndex];
+        allTypeBits |= 1u << typeIndex;
+        if(type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        {
+            deviceLocalTypeBits |= 1u << typeIndex;
+        }
+        if((type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
+            (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
+        {
+            ++hostVisibleNotHostCoherentTypeCount;
+        }
+        if((type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) == 0 &&
+            (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+        {
+            ++notDeviceLocalNotHostVisibleTypeCount;
+        }
+        if(type.propertyFlags & (VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD | VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD))
+        {
+            ++amdSpecificTypeCount;
+        }
+        if(type.propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT)
+        {
+            ++lazilyAllocatedTypeCount;
+        }
+    }
+
+    assert(deviceLocalHeapCount > 0);
+    if(deviceLocalHeapCount == heapCount)
+        wprintf(L"- All heaps are DEVICE_LOCAL.\n");
+    else
+        wprintf(L"- %u heaps are DEVICE_LOCAL, total %s.\n", deviceLocalHeapCount, SizeToStr(deviceLocalHeapSumSize).c_str());
+
+    assert(hostVisibleHeapCount > 0);
+    if(hostVisibleHeapCount == heapCount)
+        wprintf(L"- All heaps are HOST_VISIBLE.\n");
+    else
+        wprintf(L"- %u heaps are HOST_VISIBLE, total %s.\n", deviceLocalHeapCount, SizeToStr(hostVisibleHeapSumSize).c_str());
+
+    if(deviceLocalHeapCount < heapCount && hostVisibleHeapCount < heapCount)
+    {
+        if(deviceLocalAndHostVisibleHeapCount == 0)
+            wprintf(L"- No heaps are DEVICE_LOCAL and HOST_VISIBLE.\n");
+        if(deviceLocalAndHostVisibleHeapCount == heapCount)
+            wprintf(L"- All heaps are DEVICE_LOCAL and HOST_VISIBLE.\n");
+        else
+            wprintf(L"- %u heaps are DEVICE_LOCAL and HOST_VISIBLE, total %s.\n", deviceLocalHeapCount, SizeToStr(deviceLocalAndHostVisibleHeapSumSize).c_str());
+    }
+
+    if(hostVisibleNotHostCoherentTypeCount == 0)
+        wprintf(L"- No types are HOST_VISIBLE but not HOST_COHERENT.\n");
+    else
+        wprintf(L"- %u types are HOST_VISIBLE but not HOST_COHERENT.\n", hostVisibleNotHostCoherentTypeCount);
+
+    if(notDeviceLocalNotHostVisibleTypeCount == 0)
+        wprintf(L"- No types are not DEVICE_LOCAL and not HOST_VISIBLE.\n");
+    else
+        wprintf(L"- %u types are not DEVICE_LOCAL and not HOST_VISIBLE.\n", notDeviceLocalNotHostVisibleTypeCount);
+
+    if(amdSpecificTypeCount == 0)
+        wprintf(L"- No types are AMD-specific DEVICE_COHERENT or DEVICE_UNCACHED.\n");
+    else
+        wprintf(L"- %u types are AMD-specific DEVICE_COHERENT or DEVICE_UNCACHED.\n", amdSpecificTypeCount);
+
+    if(lazilyAllocatedTypeCount == 0)
+        wprintf(L"- No types are LAZILY_ALLOCATED.\n");
+    else
+        wprintf(L"- %u types are LAZILY_ALLOCATED.\n", lazilyAllocatedTypeCount);
+
+    if(props->vendorID == VENDOR_ID_AMD &&
+        props->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+        deviceLocalAndHostVisibleHeapSumSize > 256llu * 1024 * 1024)
+    {
+        wprintf(L"- AMD Smart Access Memory (SAM) is enabled!\n");
+    }
+
+    if(deviceLocalHeapCount < heapCount)
+    {
+        const uint32_t nonDeviceLocalTypeBits = ~deviceLocalTypeBits & allTypeBits;
+        
+        if(CanCreateVertexBuffer(nonDeviceLocalTypeBits))
+            wprintf(L"- A buffer with VERTEX_BUFFER usage can be created in some non-DEVICE_LOCAL type.\n");
+        else
+            wprintf(L"- A buffer with VERTEX_BUFFER usage cannot be created in some non-DEVICE_LOCAL type.\n");
+
+        if(CanCreateOptimalSampledImage(nonDeviceLocalTypeBits))
+            wprintf(L"- An image with OPTIMAL tiling and SAMPLED usage can be created in some non-DEVICE_LOCAL type.\n");
+        else
+            wprintf(L"- An image with OPTIMAL tiling and SAMPLED usage cannot be created in some non-DEVICE_LOCAL type.\n");
+    }
+
+    //wprintf(L"\n");
 }
 
 static void InitializeApplication()
@@ -1272,7 +1574,7 @@ static void InitializeApplication()
     instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
     instInfo.ppEnabledLayerNames = instanceLayers.data();
 
-    wprintf(L"Vulkan API version: ");
+    wprintf(L"Vulkan API version used: ");
     switch(appInfo.apiVersion)
     {
     case VK_API_VERSION_1_0: wprintf(L"1.0\n"); break;
@@ -1370,10 +1672,33 @@ static void InitializeApplication()
 
     // Query for features
 
+#if VMA_VULKAN_VERSION >= 1001000
+    VkPhysicalDeviceProperties2 physicalDeviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+    
+#if VMA_VULKAN_VERSION >= 1002000
+    // Vulkan spec says structure VkPhysicalDeviceVulkan11Properties is "Provided by VK_VERSION_1_2" - is this a mistake? Assuming not...
+    VkPhysicalDeviceVulkan11Properties physicalDeviceVulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
+    VkPhysicalDeviceVulkan12Properties physicalDeviceVulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
+    PnextChainPushFront(&physicalDeviceProperties2, &physicalDeviceVulkan11Properties);
+    PnextChainPushFront(&physicalDeviceProperties2, &physicalDeviceVulkan12Properties);
+#endif
+
+    vkGetPhysicalDeviceProperties2(g_hPhysicalDevice, &physicalDeviceProperties2);
+
+    PrintPhysicalDeviceProperties(physicalDeviceProperties2.properties);
+#if VMA_VULKAN_VERSION >= 1002000
+    PrintPhysicalDeviceVulkan11Properties(physicalDeviceVulkan11Properties);
+    PrintPhysicalDeviceVulkan12Properties(physicalDeviceVulkan12Properties);
+#endif
+
+#else // #if VMA_VULKAN_VERSION >= 1001000
     VkPhysicalDeviceProperties physicalDeviceProperties = {};
     vkGetPhysicalDeviceProperties(g_hPhysicalDevice, &physicalDeviceProperties);
-
     PrintPhysicalDeviceProperties(physicalDeviceProperties);
+
+#endif // #if VMA_VULKAN_VERSION >= 1001000
+
+    wprintf(L"\n");
 
     VkPhysicalDeviceFeatures2 physicalDeviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     
@@ -1583,7 +1908,12 @@ static void InitializeApplication()
     SetAllocatorCreateInfo(allocatorInfo);
     ERR_GUARD_VULKAN( vmaCreateAllocator(&allocatorInfo, &g_hAllocator) );
 
+    PrintMemoryTypes();
+    wprintf(L"\n");
+    PrintMemoryConclusions();
+    wprintf(L"\n");
     PrintEnabledFeatures();
+    wprintf(L"\n");
 
     // Retrieve queues (don't need to be destroyed).
 
@@ -1971,7 +2301,7 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // This is intentionally assigned here because we are now inside CreateWindow, before it returns.
         g_hWnd = hWnd;
         InitializeApplication();
-        PrintAllocatorStats();
+        //PrintAllocatorStats();
         return 0;
 
     case WM_DESTROY:

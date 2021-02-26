@@ -64,6 +64,10 @@ typedef std::chrono::high_resolution_clock::duration duration;
 
 #define ERR_GUARD_VULKAN(expr) TEST((expr) >= 0)
 
+static const uint32_t VENDOR_ID_AMD = 0x1002;
+static const uint32_t VENDOR_ID_NVIDIA = 0x10DE;
+static const uint32_t VENDOR_ID_INTEL = 0x8086;
+
 extern VkInstance g_hVulkanInstance;
 extern VkPhysicalDevice g_hPhysicalDevice;
 extern VkDevice g_hDevice;
@@ -321,6 +325,15 @@ void PrintErrorF(const char* format, ...);
 void PrintErrorF(const wchar_t* format, ...);
 
 void SaveFile(const wchar_t* filePath, const void* data, size_t dataSize);
+
+std::wstring SizeToStr(size_t size);
+
+const wchar_t* PhysicalDeviceTypeToStr(VkPhysicalDeviceType type);
+const wchar_t* VendorIDToStr(uint32_t vendorID);
+
+#if VMA_VULKAN_VERSION >= 1002000
+const wchar_t* DriverIDToStr(VkDriverId driverID);
+#endif
 
 #endif // #ifdef _WIN32
 
