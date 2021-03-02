@@ -39,6 +39,7 @@ extern bool VK_EXT_memory_priority_enabled;
 extern PFN_vkGetBufferDeviceAddressEXT g_vkGetBufferDeviceAddressEXT;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
+void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const char* name);
 
 #ifndef VMA_DEBUG_MARGIN
     #define VMA_DEBUG_MARGIN 0
@@ -4347,27 +4348,27 @@ static void TestPool_Benchmark(
             return sum + allocSize.Probability;
         });
 
-    VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufferInfo.size = 256; // Whatever.
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    VkBufferCreateInfo bufferTemplateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufferTemplateInfo.size = 256; // Whatever.
+    bufferTemplateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = 256; // Whatever.
-    imageInfo.extent.height = 256; // Whatever.
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // LINEAR if CPU memory.
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // TRANSFER_SRC if CPU memory.
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    VkImageCreateInfo imageTemplateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imageTemplateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageTemplateInfo.extent.width = 256; // Whatever.
+    imageTemplateInfo.extent.height = 256; // Whatever.
+    imageTemplateInfo.extent.depth = 1;
+    imageTemplateInfo.mipLevels = 1;
+    imageTemplateInfo.arrayLayers = 1;
+    imageTemplateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageTemplateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // LINEAR if CPU memory.
+    imageTemplateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageTemplateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // TRANSFER_SRC if CPU memory.
+    imageTemplateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
     uint32_t bufferMemoryTypeBits = UINT32_MAX;
     {
         VkBuffer dummyBuffer;
-        VkResult res = vkCreateBuffer(g_hDevice, &bufferInfo, g_Allocs, &dummyBuffer);
+        VkResult res = vkCreateBuffer(g_hDevice, &bufferTemplateInfo, g_Allocs, &dummyBuffer);
         TEST(res == VK_SUCCESS);
 
         VkMemoryRequirements memReq;
@@ -4380,7 +4381,7 @@ static void TestPool_Benchmark(
     uint32_t imageMemoryTypeBits = UINT32_MAX;
     {
         VkImage dummyImage;
-        VkResult res = vkCreateImage(g_hDevice, &imageInfo, g_Allocs, &dummyImage);
+        VkResult res = vkCreateImage(g_hDevice, &imageTemplateInfo, g_Allocs, &dummyImage);
         TEST(res == VK_SUCCESS);
 
         VkMemoryRequirements memReq;
@@ -4444,13 +4445,31 @@ static void TestPool_Benchmark(
 
     ////////////////////////////////////////////////////////////////////////////////
     // ThreadProc
-    auto ThreadProc = [&](
+    auto ThreadProc = [&config, allocationSizeProbabilitySum, pool](
         PoolTestThreadResult* outThreadResult,
         uint32_t randSeed,
         HANDLE frameStartEvent,
         HANDLE frameEndEvent) -> void
     {
         RandomNumberGenerator threadRand{randSeed};
+        VkResult res = VK_SUCCESS;
+
+        VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufferInfo.size = 256; // Whatever.
+        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent.width = 256; // Whatever.
+        imageInfo.extent.height = 256; // Whatever.
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // LINEAR if CPU memory.
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // TRANSFER_SRC if CPU memory.
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
         outThreadResult->AllocationTimeMin = duration::max();
         outThreadResult->AllocationTimeSum = duration::zero();
@@ -4467,16 +4486,62 @@ static void TestPool_Benchmark(
 
         struct Item
         {
-            VkDeviceSize BufferSize;
-            VkExtent2D ImageSize;
-            VkBuffer Buf;
-            VkImage Image;
-            VmaAllocation Alloc;
+            VkDeviceSize BufferSize = 0;
+            VkExtent2D ImageSize = { 0, 0 };
+            VkBuffer Buf = VK_NULL_HANDLE;
+            VkImage Image = VK_NULL_HANDLE;
+            VmaAllocation Alloc = VK_NULL_HANDLE;
             
+            Item() { }
+            Item(Item&& src) :
+                BufferSize(src.BufferSize), ImageSize(src.ImageSize), Buf(src.Buf), Image(src.Image), Alloc(src.Alloc)
+            {
+                src.BufferSize = 0;
+                src.ImageSize = {0, 0};
+                src.Buf = VK_NULL_HANDLE;
+                src.Image = VK_NULL_HANDLE;
+                src.Alloc = VK_NULL_HANDLE;
+            }
+            Item(const Item& src) = delete;
+            ~Item()
+            {
+                DestroyResources();
+            }
+            Item& operator=(Item&& src)
+            {
+                if(&src != this)
+                {
+                    DestroyResources();
+                    BufferSize = src.BufferSize; ImageSize = src.ImageSize;
+                    Buf = src.Buf; Image = src.Image; Alloc = src.Alloc;
+                    src.BufferSize = 0;
+                    src.ImageSize = {0, 0};
+                    src.Buf = VK_NULL_HANDLE;
+                    src.Image = VK_NULL_HANDLE;
+                    src.Alloc = VK_NULL_HANDLE;
+                }
+                return *this;
+            }
+            Item& operator=(const Item& src) = delete;
+            void DestroyResources()
+            {
+                if(Buf)
+                {
+                    assert(Image == VK_NULL_HANDLE);
+                    vmaDestroyBuffer(g_hAllocator, Buf, Alloc);
+                    Buf = VK_NULL_HANDLE;
+                }
+                else
+                {
+                    vmaDestroyImage(g_hAllocator, Image, Alloc);
+                    Image = VK_NULL_HANDLE;
+                }
+                Alloc = VK_NULL_HANDLE;
+            }
             VkDeviceSize CalcSizeBytes() const
             {
                 return BufferSize +
-                    ImageSize.width * ImageSize.height * 4;
+                    4ull * ImageSize.width * ImageSize.height;
             }
         };
         std::vector<Item> unusedItems, usedItems;
@@ -4518,11 +4583,13 @@ static void TestPool_Benchmark(
                 }
             }
 
-            unusedItems.push_back(item);
+            unusedItems.push_back(std::move(item));
         }
 
         auto Allocate = [&](Item& item) -> VkResult
         {
+            assert(item.Buf == VK_NULL_HANDLE && item.Image == VK_NULL_HANDLE && item.Alloc == VK_NULL_HANDLE);
+
             VmaAllocationCreateInfo allocCreateInfo = {};
             allocCreateInfo.pool = pool;
             allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
@@ -4531,8 +4598,14 @@ static void TestPool_Benchmark(
             if(item.BufferSize)
             {
                 bufferInfo.size = item.BufferSize;
-                PoolAllocationTimeRegisterObj timeRegisterObj(*outThreadResult);
-                return vmaCreateBuffer(g_hAllocator, &bufferInfo, &allocCreateInfo, &item.Buf, &item.Alloc, nullptr);
+                VkResult res = VK_SUCCESS;
+                {
+                    PoolAllocationTimeRegisterObj timeRegisterObj(*outThreadResult);
+                    res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &allocCreateInfo, &item.Buf, &item.Alloc, nullptr);
+                }
+                if(res == VK_SUCCESS)
+                    SetDebugUtilsObjectName(VK_OBJECT_TYPE_BUFFER, (uint64_t)item.Buf, "TestPool_Benchmark_Buffer");
+                return res;
             }
             else
             {
@@ -4540,8 +4613,14 @@ static void TestPool_Benchmark(
 
                 imageInfo.extent.width = item.ImageSize.width;
                 imageInfo.extent.height = item.ImageSize.height;
-                PoolAllocationTimeRegisterObj timeRegisterObj(*outThreadResult);
-                return vmaCreateImage(g_hAllocator, &imageInfo, &allocCreateInfo, &item.Image, &item.Alloc, nullptr);
+                VkResult res = VK_SUCCESS;
+                {
+                    PoolAllocationTimeRegisterObj timeRegisterObj(*outThreadResult);
+                    res = vmaCreateImage(g_hAllocator, &imageInfo, &allocCreateInfo, &item.Image, &item.Alloc, nullptr);
+                }
+                if(res == VK_SUCCESS)
+                    SetDebugUtilsObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)item.Image, "TestPool_Benchmark_Image");
+                return res;
             }
         };
 
@@ -4556,8 +4635,10 @@ static void TestPool_Benchmark(
             for(size_t i = 0; i < bufsToMakeUnused; ++i)
             {
                 size_t index = threadRand.Generate() % usedItems.size();
-                unusedItems.push_back(usedItems[index]);
-                usedItems.erase(usedItems.begin() + index);
+                auto it = usedItems.begin() + index;
+                Item item = std::move(*it);
+                usedItems.erase(it);
+                unusedItems.push_back(std::move(item));
             }
 
             // Determine which bufs we want to use in this frame.
@@ -4568,15 +4649,19 @@ static void TestPool_Benchmark(
             while(usedBufCount < usedItems.size())
             {
                 size_t index = threadRand.Generate() % usedItems.size();
-                unusedItems.push_back(usedItems[index]);
-                usedItems.erase(usedItems.begin() + index);
+                auto it = usedItems.begin() + index;
+                Item item = std::move(*it);
+                usedItems.erase(it);
+                unusedItems.push_back(std::move(item));
             }
             // Move some unused to used.
             while(usedBufCount > usedItems.size())
             {
                 size_t index = threadRand.Generate() % unusedItems.size();
-                usedItems.push_back(unusedItems[index]);
-                unusedItems.erase(unusedItems.begin() + index);
+                auto it = unusedItems.begin() + index;
+                Item item = std::move(*it);
+                unusedItems.erase(it);
+                usedItems.push_back(std::move(item));
             }
 
             uint32_t touchExistingCount = 0;
@@ -4595,8 +4680,7 @@ static void TestPool_Benchmark(
                     ++outThreadResult->AllocationCount;
                     if(res != VK_SUCCESS)
                     {
-                        item.Alloc = VK_NULL_HANDLE;
-                        item.Buf = VK_NULL_HANDLE;
+                        assert(item.Alloc == VK_NULL_HANDLE && item.Buf == VK_NULL_HANDLE && item.Image == VK_NULL_HANDLE);
                         ++outThreadResult->FailedAllocationCount;
                         outThreadResult->FailedAllocationTotalSize += item.CalcSizeBytes();
                         ++createFailedCount;
@@ -4617,14 +4701,9 @@ static void TestPool_Benchmark(
                         // Destroy.
                         {
                             PoolDeallocationTimeRegisterObj timeRegisterObj(*outThreadResult);
-                            if(item.Buf)
-                                vmaDestroyBuffer(g_hAllocator, item.Buf, item.Alloc);
-                            else
-                                vmaDestroyImage(g_hAllocator, item.Image, item.Alloc);
+                            item.DestroyResources();
                             ++outThreadResult->DeallocationCount;
                         }
-                        item.Alloc = VK_NULL_HANDLE;
-                        item.Buf = VK_NULL_HANDLE;
 
                         ++outThreadResult->LostAllocationCount;
                         outThreadResult->LostAllocationTotalSize += item.CalcSizeBytes();
@@ -4635,6 +4714,7 @@ static void TestPool_Benchmark(
                         // Creation failed.
                         if(res != VK_SUCCESS)
                         {
+                            TEST(item.Alloc == VK_NULL_HANDLE && item.Buf == VK_NULL_HANDLE && item.Image == VK_NULL_HANDLE);
                             ++outThreadResult->FailedAllocationCount;
                             outThreadResult->FailedAllocationTotalSize += item.CalcSizeBytes();
                             ++createFailedCount;
@@ -4661,19 +4741,13 @@ static void TestPool_Benchmark(
         for(size_t i = usedItems.size(); i--; )
         {
             PoolDeallocationTimeRegisterObj timeRegisterObj(*outThreadResult);
-            if(usedItems[i].Buf)
-                vmaDestroyBuffer(g_hAllocator, usedItems[i].Buf, usedItems[i].Alloc);
-            else
-                vmaDestroyImage(g_hAllocator, usedItems[i].Image, usedItems[i].Alloc);
+            usedItems[i].DestroyResources();
             ++outThreadResult->DeallocationCount;
         }
         for(size_t i = unusedItems.size(); i--; )
         {
             PoolDeallocationTimeRegisterObj timeRegisterOb(*outThreadResult);
-            if(unusedItems[i].Buf)
-                vmaDestroyBuffer(g_hAllocator, unusedItems[i].Buf, unusedItems[i].Alloc);
-            else
-                vmaDestroyImage(g_hAllocator, unusedItems[i].Image, unusedItems[i].Alloc);
+            unusedItems[i].DestroyResources();
             ++outThreadResult->DeallocationCount;
         }
     };

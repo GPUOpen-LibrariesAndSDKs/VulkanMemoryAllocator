@@ -107,6 +107,7 @@ static const VkDebugUtilsMessageTypeFlagsEXT DEBUG_UTILS_MESSENGER_MESSAGE_TYPE 
     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 static PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_Func;
 static PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_Func;
+static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_Func;
 static VkDebugUtilsMessengerEXT g_DebugUtilsMessenger;
 
 static VkQueue g_hGraphicsQueue;
@@ -179,6 +180,18 @@ static const VkAllocationCallbacks g_CpuAllocationCallbacks = {
 };
 
 const VkAllocationCallbacks* g_Allocs;
+
+void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const char* name)
+{
+    if(vkSetDebugUtilsObjectNameEXT_Func == nullptr)
+        return;
+
+    VkDebugUtilsObjectNameInfoEXT info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+    info.objectType = type;
+    info.objectHandle = handle;
+    info.pObjectName = name;
+    vkSetDebugUtilsObjectNameEXT_Func(g_hDevice, &info);
+}
 
 void BeginSingleTimeCommands()
 {
@@ -570,8 +583,11 @@ static void RegisterDebugCallbacks()
         g_hVulkanInstance, "vkCreateDebugUtilsMessengerEXT");
     vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
         g_hVulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
+    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
+        g_hVulkanInstance, "vkSetDebugUtilsObjectNameEXT");
     assert(vkCreateDebugUtilsMessengerEXT_Func);
     assert(vkDestroyDebugUtilsMessengerEXT_Func);
+    assert(vkSetDebugUtilsObjectNameEXT_Func);
 
     VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
     messengerCreateInfo.messageSeverity = DEBUG_UTILS_MESSENGER_MESSAGE_SEVERITY;

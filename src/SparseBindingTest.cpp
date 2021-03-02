@@ -532,7 +532,7 @@ SparseBindingImage::~SparseBindingImage()
 
 void TestSparseBinding()
 {
-    wprintf(L"TESTING SPARSE BINDING:");
+    wprintf(L"TESTING SPARSE BINDING:\n");
 
     struct ImageInfo
     {
