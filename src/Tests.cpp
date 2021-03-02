@@ -34,9 +34,9 @@ static const char* CODE_DESCRIPTION = "Foo";
 
 extern VkCommandBuffer g_hTemporaryCommandBuffer;
 extern const VkAllocationCallbacks* g_Allocs;
-extern bool g_BufferDeviceAddressEnabled;
+extern bool VK_KHR_buffer_device_address_enabled;
 extern bool VK_EXT_memory_priority_enabled;
-extern PFN_vkGetBufferDeviceAddressEXT g_vkGetBufferDeviceAddressEXT;
+extern PFN_vkGetBufferDeviceAddressKHR g_vkGetBufferDeviceAddressKHR;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
 void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const char* name);
@@ -3802,7 +3802,7 @@ static void TestBufferDeviceAddress()
 {
     wprintf(L"Test buffer device address\n");
 
-    assert(g_BufferDeviceAddressEnabled);
+    assert(VK_KHR_buffer_device_address_enabled);
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.size = 0x10000;
@@ -3825,12 +3825,9 @@ static void TestBufferDeviceAddress()
 
         VkBufferDeviceAddressInfoEXT bufferDeviceAddressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_EXT };
         bufferDeviceAddressInfo.buffer = bufInfo.Buffer;
-        //assert(g_vkGetBufferDeviceAddressEXT != nullptr);
-        if(g_vkGetBufferDeviceAddressEXT != nullptr)
-        {
-            VkDeviceAddress addr = g_vkGetBufferDeviceAddressEXT(g_hDevice, &bufferDeviceAddressInfo);
-            TEST(addr != 0);
-        }
+        TEST(g_vkGetBufferDeviceAddressKHR != nullptr);
+        VkDeviceAddress addr = g_vkGetBufferDeviceAddressKHR(g_hDevice, &bufferDeviceAddressInfo);
+        TEST(addr != 0);
 
         vmaDestroyBuffer(g_hAllocator, bufInfo.Buffer, bufInfo.Allocation);
     }
@@ -6554,7 +6551,7 @@ void Test()
     BasicTestBuddyAllocator();
     BasicTestAllocatePages();
 
-    if(g_BufferDeviceAddressEnabled)
+    if(VK_KHR_buffer_device_address_enabled)
         TestBufferDeviceAddress();
     if(VK_EXT_memory_priority_enabled)
         TestMemoryPriority();

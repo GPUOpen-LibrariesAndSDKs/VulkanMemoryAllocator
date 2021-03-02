@@ -52,15 +52,13 @@ bool VK_KHR_dedicated_allocation_enabled = false;
 bool VK_KHR_bind_memory2_enabled = false;
 bool VK_EXT_memory_budget_enabled = false;
 bool VK_AMD_device_coherent_memory_enabled = false;
-bool VK_EXT_buffer_device_address_enabled = false;
 bool VK_KHR_buffer_device_address_enabled = false;
 bool VK_EXT_memory_priority_enabled = false;
 bool VK_EXT_debug_utils_enabled = false;
 bool g_SparseBindingEnabled = false;
-bool g_BufferDeviceAddressEnabled = false;
 
 // # Pointers to functions from extensions
-PFN_vkGetBufferDeviceAddressEXT g_vkGetBufferDeviceAddressEXT;
+PFN_vkGetBufferDeviceAddressKHR g_vkGetBufferDeviceAddressKHR;
 
 static HINSTANCE g_hAppInstance;
 static HWND g_hWnd;
@@ -1131,7 +1129,6 @@ static void PrintEnabledFeatures()
     wprintf(L"Enabled extensions and features:\n");
     wprintf(L"Validation layer: %d\n", g_EnableValidationLayer ? 1 : 0);
     wprintf(L"Sparse binding: %d\n", g_SparseBindingEnabled ? 1 : 0);
-    wprintf(L"Buffer device address: %d\n", g_BufferDeviceAddressEnabled ? 1 : 0);
     if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
     {
         wprintf(L"VK_KHR_get_memory_requirements2: %d\n", VK_KHR_get_memory_requirements2_enabled ? 1 : 0);
@@ -1141,8 +1138,14 @@ static void PrintEnabledFeatures()
     }
     wprintf(L"VK_EXT_memory_budget: %d\n", VK_EXT_memory_budget_enabled ? 1 : 0);
     wprintf(L"VK_AMD_device_coherent_memory: %d\n", VK_AMD_device_coherent_memory_enabled ? 1 : 0);
-    wprintf(L"VK_KHR_buffer_device_address: %d\n", VK_KHR_buffer_device_address_enabled ? 1 : 0);
-    wprintf(L"VK_EXT_buffer_device_address: %d\n", VK_EXT_buffer_device_address_enabled ? 1 : 0);
+    if(GetVulkanApiVersion() < VK_API_VERSION_1_2)
+    {
+        wprintf(L"VK_KHR_buffer_device_address: %d\n", VK_KHR_buffer_device_address_enabled ? 1 : 0);
+    }
+    else
+    {
+        wprintf(L"bufferDeviceAddress: %d\n", VK_KHR_buffer_device_address_enabled ? 1 : 0);
+    }
     wprintf(L"VK_EXT_memory_priority: %d\n", VK_EXT_memory_priority ? 1 : 0);
 }
 
@@ -1174,7 +1177,7 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     {
         outInfo.flags |= VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT;
     }
-    if(g_BufferDeviceAddressEnabled)
+    if(VK_KHR_buffer_device_address_enabled)
     {
         outInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     }
@@ -1469,7 +1472,7 @@ static void PrintMemoryConclusions()
         if(deviceLocalAndHostVisibleHeapCount == heapCount)
             wprintf(L"- All heaps are DEVICE_LOCAL and HOST_VISIBLE.\n");
         else
-            wprintf(L"- %u heaps are DEVICE_LOCAL and HOST_VISIBLE, total %s.\n", deviceLocalHeapCount, SizeToStr(deviceLocalAndHostVisibleHeapSumSize).c_str());
+            wprintf(L"- %u heaps are DEVICE_LOCAL and HOST_VISIBLE, total %s.\n", deviceLocalAndHostVisibleHeapCount, SizeToStr(deviceLocalAndHostVisibleHeapSumSize).c_str());
     }
 
     if(hostVisibleNotHostCoherentTypeCount == 0)
@@ -1672,19 +1675,12 @@ static void InitializeApplication()
                 VK_KHR_buffer_device_address_enabled = true;
             }
         }
-        else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0)
-        {
-            if(GetVulkanApiVersion() < VK_API_VERSION_1_2)
-            {
-                VK_EXT_buffer_device_address_enabled = true;
-            }
-        }
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME) == 0)
             VK_EXT_memory_priority_enabled = true;
     }
 
-    if(VK_EXT_buffer_device_address_enabled && VK_KHR_buffer_device_address_enabled)
-        VK_EXT_buffer_device_address_enabled = false;
+    if(GetVulkanApiVersion() >= VK_API_VERSION_1_2)
+        VK_KHR_buffer_device_address_enabled = true; // Promoted to core Vulkan 1.2.
 
     // Query for features
 
@@ -1724,8 +1720,8 @@ static void InitializeApplication()
         PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceCoherentMemoryFeatures);
     }
     
-    VkPhysicalDeviceBufferDeviceAddressFeaturesEXT physicalDeviceBufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT };
-    if(VK_KHR_buffer_device_address_enabled || VK_EXT_buffer_device_address_enabled || GetVulkanApiVersion() >= VK_API_VERSION_1_2)
+    VkPhysicalDeviceBufferDeviceAddressFeaturesKHR physicalDeviceBufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR };
+    if(VK_KHR_buffer_device_address_enabled)
     {
         PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceBufferDeviceAddressFeatures);
     }
@@ -1743,8 +1739,8 @@ static void InitializeApplication()
     // The extension is supported as fake with no real support for this feature? Don't use it.
     if(VK_AMD_device_coherent_memory_enabled && !physicalDeviceCoherentMemoryFeatures.deviceCoherentMemory)
         VK_AMD_device_coherent_memory_enabled = false;
-    if(VK_KHR_buffer_device_address_enabled || VK_EXT_buffer_device_address_enabled || GetVulkanApiVersion() >= VK_API_VERSION_1_2)
-        g_BufferDeviceAddressEnabled = physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress != VK_FALSE;
+    if(VK_KHR_buffer_device_address_enabled && !physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress)
+        VK_KHR_buffer_device_address_enabled = false;
     if(VK_EXT_memory_priority_enabled && !physicalDeviceMemoryPriorityFeatures.memoryPriority)
         VK_EXT_memory_priority_enabled = false;
 
@@ -1835,10 +1831,8 @@ static void InitializeApplication()
         enabledDeviceExtensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
     if(VK_AMD_device_coherent_memory_enabled)
         enabledDeviceExtensions.push_back(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME);
-    if(VK_KHR_buffer_device_address_enabled)
+    if(VK_KHR_buffer_device_address_enabled && GetVulkanApiVersion() < VK_API_VERSION_1_2)
         enabledDeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-    if(VK_EXT_buffer_device_address_enabled)
-        enabledDeviceExtensions.push_back(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
     if(VK_EXT_memory_priority_enabled)
         enabledDeviceExtensions.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 
@@ -1851,9 +1845,9 @@ static void InitializeApplication()
         physicalDeviceCoherentMemoryFeatures.deviceCoherentMemory = VK_TRUE;
         PnextChainPushBack(&deviceFeatures, &physicalDeviceCoherentMemoryFeatures);
     }
-    if(g_BufferDeviceAddressEnabled)
+    if(VK_KHR_buffer_device_address_enabled)
     {
-        physicalDeviceBufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT };
+        physicalDeviceBufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR };
         physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
         PnextChainPushBack(&deviceFeatures, &physicalDeviceBufferDeviceAddressFeatures);
     }
@@ -1874,48 +1868,17 @@ static void InitializeApplication()
     ERR_GUARD_VULKAN( vkCreateDevice(g_hPhysicalDevice, &deviceCreateInfo, g_Allocs, &g_hDevice) );
 
     // Fetch pointers to extension functions
-    if(g_BufferDeviceAddressEnabled)
+    if(VK_KHR_buffer_device_address_enabled)
     {
         if(GetVulkanApiVersion() >= VK_API_VERSION_1_2)
         {
-            g_vkGetBufferDeviceAddressEXT = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddress");
-            //assert(g_vkGetBufferDeviceAddressEXT != nullptr);
-            /*
-            For some reason this doesn't work, the pointer is NULL :( None of the below methods help.
-
-            Validation layers also report following error:
-            [ VUID-VkMemoryAllocateInfo-flags-03331 ] Object: VK_NULL_HANDLE (Type = 0) | If VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR is set, bufferDeviceAddress must be enabled. The Vulkan spec states: If VkMemoryAllocateFlagsInfo::flags includes VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, the bufferDeviceAddress feature must be enabled (https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#VUID-VkMemoryAllocateInfo-flags-03331)
-            Despite I'm posting VkPhysicalDeviceBufferDeviceAddressFeaturesEXT::bufferDeviceAddress = VK_TRUE in VkDeviceCreateInfo::pNext chain.
-
-            if(g_vkGetBufferDeviceAddressEXT == nullptr)
-            {
-                g_vkGetBufferDeviceAddressEXT = &vkGetBufferDeviceAddress; // Doesn't run, cannot find entry point...
-            }
-
-            if(g_vkGetBufferDeviceAddressEXT == nullptr)
-            {
-                g_vkGetBufferDeviceAddressEXT = (PFN_vkGetBufferDeviceAddressEXT)vkGetInstanceProcAddr(g_hVulkanInstance, "vkGetBufferDeviceAddress");
-            }
-            if(g_vkGetBufferDeviceAddressEXT == nullptr)
-            {
-                g_vkGetBufferDeviceAddressEXT = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddressKHR");
-            }
-            if(g_vkGetBufferDeviceAddressEXT == nullptr)
-            {
-                g_vkGetBufferDeviceAddressEXT = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddressEXT");
-            }
-            */
+            g_vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddress");
         }
         else if(VK_KHR_buffer_device_address_enabled)
         {
-            g_vkGetBufferDeviceAddressEXT = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddressKHR");
-            assert(g_vkGetBufferDeviceAddressEXT != nullptr);
+            g_vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddressKHR");
         }
-        else if(VK_EXT_buffer_device_address_enabled)
-        {
-            g_vkGetBufferDeviceAddressEXT = (PFN_vkGetBufferDeviceAddressEXT)vkGetDeviceProcAddr(g_hDevice, "vkGetBufferDeviceAddressEXT");
-            assert(g_vkGetBufferDeviceAddressEXT != nullptr);
-        }
+        assert(g_vkGetBufferDeviceAddressKHR != nullptr);
     }
 
     // Create memory allocator
