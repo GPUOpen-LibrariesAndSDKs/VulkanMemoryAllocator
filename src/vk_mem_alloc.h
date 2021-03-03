@@ -6015,11 +6015,11 @@ private:
 Expected interface of ItemTypeTraits:
 struct MyItemTypeTraits
 {
-typedef MyItem ItemType;
-static ItemType* GetPrev(const ItemType* item) { return item->myPrevPtr; }
-static ItemType* GetNext(const ItemType* item) { return item->myNextPtr; }
-static ItemType*& AccessPrev(ItemType* item) { return item->myPrevPtr; }
-static ItemType*& AccessNext(ItemType* item) { return item->myNextPtr; }
+    typedef MyItem ItemType;
+    static ItemType* GetPrev(const ItemType* item) { return item->myPrevPtr; }
+    static ItemType* GetNext(const ItemType* item) { return item->myNextPtr; }
+    static ItemType*& AccessPrev(ItemType* item) { return item->myPrevPtr; }
+    static ItemType*& AccessNext(ItemType* item) { return item->myNextPtr; }
 };
 */
 template<typename ItemTypeTraits>
@@ -7268,14 +7268,6 @@ private:
     void* m_pMappedData;
 };
 
-struct VmaPointerLess
-{
-    bool operator()(const void* lhs, const void* rhs) const
-    {
-        return lhs < rhs;
-    }
-};
-
 struct VmaDefragmentationMove
 {
     size_t srcBlockIndex;
@@ -7479,6 +7471,18 @@ public:
 private:
     uint32_t m_Id;
     char* m_Name;
+    VmaPool_T* m_PrevPool = VMA_NULL;
+    VmaPool_T* m_NextPool = VMA_NULL;
+    friend struct VmaPoolListItemTraits;
+};
+
+struct VmaPoolListItemTraits
+{
+    typedef VmaPool_T ItemType;
+    static ItemType* GetPrev(const ItemType* item) { return item->m_PrevPool; }
+    static ItemType* GetNext(const ItemType* item) { return item->m_NextPool; }
+    static ItemType*& AccessPrev(ItemType* item) { return item->m_PrevPool; }
+    static ItemType*& AccessNext(ItemType* item) { return item->m_NextPool; }
 };
 
 /*
@@ -8343,8 +8347,9 @@ private:
     VMA_ATOMIC_UINT32 m_GpuDefragmentationMemoryTypeBits; // UINT32_MAX means uninitialized.
 
     VMA_RW_MUTEX m_PoolsMutex;
-    // Protected by m_PoolsMutex. Sorted by pointer value.
-    VmaVector<VmaPool, VmaStlAllocator<VmaPool> > m_Pools;
+    typedef VmaIntrusiveLinkedList<VmaPoolListItemTraits> PoolList;
+    // Protected by m_PoolsMutex.
+    PoolList m_Pools;
     uint32_t m_NextPoolId;
 
     VmaVulkanFunctions m_VulkanFunctions;
@@ -12852,6 +12857,7 @@ VmaPool_T::VmaPool_T(
 
 VmaPool_T::~VmaPool_T()
 {
+    VMA_ASSERT(m_PrevPool == VMA_NULL && m_NextPool == VMA_NULL);
 }
 
 void VmaPool_T::SetName(const char* pName)
@@ -15976,7 +15982,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_PhysicalDevice(pCreateInfo->physicalDevice),
     m_CurrentFrameIndex(0),
     m_GpuDefragmentationMemoryTypeBits(UINT32_MAX),
-    m_Pools(VmaStlAllocator<VmaPool>(GetAllocationCallbacks())),
     m_NextPoolId(0),
     m_GlobalMemoryTypeBits(UINT32_MAX)
 #if VMA_RECORDING_ENABLED
@@ -16158,7 +16163,7 @@ VmaAllocator_T::~VmaAllocator_T()
     }
 #endif
 
-    VMA_ASSERT(m_Pools.empty());
+    VMA_ASSERT(m_Pools.IsEmpty());
 
     for(size_t memTypeIndex = GetMemoryTypeCount(); memTypeIndex--; )
     {
@@ -17003,9 +17008,9 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     // Process custom pools.
     {
         VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
-        for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
+        for(VmaPool pool = m_Pools.Front(); pool != VMA_NULL; pool = m_Pools.GetNext(pool))
         {
-            m_Pools[poolIndex]->m_BlockVector.AddStats(pStats);
+            pool->m_BlockVector.AddStats(pStats);
         }
     }
 
@@ -17300,7 +17305,7 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
     {
         VmaMutexLockWrite lock(m_PoolsMutex, m_UseMutex);
         (*pPool)->SetId(m_NextPoolId++);
-        VmaVectorInsertSorted<VmaPointerLess>(m_Pools, *pPool);
+        m_Pools.PushBack(*pPool);
     }
 
     return VK_SUCCESS;
@@ -17311,8 +17316,7 @@ void VmaAllocator_T::DestroyPool(VmaPool pool)
     // Remove from m_Pools.
     {
         VmaMutexLockWrite lock(m_PoolsMutex, m_UseMutex);
-        bool success = VmaVectorRemoveSorted<VmaPointerLess>(m_Pools, pool);
-        VMA_ASSERT(success && "Pool not found in Allocator.");
+        m_Pools.Remove(pool);
     }
 
     vma_delete(this, pool);
@@ -17377,11 +17381,11 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
     // Process custom pools.
     {
         VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
-        for(size_t poolIndex = 0, poolCount = m_Pools.size(); poolIndex < poolCount; ++poolIndex)
+        for(VmaPool pool = m_Pools.Front(); pool != VMA_NULL; pool = m_Pools.GetNext(pool))
         {
-            if(((1u << m_Pools[poolIndex]->m_BlockVector.GetMemoryTypeIndex()) & memoryTypeBits) != 0)
+            if(((1u << pool->m_BlockVector.GetMemoryTypeIndex()) & memoryTypeBits) != 0)
             {
-                VkResult localRes = m_Pools[poolIndex]->m_BlockVector.CheckCorruption();
+                VkResult localRes = pool->m_BlockVector.CheckCorruption();
                 switch(localRes)
                 {
                 case VK_ERROR_FEATURE_NOT_PRESENT:
@@ -18015,18 +18019,17 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
     // Custom pools
     {
         VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
-        const size_t poolCount = m_Pools.size();
-        if(poolCount > 0)
+        if(!m_Pools.IsEmpty())
         {
             json.WriteString("Pools");
             json.BeginObject();
-            for(size_t poolIndex = 0; poolIndex < poolCount; ++poolIndex)
+            for(VmaPool pool = m_Pools.Front(); pool != VMA_NULL; pool = m_Pools.GetNext(pool))
             {
                 json.BeginString();
-                json.ContinueString(m_Pools[poolIndex]->GetId());
+                json.ContinueString(pool->GetId());
                 json.EndString();
 
-                m_Pools[poolIndex]->m_BlockVector.PrintDetailedMap(json);
+                pool->m_BlockVector.PrintDetailedMap(json);
             }
             json.EndObject();
         }
