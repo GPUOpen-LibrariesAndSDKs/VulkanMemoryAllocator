@@ -6033,9 +6033,9 @@ public:
     VmaIntrusiveLinkedList() { }
     VmaIntrusiveLinkedList(const VmaIntrusiveLinkedList<ItemTypeTraits>& src) = delete;
     VmaIntrusiveLinkedList(VmaIntrusiveLinkedList<ItemTypeTraits>&& src) :
-        m_First(src.m_First), m_Last(src.m_Last), m_Count(src.m_Count)
+        m_Front(src.m_Front), m_Back(src.m_Back), m_Count(src.m_Count)
     {
-        src.m_First = src.m_Last = VMA_NULL;
+        src.m_Front = src.m_Back = VMA_NULL;
         src.m_Count = 0;
     }
     ~VmaIntrusiveLinkedList()
@@ -6048,10 +6048,10 @@ public:
         if(&src != this)
         {
             VMA_HEAVY_ASSERT(IsEmpty());
-            m_First = src.m_First;
-            m_Last = src.m_Last;
+            m_Front = src.m_Front;
+            m_Back = src.m_Back;
             m_Count = src.m_Count;
-            src.m_First = src.m_Last = VMA_NULL;
+            src.m_Front = src.m_Back = VMA_NULL;
             src.m_Count = 0;
         }
         return *this;
