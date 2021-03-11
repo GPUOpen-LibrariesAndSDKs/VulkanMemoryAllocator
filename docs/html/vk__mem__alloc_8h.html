@@ -387,9 +387,6 @@ Functions</h2></td></tr>
 <tr class="memitem:a834b1e4aef395c0a1d56a28e69a4a17e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a834b1e4aef395c0a1d56a28e69a4a17e">vmaFreeMemoryPages</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, size_t allocationCount, const <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations)</td></tr>
 <tr class="memdesc:a834b1e4aef395c0a1d56a28e69a4a17e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory and destroys multiple allocations.  <a href="vk__mem__alloc_8h.html#a834b1e4aef395c0a1d56a28e69a4a17e">More...</a><br /></td></tr>
 <tr class="separator:a834b1e4aef395c0a1d56a28e69a4a17e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ff488958ca72b28e545880463cb8696"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0ff488958ca72b28e545880463cb8696">vmaResizeAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkDeviceSize newSize)</td></tr>
-<tr class="memdesc:a0ff488958ca72b28e545880463cb8696"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deprecated.  <a href="vk__mem__alloc_8h.html#a0ff488958ca72b28e545880463cb8696">More...</a><br /></td></tr>
-<tr class="separator:a0ff488958ca72b28e545880463cb8696"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">vmaGetAllocationInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current information about specified allocation and atomically marks it as used in current frame.  <a href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">More...</a><br /></td></tr>
 <tr class="separator:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -787,7 +784,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Deprecated. Optional configuration parameters to be passed to function <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a>. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000002">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation.">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a> instead. </dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000001">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation.">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a> instead. </dd></dl>
 
 </div>
 </div>
@@ -2204,7 +2201,7 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><code>VK_SUCCESS</code> if completed, negative error code in case of error.</dd></dl>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000003">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation.">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a> instead.</dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000002">Deprecated:</a></b></dt><dd>This is a part of the old interface. It is recommended to use structure <a class="el" href="struct_vma_defragmentation_info2.html" title="Parameters for defragmentation.">VmaDefragmentationInfo2</a> and function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a> instead.</dd></dl>
 <p>This function works by moving allocations to different places (different <code>VkDeviceMemory</code> objects and/or different offsets) in order to optimize memory usage. Only allocations that are in <code>pAllocations</code> array can be moved. All other allocations are considered nonmovable in this call. Basic rules:</p>
 <ul>
 <li>Only allocations made in memory types that have <code>VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT</code> and <code>VK_MEMORY_PROPERTY_HOST_COHERENT_BIT</code> flags can be compacted. You may pass other allocations but it makes no sense - these will never be moved.</li>
@@ -3312,43 +3309,6 @@ Functions</h2></td></tr>
 <p>This function fails when used on allocation made in memory type that is not <code>HOST_VISIBLE</code>.</p>
 <p>This function always fails when called for allocation that was created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag. Such allocations cannot be mapped.</p>
 <p>This function doesn't automatically flush or invalidate caches. If the allocation is made from a memory types that is not <code>HOST_COHERENT</code>, you also need to use <a class="el" href="vk__mem__alloc_8h.html#aaa8412919139ef413a4215ac6a290fae" title="Invalidates memory of given allocation.">vmaInvalidateAllocation()</a> / <a class="el" href="vk__mem__alloc_8h.html#a30c37c1eec6025f397be41644f48490f" title="Flushes memory of given allocation.">vmaFlushAllocation()</a>, as required by Vulkan specification. </p>
-
-</div>
-</div>
-<a id="a0ff488958ca72b28e545880463cb8696"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0ff488958ca72b28e545880463cb8696">&#9670;&nbsp;</a></span>vmaResizeAllocation()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">VkResult vmaResizeAllocation </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
-          <td class="paramname"><em>allocator</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
-          <td class="paramname"><em>allocation</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">VkDeviceSize&#160;</td>
-          <td class="paramname"><em>newSize</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Deprecated. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000001">Deprecated:</a></b></dt><dd>In version 2.2.0 it used to try to change allocation's size without moving or reallocating it. In current version it returns <code>VK_SUCCESS</code> only if <code>newSize</code> equals current allocation's size. Otherwise returns <code>VK_ERROR_OUT_OF_POOL_MEMORY</code>, indicating that allocation's size could not be changed. </dd></dl>
 
 </div>
 </div>
