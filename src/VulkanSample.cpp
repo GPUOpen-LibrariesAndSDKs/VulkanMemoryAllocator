@@ -27,6 +27,9 @@
 #include "VmaUsage.h"
 #include "Common.h"
 #include <atomic>
+#include <Shlwapi.h>
+
+#pragma comment(lib, "shlwapi.lib")
 
 static const char* const SHADER_PATH1 = "./";
 static const char* const SHADER_PATH2 = "../bin/";
@@ -39,6 +42,15 @@ static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;
 static void* const CUSTOM_CPU_ALLOCATION_CALLBACK_USER_DATA = (void*)(intptr_t)43564544;
 static const bool USE_CUSTOM_CPU_ALLOCATION_CALLBACKS = true;
+
+enum class ExitCode : int
+{
+    GPUList = 2,
+    Help = 1,
+    Success = 0,
+    RuntimeError = -1,
+    CommandLineError = -2,
+};
 
 VkPhysicalDevice g_hPhysicalDevice;
 VkDevice g_hDevice;
@@ -106,7 +118,6 @@ static const VkDebugUtilsMessageTypeFlagsEXT DEBUG_UTILS_MESSENGER_MESSAGE_TYPE 
 static PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_Func;
 static PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_Func;
 static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_Func;
-static VkDebugUtilsMessengerEXT g_DebugUtilsMessenger;
 
 static VkQueue g_hGraphicsQueue;
 VkQueue g_hSparseBindingQueue;
@@ -178,6 +189,63 @@ static const VkAllocationCallbacks g_CpuAllocationCallbacks = {
 };
 
 const VkAllocationCallbacks* g_Allocs;
+
+struct GPUSelection
+{
+    uint32_t Index = UINT32_MAX;
+    std::wstring Substring;
+};
+
+class VulkanUsage
+{
+public:
+    void Init();
+    ~VulkanUsage();
+    void PrintPhysicalDeviceList() const;
+    // If failed, returns VK_NULL_HANDLE.
+    VkPhysicalDevice SelectPhysicalDevice(const GPUSelection& GPUSelection) const;
+
+private:
+    VkDebugUtilsMessengerEXT m_DebugUtilsMessenger = VK_NULL_HANDLE;
+
+    void RegisterDebugCallbacks();
+    static bool IsLayerSupported(const VkLayerProperties* pProps, size_t propCount, const char* pLayerName);
+};
+
+struct CommandLineParameters
+{
+    bool m_Help = false;
+    bool m_List = false;
+    GPUSelection m_GPUSelection;
+
+    bool Parse(int argc, wchar_t** argv)
+    {
+        for(int i = 1; i < argc; ++i)
+        {
+            if(_wcsicmp(argv[i], L"-h") == 0 || _wcsicmp(argv[i], L"--Help") == 0)
+            {
+                m_Help = true;
+            }
+            else if(_wcsicmp(argv[i], L"-l") == 0 || _wcsicmp(argv[i], L"--List") == 0)
+            {
+                m_List = true;
+            }
+            else if((_wcsicmp(argv[i], L"-g") == 0 || _wcsicmp(argv[i], L"--GPU") == 0) && i + 1 < argc)
+            {
+                m_GPUSelection.Substring = argv[i + 1];
+                ++i;
+            }
+            else if((_wcsicmp(argv[i], L"-i") == 0 || _wcsicmp(argv[i], L"--GPUIndex") == 0) && i + 1 < argc)
+            {
+                m_GPUSelection.Index = _wtoi(argv[i + 1]);
+                ++i;
+            }
+            else
+                return false;
+        }
+        return true;
+    }
+} g_CommandLineParameters;
 
 void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const char* name)
 {
@@ -311,6 +379,223 @@ static VkExtent2D ChooseSwapExtent()
         std::max(g_SurfaceCapabilities.minImageExtent.height,
             std::min(g_SurfaceCapabilities.maxImageExtent.height, (uint32_t)g_SizeY)) };
     return result;
+}
+
+static constexpr uint32_t GetVulkanApiVersion()
+{
+#if VMA_VULKAN_VERSION == 1002000
+    return VK_API_VERSION_1_2;
+#elif VMA_VULKAN_VERSION == 1001000
+    return VK_API_VERSION_1_1;
+#elif VMA_VULKAN_VERSION == 1000000
+    return VK_API_VERSION_1_0;
+#else
+#error Invalid VMA_VULKAN_VERSION.
+    return UINT32_MAX;
+#endif
+}
+
+void VulkanUsage::Init()
+{
+    g_hAppInstance = (HINSTANCE)GetModuleHandle(NULL);
+
+    if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
+    {
+        g_Allocs = &g_CpuAllocationCallbacks;
+    }
+
+    uint32_t instanceLayerPropCount = 0;
+    ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr) );
+    std::vector<VkLayerProperties> instanceLayerProps(instanceLayerPropCount);
+    if(instanceLayerPropCount > 0)
+    {
+        ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, instanceLayerProps.data()) );
+    }
+
+    if(g_EnableValidationLayer)
+    {
+        if(IsLayerSupported(instanceLayerProps.data(), instanceLayerProps.size(), VALIDATION_LAYER_NAME) == false)
+        {
+            wprintf(L"Layer \"%hs\" not supported.", VALIDATION_LAYER_NAME);
+            g_EnableValidationLayer = false;
+        }
+    }
+
+    uint32_t availableInstanceExtensionCount = 0;
+    ERR_GUARD_VULKAN( vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, nullptr) );
+    std::vector<VkExtensionProperties> availableInstanceExtensions(availableInstanceExtensionCount);
+    if(availableInstanceExtensionCount > 0)
+    {
+        ERR_GUARD_VULKAN( vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, availableInstanceExtensions.data()) );
+    }
+
+    std::vector<const char*> enabledInstanceExtensions;
+    enabledInstanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    enabledInstanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+
+    std::vector<const char*> instanceLayers;
+    if(g_EnableValidationLayer)
+    {
+        instanceLayers.push_back(VALIDATION_LAYER_NAME);
+    }
+
+    for(const auto& extensionProperties : availableInstanceExtensions)
+    {
+        if(strcmp(extensionProperties.extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0)
+        {
+            if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
+            {   
+                enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+                VK_KHR_get_physical_device_properties2_enabled = true;
+            }
+        }
+        else if(strcmp(extensionProperties.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0)
+        {
+            enabledInstanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            VK_EXT_debug_utils_enabled = true;
+        }
+    }
+
+    VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+    appInfo.pApplicationName = APP_TITLE_A;
+    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.pEngineName = "Adam Sawicki Engine";
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.apiVersion = GetVulkanApiVersion();
+
+    VkInstanceCreateInfo instInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+    instInfo.pApplicationInfo = &appInfo;
+    instInfo.enabledExtensionCount = static_cast<uint32_t>(enabledInstanceExtensions.size());
+    instInfo.ppEnabledExtensionNames = enabledInstanceExtensions.data();
+    instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
+    instInfo.ppEnabledLayerNames = instanceLayers.data();
+
+    wprintf(L"Vulkan API version used: ");
+    switch(appInfo.apiVersion)
+    {
+    case VK_API_VERSION_1_0: wprintf(L"1.0\n"); break;
+    case VK_API_VERSION_1_1: wprintf(L"1.1\n"); break;
+    case VK_API_VERSION_1_2: wprintf(L"1.2\n"); break;
+    default: assert(0);
+    }
+
+    ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, g_Allocs, &g_hVulkanInstance) );
+
+    if(VK_EXT_debug_utils_enabled)
+    {
+        RegisterDebugCallbacks();
+    }
+}
+
+VulkanUsage::~VulkanUsage()
+{
+    if(m_DebugUtilsMessenger)
+    {
+        vkDestroyDebugUtilsMessengerEXT_Func(g_hVulkanInstance, m_DebugUtilsMessenger, g_Allocs);
+    }
+
+    if(g_hVulkanInstance)
+    {
+        vkDestroyInstance(g_hVulkanInstance, g_Allocs);
+        g_hVulkanInstance = VK_NULL_HANDLE;
+    }
+}
+
+void VulkanUsage::PrintPhysicalDeviceList() const
+{
+    uint32_t deviceCount = 0;
+    ERR_GUARD_VULKAN(vkEnumeratePhysicalDevices(g_hVulkanInstance, &deviceCount, nullptr));
+    std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+    if(deviceCount > 0)
+    {
+        ERR_GUARD_VULKAN(vkEnumeratePhysicalDevices(g_hVulkanInstance, &deviceCount, physicalDevices.data()));
+    }
+
+    for(size_t i = 0; i < deviceCount; ++i)
+    {
+        VkPhysicalDeviceProperties props = {};
+        vkGetPhysicalDeviceProperties(physicalDevices[i], &props);
+        wprintf(L"Physical device %zu: %hs\n", i, props.deviceName);
+    }
+}
+
+VkPhysicalDevice VulkanUsage::SelectPhysicalDevice(const GPUSelection& GPUSelection) const
+{
+    uint32_t deviceCount = 0;
+    ERR_GUARD_VULKAN(vkEnumeratePhysicalDevices(g_hVulkanInstance, &deviceCount, nullptr));
+    std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+    if(deviceCount > 0)
+    {
+        ERR_GUARD_VULKAN(vkEnumeratePhysicalDevices(g_hVulkanInstance, &deviceCount, physicalDevices.data()));
+    }
+
+    if(GPUSelection.Index != UINT32_MAX)
+    {
+        // Cannot specify both index and name.
+        if(!GPUSelection.Substring.empty())
+        {
+            return VK_NULL_HANDLE;
+        }
+
+        return GPUSelection.Index < deviceCount ? physicalDevices[GPUSelection.Index] : VK_NULL_HANDLE;
+    }
+
+    if(!GPUSelection.Substring.empty())
+    {
+        VkPhysicalDevice result = VK_NULL_HANDLE;
+        std::wstring name;
+        for(uint32_t i = 0; i < deviceCount; ++i)
+        {
+            VkPhysicalDeviceProperties props = {};
+            vkGetPhysicalDeviceProperties(physicalDevices[i], &props);
+            if(ConvertCharsToUnicode(&name, props.deviceName, strlen(props.deviceName), CP_UTF8) &&
+                StrStrI(name.c_str(), GPUSelection.Substring.c_str()))
+            {
+                // Second matching device found - error.
+                if(result != VK_NULL_HANDLE)
+                {
+                    return VK_NULL_HANDLE;
+                }
+                // First matching device found.
+                result = physicalDevices[i];
+            }
+        }
+        // Found or not, return it.
+        return result;
+    }
+
+    // Select first one.
+    return deviceCount > 0 ? physicalDevices[0] : VK_NULL_HANDLE;
+}
+
+void VulkanUsage::RegisterDebugCallbacks()
+{
+    vkCreateDebugUtilsMessengerEXT_Func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+        g_hVulkanInstance, "vkCreateDebugUtilsMessengerEXT");
+    vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+        g_hVulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
+    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
+        g_hVulkanInstance, "vkSetDebugUtilsObjectNameEXT");
+    assert(vkCreateDebugUtilsMessengerEXT_Func);
+    assert(vkDestroyDebugUtilsMessengerEXT_Func);
+    assert(vkSetDebugUtilsObjectNameEXT_Func);
+
+    VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+    messengerCreateInfo.messageSeverity = DEBUG_UTILS_MESSENGER_MESSAGE_SEVERITY;
+    messengerCreateInfo.messageType = DEBUG_UTILS_MESSENGER_MESSAGE_TYPE;
+    messengerCreateInfo.pfnUserCallback = MyDebugReportCallback;
+    ERR_GUARD_VULKAN( vkCreateDebugUtilsMessengerEXT_Func(g_hVulkanInstance, &messengerCreateInfo, g_Allocs, &m_DebugUtilsMessenger) );
+}
+
+bool VulkanUsage::IsLayerSupported(const VkLayerProperties* pProps, size_t propCount, const char* pLayerName)
+{
+    const VkLayerProperties* propsEnd = pProps + propCount;
+    return std::find_if(
+        pProps,
+        propsEnd,
+        [pLayerName](const VkLayerProperties& prop) -> bool {
+        return strcmp(pLayerName, prop.layerName) == 0;
+    }) != propsEnd;
 }
 
 struct Vertex
@@ -574,44 +859,6 @@ struct UniformBufferObject
 {
     mat4 ModelViewProj;
 };
-
-static void RegisterDebugCallbacks()
-{
-    vkCreateDebugUtilsMessengerEXT_Func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        g_hVulkanInstance, "vkCreateDebugUtilsMessengerEXT");
-    vkDestroyDebugUtilsMessengerEXT_Func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        g_hVulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
-    vkSetDebugUtilsObjectNameEXT_Func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
-        g_hVulkanInstance, "vkSetDebugUtilsObjectNameEXT");
-    assert(vkCreateDebugUtilsMessengerEXT_Func);
-    assert(vkDestroyDebugUtilsMessengerEXT_Func);
-    assert(vkSetDebugUtilsObjectNameEXT_Func);
-
-    VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-    messengerCreateInfo.messageSeverity = DEBUG_UTILS_MESSENGER_MESSAGE_SEVERITY;
-    messengerCreateInfo.messageType = DEBUG_UTILS_MESSENGER_MESSAGE_TYPE;
-    messengerCreateInfo.pfnUserCallback = MyDebugReportCallback;
-    ERR_GUARD_VULKAN( vkCreateDebugUtilsMessengerEXT_Func(g_hVulkanInstance, &messengerCreateInfo, g_Allocs, &g_DebugUtilsMessenger) );
-}
-
-static void UnregisterDebugCallbacks()
-{
-    if(g_DebugUtilsMessenger)
-    {
-        vkDestroyDebugUtilsMessengerEXT_Func(g_hVulkanInstance, g_DebugUtilsMessenger, g_Allocs);
-    }
-}
-
-static bool IsLayerSupported(const VkLayerProperties* pProps, size_t propCount, const char* pLayerName)
-{
-    const VkLayerProperties* propsEnd = pProps + propCount;
-    return std::find_if(
-        pProps,
-        propsEnd,
-        [pLayerName](const VkLayerProperties& prop) -> bool {
-            return strcmp(pLayerName, prop.layerName) == 0;
-        }) != propsEnd;
-}
 
 static VkFormat FindSupportedFormat(
     const std::vector<VkFormat>& candidates,
@@ -1110,20 +1357,6 @@ static void DestroySwapchain(bool destroyActualSwapchain)
     }
 }
 
-static constexpr uint32_t GetVulkanApiVersion()
-{
-#if VMA_VULKAN_VERSION == 1002000
-    return VK_API_VERSION_1_2;
-#elif VMA_VULKAN_VERSION == 1001000
-    return VK_API_VERSION_1_1;
-#elif VMA_VULKAN_VERSION == 1000000
-    return VK_API_VERSION_1_0;
-#else
-    #error Invalid VMA_VULKAN_VERSION.
-    return UINT32_MAX;
-#endif
-}
-
 static void PrintEnabledFeatures()
 {
     wprintf(L"Enabled extensions and features:\n");
@@ -1522,110 +1755,12 @@ static void PrintMemoryConclusions()
 
 static void InitializeApplication()
 {
-    if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
-    {
-        g_Allocs = &g_CpuAllocationCallbacks;
-    }
-
-    uint32_t instanceLayerPropCount = 0;
-    ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr) );
-    std::vector<VkLayerProperties> instanceLayerProps(instanceLayerPropCount);
-    if(instanceLayerPropCount > 0)
-    {
-        ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, instanceLayerProps.data()) );
-    }
-
-    if(g_EnableValidationLayer)
-    {
-        if(IsLayerSupported(instanceLayerProps.data(), instanceLayerProps.size(), VALIDATION_LAYER_NAME) == false)
-        {
-            wprintf(L"Layer \"%hs\" not supported.", VALIDATION_LAYER_NAME);
-            g_EnableValidationLayer = false;
-        }
-    }
-
-    uint32_t availableInstanceExtensionCount = 0;
-    ERR_GUARD_VULKAN( vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, nullptr) );
-    std::vector<VkExtensionProperties> availableInstanceExtensions(availableInstanceExtensionCount);
-    if(availableInstanceExtensionCount > 0)
-    {
-        ERR_GUARD_VULKAN( vkEnumerateInstanceExtensionProperties(nullptr, &availableInstanceExtensionCount, availableInstanceExtensions.data()) );
-    }
-
-    std::vector<const char*> enabledInstanceExtensions;
-    enabledInstanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-    enabledInstanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-
-    std::vector<const char*> instanceLayers;
-    if(g_EnableValidationLayer)
-    {
-        instanceLayers.push_back(VALIDATION_LAYER_NAME);
-    }
-
-    for(const auto& extensionProperties : availableInstanceExtensions)
-    {
-        if(strcmp(extensionProperties.extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0)
-        {
-            if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
-            {   
-                enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-                VK_KHR_get_physical_device_properties2_enabled = true;
-            }
-        }
-        else if(strcmp(extensionProperties.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0)
-        {
-            enabledInstanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-            VK_EXT_debug_utils_enabled = true;
-        }
-    }
-
-    VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-    appInfo.pApplicationName = APP_TITLE_A;
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Adam Sawicki Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = GetVulkanApiVersion();
-
-    VkInstanceCreateInfo instInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
-    instInfo.pApplicationInfo = &appInfo;
-    instInfo.enabledExtensionCount = static_cast<uint32_t>(enabledInstanceExtensions.size());
-    instInfo.ppEnabledExtensionNames = enabledInstanceExtensions.data();
-    instInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
-    instInfo.ppEnabledLayerNames = instanceLayers.data();
-
-    wprintf(L"Vulkan API version used: ");
-    switch(appInfo.apiVersion)
-    {
-    case VK_API_VERSION_1_0: wprintf(L"1.0\n"); break;
-    case VK_API_VERSION_1_1: wprintf(L"1.1\n"); break;
-    case VK_API_VERSION_1_2: wprintf(L"1.2\n"); break;
-    default: assert(0);
-    }
-
-    ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, g_Allocs, &g_hVulkanInstance) );
-
-    if(VK_EXT_debug_utils_enabled)
-    {
-        RegisterDebugCallbacks();
-    }
-
     // Create VkSurfaceKHR.
     VkWin32SurfaceCreateInfoKHR surfaceInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
     surfaceInfo.hinstance = g_hAppInstance;
     surfaceInfo.hwnd = g_hWnd;
     VkResult result = vkCreateWin32SurfaceKHR(g_hVulkanInstance, &surfaceInfo, g_Allocs, &g_hSurface);
     assert(result == VK_SUCCESS);
-
-    // Find physical device
-
-    uint32_t deviceCount = 0;
-    ERR_GUARD_VULKAN( vkEnumeratePhysicalDevices(g_hVulkanInstance, &deviceCount, nullptr) );
-    assert(deviceCount > 0);
-
-    std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
-    ERR_GUARD_VULKAN( vkEnumeratePhysicalDevices(g_hVulkanInstance, &deviceCount, physicalDevices.data()) );
-
-    g_hPhysicalDevice = physicalDevices[0];
 
     // Query for device extensions
 
@@ -2102,14 +2237,6 @@ static void FinalizeApplication()
         vkDestroySurfaceKHR(g_hVulkanInstance, g_hSurface, g_Allocs);
         g_hSurface = VK_NULL_HANDLE;
     }
-
-    UnregisterDebugCallbacks();
-
-    if(g_hVulkanInstance != VK_NULL_HANDLE)
-    {
-        vkDestroyInstance(g_hVulkanInstance, g_Allocs);
-        g_hVulkanInstance = VK_NULL_HANDLE;
-    }
 }
 
 static void PrintAllocatorStats()
@@ -2272,6 +2399,18 @@ static void HandlePossibleSizeChange()
     }
 }
 
+#define CATCH_PRINT_ERROR(extraCatchCode) \
+    catch(const std::exception& ex) \
+    { \
+        fwprintf(stderr, L"ERROR: %hs\n", ex.what()); \
+        extraCatchCode \
+    } \
+    catch(...) \
+    { \
+        fwprintf(stderr, L"UNKNOWN ERROR.\n"); \
+        extraCatchCode \
+    }
+
 static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
@@ -2279,12 +2418,20 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
         // This is intentionally assigned here because we are now inside CreateWindow, before it returns.
         g_hWnd = hWnd;
-        InitializeApplication();
+        try
+        {
+            InitializeApplication();
+        }
+        CATCH_PRINT_ERROR(return -1;)
         //PrintAllocatorStats();
         return 0;
 
     case WM_DESTROY:
-        FinalizeApplication();
+        try
+        {
+            FinalizeApplication();
+        }
+        CATCH_PRINT_ERROR(;)
         PostQuitMessage(0);
         return 0;
 
@@ -2296,11 +2443,21 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
         if((wParam == SIZE_MAXIMIZED) || (wParam == SIZE_RESTORED))
-            HandlePossibleSizeChange();
+        {
+            try
+            {
+                HandlePossibleSizeChange();
+            }
+            CATCH_PRINT_ERROR(DestroyWindow(hWnd);)
+        }
         return 0;
 
     case WM_EXITSIZEMOVE:
-        HandlePossibleSizeChange();
+        try
+        {
+            HandlePossibleSizeChange();
+        }
+        CATCH_PRINT_ERROR(DestroyWindow(hWnd);)
         return 0;
 
     case WM_KEYDOWN:
@@ -2314,17 +2471,18 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             {
                 Test();
             }
-            catch(const std::exception& ex)
-            {
-                printf("ERROR: %s\n", ex.what());
-            }
+            CATCH_PRINT_ERROR(;)
             break;
         case 'S':
             try
             {
                 if(g_SparseBindingEnabled)
                 {
-                    TestSparseBinding();
+                    try
+                    {
+                        TestSparseBinding();
+                    }
+                    CATCH_PRINT_ERROR(;)
                 }
                 else
                 {
@@ -2346,10 +2504,24 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-int main()
+static void PrintLogo()
 {
-    g_hAppInstance = (HINSTANCE)GetModuleHandle(NULL);
+    wprintf(L"%s\n", APP_TITLE_W);
+}
 
+static void PrintHelp()
+{
+    wprintf(
+        L"Command line syntax:\n"
+        L"-h, --Help   Print this information\n"
+        L"-l, --List   Print list of GPUs\n"
+        L"-g S, --GPU S   Select GPU with name containing S\n"
+        L"-i N, --GPUIndex N   Select GPU index N\n"
+    );
+}
+
+int MainWindow()
+{
     WNDCLASSEX wndClassDesc = { sizeof(WNDCLASSEX) };
     wndClassDesc.style = CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS;
     wndClassDesc.hbrBackground = NULL;
@@ -2387,10 +2559,50 @@ int main()
             DrawFrame();
     }
 
-    TEST(g_CpuAllocCount.load() == 0);
-
-    return 0;
+    return (int)msg.wParam;;
 }
+
+int Main2(int argc, wchar_t** argv)
+{
+    PrintLogo();
+
+    if(!g_CommandLineParameters.Parse(argc, argv))
+    {
+        wprintf(L"ERROR: Invalid command line syntax.\n");
+        PrintHelp();
+        return (int)ExitCode::CommandLineError;
+    }
+
+    if(g_CommandLineParameters.m_Help)
+    {
+        PrintHelp();
+        return (int)ExitCode::Help;
+    }
+
+    VulkanUsage vulkanUsage;
+    vulkanUsage.Init();
+
+    if(g_CommandLineParameters.m_List)
+    {
+        vulkanUsage.PrintPhysicalDeviceList();
+        return (int)ExitCode::GPUList;
+    }
+
+    g_hPhysicalDevice = vulkanUsage.SelectPhysicalDevice(g_CommandLineParameters.m_GPUSelection);
+    TEST(g_hPhysicalDevice);
+
+    return MainWindow();
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    try
+    {
+        return Main2(argc, argv);
+        TEST(g_CpuAllocCount.load() == 0);
+    }
+    CATCH_PRINT_ERROR(return (int)ExitCode::RuntimeError;)
+} 
 
 #else // #ifdef _WIN32
 

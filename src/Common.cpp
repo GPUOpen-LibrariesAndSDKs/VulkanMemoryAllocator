@@ -204,6 +204,66 @@ std::wstring SizeToStr(size_t size)
     return result;
 }
 
+bool ConvertCharsToUnicode(std::wstring *outStr, const std::string &s, unsigned codePage)
+{
+    if (s.empty())
+    {
+        outStr->clear();
+        return true;
+    }
+
+    // Phase 1 - Get buffer size.
+    const int size = MultiByteToWideChar(codePage, 0, s.data(), (int)s.length(), NULL, 0);
+    if (size == 0)
+    {
+        outStr->clear();
+        return false;
+    }
+
+    // Phase 2 - Do conversion.
+    std::unique_ptr<wchar_t[]> buf(new wchar_t[(size_t)size]);
+    int result = MultiByteToWideChar(codePage, 0, s.data(), (int)s.length(), buf.get(), size);
+    if (result == 0)
+    {
+        outStr->clear();
+        return false;
+    }
+
+    outStr->assign(buf.get(), (size_t)size);
+    return true;
+}
+
+bool ConvertCharsToUnicode(std::wstring *outStr, const char *s, size_t sCharCount, unsigned codePage)
+{
+    if (sCharCount == 0)
+    {
+        outStr->clear();
+        return true;
+    }
+
+    assert(sCharCount <= (size_t)INT_MAX);
+
+    // Phase 1 - Get buffer size.
+    int size = MultiByteToWideChar(codePage, 0, s, (int)sCharCount, NULL, 0);
+    if (size == 0)
+    {
+        outStr->clear();
+        return false;
+    }
+
+    // Phase 2 - Do conversion.
+    std::unique_ptr<wchar_t[]> buf(new wchar_t[(size_t)size]);
+    int result = MultiByteToWideChar(codePage, 0, s, (int)sCharCount, buf.get(), size);
+    if (result == 0)
+    {
+        outStr->clear();
+        return false;
+    }
+
+    outStr->assign(buf.get(), (size_t)size);
+    return true;
+}
+
 const wchar_t* PhysicalDeviceTypeToStr(VkPhysicalDeviceType type)
 {
     // Skipping common prefix VK_PHYSICAL_DEVICE_TYPE_

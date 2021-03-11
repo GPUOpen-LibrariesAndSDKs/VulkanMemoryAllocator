@@ -323,6 +323,9 @@ void PrintErrorF(const wchar_t* format, ...);
 void SaveFile(const wchar_t* filePath, const void* data, size_t dataSize);
 
 std::wstring SizeToStr(size_t size);
+// As codePage use e.g. CP_ACP for native Windows 1-byte codepage or CP_UTF8.
+bool ConvertCharsToUnicode(std::wstring *outStr, const std::string &s, unsigned codePage);
+bool ConvertCharsToUnicode(std::wstring *outStr, const char *s, size_t sCharCount, unsigned codePage);
 
 const wchar_t* PhysicalDeviceTypeToStr(VkPhysicalDeviceType type);
 const wchar_t* VendorIDToStr(uint32_t vendorID);
