@@ -48,21 +48,17 @@
 typedef std::chrono::high_resolution_clock::time_point time_point;
 typedef std::chrono::high_resolution_clock::duration duration;
 
-#ifdef _DEBUG
-    #define TEST(expr) do { \
-            if(!(expr)) { \
-                assert(0 && #expr); \
-            } \
-        } while(0)
-#else
-    #define TEST(expr) do { \
-            if(!(expr)) { \
-                throw std::runtime_error("TEST FAILED: " #expr); \
-            } \
-        } while(0)
-#endif
-
-#define ERR_GUARD_VULKAN(expr) TEST((expr) >= 0)
+#define STRINGIZE(x) STRINGIZE2(x)
+#define STRINGIZE2(x) #x
+#define LINE_STRING STRINGIZE(__LINE__)
+#define TEST(expr)  do { if(!(expr)) { \
+        assert(0 && #expr); \
+        throw std::runtime_error(__FILE__ "(" LINE_STRING "): ( " #expr " ) == false"); \
+    } } while(false)
+#define ERR_GUARD_VULKAN(expr)  do { if((expr) < 0) { \
+        assert(0 && #expr); \
+        throw std::runtime_error(__FILE__ "(" LINE_STRING "): VkResult( " #expr " ) < 0"); \
+    } } while(false)
 
 static const uint32_t VENDOR_ID_AMD = 0x1002;
 static const uint32_t VENDOR_ID_NVIDIA = 0x10DE;
