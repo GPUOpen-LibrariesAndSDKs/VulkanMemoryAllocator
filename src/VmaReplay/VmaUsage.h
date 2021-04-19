@@ -45,6 +45,6 @@
 #pragma warning(disable: 4189) // local variable is initialized but not referenced
 #pragma warning(disable: 4324) // structure was padded due to alignment specifier
 
-#include "../vk_mem_alloc.h"
+#include "../../include/vk_mem_alloc.h"
 
 #pragma warning(pop)

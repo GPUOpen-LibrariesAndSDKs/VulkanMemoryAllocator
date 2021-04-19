@@ -89,7 +89,7 @@ include all public interface declarations. Example:
     #pragma clang diagnostic ignored "-Wnullability-completeness"
 #endif
 
-#include "vk_mem_alloc.h"
+#include "../include/vk_mem_alloc.h"
 
 #ifdef __clang__
     #pragma clang diagnostic pop

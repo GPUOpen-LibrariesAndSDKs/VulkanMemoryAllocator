@@ -31,7 +31,7 @@ filename ("VulkanSample_" .. _SUFFIX)
 targetdir "../bin"
 objdir "../build/Desktop_%{_SUFFIX}/%{cfg.platform}/%{cfg.buildcfg}"
 floatingpoint "Fast"
-files { "../src/*.h", "../src/*.cpp" }
+files { "../src/*.h", "../src/*.cpp", "../include/*.h" }
 flags { "NoPCH", "FatalWarnings" }
 characterset "Unicode"
 
@@ -69,7 +69,7 @@ filename ("VmaReplay_" .. _SUFFIX)
 targetdir "../bin"
 objdir "../build/Desktop_%{_SUFFIX}/%{cfg.platform}/%{cfg.buildcfg}"
 floatingpoint "Fast"
-files { "../src/VmaReplay/*.h", "../src/VmaReplay/*.cpp" }
+files { "../src/VmaReplay/*.h", "../src/VmaReplay/*.cpp", "../include/*.h" }
 flags { "NoPCH", "FatalWarnings" }
 characterset "Default"
 
