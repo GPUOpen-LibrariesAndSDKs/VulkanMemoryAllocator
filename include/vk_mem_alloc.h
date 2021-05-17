@@ -4172,7 +4172,7 @@ static void vma_aligned_free(void* ptr)
     _aligned_free(ptr);
 }
 #else
-static void vma_aligned_free(void* ptr)
+static void vma_aligned_free(void* VMA_NULLABLE ptr)
 {
     free(ptr);
 }
@@ -4247,15 +4247,15 @@ static void vma_aligned_free(void* ptr)
 
 // Define this macro to 1 to enable functions: vmaBuildStatsString, vmaFreeStatsString.
 #if VMA_STATS_STRING_ENABLED
-    static inline void VmaUint32ToStr(char* outStr, size_t strLen, uint32_t num)
+    static inline void VmaUint32ToStr(char* VMA_NOT_NULL outStr, size_t strLen, uint32_t num)
     {
         snprintf(outStr, strLen, "%u", static_cast<unsigned int>(num));
     }
-    static inline void VmaUint64ToStr(char* outStr, size_t strLen, uint64_t num)
+    static inline void VmaUint64ToStr(char* VMA_NOT_NULL outStr, size_t strLen, uint64_t num)
     {
         snprintf(outStr, strLen, "%llu", static_cast<unsigned long long>(num));
     }
-    static inline void VmaPtrToStr(char* outStr, size_t strLen, const void* ptr)
+    static inline void VmaPtrToStr(char* VMA_NOT_NULL outStr, size_t strLen, const void* ptr)
     {
         snprintf(outStr, strLen, "%p", ptr);
     }
