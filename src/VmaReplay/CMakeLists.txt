@@ -1,4 +1,6 @@
-IF (WIN32)
+# This file will only be executed if VMA_BUILD_REPLAY_APP is set to ON
+
+if (WIN32)
     set(VMA_REPLAY_SOURCE_FILES
         Common.cpp
         Constants.cpp
@@ -14,6 +16,6 @@ IF (WIN32)
         PRIVATE
         Vulkan::Vulkan
     )
-ELSE()
+else()
     message(STATUS "VmaReplay is not supported on Linux")
-ENDIF()
+endif()

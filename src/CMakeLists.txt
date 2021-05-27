@@ -1,5 +1,10 @@
-add_subdirectory(Shaders)
-add_subdirectory(VmaReplay)
+if(VMA_BUILD_EXAMPLE_APP_SHADERS)
+    add_subdirectory(Shaders)
+endif()
+
+if(VMA_BUILD_REPLAY_APP)
+    add_subdirectory(VmaReplay)
+endif()
 
 set(VMA_LIBRARY_SOURCE_FILES
     VmaUsage.cpp
@@ -20,10 +25,10 @@ foreach(FILE ${VMA_LIBRARY_SOURCE_FILES})
     source_group("${GROUP}" FILES "${FILE}")
 endforeach()
 
-add_library(VmaLibrary ${VMA_LIBRARY_SOURCE_FILES})
+add_library(VulkanMemoryAllocator ${VMA_LIBRARY_SOURCE_FILES})
 
 set_target_properties(
-    VmaLibrary PROPERTIES
+    VulkanMemoryAllocator PROPERTIES
 
     CXX_EXTENSIONS OFF
     # Use C++14
@@ -32,14 +37,14 @@ set_target_properties(
 )
 
 target_include_directories(
-    VmaLibrary
+    VulkanMemoryAllocator
 
     PUBLIC
     ${PROJECT_SOURCE_DIR}/include
 )
 
 target_link_libraries(
-    VmaLibrary
+    VulkanMemoryAllocator
 
     PUBLIC
     Vulkan::Vulkan
@@ -67,46 +72,44 @@ foreach(FILE ${VMA_EXAMPLE_SOURCE_FILES})
     source_group("${GROUP}" FILES "${FILE}")
 endforeach()
 
-IF (WIN32)
-    add_executable(VmaExample ${VMA_EXAMPLE_SOURCE_FILES})
+if (VMA_BUILD_EXAMPLE_APP)
+    if(WIN32)
+        add_executable(VmaExample ${VMA_EXAMPLE_SOURCE_FILES})
 
-    # Make sure to compile shaders when compiling the example
-    add_dependencies(VmaExample VmaShaders)
+        # Visual Studio specific settings
+        if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
+            # Use Unicode instead of multibyte set
+            add_definitions(-DUNICODE -D_UNICODE)
+            
+            # Set VmaExample as startup project
+            set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaExample")
+            
+            # Enable multithreaded compiling
+            target_compile_options(VmaExample PRIVATE "/MP")
 
-    # Visual Studio specific settings
-    if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
-        # Use Unicode instead of multibyte set
-        add_definitions(-DUNICODE -D_UNICODE)
-        
-        # Set VmaExample as startup project
-        set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaExample")
-        
-        # Enable multithreaded compiling
-        target_compile_options(VmaExample PRIVATE "/MP")
+            # Set working directory for Visual Studio debugger
+            set_target_properties(
+                VmaExample
+                PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+            )
+        endif()
 
-        # Set working directory for Visual Studio debugger
         set_target_properties(
-            VmaExample
-            PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+            VmaExample PROPERTIES
+
+            CXX_EXTENSIONS OFF
+            # Use C++14
+            CXX_STANDARD 14
+            CXX_STANDARD_REQUIRED ON
         )
+
+        target_link_libraries(
+            VmaExample
+
+            PRIVATE
+            VmaLibrary
+        )
+    else()
+        message(STATUS "VmaExample application is not supported to Linux")
     endif()
-
-    set_target_properties(
-        VmaExample PROPERTIES
-
-        CXX_EXTENSIONS OFF
-        # Use C++14
-        CXX_STANDARD 14
-        CXX_STANDARD_REQUIRED ON
-    )
-
-    target_link_libraries(
-        VmaExample
-
-        PRIVATE
-        VmaLibrary
-    )
-
-ELSE()
-    message(STATUS "VmaExample application is not supported to Linux")
-ENDIF()
+endif()

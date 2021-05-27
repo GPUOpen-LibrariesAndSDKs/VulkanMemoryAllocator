@@ -1,3 +1,5 @@
+# This file will only be executed if VMA_BUILD_EXAMPLE_APP_SHADERS is set to ON
+
 find_program(GLSL_VALIDATOR glslangValidator REQUIRED)
 
 if(NOT GLSL_VALIDATOR)
