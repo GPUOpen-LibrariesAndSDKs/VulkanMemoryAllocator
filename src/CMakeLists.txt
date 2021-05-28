@@ -108,6 +108,7 @@ if (VMA_BUILD_EXAMPLE_APP)
 
             PRIVATE
             VmaLibrary
+            Vulkan::Vulkan
         )
     else()
         message(STATUS "VmaExample application is not supported to Linux")
