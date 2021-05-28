@@ -29,4 +29,4 @@ foreach(SHADER ${SHADERS})
     list(APPEND SPIRV_FILES ${SPIRV})
 endforeach()
 
-add_custom_target(VmaShaders ALL DEPENDS ${SPIRV_FILES})
+add_custom_target(VmaExampleAppShaders ALL DEPENDS ${SPIRV_FILES})

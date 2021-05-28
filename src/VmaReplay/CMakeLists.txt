@@ -8,10 +8,10 @@ if (WIN32)
         VmaUsage.cpp
     )
 
-    add_executable(VmaReplay ${VMA_REPLAY_SOURCE_FILES})
+    add_executable(VmaReplayApp ${VMA_REPLAY_SOURCE_FILES})
 
     target_link_libraries(
-        VmaReplay
+        VmaReplayApp
 
         PRIVATE
         Vulkan::Vulkan
