@@ -94,6 +94,22 @@ With this one function call:
 
 `VmaAllocation` is an object that represents memory assigned to this buffer. It can be queried for parameters like Vulkan memory handle and offset.
 
+# How to build
+
+On Windows it is recommended to use [CMake UI](https://cmake.org/runningcmake/). Alternatively you can generate a Visual Studio project map using CMake in command line: `cmake -B./build/ -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 16 2019" -A x64 ./`
+
+On Linux, use CMake with [Ninja](https://ninja-build.org/) and run `cmake -GNinja -Bbuild -DCMAKE_BUILD_TYPE=Debug`
+
+The following CMake options are available
+
+| Target | Description | CMake option |
+| ------------- | ------------- | ------------- |
+| VmaExample | VMA example application | `VMA_BUILD_EXAMPLE_APP` | 
+| VmaShaders | Shaders for VmaExample | `VMA_BUILD_EXAMPLE_APP_SHADERS` |
+| VmaReplay | Replay tool for VMA .csv trace files | `VMA_BUILD_REPLAY_APP` |
+
+Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaExample and VmaReplay are not.
+
 # Binaries
 
 The release comes with precompiled binary executables for "VulkanSample" application which contains test suite and "VmaReplay" tool. They are compiled using Visual Studio 2019, so they require appropriate libraries to work, including "MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll". If their launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable for Visual Studio 2015, 2017 and 2019](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "x64" version.
