@@ -107,7 +107,7 @@ if (VMA_BUILD_EXAMPLE_APP)
             VmaExample
 
             PRIVATE
-            VmaLibrary
+            VulkanMemoryAllocator
             Vulkan::Vulkan
         )
     else()
