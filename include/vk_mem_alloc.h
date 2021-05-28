@@ -122,7 +122,7 @@ To do it properly:
 
 -# Include "vk_mem_alloc.h" file in each CPP file where you want to use the library.
    This includes declarations of all members of the library.
--# In exacly one CPP file define following macro before this include.
+-# In exactly one CPP file define following macro before this include.
    It enables also internal definitions.
 
 \code
@@ -701,7 +701,7 @@ vkDestroyImage(allocator, img2, nullptr);
 vkDestroyImage(allocator, img1, nullptr);
 \endcode
 
-Remember that using resouces that alias in memory requires proper synchronization.
+Remember that using resources that alias in memory requires proper synchronization.
 You need to issue a memory barrier to make sure commands that use `img1` and `img2`
 don't overlap on GPU timeline.
 You also need to treat a resource after aliasing as uninitialized - containing garbage data.
@@ -1130,7 +1130,7 @@ See [Validation layer warnings](@ref general_considerations_validation_layer_war
 
 Please don't expect memory to be fully compacted after defragmentation.
 Algorithms inside are based on some heuristics that try to maximize number of Vulkan
-memory blocks to make totally empty to release them, as well as to maximimze continuous
+memory blocks to make totally empty to release them, as well as to maximize continuous
 empty space inside remaining blocks, while minimizing the number and size of allocations that
 need to be moved. Some fragmentation may still remain - this is normal.
 
@@ -1671,7 +1671,7 @@ Which solution is the most efficient depends on your resource and especially on 
 It is best to measure it and then make the decision.
 Some general recommendations:
 
-- On integrated graphics use (2) or (3) to avoid unnecesary time and memory overhead
+- On integrated graphics use (2) or (3) to avoid unnecessary time and memory overhead
   related to using a second copy and making transfer.
 - For small resources (e.g. constant buffers) use (2).
   Discrete AMD cards have special 256 MiB pool of video memory that is directly mappable.
@@ -1964,7 +1964,7 @@ to just ignore them.
     up together, especially on GPUs with unified memory like Intel.
 - *Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.*
   - It happens when you use lost allocations, and a new image or buffer is
-    created in place of an existing object that bacame lost.
+    created in place of an existing object that became lost.
   - It may happen also when you use [defragmentation](@ref defragmentation).
 
 \section general_considerations_allocation_algorithm Allocation algorithm
@@ -2240,7 +2240,7 @@ typedef enum VmaAllocatorCreateFlagBits {
     The flag works only if VmaAllocatorCreateInfo::vulkanApiVersion `== VK_API_VERSION_1_0`.
     When it's `VK_API_VERSION_1_1`, the flag is ignored because the extension has been promoted to Vulkan 1.1.
 
-    Using this extenion will automatically allocate dedicated blocks of memory for
+    Using this extension will automatically allocate dedicated blocks of memory for
     some buffers and images instead of suballocating place for them out of bigger
     memory blocks (as if you explicitly used #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
     flag) when it is recommended by the driver. It may improve performance on some
@@ -3442,7 +3442,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCreateLostAllocation(
 Maps memory represented by given allocation to make it accessible to CPU code.
 When succeeded, `*ppData` contains pointer to first byte of this memory.
 If the allocation is part of bigger `VkDeviceMemory` block, the pointer is
-correctly offseted to the beginning of region assigned to this particular
+correctly offsetted to the beginning of region assigned to this particular
 allocation.
 
 Mapping is internally reference-counted and synchronized, so despite raw Vulkan
@@ -3862,7 +3862,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindBufferMemory(
 
 /** \brief Binds buffer to allocation with additional parameters.
 
-@param allocationLocalOffset Additional offset to be added while binding, relative to the beginnig of the `allocation`. Normally it should be 0.
+@param allocationLocalOffset Additional offset to be added while binding, relative to the beginning of the `allocation`. Normally it should be 0.
 @param pNext A chain of structures to be attached to `VkBindBufferMemoryInfoKHR` structure used internally. Normally it should be null.
 
 This function is similar to vmaBindBufferMemory(), but it provides additional parameters.
@@ -3896,7 +3896,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory(
 
 /** \brief Binds image to allocation with additional parameters.
 
-@param allocationLocalOffset Additional offset to be added while binding, relative to the beginnig of the `allocation`. Normally it should be 0.
+@param allocationLocalOffset Additional offset to be added while binding, relative to the beginning of the `allocation`. Normally it should be 0.
 @param pNext A chain of structures to be attached to `VkBindImageMemoryInfoKHR` structure used internally. Normally it should be null.
 
 This function is similar to vmaBindImageMemory(), but it provides additional parameters.
@@ -7045,7 +7045,7 @@ private:
 - m_UsableSize is this size aligned down to a power of two.
   All allocations and calculations happen relative to m_UsableSize.
 - GetUnusableSize() is the difference between them.
-  It is repoted as separate, unused range, not available for allocations.
+  It is reported as separate, unused range, not available for allocations.
 
 Node at level 0 has size = m_UsableSize.
 Each next level contains nodes with size 2 times smaller than current level.
@@ -7900,7 +7900,7 @@ public:
     Returns:
     - `VK_SUCCESS` if succeeded and object can be destroyed immediately.
     - `VK_NOT_READY` if succeeded but the object must remain alive until vmaDefragmentationEnd().
-    - Negative value if error occured and object can be destroyed immediately.
+    - Negative value if error occurred and object can be destroyed immediately.
     */
     VkResult Defragment(
         VkDeviceSize maxCpuBytesToMove, uint32_t maxCpuAllocationsToMove,
@@ -9383,7 +9383,7 @@ bool VmaBlockMetadata_Generic::Validate() const
         lastSize = suballocItem->size;
     }
 
-    // Check if totals match calculacted values.
+    // Check if totals match calculated values.
     VMA_VALIDATE(ValidateFreeSuballocationList());
     VMA_VALIDATE(calculatedOffset == GetSize());
     VMA_VALIDATE(calculatedSumFreeSize == m_SumFreeSize);
@@ -10443,7 +10443,7 @@ VkDeviceSize VmaBlockMetadata_Linear::GetUnusedRangeSizeMax() const
     case SECOND_VECTOR_EMPTY:
         /*
         Available space is after end of 1st, as well as before beginning of 1st (which
-        whould make it a ring buffer).
+        would make it a ring buffer).
         */
         {
             const size_t suballocations1stCount = suballocations1st.size();
@@ -11643,7 +11643,7 @@ bool VmaBlockMetadata_Linear::MakeRequestedAllocationsLost(
     }
 
     CleanupAfterFree();
-    //VMA_HEAVY_ASSERT(Validate()); // Already called by ClanupAfterFree().
+    //VMA_HEAVY_ASSERT(Validate()); // Already called by CleanupAfterFree().
 
     return true;
 }
