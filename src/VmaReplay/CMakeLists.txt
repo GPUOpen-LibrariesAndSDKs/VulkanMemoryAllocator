@@ -1,4 +1,4 @@
-# This file will only be executed if VMA_BUILD_REPLAY_APP is set to ON
+# This file will only be executed if VMA_BUILD_REPLAY is set to ON
 
 if (WIN32)
     set(VMA_REPLAY_SOURCE_FILES
@@ -8,10 +8,10 @@ if (WIN32)
         VmaUsage.cpp
     )
 
-    add_executable(VmaReplayApp ${VMA_REPLAY_SOURCE_FILES})
+    add_executable(VmaReplay ${VMA_REPLAY_SOURCE_FILES})
 
     target_link_libraries(
-        VmaReplayApp
+        VmaReplay
 
         PRIVATE
         Vulkan::Vulkan

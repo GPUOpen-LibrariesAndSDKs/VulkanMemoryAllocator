@@ -1,4 +1,4 @@
-# This file will only be executed if VMA_BUILD_EXAMPLE_APP_SHADERS is set to ON
+# This file will only be executed if VMA_BUILD_SAMPLE_SHADERS is set to ON
 
 find_program(GLSL_VALIDATOR glslangValidator REQUIRED)
 
@@ -29,4 +29,4 @@ foreach(SHADER ${SHADERS})
     list(APPEND SPIRV_FILES ${SPIRV})
 endforeach()
 
-add_custom_target(VmaExampleAppShaders ALL DEPENDS ${SPIRV_FILES})
+add_custom_target(VmaSampleShaders ALL DEPENDS ${SPIRV_FILES})

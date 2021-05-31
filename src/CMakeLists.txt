@@ -22,37 +22,37 @@ target_link_libraries(
     Vulkan::Vulkan
 )
 
-if (VMA_BUILD_EXAMPLE_APP)
+if (VMA_BUILD_SAMPLE)
     if(WIN32)
-        set(VMA_EXAMPLE_SOURCE_FILES
+        set(VMA_SAMPLE_SOURCE_FILES
             Common.cpp
             SparseBindingTest.cpp
             Tests.cpp
             VulkanSample.cpp
         )
 
-        add_executable(VmaExample ${VMA_EXAMPLE_SOURCE_FILES})
+        add_executable(VmaSample ${VMA_SAMPLE_SOURCE_FILES})
 
         # Visual Studio specific settings
         if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
             # Use Unicode instead of multibyte set
             add_compile_definitions(UNICODE _UNICODE)
             
-            # Set VmaExample as startup project
-            set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaExample")
+            # Set VmaSample as startup project
+            set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaSample")
             
             # Enable multithreaded compiling
-            target_compile_options(VmaExample PRIVATE "/MP")
+            target_compile_options(VmaSample PRIVATE "/MP")
 
             # Set working directory for Visual Studio debugger
             set_target_properties(
-                VmaExample
+                VmaSample
                 PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
             )
         endif()
 
         set_target_properties(
-            VmaExample PROPERTIES
+            VmaSample PROPERTIES
 
             CXX_EXTENSIONS OFF
             # Use C++14
@@ -61,21 +61,21 @@ if (VMA_BUILD_EXAMPLE_APP)
         )
 
         target_link_libraries(
-            VmaExample
+            VmaSample
 
             PRIVATE
             VulkanMemoryAllocator
             Vulkan::Vulkan
         )
     else()
-        message(STATUS "VmaExample application is not supported to Linux")
+        message(STATUS "VmaSample application is not supported to Linux")
     endif()
 endif()
 
-if(VMA_BUILD_EXAMPLE_APP_SHADERS)
+if(VMA_BUILD_SAMPLE_SHADERS)
     add_subdirectory(Shaders)
 endif()
 
-if(VMA_BUILD_REPLAY_APP)
+if(VMA_BUILD_REPLAY)
     add_subdirectory(VmaReplay)
 endif()
