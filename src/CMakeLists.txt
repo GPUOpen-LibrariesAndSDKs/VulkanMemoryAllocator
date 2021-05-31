@@ -10,21 +10,6 @@ set(VMA_LIBRARY_SOURCE_FILES
     VmaUsage.cpp
 )
 
-# Use folder structure as filters in project map
-foreach(FILE ${VMA_LIBRARY_SOURCE_FILES})
-    get_filename_component(PARENT_DIR "${FILE}" PATH)
-
-    string(REPLACE "/" "\\" GROUP "${PARENT_DIR}")
-
-    if("${FILE}" MATCHES ".*\\.cpp")
-        set(GROUP "Source Files\\${GROUP}")
-    elseif("${FILE}" MATCHES ".*\\.hpp")
-        set(GROUP "Header Files\\${GROUP}")
-    endif()
-
-    source_group("${GROUP}" FILES "${FILE}")
-endforeach()
-
 add_library(VulkanMemoryAllocator ${VMA_LIBRARY_SOURCE_FILES})
 
 set_target_properties(
@@ -56,21 +41,6 @@ set(VMA_EXAMPLE_SOURCE_FILES
     Tests.cpp
     VulkanSample.cpp
 )
-
-# Use folder structure as filters in project map
-foreach(FILE ${VMA_EXAMPLE_SOURCE_FILES})
-    get_filename_component(PARENT_DIR "${FILE}" PATH)
-
-    string(REPLACE "/" "\\" GROUP "${PARENT_DIR}")
-
-    if("${FILE}" MATCHES ".*\\.cpp")
-        set(GROUP "Source Files\\${GROUP}")
-    elseif("${FILE}" MATCHES ".*\\.hpp")
-        set(GROUP "Header Files\\${GROUP}")
-    endif()
-
-    source_group("${GROUP}" FILES "${FILE}")
-endforeach()
 
 if (VMA_BUILD_EXAMPLE_APP)
     if(WIN32)
