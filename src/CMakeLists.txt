@@ -30,15 +30,15 @@ target_link_libraries(
     Vulkan::Vulkan
 )
 
-set(VMA_EXAMPLE_SOURCE_FILES
-    Common.cpp
-    SparseBindingTest.cpp
-    Tests.cpp
-    VulkanSample.cpp
-)
-
 if (VMA_BUILD_EXAMPLE_APP)
     if(WIN32)
+        set(VMA_EXAMPLE_SOURCE_FILES
+            Common.cpp
+            SparseBindingTest.cpp
+            Tests.cpp
+            VulkanSample.cpp
+        )
+
         add_executable(VmaExample ${VMA_EXAMPLE_SOURCE_FILES})
 
         # Visual Studio specific settings
