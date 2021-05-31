@@ -98,7 +98,14 @@ With this one function call:
 
 On Windows it is recommended to use [CMake UI](https://cmake.org/runningcmake/). Alternatively you can generate a Visual Studio project map using CMake in command line: `cmake -B./build/ -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 16 2019" -A x64 ./`
 
-On Linux, use CMake with [Ninja](https://ninja-build.org/) and run `cmake -GNinja -Bbuild -DCMAKE_BUILD_TYPE=Debug`
+On Linux:
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
 
 The following CMake options are available
 
