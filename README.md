@@ -112,7 +112,7 @@ The following CMake options are available
 | Target | Description | CMake option | Default setting |
 | ------------- | ------------- | ------------- | ------------- |
 | VmaExample | VMA example application | `VMA_BUILD_EXAMPLE_APP` | `OFF` |
-| VmaShaders | Shaders for VmaExample | `VMA_BUILD_EXAMPLE_APP_SHADERS` | `OFF` |
+| VmaBuildExampleShaders | Shaders for VmaExample | `VMA_BUILD_EXAMPLE_APP_SHADERS` | `OFF` |
 | VmaReplay | Replay tool for VMA .csv trace files | `VMA_BUILD_REPLAY_APP` | `OFF` |
 
 Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaExample and VmaReplay are not.
