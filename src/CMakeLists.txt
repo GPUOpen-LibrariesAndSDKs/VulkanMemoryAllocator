@@ -1,11 +1,3 @@
-if(VMA_BUILD_EXAMPLE_APP_SHADERS)
-    add_subdirectory(Shaders)
-endif()
-
-if(VMA_BUILD_REPLAY_APP)
-    add_subdirectory(VmaReplay)
-endif()
-
 set(VMA_LIBRARY_SOURCE_FILES
     VmaUsage.cpp
 )
@@ -78,4 +70,12 @@ if (VMA_BUILD_EXAMPLE_APP)
     else()
         message(STATUS "VmaExample application is not supported to Linux")
     endif()
+endif()
+
+if(VMA_BUILD_EXAMPLE_APP_SHADERS)
+    add_subdirectory(Shaders)
+endif()
+
+if(VMA_BUILD_REPLAY_APP)
+    add_subdirectory(VmaReplay)
 endif()
