@@ -36,7 +36,7 @@ if (VMA_BUILD_EXAMPLE_APP)
         # Visual Studio specific settings
         if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
             # Use Unicode instead of multibyte set
-            add_definitions(-DUNICODE -D_UNICODE)
+            add_compile_definitions(UNICODE _UNICODE)
             
             # Set VmaExample as startup project
             set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaExample")
