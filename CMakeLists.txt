@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.9)
 
 project(VulkanMemoryAllocator)
 
-set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
-
 find_package(Vulkan REQUIRED)
 
 # VulkanMemoryAllocator contains an example application and VmaReplay which are not build by default
