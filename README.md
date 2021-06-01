@@ -107,15 +107,15 @@ cmake ..
 make
 ```
 
-The following CMake options are available
+The following targets are available
 
 | Target | Description | CMake option | Default setting |
 | ------------- | ------------- | ------------- | ------------- |
-| VmaExample | VMA example application | `VMA_BUILD_SAMPLE` | `OFF` |
-| VmaBuildExampleShaders | Shaders for VmaExample | `VMA_BUILD_SAMPLE_SHADERS` | `OFF` |
+| VmaSample | VMA sample application | `VMA_BUILD_SAMPLE` | `OFF` |
+| VmaBuildSampleShaders | Shaders for VmaSample | `VMA_BUILD_SAMPLE_SHADERS` | `OFF` |
 | VmaReplay | Replay tool for VMA .csv trace files | `VMA_BUILD_REPLAY` | `OFF` |
 
-Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaExample and VmaReplay are not.
+Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaSample and VmaReplay are not.
 
 # Binaries
 
