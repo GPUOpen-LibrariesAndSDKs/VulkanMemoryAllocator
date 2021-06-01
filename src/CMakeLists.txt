@@ -15,12 +15,10 @@ set_target_properties(
 
 target_include_directories(VulkanMemoryAllocator PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
-target_link_libraries(
-    VulkanMemoryAllocator
-
-    PUBLIC
-    Vulkan::Vulkan
-)
+# Only link to Vulkan if static linking is used
+if (NOT ${VMA_DYNAMIC_VULKAN_FUNCTIONS})
+    target_link_libraries(VulkanMemoryAllocator PUBLIC Vulkan::Vulkan)
+endif()
 
 target_compile_definitions(
     VulkanMemoryAllocator
