@@ -123,7 +123,8 @@ These CMake options are available
 | ------------- | ------------- | ------------- |
 | `VMA_RECORDING_ENABLED` | Enable VMA memory recording for debugging | `OFF` |
 | `VMA_USE_STL_CONTAINERS` | Use C++ STL containers instead of VMA's containers | `OFF` |
-| `VMA_DYNAMIC_VULKAN_FUNCTIONS` | Fetch pointers to Vulkan functions internally (no static linking) | `OFF` |
+| `VMA_STATIC_VULKAN_FUNCTIONS` | Link statically with Vulkan API | `OFF` |
+| `VMA_DYNAMIC_VULKAN_FUNCTIONS` | Fetch pointers to Vulkan functions internally (no static linking) | `ON` |
 | `VMA_DEBUG_ALWAYS_DEDICATED_MEMORY` | Every allocation will have its own memory block | `OFF` |
 | `VMA_DEBUG_INITIALIZE_ALLOCATIONS` | Automatically fill new allocations and destroyed allocations with some bit pattern | `OFF` |
 | `VMA_DEBUG_GLOBAL_MUTEX` | Enable single mutex protecting all entry calls to the library | `OFF` |
