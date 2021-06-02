@@ -10,6 +10,9 @@ if (WIN32)
 
     add_executable(VmaReplay ${VMA_REPLAY_SOURCE_FILES})
 
+    # Enable multithreaded compiling
+    target_compile_options(VmaReplay PRIVATE "/MP")
+
     target_link_libraries(
         VmaReplay
 
