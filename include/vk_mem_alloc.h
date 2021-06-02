@@ -5311,13 +5311,27 @@ public:
     {
         if(newCount > N && m_Count > N)
         {
+#if VMA_USE_STL_CONTAINERS
+            m_DynamicArray.resize(newCount);
+            if(freeMemory) {
+                m_DynamicArray.shrink_to_fit();
+            }
+#else
             // Any direction, staying in m_DynamicArray
             m_DynamicArray.resize(newCount, freeMemory);
+#endif
         }
         else if(newCount > N && m_Count <= N)
         {
+#if VMA_USE_STL_CONTAINERS
+            m_DynamicArray.resize(newCount);
+            if(freeMemory) {
+                m_DynamicArray.shrink_to_fit();
+            }
+#else
             // Growing, moving from m_StaticArray to m_DynamicArray
             m_DynamicArray.resize(newCount, freeMemory);
+#endif
             if(m_Count > 0)
             {
                 memcpy(m_DynamicArray.data(), m_StaticArray, m_Count * sizeof(T));
@@ -5330,7 +5344,14 @@ public:
             {
                 memcpy(m_StaticArray, m_DynamicArray.data(), newCount * sizeof(T));
             }
+#if VMA_USE_STL_CONTAINERS
+            m_DynamicArray.resize(0);
+            if(freeMemory) {
+                m_DynamicArray.shrink_to_fit();
+            }
+#else
             m_DynamicArray.resize(0, freeMemory);
+#endif
         }
         else
         {
