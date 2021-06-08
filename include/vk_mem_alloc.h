@@ -4963,6 +4963,7 @@ public:
     }
 
     VmaStlAllocator& operator=(const VmaStlAllocator& x) = delete;
+    VmaStlAllocator(const VmaStlAllocator&) = default;
 };
 
 #if VMA_USE_STL_VECTOR
