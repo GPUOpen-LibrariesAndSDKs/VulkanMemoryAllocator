@@ -2,7 +2,7 @@
 
 Easy to integrate Vulkan memory allocation library.
 
-**Documentation:** See [Vulkan Memory Allocator](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/) (generated from Doxygen-style comments in [src/vk_mem_alloc.h](src/vk_mem_alloc.h))
+**Documentation:** See [Vulkan Memory Allocator](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/) (generated from Doxygen-style comments in [include/vk_mem_alloc.h](include/vk_mem_alloc.h))
 
 **License:** MIT. See [LICENSE.txt](LICENSE.txt)
 
