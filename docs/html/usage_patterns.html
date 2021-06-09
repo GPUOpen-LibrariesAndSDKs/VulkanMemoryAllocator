@@ -114,7 +114,7 @@ Direct access versus transfer</h2>
 </ol>
 <p>Which solution is the most efficient depends on your resource and especially on the GPU. It is best to measure it and then make the decision. Some general recommendations:</p>
 <ul>
-<li>On integrated graphics use (2) or (3) to avoid unnecesary time and memory overhead related to using a second copy and making transfer.</li>
+<li>On integrated graphics use (2) or (3) to avoid unnecessary time and memory overhead related to using a second copy and making transfer.</li>
 <li>For small resources (e.g. constant buffers) use (2). Discrete AMD cards have special 256 MiB pool of video memory that is directly mappable. Even if the resource ends up in system memory, its data may be cached on GPU after first fetch over PCIe bus.</li>
 <li>For larger resources (e.g. textures), decide between (1) and (2). You may want to differentiate NVIDIA and AMD, e.g. by looking for memory type that is both <code>DEVICE_LOCAL</code> and <code>HOST_VISIBLE</code>. When you find it, use (2), otherwise use (1).</li>
 </ul>

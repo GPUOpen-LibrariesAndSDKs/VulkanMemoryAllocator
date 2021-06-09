@@ -90,7 +90,7 @@ Validation layer warnings</h1>
 </ul>
 </li>
 <li><em>Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.</em><ul>
-<li>It happens when you use lost allocations, and a new image or buffer is created in place of an existing object that bacame lost.</li>
+<li>It happens when you use lost allocations, and a new image or buffer is created in place of an existing object that became lost.</li>
 <li>It may happen also when you use <a class="el" href="defragmentation.html">defragmentation</a>.</li>
 </ul>
 </li>
@@ -111,7 +111,7 @@ Allocation algorithm</h1>
 Features not supported</h1>
 <p>Features deliberately excluded from the scope of this library:</p>
 <ul>
-<li>Data transfer. Uploading (straming) and downloading data of buffers and images between CPU and GPU memory and related synchronization is responsibility of the user. Defining some "texture" object that would automatically stream its data from a staging copy in CPU memory to GPU memory would rather be a feature of another, higher-level library implemented on top of VMA.</li>
+<li>Data transfer. Uploading (streaming) and downloading data of buffers and images between CPU and GPU memory and related synchronization is responsibility of the user. Defining some "texture" object that would automatically stream its data from a staging copy in CPU memory to GPU memory would rather be a feature of another, higher-level library implemented on top of VMA.</li>
 <li>Allocations for imported/exported external memory. They tend to require explicit memory type index and dedicated allocation anyway, so they don't interact with main features of this library. Such special purpose allocations should be made manually, using <code>vkCreateBuffer()</code> and <code>vkAllocateMemory()</code>.</li>
 <li>Sub-allocation of parts of one large buffer. Although recommended as a good practice, it is the user's responsibility to implement such logic on top of VMA.</li>
 <li>Recreation of buffers and images. Although the library has functions for buffer and image creation (<a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>), you need to recreate these objects yourself after defragmentation. That's because the big structures <code>VkBufferCreateInfo</code>, <code>VkImageCreateInfo</code> are not stored in <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> object.</li>

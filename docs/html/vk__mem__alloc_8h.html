@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.9.1"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Vulkan Memory Allocator: vk_mem_alloc.h File Reference</title>
+<title>Vulkan Memory Allocator: include/vk_mem_alloc.h File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,6 +59,10 @@ $(function() {
 </iframe>
 </div>
 
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="dir_d44c64559bbebec7f509842c48db8b23.html">include</a></li>  </ul>
+</div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
@@ -1126,7 +1130,7 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878"></a>VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_KHR_dedicated_allocation extension. </p>
 <p>The flag works only if <a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. The highest version of Vulkan that the application is designed to use.">VmaAllocatorCreateInfo::vulkanApiVersion</a> <code>== VK_API_VERSION_1_0</code>. When it's <code>VK_API_VERSION_1_1</code>, the flag is ignored because the extension has been promoted to Vulkan 1.1.</p>
-<p>Using this extenion will automatically allocate dedicated blocks of memory for some buffers and images instead of suballocating place for them out of bigger memory blocks (as if you explicitly used <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a> flag) when it is recommended by the driver. It may improve performance on some GPUs.</p>
+<p>Using this extension will automatically allocate dedicated blocks of memory for some buffers and images instead of suballocating place for them out of bigger memory blocks (as if you explicitly used <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a> flag) when it is recommended by the driver. It may improve performance on some GPUs.</p>
 <p>You may set this flag only if you found out that following device extensions are supported, you enabled them while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>, and you want them to be used internally by this library:</p>
 <ul>
 <li>VK_KHR_get_memory_requirements2 (device extension)</li>
@@ -1647,7 +1651,7 @@ Functions</h2></td></tr>
 <p>Binds buffer to allocation with additional parameters. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginnig of the <code>allocation</code>. Normally it should be 0. </td></tr>
+    <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginning of the <code>allocation</code>. Normally it should be 0. </td></tr>
     <tr><td class="paramname">pNext</td><td>A chain of structures to be attached to <code>VkBindBufferMemoryInfoKHR</code> structure used internally. Normally it should be null.</td></tr>
   </table>
   </dd>
@@ -1742,7 +1746,7 @@ Functions</h2></td></tr>
 <p>Binds image to allocation with additional parameters. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginnig of the <code>allocation</code>. Normally it should be 0. </td></tr>
+    <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginning of the <code>allocation</code>. Normally it should be 0. </td></tr>
     <tr><td class="paramname">pNext</td><td>A chain of structures to be attached to <code>VkBindImageMemoryInfoKHR</code> structure used internally. Normally it should be null.</td></tr>
   </table>
   </dd>
@@ -3301,7 +3305,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Maps memory represented by given allocation and returns pointer to it. </p>
-<p>Maps memory represented by given allocation to make it accessible to CPU code. When succeeded, <code>*ppData</code> contains pointer to first byte of this memory. If the allocation is part of bigger <code>VkDeviceMemory</code> block, the pointer is correctly offseted to the beginning of region assigned to this particular allocation.</p>
+<p>Maps memory represented by given allocation to make it accessible to CPU code. When succeeded, <code>*ppData</code> contains pointer to first byte of this memory. If the allocation is part of bigger <code>VkDeviceMemory</code> block, the pointer is correctly offsetted to the beginning of region assigned to this particular allocation.</p>
 <p>Mapping is internally reference-counted and synchronized, so despite raw Vulkan function <code>vkMapMemory()</code> cannot be used to map same block of <code>VkDeviceMemory</code> multiple times simultaneously, it is safe to call this function on allocations assigned to the same memory block. Actual Vulkan memory will be mapped on first mapping and unmapped on last unmapping.</p>
 <p>If the function succeeded, you must call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> to unmap the allocation when mapping is no longer needed or before freeing the allocation, at the latest.</p>
 <p>It also safe to call this function multiple times on the same allocation. You must call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> same number of times as you called <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>.</p>
