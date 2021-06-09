@@ -5102,16 +5102,12 @@ public:
         }
     }
 
-    void resize(size_t newCount, bool freeMemory = false)
+    void resize(size_t newCount)
     {
         size_t newCapacity = m_Capacity;
         if(newCount > m_Capacity)
         {
             newCapacity = VMA_MAX(newCount, VMA_MAX(m_Capacity * 3 / 2, (size_t)8));
-        }
-        else if(freeMemory)
-        {
-            newCapacity = newCount;
         }
 
         if(newCapacity != m_Capacity)
@@ -5130,9 +5126,25 @@ public:
         m_Count = newCount;
     }
 
-    void clear(bool freeMemory = false)
+    void clear()
     {
-        resize(0, freeMemory);
+        resize(0);
+    }
+
+    void shrink_to_fit()
+    {
+        if(m_Capacity > m_Count)
+        {
+            T* newArray = VMA_NULL;
+            if(m_Count > 0)
+            {
+                newArray = VmaAllocateArray<T>(m_Allocator.m_pCallbacks, m_Count);
+                memcpy(newArray, m_pArray, m_Count * sizeof(T));
+            }
+            VmaFree(m_Allocator.m_pCallbacks, m_pArray);
+            m_Capacity = m_Count;
+            m_pArray = newArray;
+        }
     }
 
     void insert(size_t index, const T& src)
@@ -5312,12 +5324,16 @@ public:
         if(newCount > N && m_Count > N)
         {
             // Any direction, staying in m_DynamicArray
-            m_DynamicArray.resize(newCount, freeMemory);
+            m_DynamicArray.resize(newCount);
+            if(freeMemory)
+            {
+                m_DynamicArray.shrink_to_fit();
+            }
         }
         else if(newCount > N && m_Count <= N)
         {
             // Growing, moving from m_StaticArray to m_DynamicArray
-            m_DynamicArray.resize(newCount, freeMemory);
+            m_DynamicArray.resize(newCount);
             if(m_Count > 0)
             {
                 memcpy(m_DynamicArray.data(), m_StaticArray, m_Count * sizeof(T));
@@ -5330,7 +5346,11 @@ public:
             {
                 memcpy(m_StaticArray, m_DynamicArray.data(), newCount * sizeof(T));
             }
-            m_DynamicArray.resize(0, freeMemory);
+            m_DynamicArray.resize(0);
+            if(freeMemory)
+            {
+                m_DynamicArray.shrink_to_fit();
+            }
         }
         else
         {
@@ -5341,7 +5361,11 @@ public:
 
     void clear(bool freeMemory = false)
     {
-        m_DynamicArray.clear(freeMemory);
+        m_DynamicArray.clear();
+        if(freeMemory)
+        {
+            m_DynamicArray.shrink_to_fit();
+        }
         m_Count = 0;
     }
 
