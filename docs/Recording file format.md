@@ -63,7 +63,7 @@ Between them there can be zero or more lines with configuration options. They st
     Extension,VK_AMD_device_coherent_memory,<bool>
     
     Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,<bool>
-    Macro,VMA_DEBUG_ALIGNMENT,<uint64>
+    Macro,VMA_MIN_ALIGNMENT,<uint64>
     Macro,VMA_DEBUG_MARGIN,<uint64>
     Macro,VMA_DEBUG_INITIALIZE_ALLOCATIONS,<bool>
     Macro,VMA_DEBUG_DETECT_CORRUPTION,<bool>
@@ -313,7 +313,7 @@ An ordered sequence of values of some type, separated by single space.
     Extension,VK_KHR_bind_memory2,1
     Extension,VK_EXT_memory_budget,1
     Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,0
-    Macro,VMA_DEBUG_ALIGNMENT,1
+    Macro,VMA_MIN_ALIGNMENT,1
     Macro,VMA_DEBUG_MARGIN,0
     Macro,VMA_DEBUG_INITIALIZE_ALLOCATIONS,0
     Macro,VMA_DEBUG_DETECT_CORRUPTION,0

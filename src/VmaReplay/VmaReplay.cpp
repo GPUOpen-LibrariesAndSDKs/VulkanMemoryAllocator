@@ -1089,7 +1089,7 @@ private:
         Extension_VK_EXT_memory_budget,
         Extension_VK_AMD_device_coherent_memory,
         Macro_VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,
-        Macro_VMA_DEBUG_ALIGNMENT,
+        Macro_VMA_MIN_ALIGNMENT,
         Macro_VMA_DEBUG_MARGIN,
         Macro_VMA_DEBUG_INITIALIZE_ALLOCATIONS,
         Macro_VMA_DEBUG_DETECT_CORRUPTION,
@@ -1237,8 +1237,8 @@ bool ConfigurationParser::Parse(LineSplit& lineSplit)
                 const StrRange subOptionName = csvSplit.GetRange(1);
                 if(StrRangeEq(subOptionName, "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY"))
                     SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_ALWAYS_DEDICATED_MEMORY, csvSplit.GetRange(2));
-                else if(StrRangeEq(subOptionName, "VMA_DEBUG_ALIGNMENT"))
-                    SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_ALIGNMENT, csvSplit.GetRange(2));
+                else if(StrRangeEq(subOptionName, "VMA_MIN_ALIGNMENT") || StrRangeEq(subOptionName, "VMA_DEBUG_ALIGNMENT"))
+                    SetOption(currLineNumber, OPTION::Macro_VMA_MIN_ALIGNMENT, csvSplit.GetRange(2));
                 else if(StrRangeEq(subOptionName, "VMA_DEBUG_MARGIN"))
                     SetOption(currLineNumber, OPTION::Macro_VMA_DEBUG_MARGIN, csvSplit.GetRange(2));
                 else if(StrRangeEq(subOptionName, "VMA_DEBUG_INITIALIZE_ALLOCATIONS"))
