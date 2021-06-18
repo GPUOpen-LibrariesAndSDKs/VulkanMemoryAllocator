@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.0.0-development</b> (2021-02-16)
+<b>Version 3.0.0-development</b> (2021-06-18)
 
 Copyright (c) 2017-2021 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -3093,6 +3093,13 @@ typedef struct VmaPoolCreateInfo {
     Otherwise, this variable is ignored.
     */
     float priority;
+    /** \brief Additional minimum alignment to be used for all allocations created from this pool. Can be 0.
+    
+    Leave 0 (default) not to impose any additional alignment. If not 0, it must be a power of two.
+    It can be useful in cases where alignment returned by Vulkan by functions like `vkGetBufferMemoryRequirements` is not enough,
+    e.g. when doing interop with OpenGL.
+    */
+    VkDeviceSize minAllocationAlignment;
 } VmaPoolCreateInfo;
 
 /** \brief Describes parameter of existing #VmaPool.
@@ -7330,7 +7337,8 @@ public:
         uint32_t frameInUseCount,
         bool explicitBlockSize,
         uint32_t algorithm,
-        float priority);
+        float priority,
+        VkDeviceSize minAllocationAlignment);
     ~VmaBlockVector();
 
     VkResult CreateMinBlocks();
@@ -7414,6 +7422,7 @@ private:
     const bool m_ExplicitBlockSize;
     const uint32_t m_Algorithm;
     const float m_Priority;
+    const VkDeviceSize m_MinAllocationAlignment;
     VMA_RW_MUTEX m_Mutex;
 
     /* There can be at most one allocation that is completely empty (except when minBlockCount > 0) -
@@ -12875,8 +12884,9 @@ VmaPool_T::VmaPool_T(
         (createInfo.flags & VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT) != 0 ? 1 : hAllocator->GetBufferImageGranularity(),
         createInfo.frameInUseCount,
         createInfo.blockSize != 0, // explicitBlockSize
-        createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK,
-        createInfo.priority), // algorithm
+        createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK, // algorithm
+        createInfo.priority,
+        VMA_MAX(hAllocator->GetMemoryTypeMinAlignment(createInfo.memoryTypeIndex), createInfo.minAllocationAlignment)),
     m_Id(0),
     m_Name(VMA_NULL)
 {
@@ -12917,7 +12927,8 @@ VmaBlockVector::VmaBlockVector(
     uint32_t frameInUseCount,
     bool explicitBlockSize,
     uint32_t algorithm,
-    float priority) :
+    float priority,
+    VkDeviceSize minAllocationAlignment) :
     m_hAllocator(hAllocator),
     m_hParentPool(hParentPool),
     m_MemoryTypeIndex(memoryTypeIndex),
@@ -12929,6 +12940,7 @@ VmaBlockVector::VmaBlockVector(
     m_ExplicitBlockSize(explicitBlockSize),
     m_Algorithm(algorithm),
     m_Priority(priority),
+    m_MinAllocationAlignment(minAllocationAlignment),
     m_HasEmptyBlock(false),
     m_Blocks(VmaStlAllocator<VmaDeviceMemoryBlock*>(hAllocator->GetAllocationCallbacks())),
     m_NextBlockId(0)
@@ -13007,6 +13019,8 @@ VkResult VmaBlockVector::Allocate(
 {
     size_t allocIndex;
     VkResult res = VK_SUCCESS;
+
+    alignment = VMA_MAX(alignment, m_MinAllocationAlignment);
 
     if(IsCorruptionDetectionEnabled())
     {
@@ -16135,7 +16149,8 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             pCreateInfo->frameInUseCount,
             false, // explicitBlockSize
             false, // linearAlgorithm
-            0.5f); // priority (0.5 is the default per Vulkan spec)
+            0.5f, // priority (0.5 is the default per Vulkan spec)
+            GetMemoryTypeMinAlignment(memTypeIndex)); // minAllocationAlignment
         // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
         // becase minBlockCount is 0.
     }
@@ -16863,10 +16878,6 @@ VkResult VmaAllocator_T::AllocateMemory(
 
     if(createInfo.pool != VK_NULL_HANDLE)
     {
-        const VkDeviceSize alignmentForPool = VMA_MAX(
-            vkMemReq.alignment,
-            GetMemoryTypeMinAlignment(createInfo.pool->m_BlockVector.GetMemoryTypeIndex()));
-
         VmaAllocationCreateInfo createInfoForPool = createInfo;
         // If memory type is not HOST_VISIBLE, disable MAPPED.
         if((createInfoForPool.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0 &&
@@ -16878,7 +16889,7 @@ VkResult VmaAllocator_T::AllocateMemory(
         return createInfo.pool->m_BlockVector.Allocate(
             m_CurrentFrameIndex.load(),
             vkMemReq.size,
-            alignmentForPool,
+            vkMemReq.alignment,
             createInfoForPool,
             suballocType,
             allocationCount,
@@ -16892,13 +16903,9 @@ VkResult VmaAllocator_T::AllocateMemory(
         VkResult res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &createInfo, &memTypeIndex);
         if(res == VK_SUCCESS)
         {
-            VkDeviceSize alignmentForMemType = VMA_MAX(
-                vkMemReq.alignment,
-                GetMemoryTypeMinAlignment(memTypeIndex));
-
             res = AllocateMemoryOfType(
                 vkMemReq.size,
-                alignmentForMemType,
+                vkMemReq.alignment,
                 requiresDedicatedAllocation || prefersDedicatedAllocation,
                 dedicatedBuffer,
                 dedicatedBufferUsage,
@@ -16924,13 +16931,9 @@ VkResult VmaAllocator_T::AllocateMemory(
                     res = vmaFindMemoryTypeIndex(this, memoryTypeBits, &createInfo, &memTypeIndex);
                     if(res == VK_SUCCESS)
                     {
-                        alignmentForMemType = VMA_MAX(
-                            vkMemReq.alignment,
-                            GetMemoryTypeMinAlignment(memTypeIndex));
-
                         res = AllocateMemoryOfType(
                             vkMemReq.size,
-                            alignmentForMemType,
+                            vkMemReq.alignment,
                             requiresDedicatedAllocation || prefersDedicatedAllocation,
                             dedicatedBuffer,
                             dedicatedBufferUsage,
@@ -17314,6 +17317,10 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
         ((1u << pCreateInfo->memoryTypeIndex) & m_GlobalMemoryTypeBits) == 0)
     {
         return VK_ERROR_FEATURE_NOT_PRESENT;
+    }
+    if(newCreateInfo.minAllocationAlignment > 0)
+    {
+        VMA_ASSERT(VmaIsPow2(newCreateInfo.minAllocationAlignment));
     }
 
     const VkDeviceSize preferredBlockSize = CalcPreferredBlockSize(newCreateInfo.memoryTypeIndex);

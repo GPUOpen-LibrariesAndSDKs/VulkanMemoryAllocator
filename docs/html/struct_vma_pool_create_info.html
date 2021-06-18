@@ -97,6 +97,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a16e686c688f6725f119ebf6e24ab5274"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274">priority</a></td></tr>
 <tr class="memdesc:a16e686c688f6725f119ebf6e24ab5274"><td class="mdescLeft">&#160;</td><td class="mdescRight">A floating-point value between 0 and 1, indicating the priority of the allocations in this pool relative to other memory allocations.  <a href="struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274">More...</a><br /></td></tr>
 <tr class="separator:a16e686c688f6725f119ebf6e24ab5274"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade3eca546f0c6ab4e8fbf20eb6d854cb"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html#ade3eca546f0c6ab4e8fbf20eb6d854cb">minAllocationAlignment</a></td></tr>
+<tr class="memdesc:ade3eca546f0c6ab4e8fbf20eb6d854cb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Additional minimum alignment to be used for all allocations created from this pool. Can be 0.  <a href="struct_vma_pool_create_info.html#ade3eca546f0c6ab4e8fbf20eb6d854cb">More...</a><br /></td></tr>
+<tr class="separator:ade3eca546f0c6ab4e8fbf20eb6d854cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Describes parameter of created <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>. </p>
@@ -185,6 +188,23 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Vulkan memory type index to allocate this pool from. </p>
+
+</div>
+</div>
+<a id="ade3eca546f0c6ab4e8fbf20eb6d854cb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade3eca546f0c6ab4e8fbf20eb6d854cb">&#9670;&nbsp;</a></span>minAllocationAlignment</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkDeviceSize VmaPoolCreateInfo::minAllocationAlignment</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Additional minimum alignment to be used for all allocations created from this pool. Can be 0. </p>
+<p>Leave 0 (default) not to impose any additional alignment. If not 0, it must be a power of two. It can be useful in cases where alignment returned by Vulkan by functions like <code>vkGetBufferMemoryRequirements</code> is not enough, e.g. when doing interop with OpenGL. </p>
 
 </div>
 </div>

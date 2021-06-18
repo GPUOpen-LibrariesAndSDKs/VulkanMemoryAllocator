@@ -2795,6 +2795,52 @@ static void TestPool_MinBlockCount()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void TestPool_MinAllocationAlignment()
+{
+    wprintf(L"Test Pool MinAllocationAlignment\n");
+    VkResult res;
+
+    static const VkDeviceSize ALLOC_SIZE = 32;
+    static const VkDeviceSize BLOCK_SIZE = 1024 * 1024;
+    static const VkDeviceSize MIN_ALLOCATION_ALIGNMENT = 64 * 1024;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufCreateInfo.size = ALLOC_SIZE;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.blockSize = BLOCK_SIZE;
+    poolCreateInfo.minAllocationAlignment = MIN_ALLOCATION_ALIGNMENT;
+    res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex);
+    TEST(res == VK_SUCCESS);
+
+    VmaPool pool = VK_NULL_HANDLE;
+    res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
+    TEST(res == VK_SUCCESS && pool != VK_NULL_HANDLE);
+
+    static const uint32_t BUF_COUNT = 4;
+    allocCreateInfo = {};
+    allocCreateInfo.pool = pool;
+    std::vector<AllocInfo> allocs(BUF_COUNT);
+    for(uint32_t i = 0; i < BUF_COUNT; ++i)
+    {
+        VmaAllocationInfo allocInfo = {};
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &allocs[i].m_Buffer, &allocs[i].m_Allocation, &allocInfo);
+        TEST(res == VK_SUCCESS && allocs[i].m_Buffer != VK_NULL_HANDLE && allocs[i].m_Allocation != VK_NULL_HANDLE);
+        TEST(allocInfo.offset % MIN_ALLOCATION_ALIGNMENT == 0);
+    }
+
+    // Cleanup.
+    for(size_t i = allocs.size(); i--; )
+    {
+        allocs[i].Destroy();
+    }
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
 void TestHeapSizeLimit()
 {
     const VkDeviceSize HEAP_SIZE_LIMIT = 100ull * 1024 * 1024; // 100 MB
@@ -6532,6 +6578,7 @@ void Test()
 #else
     TestPool_SameSize();
     TestPool_MinBlockCount();
+    TestPool_MinAllocationAlignment();
     TestHeapSizeLimit();
 #endif
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
