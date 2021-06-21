@@ -2494,17 +2494,6 @@ typedef struct VmaAllocatorCreateInfo
     Leaving it initialized to zero is equivalent to `VK_API_VERSION_1_0`.
     */
     uint32_t vulkanApiVersion;
-
-    /** \brief Either null or a pointer to an array of external memory handle types for each Vulkan memory type.
-
-    If not NULL, it must be a pointer to an array of `VkPhysicalDeviceMemoryProperties::memoryTypeCount`
-    elements, defining external memory handle types of particular Vulkan memory type,
-    to be passed using `VkExportMemoryAllocateInfoKHR`.
-
-    Any of the elements may be equal to 0, which means not to use `VkExportMemoryAllocateInfoKHR` on this memory type.\
-    This is also the default in case of `pTypeExternalMemoryHandleTypes` = NULL.
-    */
-    const VkExternalMemoryHandleTypeFlagsKHR* VMA_NULLABLE VMA_LEN_IF_NOT_NULL("VkPhysicalDeviceMemoryProperties::memoryTypeCount") pTypeExternalMemoryHandleTypes;
 } VmaAllocatorCreateInfo;
 
 /// Creates Allocator object.
@@ -3111,9 +3100,16 @@ typedef struct VmaPoolCreateInfo {
     e.g. when doing interop with OpenGL.
     */
     VkDeviceSize minAllocationAlignment;
-    /** TODO
+    /** \brief Additional `pNext` chain to be attached to `VkMemoryAllocateInfo` used for every allocation made by this pool. Optional.
+    
+    Optional, can be null. If not null, it must point to a `pNext` chain of structures that can be attached to `VkMemoryAllocateInfo`.
+    It can be useful for special needs such as adding `VkExportMemoryAllocateInfoKHR`.
+    Structures pointed by this member must remain alive and unchanged for the whole lifetime of the custom pool.
+
+    Please note that some structures, e.g. `VkMemoryPriorityAllocateInfoEXT`, VkMemoryDedicatedAllocateInfoKHR`,
+    can be attached automatically by this library when using other, more convenient of its features.
     */
-    void* pMemoryAllocateNext;
+    void* VMA_NULLABLE pMemoryAllocateNext;
 } VmaPoolCreateInfo;
 
 /** \brief Describes parameter of existing #VmaPool.
@@ -8391,10 +8387,6 @@ public:
     */
     uint32_t GetGpuDefragmentationMemoryTypeBits();
 
-    VkExternalMemoryHandleTypeFlagsKHR GetExternalMemoryHandleTypeFlags(uint32_t memTypeIndex) const
-    {
-        return m_TypeExternalMemoryHandleTypes[memTypeIndex];
-    }
 
 private:
     VkDeviceSize m_PreferredLargeHeapBlockSize;
@@ -8402,7 +8394,6 @@ private:
     VkPhysicalDevice m_PhysicalDevice;
     VMA_ATOMIC_UINT32 m_CurrentFrameIndex;
     VMA_ATOMIC_UINT32 m_GpuDefragmentationMemoryTypeBits; // UINT32_MAX means uninitialized.
-    VkExternalMemoryHandleTypeFlagsKHR m_TypeExternalMemoryHandleTypes[VK_MAX_MEMORY_TYPES];
 
     VMA_RW_MUTEX m_PoolsMutex;
     typedef VmaIntrusiveLinkedList<VmaPoolListItemTraits> PoolList;
@@ -12908,7 +12899,7 @@ VmaPool_T::VmaPool_T(
         createInfo.blockSize != 0, // explicitBlockSize
         createInfo.flags & VMA_POOL_CREATE_ALGORITHM_MASK, // algorithm
         createInfo.priority,
-        VMA_MAX(hAllocator->GetMemoryTypeMinAlignment(createInfo.memoryTypeIndex), createInfo.minAllocationAlignment)),
+        VMA_MAX(hAllocator->GetMemoryTypeMinAlignment(createInfo.memoryTypeIndex), createInfo.minAllocationAlignment),
         createInfo.pMemoryAllocateNext),
     m_Id(0),
     m_Name(VMA_NULL)
@@ -13677,14 +13668,6 @@ VkResult VmaBlockVector::CreateBlock(VkDeviceSize blockSize, size_t* pNewBlockIn
         VmaPnextChainPushFront(&allocInfo, &priorityInfo);
     }
 #endif // #if VMA_MEMORY_PRIORITY
-
-    // Attach VkExportMemoryAllocateInfoKHR if necessary.
-    VkExportMemoryAllocateInfoKHR exportMemoryAllocInfo = { VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR };
-    exportMemoryAllocInfo.handleTypes = m_hAllocator->GetExternalMemoryHandleTypeFlags(m_MemoryTypeIndex);
-    if(exportMemoryAllocInfo.handleTypes != 0)
-    {
-        VmaPnextChainPushFront(&allocInfo, &exportMemoryAllocInfo);
-    }
 
     VkDeviceMemory mem = VK_NULL_HANDLE;
     VkResult res = m_hAllocator->AllocateVulkanMemory(&allocInfo, &mem);
@@ -16130,7 +16113,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     memset(&m_pBlockVectors, 0, sizeof(m_pBlockVectors));
     memset(&m_VulkanFunctions, 0, sizeof(m_VulkanFunctions));
 
-    memset(&m_TypeExternalMemoryHandleTypes, 0, sizeof(m_TypeExternalMemoryHandleTypes));
 
     if(pCreateInfo->pDeviceMemoryCallbacks != VMA_NULL)
     {
@@ -16154,11 +16136,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
 
     m_GlobalMemoryTypeBits = CalculateGlobalMemoryTypeBits();
 
-    if(pCreateInfo->pTypeExternalMemoryHandleTypes != VMA_NULL)
-    {
-        memcpy(m_TypeExternalMemoryHandleTypes, pCreateInfo->pTypeExternalMemoryHandleTypes,
-            sizeof(VkExternalMemoryHandleTypeFlagsKHR) * GetMemoryTypeCount());
-    }
 
     if(pCreateInfo->pHeapSizeLimit != VMA_NULL)
     {
@@ -16691,14 +16668,6 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
         VmaPnextChainPushFront(&allocInfo, &priorityInfo);
     }
 #endif // #if VMA_MEMORY_PRIORITY
-
-    // Attach VkExportMemoryAllocateInfoKHR if necessary.
-    VkExportMemoryAllocateInfoKHR exportMemoryAllocInfo = { VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR };
-    exportMemoryAllocInfo.handleTypes = GetExternalMemoryHandleTypeFlags(memTypeIndex);
-    if(exportMemoryAllocInfo.handleTypes != 0)
-    {
-        VmaPnextChainPushFront(&allocInfo, &exportMemoryAllocInfo);
-    }
 
     size_t allocIndex;
     VkResult res = VK_SUCCESS;
@@ -17354,6 +17323,12 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
     VMA_DEBUG_LOG("  CreatePool: MemoryTypeIndex=%u, flags=%u", pCreateInfo->memoryTypeIndex, pCreateInfo->flags);
 
     VmaPoolCreateInfo newCreateInfo = *pCreateInfo;
+
+    // Protection against uninitialized new structure member. If garbage data are left there, this pointer dereference would crash.
+    if(pCreateInfo->pMemoryAllocateNext)
+    {
+        VMA_ASSERT(((const VkBaseInStructure*)pCreateInfo->pMemoryAllocateNext)->sType != 0);
+    }
 
     if(newCreateInfo.maxBlockCount == 0)
     {
