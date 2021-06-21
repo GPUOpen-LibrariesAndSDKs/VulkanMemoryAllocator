@@ -3106,7 +3106,7 @@ typedef struct VmaPoolCreateInfo {
     It can be useful for special needs such as adding `VkExportMemoryAllocateInfoKHR`.
     Structures pointed by this member must remain alive and unchanged for the whole lifetime of the custom pool.
 
-    Please note that some structures, e.g. `VkMemoryPriorityAllocateInfoEXT`, VkMemoryDedicatedAllocateInfoKHR`,
+    Please note that some structures, e.g. `VkMemoryPriorityAllocateInfoEXT`, `VkMemoryDedicatedAllocateInfoKHR`,
     can be attached automatically by this library when using other, more convenient of its features.
     */
     void* VMA_NULLABLE pMemoryAllocateNext;
