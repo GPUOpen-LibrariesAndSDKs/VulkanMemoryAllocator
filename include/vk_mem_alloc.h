@@ -5217,9 +5217,14 @@ public:
     }
 
     typedef T* iterator;
+    typedef const T* const_iterator;
 
     iterator begin() { return m_pArray; }
     iterator end() { return m_pArray + m_Count; }
+    const_iterator cbegin() const { return m_pArray; }
+    const_iterator cend() const { return m_pArray + m_Count; }
+    const_iterator begin() const { return cbegin(); }
+    const_iterator end() const { return cend(); }
 
 private:
     AllocatorT m_Allocator;
@@ -6040,6 +6045,9 @@ public:
 
     const_iterator cbegin() const { return const_iterator(&m_RawList, m_RawList.Front()); }
     const_iterator cend() const { return const_iterator(&m_RawList, VMA_NULL); }
+    
+    const_iterator begin() const { return cbegin(); }
+    const_iterator end() const { return cend(); }
 
     void clear() { m_RawList.Clear(); }
     void push_back(const T& value) { m_RawList.PushBack(value); }
@@ -9377,12 +9385,8 @@ bool VmaBlockMetadata_Generic::Validate() const
     // True if previous visited suballocation was free.
     bool prevFree = false;
 
-    for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
-        suballocItem != m_Suballocations.cend();
-        ++suballocItem)
+    for(const auto& subAlloc : m_Suballocations)
     {
-        const VmaSuballocation& subAlloc = *suballocItem;
-
         // Actual offset of this suballocation doesn't match expected one.
         VMA_VALIDATE(subAlloc.offset == calculatedOffset);
 
@@ -9476,11 +9480,8 @@ void VmaBlockMetadata_Generic::CalcAllocationStatInfo(VmaStatInfo& outInfo) cons
     outInfo.unusedRangeSizeMin = UINT64_MAX;
     outInfo.unusedRangeSizeMax = 0;
 
-    for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
-        suballocItem != m_Suballocations.cend();
-        ++suballocItem)
+    for(const auto& suballoc : m_Suballocations)
     {
-        const VmaSuballocation& suballoc = *suballocItem;
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
             outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, suballoc.size);
@@ -9515,17 +9516,15 @@ void VmaBlockMetadata_Generic::PrintDetailedMap(class VmaJsonWriter& json) const
         m_FreeCount); // unusedRangeCount
 
     size_t i = 0;
-    for(VmaSuballocationList::const_iterator suballocItem = m_Suballocations.cbegin();
-        suballocItem != m_Suballocations.cend();
-        ++suballocItem, ++i)
+    for(const auto& suballoc : m_Suballocations)
     {
-        if(suballocItem->type == VMA_SUBALLOCATION_TYPE_FREE)
+        if(suballoc.type == VMA_SUBALLOCATION_TYPE_FREE)
         {
-            PrintDetailedMap_UnusedRange(json, suballocItem->offset, suballocItem->size);
+            PrintDetailedMap_UnusedRange(json, suballoc.offset, suballoc.size);
         }
         else
         {
-            PrintDetailedMap_Allocation(json, suballocItem->offset, suballocItem->hAllocation);
+            PrintDetailedMap_Allocation(json, suballoc.offset, suballoc.hAllocation);
         }
     }
 
@@ -9750,18 +9749,16 @@ uint32_t VmaBlockMetadata_Generic::MakeAllocationsLost(uint32_t currentFrameInde
 
 VkResult VmaBlockMetadata_Generic::CheckCorruption(const void* pBlockData)
 {
-    for(VmaSuballocationList::iterator it = m_Suballocations.begin();
-        it != m_Suballocations.end();
-        ++it)
+    for(auto& suballoc : m_Suballocations)
     {
-        if(it->type != VMA_SUBALLOCATION_TYPE_FREE)
+        if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if(!VmaValidateMagicValue(pBlockData, it->offset - VMA_DEBUG_MARGIN))
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
                 return VK_ERROR_VALIDATION_FAILED_EXT;
             }
-            if(!VmaValidateMagicValue(pBlockData, it->offset + it->size))
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
                 return VK_ERROR_VALIDATION_FAILED_EXT;
@@ -10295,14 +10292,12 @@ bool VmaBlockMetadata_Generic::IsBufferImageGranularityConflictPossible(
 
     VkDeviceSize minAlignment = VK_WHOLE_SIZE;
     bool typeConflictFound = false;
-    for(VmaSuballocationList::const_iterator it = m_Suballocations.cbegin();
-        it != m_Suballocations.cend();
-        ++it)
+    for(const auto& suballoc : m_Suballocations)
     {
-        const VmaSuballocationType suballocType = it->type;
+        const VmaSuballocationType suballocType = suballoc.type;
         if(suballocType != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            minAlignment = VMA_MIN(minAlignment, it->hAllocation->GetAlignment());
+            minAlignment = VMA_MIN(minAlignment, suballoc.hAllocation->GetAlignment());
             if(VmaIsBufferImageGranularityConflict(inOutPrevSuballocType, suballocType))
             {
                 typeConflictFound = true;
