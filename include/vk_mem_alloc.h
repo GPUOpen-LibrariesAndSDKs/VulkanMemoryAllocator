@@ -3987,7 +3987,11 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
     VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
-/** \brief TODO
+/** \brief Creates a buffer with additional minimum alignment.
+
+Similar to vmaCreateBuffer() but provides additional parameter `minAlignment` which allows to specify custom,
+minimum alignment to be used when placing the buffer inside a larger memory block, which may be needed e.g.
+for interop with OpenGL.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     VmaAllocator VMA_NOT_NULL allocator,

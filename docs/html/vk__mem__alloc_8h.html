@@ -451,6 +451,9 @@ Functions</h2></td></tr>
 <tr class="separator:aa8251ee81b0045a443e35b8e8aa021bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac72ee55598617e8eecca384e746bab51"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, VkBuffer *pBuffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="separator:ac72ee55598617e8eecca384e746bab51"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa06a690013a0d01e60894ac378083834"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aa06a690013a0d01e60894ac378083834">vmaCreateBufferWithAlignment</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, VkDeviceSize minAlignment, VkBuffer *pBuffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
+<tr class="memdesc:aa06a690013a0d01e60894ac378083834"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a buffer with additional minimum alignment.  <a href="vk__mem__alloc_8h.html#aa06a690013a0d01e60894ac378083834">More...</a><br /></td></tr>
+<tr class="separator:aa06a690013a0d01e60894ac378083834"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d9f4e4ba5bf9aab1f1c746387753d77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77">vmaDestroyBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkBuffer buffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
 <tr class="memdesc:a0d9f4e4ba5bf9aab1f1c746387753d77"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroys Vulkan buffer and frees allocated memory.  <a href="vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77">More...</a><br /></td></tr>
 <tr class="separator:a0d9f4e4ba5bf9aab1f1c746387753d77"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2009,6 +2012,67 @@ Functions</h2></td></tr>
 <p>If the function succeeded, you must destroy both buffer and allocation when you no longer need them using either convenience function <a class="el" href="vk__mem__alloc_8h.html#a0d9f4e4ba5bf9aab1f1c746387753d77" title="Destroys Vulkan buffer and frees allocated memory.">vmaDestroyBuffer()</a> or separately, using <code>vkDestroyBuffer()</code> and <a class="el" href="vk__mem__alloc_8h.html#a5fea5518972ae9094b1526cbcb19b05f" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a>.</p>
 <p>If <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7cace7da7cc6e71a625dfa763c55a597878" title="Enables usage of VK_KHR_dedicated_allocation extension.">VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT</a> flag was used, VK_KHR_dedicated_allocation extension is used internally to query driver whether it requires or prefers the new buffer to have dedicated allocation. If yes, and if dedicated allocation is possible (<a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150" title="Pool that this allocation should be created in.">VmaAllocationCreateInfo::pool</a> is null and <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff" title="Set this flag to only try to allocate from existing VkDeviceMemory blocks and never create new such b...">VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT</a> is not used), it creates dedicated allocation for this buffer, just like when using <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a>.</p>
 <dl class="section note"><dt>Note</dt><dd>This function creates a new <code>VkBuffer</code>. Sub-allocation of parts of one large buffer, although recommended as a good practice, is out of scope of this library and could be implemented by the user as a higher-level logic on top of VMA. </dd></dl>
+
+</div>
+</div>
+<a id="aa06a690013a0d01e60894ac378083834"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa06a690013a0d01e60894ac378083834">&#9670;&nbsp;</a></span>vmaCreateBufferWithAlignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaCreateBufferWithAlignment </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const VkBufferCreateInfo *&#160;</td>
+          <td class="paramname"><em>pBufferCreateInfo</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *&#160;</td>
+          <td class="paramname"><em>pAllocationCreateInfo</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkDeviceSize&#160;</td>
+          <td class="paramname"><em>minAlignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkBuffer *&#160;</td>
+          <td class="paramname"><em>pBuffer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *&#160;</td>
+          <td class="paramname"><em>pAllocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *&#160;</td>
+          <td class="paramname"><em>pAllocationInfo</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Creates a buffer with additional minimum alignment. </p>
+<p>Similar to <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a> but provides additional parameter <code>minAlignment</code> which allows to specify custom, minimum alignment to be used when placing the buffer inside a larger memory block, which may be needed e.g. for interop with OpenGL. </p>
 
 </div>
 </div>
