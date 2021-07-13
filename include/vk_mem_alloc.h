@@ -13463,7 +13463,7 @@ VkResult VmaBlockVector::AllocatePage(
                         mapped,
                         (createInfo.flags & VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT) != 0);
                     VMA_HEAVY_ASSERT(pBestRequestBlock->Validate());
-                    VMA_DEBUG_LOG("    Returned from existing block");
+                    VMA_DEBUG_LOG("    Returned from existing block #%u", pBestRequestBlock->GetId());
                     (*pAllocation)->SetUserData(m_hAllocator, createInfo.pUserData);
                     m_hAllocator->m_Budget.AddAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), size);
                     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
@@ -13564,7 +13564,7 @@ void VmaBlockVector::Free(
     // lock, for performance reason.
     if(pBlockToDelete != VMA_NULL)
     {
-        VMA_DEBUG_LOG("    Deleted empty block");
+        VMA_DEBUG_LOG("    Deleted empty block #%u", pBlockToDelete->GetId());
         pBlockToDelete->Destroy(m_hAllocator);
         vma_delete(m_hAllocator, pBlockToDelete);
     }
