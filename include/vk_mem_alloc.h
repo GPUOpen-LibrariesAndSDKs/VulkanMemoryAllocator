@@ -9563,7 +9563,6 @@ void VmaBlockMetadata_Generic::PrintDetailedMap(class VmaJsonWriter& json) const
         m_Suballocations.size() - (size_t)m_FreeCount, // allocationCount
         m_FreeCount); // unusedRangeCount
 
-    size_t i = 0;
     for(const auto& suballoc : m_Suballocations)
     {
         if(suballoc.type == VMA_SUBALLOCATION_TYPE_FREE)
@@ -17570,8 +17569,8 @@ private:
 VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory)
 {
     AtomicTransactionalIncrement<uint32_t> deviceMemoryCountIncrement;
-    const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
 #if VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT
+    const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
     if(prevDeviceMemoryCount >= m_PhysicalDeviceProperties.limits.maxMemoryAllocationCount)
     {
         return VK_ERROR_TOO_MANY_OBJECTS;
