@@ -101,1917 +101,6 @@ Documentation of all members: vk_mem_alloc.h
 
 - [Product page on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
 - [Source repository on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
-
-
-
-
-\page quick_start Quick start
-
-\section quick_start_project_setup Project setup
-
-Vulkan Memory Allocator comes in form of a "stb-style" single header file.
-You don't need to build it as a separate library project.
-You can add this file directly to your project and submit it to code repository next to your other source files.
-
-"Single header" doesn't mean that everything is contained in C/C++ declarations,
-like it tends to be in case of inline functions or C++ templates.
-It means that implementation is bundled with interface in a single file and needs to be extracted using preprocessor macro.
-If you don't do it properly, you will get linker errors.
-
-To do it properly:
-
--# Include "vk_mem_alloc.h" file in each CPP file where you want to use the library.
-   This includes declarations of all members of the library.
--# In exactly one CPP file define following macro before this include.
-   It enables also internal definitions.
-
-\code
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
-\endcode
-
-It may be a good idea to create dedicated CPP file just for this purpose.
-
-Note on language: This library is written in C++, but has C-compatible interface.
-Thus you can include and use vk_mem_alloc.h in C or C++ code, but full
-implementation with `VMA_IMPLEMENTATION` macro must be compiled as C++, NOT as C.
-
-Please note that this library includes header `<vulkan/vulkan.h>`, which in turn
-includes `<windows.h>` on Windows. If you need some specific macros defined
-before including these headers (like `WIN32_LEAN_AND_MEAN` or
-`WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
-them before every `#include` of this library.
-
-You may need to configure the way you import Vulkan functions.
-
-- By default, VMA assumes you you link statically with Vulkan API. If this is not the case,
-  `#define VMA_STATIC_VULKAN_FUNCTIONS 0` before `#include` of the VMA implementation and use another way.
-- You can `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1` and make sure `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` globals are defined.
-  All the remaining Vulkan functions will be fetched automatically.
-- Finally, you can provide your own pointers to all Vulkan functions needed by VMA using structure member
-  VmaAllocatorCreateInfo::pVulkanFunctions, if you fetched them in some custom way e.g. using some loader like [Volk](https://github.com/zeux/volk).
-
-
-\section quick_start_initialization Initialization
-
-At program startup:
-
--# Initialize Vulkan to have `VkPhysicalDevice`, `VkDevice` and `VkInstance` object.
--# Fill VmaAllocatorCreateInfo structure and create #VmaAllocator object by
-   calling vmaCreateAllocator().
-
-\code
-VmaAllocatorCreateInfo allocatorInfo = {};
-allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
-allocatorInfo.physicalDevice = physicalDevice;
-allocatorInfo.device = device;
-allocatorInfo.instance = instance;
-
-VmaAllocator allocator;
-vmaCreateAllocator(&allocatorInfo, &allocator);
-\endcode
-
-Only members `physicalDevice`, `device`, `instance` are required.
-However, you should inform the library which Vulkan version do you use by setting
-VmaAllocatorCreateInfo::vulkanApiVersion and which extensions did you enable
-by setting VmaAllocatorCreateInfo::flags (like #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT for VK_KHR_buffer_device_address).
-Otherwise, VMA would use only features of Vulkan 1.0 core with no extensions.
-
-
-\section quick_start_resource_allocation Resource allocation
-
-When you want to create a buffer or image:
-
--# Fill `VkBufferCreateInfo` / `VkImageCreateInfo` structure.
--# Fill VmaAllocationCreateInfo structure.
--# Call vmaCreateBuffer() / vmaCreateImage() to get `VkBuffer`/`VkImage` with memory
-   already allocated and bound to it.
-
-\code
-VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufferInfo.size = 65536;
-bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-VmaAllocationCreateInfo allocInfo = {};
-allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-VkBuffer buffer;
-VmaAllocation allocation;
-vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-\endcode
-
-Don't forget to destroy your objects when no longer needed:
-
-\code
-vmaDestroyBuffer(allocator, buffer, allocation);
-vmaDestroyAllocator(allocator);
-\endcode
-
-
-\page choosing_memory_type Choosing memory type
-
-Physical devices in Vulkan support various combinations of memory heaps and
-types. Help with choosing correct and optimal memory type for your specific
-resource is one of the key features of this library. You can use it by filling
-appropriate members of VmaAllocationCreateInfo structure, as described below.
-You can also combine multiple methods.
-
--# If you just want to find memory type index that meets your requirements, you
-   can use function: vmaFindMemoryTypeIndex(), vmaFindMemoryTypeIndexForBufferInfo(),
-   vmaFindMemoryTypeIndexForImageInfo().
--# If you want to allocate a region of device memory without association with any
-   specific image or buffer, you can use function vmaAllocateMemory(). Usage of
-   this function is not recommended and usually not needed.
-   vmaAllocateMemoryPages() function is also provided for creating multiple allocations at once,
-   which may be useful for sparse binding.
--# If you already have a buffer or an image created, you want to allocate memory
-   for it and then you will bind it yourself, you can use function
-   vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
-   For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory()
-   or their extended versions: vmaBindBufferMemory2(), vmaBindImageMemory2().
--# If you want to create a buffer or an image, allocate memory for it and bind
-   them together, all in one call, you can use function vmaCreateBuffer(),
-   vmaCreateImage(). This is the easiest and recommended way to use this library.
-
-When using 3. or 4., the library internally queries Vulkan for memory types
-supported for that buffer or image (function `vkGetBufferMemoryRequirements()`)
-and uses only one of these types.
-
-If no memory type can be found that meets all the requirements, these functions
-return `VK_ERROR_FEATURE_NOT_PRESENT`.
-
-You can leave VmaAllocationCreateInfo structure completely filled with zeros.
-It means no requirements are specified for memory type.
-It is valid, although not very useful.
-
-\section choosing_memory_type_usage Usage
-
-The easiest way to specify memory requirements is to fill member
-VmaAllocationCreateInfo::usage using one of the values of enum #VmaMemoryUsage.
-It defines high level, common usage types.
-For more details, see description of this enum.
-
-For example, if you want to create a uniform buffer that will be filled using
-transfer only once or infrequently and used for rendering every frame, you can
-do it using following code:
-
-\code
-VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufferInfo.size = 65536;
-bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-VmaAllocationCreateInfo allocInfo = {};
-allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-VkBuffer buffer;
-VmaAllocation allocation;
-vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-\endcode
-
-\section choosing_memory_type_required_preferred_flags Required and preferred flags
-
-You can specify more detailed requirements by filling members
-VmaAllocationCreateInfo::requiredFlags and VmaAllocationCreateInfo::preferredFlags
-with a combination of bits from enum `VkMemoryPropertyFlags`. For example,
-if you want to create a buffer that will be persistently mapped on host (so it
-must be `HOST_VISIBLE`) and preferably will also be `HOST_COHERENT` and `HOST_CACHED`,
-use following code:
-
-\code
-VmaAllocationCreateInfo allocInfo = {};
-allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-VkBuffer buffer;
-VmaAllocation allocation;
-vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-\endcode
-
-A memory type is chosen that has all the required flags and as many preferred
-flags set as possible.
-
-If you use VmaAllocationCreateInfo::usage, it is just internally converted to
-a set of required and preferred flags.
-
-\section choosing_memory_type_explicit_memory_types Explicit memory types
-
-If you inspected memory types available on the physical device and you have
-a preference for memory types that you want to use, you can fill member
-VmaAllocationCreateInfo::memoryTypeBits. It is a bit mask, where each bit set
-means that a memory type with that index is allowed to be used for the
-allocation. Special value 0, just like `UINT32_MAX`, means there are no
-restrictions to memory type index.
-
-Please note that this member is NOT just a memory type index.
-Still you can use it to choose just one, specific memory type.
-For example, if you already determined that your buffer should be created in
-memory type 2, use following code:
-
-\code
-uint32_t memoryTypeIndex = 2;
-
-VmaAllocationCreateInfo allocInfo = {};
-allocInfo.memoryTypeBits = 1u << memoryTypeIndex;
-
-VkBuffer buffer;
-VmaAllocation allocation;
-vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-\endcode
-
-
-\section choosing_memory_type_custom_memory_pools Custom memory pools
-
-If you allocate from custom memory pool, all the ways of specifying memory
-requirements described above are not applicable and the aforementioned members
-of VmaAllocationCreateInfo structure are ignored. Memory type is selected
-explicitly when creating the pool and then used to make all the allocations from
-that pool. For further details, see \ref custom_memory_pools.
-
-\section choosing_memory_type_dedicated_allocations Dedicated allocations
-
-Memory for allocations is reserved out of larger block of `VkDeviceMemory`
-allocated from Vulkan internally. That's the main feature of this whole library.
-You can still request a separate memory block to be created for an allocation,
-just like you would do in a trivial solution without using any allocator.
-In that case, a buffer or image is always bound to that memory at offset 0.
-This is called a "dedicated allocation".
-You can explicitly request it by using flag #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
-The library can also internally decide to use dedicated allocation in some cases, e.g.:
-
-- When the size of the allocation is large.
-- When [VK_KHR_dedicated_allocation](@ref vk_khr_dedicated_allocation) extension is enabled
-  and it reports that dedicated allocation is required or recommended for the resource.
-- When allocation of next big memory block fails due to not enough device memory,
-  but allocation with the exact requested size succeeds.
-
-
-\page memory_mapping Memory mapping
-
-To "map memory" in Vulkan means to obtain a CPU pointer to `VkDeviceMemory`,
-to be able to read from it or write to it in CPU code.
-Mapping is possible only of memory allocated from a memory type that has
-`VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag.
-Functions `vkMapMemory()`, `vkUnmapMemory()` are designed for this purpose.
-You can use them directly with memory allocated by this library,
-but it is not recommended because of following issue:
-Mapping the same `VkDeviceMemory` block multiple times is illegal - only one mapping at a time is allowed.
-This includes mapping disjoint regions. Mapping is not reference-counted internally by Vulkan.
-Because of this, Vulkan Memory Allocator provides following facilities:
-
-\section memory_mapping_mapping_functions Mapping functions
-
-The library provides following functions for mapping of a specific #VmaAllocation: vmaMapMemory(), vmaUnmapMemory().
-They are safer and more convenient to use than standard Vulkan functions.
-You can map an allocation multiple times simultaneously - mapping is reference-counted internally.
-You can also map different allocations simultaneously regardless of whether they use the same `VkDeviceMemory` block.
-The way it's implemented is that the library always maps entire memory block, not just region of the allocation.
-For further details, see description of vmaMapMemory() function.
-Example:
-
-\code
-// Having these objects initialized:
-
-struct ConstantBuffer
-{
-    ...
-};
-ConstantBuffer constantBufferData;
-
-VmaAllocator allocator;
-VkBuffer constantBuffer;
-VmaAllocation constantBufferAllocation;
-
-// You can map and fill your buffer using following code:
-
-void* mappedData;
-vmaMapMemory(allocator, constantBufferAllocation, &mappedData);
-memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
-vmaUnmapMemory(allocator, constantBufferAllocation);
-\endcode
-
-When mapping, you may see a warning from Vulkan validation layer similar to this one:
-
-<i>Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.</i>
-
-It happens because the library maps entire `VkDeviceMemory` block, where different
-types of images and buffers may end up together, especially on GPUs with unified memory like Intel.
-You can safely ignore it if you are sure you access only memory of the intended
-object that you wanted to map.
-
-
-\section memory_mapping_persistently_mapped_memory Persistently mapped memory
-
-Kepping your memory persistently mapped is generally OK in Vulkan.
-You don't need to unmap it before using its data on the GPU.
-The library provides a special feature designed for that:
-Allocations made with #VMA_ALLOCATION_CREATE_MAPPED_BIT flag set in
-VmaAllocationCreateInfo::flags stay mapped all the time,
-so you can just access CPU pointer to it any time
-without a need to call any "map" or "unmap" function.
-Example:
-
-\code
-VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufCreateInfo.size = sizeof(ConstantBuffer);
-bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-VkBuffer buf;
-VmaAllocation alloc;
-VmaAllocationInfo allocInfo;
-vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
-
-// Buffer is already mapped. You can access its memory.
-memcpy(allocInfo.pMappedData, &constantBufferData, sizeof(constantBufferData));
-\endcode
-
-There are some exceptions though, when you should consider mapping memory only for a short period of time:
-
-- When operating system is Windows 7 or 8.x (Windows 10 is not affected because it uses WDDM2),
-  device is discrete AMD GPU,
-  and memory type is the special 256 MiB pool of `DEVICE_LOCAL + HOST_VISIBLE` memory
-  (selected when you use #VMA_MEMORY_USAGE_CPU_TO_GPU),
-  then whenever a memory block allocated from this memory type stays mapped
-  for the time of any call to `vkQueueSubmit()` or `vkQueuePresentKHR()`, this
-  block is migrated by WDDM to system RAM, which degrades performance. It doesn't
-  matter if that particular memory block is actually used by the command buffer
-  being submitted.
-- Keeping many large memory blocks mapped may impact performance or stability of some debugging tools.
-
-\section memory_mapping_cache_control Cache flush and invalidate
-
-Memory in Vulkan doesn't need to be unmapped before using it on GPU,
-but unless a memory types has `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` flag set,
-you need to manually **invalidate** cache before reading of mapped pointer
-and **flush** cache after writing to mapped pointer.
-Map/unmap operations don't do that automatically.
-Vulkan provides following functions for this purpose `vkFlushMappedMemoryRanges()`,
-`vkInvalidateMappedMemoryRanges()`, but this library provides more convenient
-functions that refer to given allocation object: vmaFlushAllocation(),
-vmaInvalidateAllocation(),
-or multiple objects at once: vmaFlushAllocations(), vmaInvalidateAllocations().
-
-Regions of memory specified for flush/invalidate must be aligned to
-`VkPhysicalDeviceLimits::nonCoherentAtomSize`. This is automatically ensured by the library.
-In any memory type that is `HOST_VISIBLE` but not `HOST_COHERENT`, all allocations
-within blocks are aligned to this value, so their offsets are always multiply of
-`nonCoherentAtomSize` and two different allocations never share same "line" of this size.
-
-Please note that memory allocated with #VMA_MEMORY_USAGE_CPU_ONLY is guaranteed to be `HOST_COHERENT`.
-
-Also, Windows drivers from all 3 **PC** GPU vendors (AMD, Intel, NVIDIA)
-currently provide `HOST_COHERENT` flag on all memory types that are
-`HOST_VISIBLE`, so on this platform you may not need to bother.
-
-\section memory_mapping_finding_if_memory_mappable Finding out if memory is mappable
-
-It may happen that your allocation ends up in memory that is `HOST_VISIBLE` (available for mapping)
-despite it wasn't explicitly requested.
-For example, application may work on integrated graphics with unified memory (like Intel) or
-allocation from video memory might have failed, so the library chose system memory as fallback.
-
-You can detect this case and map such allocation to access its memory on CPU directly,
-instead of launching a transfer operation.
-In order to do that: inspect `allocInfo.memoryType`, call vmaGetMemoryTypeProperties(),
-and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag in properties of that memory type.
-
-\code
-VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufCreateInfo.size = sizeof(ConstantBuffer);
-bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-
-VkBuffer buf;
-VmaAllocation alloc;
-VmaAllocationInfo allocInfo;
-vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
-
-VkMemoryPropertyFlags memFlags;
-vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
-if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
-{
-    // Allocation ended up in mappable memory. You can map it and access it directly.
-    void* mappedData;
-    vmaMapMemory(allocator, alloc, &mappedData);
-    memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
-    vmaUnmapMemory(allocator, alloc);
-}
-else
-{
-    // Allocation ended up in non-mappable memory.
-    // You need to create CPU-side buffer in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
-}
-\endcode
-
-You can even use #VMA_ALLOCATION_CREATE_MAPPED_BIT flag while creating allocations
-that are not necessarily `HOST_VISIBLE` (e.g. using #VMA_MEMORY_USAGE_GPU_ONLY).
-If the allocation ends up in memory type that is `HOST_VISIBLE`, it will be persistently mapped and you can use it directly.
-If not, the flag is just ignored.
-Example:
-
-\code
-VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufCreateInfo.size = sizeof(ConstantBuffer);
-bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-VkBuffer buf;
-VmaAllocation alloc;
-VmaAllocationInfo allocInfo;
-vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
-
-if(allocInfo.pMappedData != nullptr)
-{
-    // Allocation ended up in mappable memory.
-    // It's persistently mapped. You can access it directly.
-    memcpy(allocInfo.pMappedData, &constantBufferData, sizeof(constantBufferData));
-}
-else
-{
-    // Allocation ended up in non-mappable memory.
-    // You need to create CPU-side buffer in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
-}
-\endcode
-
-
-\page staying_within_budget Staying within budget
-
-When developing a graphics-intensive game or program, it is important to avoid allocating
-more GPU memory than it's physically available. When the memory is over-committed,
-various bad things can happen, depending on the specific GPU, graphics driver, and
-operating system:
-
-- It may just work without any problems.
-- The application may slow down because some memory blocks are moved to system RAM
-  and the GPU has to access them through PCI Express bus.
-- A new allocation may take very long time to complete, even few seconds, and possibly
-  freeze entire system.
-- The new allocation may fail with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
-- It may even result in GPU crash (TDR), observed as `VK_ERROR_DEVICE_LOST`
-  returned somewhere later.
-
-\section staying_within_budget_querying_for_budget Querying for budget
-
-To query for current memory usage and available budget, use function vmaGetBudget().
-Returned structure #VmaBudget contains quantities expressed in bytes, per Vulkan memory heap.
-
-Please note that this function returns different information and works faster than
-vmaCalculateStats(). vmaGetBudget() can be called every frame or even before every
-allocation, while vmaCalculateStats() is intended to be used rarely,
-only to obtain statistical information, e.g. for debugging purposes.
-
-It is recommended to use <b>VK_EXT_memory_budget</b> device extension to obtain information
-about the budget from Vulkan device. VMA is able to use this extension automatically.
-When not enabled, the allocator behaves same way, but then it estimates current usage
-and available budget based on its internal information and Vulkan memory heap sizes,
-which may be less precise. In order to use this extension:
-
-1. Make sure extensions VK_EXT_memory_budget and VK_KHR_get_physical_device_properties2
-   required by it are available and enable them. Please note that the first is a device
-   extension and the second is instance extension!
-2. Use flag #VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT when creating #VmaAllocator object.
-3. Make sure to call vmaSetCurrentFrameIndex() every frame. Budget is queried from
-   Vulkan inside of it to avoid overhead of querying it with every allocation.
-
-\section staying_within_budget_controlling_memory_usage Controlling memory usage
-
-There are many ways in which you can try to stay within the budget.
-
-First, when making new allocation requires allocating a new memory block, the library
-tries not to exceed the budget automatically. If a block with default recommended size
-(e.g. 256 MB) would go over budget, a smaller block is allocated, possibly even
-dedicated memory for just this resource.
-
-If the size of the requested resource plus current memory usage is more than the
-budget, by default the library still tries to create it, leaving it to the Vulkan
-implementation whether the allocation succeeds or fails. You can change this behavior
-by using #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag. With it, the allocation is
-not made if it would exceed the budget or if the budget is already exceeded.
-Some other allocations become lost instead to make room for it, if the mechanism of
-[lost allocations](@ref lost_allocations) is used.
-If that is not possible, the allocation fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
-Example usage pattern may be to pass the #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag
-when creating resources that are not essential for the application (e.g. the texture
-of a specific object) and not to pass it when creating critically important resources
-(e.g. render targets).
-
-Finally, you can also use #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT flag to make sure
-a new allocation is created only when it fits inside one of the existing memory blocks.
-If it would require to allocate a new block, if fails instead with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
-This also ensures that the function call is very fast because it never goes to Vulkan
-to obtain a new block.
-
-Please note that creating \ref custom_memory_pools with VmaPoolCreateInfo::minBlockCount
-set to more than 0 will try to allocate memory blocks without checking whether they
-fit within budget.
-
-
-\page resource_aliasing Resource aliasing (overlap)
-
-New explicit graphics APIs (Vulkan and Direct3D 12), thanks to manual memory
-management, give an opportunity to alias (overlap) multiple resources in the
-same region of memory - a feature not available in the old APIs (Direct3D 11, OpenGL).
-It can be useful to save video memory, but it must be used with caution.
-
-For example, if you know the flow of your whole render frame in advance, you
-are going to use some intermediate textures or buffers only during a small range of render passes,
-and you know these ranges don't overlap in time, you can bind these resources to
-the same place in memory, even if they have completely different parameters (width, height, format etc.).
-
-![Resource aliasing (overlap)](../gfx/Aliasing.png)
-
-Such scenario is possible using VMA, but you need to create your images manually.
-Then you need to calculate parameters of an allocation to be made using formula:
-
-- allocation size = max(size of each image)
-- allocation alignment = max(alignment of each image)
-- allocation memoryTypeBits = bitwise AND(memoryTypeBits of each image)
-
-Following example shows two different images bound to the same place in memory,
-allocated to fit largest of them.
-
-\code
-// A 512x512 texture to be sampled.
-VkImageCreateInfo img1CreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-img1CreateInfo.imageType = VK_IMAGE_TYPE_2D;
-img1CreateInfo.extent.width = 512;
-img1CreateInfo.extent.height = 512;
-img1CreateInfo.extent.depth = 1;
-img1CreateInfo.mipLevels = 10;
-img1CreateInfo.arrayLayers = 1;
-img1CreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-img1CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-img1CreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-img1CreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-img1CreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-
-// A full screen texture to be used as color attachment.
-VkImageCreateInfo img2CreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-img2CreateInfo.imageType = VK_IMAGE_TYPE_2D;
-img2CreateInfo.extent.width = 1920;
-img2CreateInfo.extent.height = 1080;
-img2CreateInfo.extent.depth = 1;
-img2CreateInfo.mipLevels = 1;
-img2CreateInfo.arrayLayers = 1;
-img2CreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-img2CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-img2CreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-img2CreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-img2CreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-
-VkImage img1;
-res = vkCreateImage(device, &img1CreateInfo, nullptr, &img1);
-VkImage img2;
-res = vkCreateImage(device, &img2CreateInfo, nullptr, &img2);
-
-VkMemoryRequirements img1MemReq;
-vkGetImageMemoryRequirements(device, img1, &img1MemReq);
-VkMemoryRequirements img2MemReq;
-vkGetImageMemoryRequirements(device, img2, &img2MemReq);
-
-VkMemoryRequirements finalMemReq = {};
-finalMemReq.size = std::max(img1MemReq.size, img2MemReq.size);
-finalMemReq.alignment = std::max(img1MemReq.alignment, img2MemReq.alignment);
-finalMemReq.memoryTypeBits = img1MemReq.memoryTypeBits & img2MemReq.memoryTypeBits;
-// Validate if(finalMemReq.memoryTypeBits != 0)
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-VmaAllocation alloc;
-res = vmaAllocateMemory(allocator, &finalMemReq, &allocCreateInfo, &alloc, nullptr);
-
-res = vmaBindImageMemory(allocator, alloc, img1);
-res = vmaBindImageMemory(allocator, alloc, img2);
-
-// You can use img1, img2 here, but not at the same time!
-
-vmaFreeMemory(allocator, alloc);
-vkDestroyImage(allocator, img2, nullptr);
-vkDestroyImage(allocator, img1, nullptr);
-\endcode
-
-Remember that using resources that alias in memory requires proper synchronization.
-You need to issue a memory barrier to make sure commands that use `img1` and `img2`
-don't overlap on GPU timeline.
-You also need to treat a resource after aliasing as uninitialized - containing garbage data.
-For example, if you use `img1` and then want to use `img2`, you need to issue
-an image memory barrier for `img2` with `oldLayout` = `VK_IMAGE_LAYOUT_UNDEFINED`.
-
-Additional considerations:
-
-- Vulkan also allows to interpret contents of memory between aliasing resources consistently in some cases.
-See chapter 11.8. "Memory Aliasing" of Vulkan specification or `VK_IMAGE_CREATE_ALIAS_BIT` flag.
-- You can create more complex layout where different images and buffers are bound
-at different offsets inside one large allocation. For example, one can imagine
-a big texture used in some render passes, aliasing with a set of many small buffers
-used between in some further passes. To bind a resource at non-zero offset of an allocation,
-use vmaBindBufferMemory2() / vmaBindImageMemory2().
-- Before allocating memory for the resources you want to alias, check `memoryTypeBits`
-returned in memory requirements of each resource to make sure the bits overlap.
-Some GPUs may expose multiple memory types suitable e.g. only for buffers or
-images with `COLOR_ATTACHMENT` usage, so the sets of memory types supported by your
-resources may be disjoint. Aliasing them is not possible in that case.
-
-
-\page custom_memory_pools Custom memory pools
-
-A memory pool contains a number of `VkDeviceMemory` blocks.
-The library automatically creates and manages default pool for each memory type available on the device.
-Default memory pool automatically grows in size.
-Size of allocated blocks is also variable and managed automatically.
-
-You can create custom pool and allocate memory out of it.
-It can be useful if you want to:
-
-- Keep certain kind of allocations separate from others.
-- Enforce particular, fixed size of Vulkan memory blocks.
-- Limit maximum amount of Vulkan memory allocated for that pool.
-- Reserve minimum or fixed amount of Vulkan memory always preallocated for that pool.
-
-To use custom memory pools:
-
--# Fill VmaPoolCreateInfo structure.
--# Call vmaCreatePool() to obtain #VmaPool handle.
--# When making an allocation, set VmaAllocationCreateInfo::pool to this handle.
-   You don't need to specify any other parameters of this structure, like `usage`.
-
-Example:
-
-\code
-// Create a pool that can have at most 2 blocks, 128 MiB each.
-VmaPoolCreateInfo poolCreateInfo = {};
-poolCreateInfo.memoryTypeIndex = ...
-poolCreateInfo.blockSize = 128ull * 1024 * 1024;
-poolCreateInfo.maxBlockCount = 2;
-
-VmaPool pool;
-vmaCreatePool(allocator, &poolCreateInfo, &pool);
-
-// Allocate a buffer out of it.
-VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufCreateInfo.size = 1024;
-bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.pool = pool;
-
-VkBuffer buf;
-VmaAllocation alloc;
-VmaAllocationInfo allocInfo;
-vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
-\endcode
-
-You have to free all allocations made from this pool before destroying it.
-
-\code
-vmaDestroyBuffer(allocator, buf, alloc);
-vmaDestroyPool(allocator, pool);
-\endcode
-
-\section custom_memory_pools_MemTypeIndex Choosing memory type index
-
-When creating a pool, you must explicitly specify memory type index.
-To find the one suitable for your buffers or images, you can use helper functions
-vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo().
-You need to provide structures with example parameters of buffers or images
-that you are going to create in that pool.
-
-\code
-VkBufferCreateInfo exampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-exampleBufCreateInfo.size = 1024; // Whatever.
-exampleBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change if needed.
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Change if needed.
-
-uint32_t memTypeIndex;
-vmaFindMemoryTypeIndexForBufferInfo(allocator, &exampleBufCreateInfo, &allocCreateInfo, &memTypeIndex);
-
-VmaPoolCreateInfo poolCreateInfo = {};
-poolCreateInfo.memoryTypeIndex = memTypeIndex;
-// ...
-\endcode
-
-When creating buffers/images allocated in that pool, provide following parameters:
-
-- `VkBufferCreateInfo`: Prefer to pass same parameters as above.
-  Otherwise you risk creating resources in a memory type that is not suitable for them, which may result in undefined behavior.
-  Using different `VK_BUFFER_USAGE_` flags may work, but you shouldn't create images in a pool intended for buffers
-  or the other way around.
-- VmaAllocationCreateInfo: You don't need to pass same parameters. Fill only `pool` member.
-  Other members are ignored anyway.
-
-\section linear_algorithm Linear allocation algorithm
-
-Each Vulkan memory block managed by this library has accompanying metadata that
-keeps track of used and unused regions. By default, the metadata structure and
-algorithm tries to find best place for new allocations among free regions to
-optimize memory usage. This way you can allocate and free objects in any order.
-
-![Default allocation algorithm](../gfx/Linear_allocator_1_algo_default.png)
-
-Sometimes there is a need to use simpler, linear allocation algorithm. You can
-create custom pool that uses such algorithm by adding flag
-#VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT to VmaPoolCreateInfo::flags while creating
-#VmaPool object. Then an alternative metadata management is used. It always
-creates new allocations after last one and doesn't reuse free regions after
-allocations freed in the middle. It results in better allocation performance and
-less memory consumed by metadata.
-
-![Linear allocation algorithm](../gfx/Linear_allocator_2_algo_linear.png)
-
-With this one flag, you can create a custom pool that can be used in many ways:
-free-at-once, stack, double stack, and ring buffer. See below for details.
-
-\subsection linear_algorithm_free_at_once Free-at-once
-
-In a pool that uses linear algorithm, you still need to free all the allocations
-individually, e.g. by using vmaFreeMemory() or vmaDestroyBuffer(). You can free
-them in any order. New allocations are always made after last one - free space
-in the middle is not reused. However, when you release all the allocation and
-the pool becomes empty, allocation starts from the beginning again. This way you
-can use linear algorithm to speed up creation of allocations that you are going
-to release all at once.
-
-![Free-at-once](../gfx/Linear_allocator_3_free_at_once.png)
-
-This mode is also available for pools created with VmaPoolCreateInfo::maxBlockCount
-value that allows multiple memory blocks.
-
-\subsection linear_algorithm_stack Stack
-
-When you free an allocation that was created last, its space can be reused.
-Thanks to this, if you always release allocations in the order opposite to their
-creation (LIFO - Last In First Out), you can achieve behavior of a stack.
-
-![Stack](../gfx/Linear_allocator_4_stack.png)
-
-This mode is also available for pools created with VmaPoolCreateInfo::maxBlockCount
-value that allows multiple memory blocks.
-
-\subsection linear_algorithm_double_stack Double stack
-
-The space reserved by a custom pool with linear algorithm may be used by two
-stacks:
-
-- First, default one, growing up from offset 0.
-- Second, "upper" one, growing down from the end towards lower offsets.
-
-To make allocation from upper stack, add flag #VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
-to VmaAllocationCreateInfo::flags.
-
-![Double stack](../gfx/Linear_allocator_7_double_stack.png)
-
-Double stack is available only in pools with one memory block -
-VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
-
-When the two stacks' ends meet so there is not enough space between them for a
-new allocation, such allocation fails with usual
-`VK_ERROR_OUT_OF_DEVICE_MEMORY` error.
-
-\subsection linear_algorithm_ring_buffer Ring buffer
-
-When you free some allocations from the beginning and there is not enough free space
-for a new one at the end of a pool, allocator's "cursor" wraps around to the
-beginning and starts allocation there. Thanks to this, if you always release
-allocations in the same order as you created them (FIFO - First In First Out),
-you can achieve behavior of a ring buffer / queue.
-
-![Ring buffer](../gfx/Linear_allocator_5_ring_buffer.png)
-
-Pools with linear algorithm support [lost allocations](@ref lost_allocations) when used as ring buffer.
-If there is not enough free space for a new allocation, but existing allocations
-from the front of the queue can become lost, they become lost and the allocation
-succeeds.
-
-![Ring buffer with lost allocations](../gfx/Linear_allocator_6_ring_buffer_lost.png)
-
-Ring buffer is available only in pools with one memory block -
-VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
-
-\section buddy_algorithm Buddy allocation algorithm
-
-There is another allocation algorithm that can be used with custom pools, called
-"buddy". Its internal data structure is based on a tree of blocks, each having
-size that is a power of two and a half of its parent's size. When you want to
-allocate memory of certain size, a free node in the tree is located. If it's too
-large, it is recursively split into two halves (called "buddies"). However, if
-requested allocation size is not a power of two, the size of a tree node is
-aligned up to the nearest power of two and the remaining space is wasted. When
-two buddy nodes become free, they are merged back into one larger node.
-
-![Buddy allocator](../gfx/Buddy_allocator.png)
-
-The advantage of buddy allocation algorithm over default algorithm is faster
-allocation and deallocation, as well as smaller external fragmentation. The
-disadvantage is more wasted space (internal fragmentation).
-
-For more information, please read ["Buddy memory allocation" on Wikipedia](https://en.wikipedia.org/wiki/Buddy_memory_allocation)
-or other sources that describe this concept in general.
-
-To use buddy allocation algorithm with a custom pool, add flag
-#VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT to VmaPoolCreateInfo::flags while creating
-#VmaPool object.
-
-Several limitations apply to pools that use buddy algorithm:
-
-- It is recommended to use VmaPoolCreateInfo::blockSize that is a power of two.
-  Otherwise, only largest power of two smaller than the size is used for
-  allocations. The remaining space always stays unused.
-- [Margins](@ref debugging_memory_usage_margins) and
-  [corruption detection](@ref debugging_memory_usage_corruption_detection)
-  don't work in such pools.
-- [Lost allocations](@ref lost_allocations) don't work in such pools. You can
-  use them, but they never become lost. Support may be added in the future.
-- [Defragmentation](@ref defragmentation) doesn't work with allocations made from
-  such pool.
-
-\page defragmentation Defragmentation
-
-Interleaved allocations and deallocations of many objects of varying size can
-cause fragmentation over time, which can lead to a situation where the library is unable
-to find a continuous range of free memory for a new allocation despite there is
-enough free space, just scattered across many small free ranges between existing
-allocations.
-
-To mitigate this problem, you can use defragmentation feature:
-structure #VmaDefragmentationInfo2, function vmaDefragmentationBegin(), vmaDefragmentationEnd().
-Given set of allocations,
-this function can move them to compact used memory, ensure more continuous free
-space and possibly also free some `VkDeviceMemory` blocks.
-
-What the defragmentation does is:
-
-- Updates #VmaAllocation objects to point to new `VkDeviceMemory` and offset.
-  After allocation has been moved, its VmaAllocationInfo::deviceMemory and/or
-  VmaAllocationInfo::offset changes. You must query them again using
-  vmaGetAllocationInfo() if you need them.
-- Moves actual data in memory.
-
-What it doesn't do, so you need to do it yourself:
-
-- Recreate buffers and images that were bound to allocations that were defragmented and
-  bind them with their new places in memory.
-  You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
-  `vkCreateBuffer()`, `vkCreateImage()`, vmaBindBufferMemory(), vmaBindImageMemory()
-  for that purpose and NOT vmaDestroyBuffer(),
-  vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage(), because you don't need to
-  destroy or create allocation objects!
-- Recreate views and update descriptors that point to these buffers and images.
-
-\section defragmentation_cpu Defragmenting CPU memory
-
-Following example demonstrates how you can run defragmentation on CPU.
-Only allocations created in memory types that are `HOST_VISIBLE` can be defragmented.
-Others are ignored.
-
-The way it works is:
-
-- It temporarily maps entire memory blocks when necessary.
-- It moves data using `memmove()` function.
-
-\code
-// Given following variables already initialized:
-VkDevice device;
-VmaAllocator allocator;
-std::vector<VkBuffer> buffers;
-std::vector<VmaAllocation> allocations;
-
-
-const uint32_t allocCount = (uint32_t)allocations.size();
-std::vector<VkBool32> allocationsChanged(allocCount);
-
-VmaDefragmentationInfo2 defragInfo = {};
-defragInfo.allocationCount = allocCount;
-defragInfo.pAllocations = allocations.data();
-defragInfo.pAllocationsChanged = allocationsChanged.data();
-defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE; // No limit.
-defragInfo.maxCpuAllocationsToMove = UINT32_MAX; // No limit.
-
-VmaDefragmentationContext defragCtx;
-vmaDefragmentationBegin(allocator, &defragInfo, nullptr, &defragCtx);
-vmaDefragmentationEnd(allocator, defragCtx);
-
-for(uint32_t i = 0; i < allocCount; ++i)
-{
-    if(allocationsChanged[i])
-    {
-        // Destroy buffer that is immutably bound to memory region which is no longer valid.
-        vkDestroyBuffer(device, buffers[i], nullptr);
-
-        // Create new buffer with same parameters.
-        VkBufferCreateInfo bufferInfo = ...;
-        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
-
-        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
-
-        // Bind new buffer to new memory region. Data contained in it is already moved.
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
-        vmaBindBufferMemory(allocator, allocations[i], buffers[i]);
-    }
-}
-\endcode
-
-Setting VmaDefragmentationInfo2::pAllocationsChanged is optional.
-This output array tells whether particular allocation in VmaDefragmentationInfo2::pAllocations at the same index
-has been modified during defragmentation.
-You can pass null, but you then need to query every allocation passed to defragmentation
-for new parameters using vmaGetAllocationInfo() if you might need to recreate and rebind a buffer or image associated with it.
-
-If you use [Custom memory pools](@ref choosing_memory_type_custom_memory_pools),
-you can fill VmaDefragmentationInfo2::poolCount and VmaDefragmentationInfo2::pPools
-instead of VmaDefragmentationInfo2::allocationCount and VmaDefragmentationInfo2::pAllocations
-to defragment all allocations in given pools.
-You cannot use VmaDefragmentationInfo2::pAllocationsChanged in that case.
-You can also combine both methods.
-
-\section defragmentation_gpu Defragmenting GPU memory
-
-It is also possible to defragment allocations created in memory types that are not `HOST_VISIBLE`.
-To do that, you need to pass a command buffer that meets requirements as described in
-VmaDefragmentationInfo2::commandBuffer. The way it works is:
-
-- It creates temporary buffers and binds them to entire memory blocks when necessary.
-- It issues `vkCmdCopyBuffer()` to passed command buffer.
-
-Example:
-
-\code
-// Given following variables already initialized:
-VkDevice device;
-VmaAllocator allocator;
-VkCommandBuffer commandBuffer;
-std::vector<VkBuffer> buffers;
-std::vector<VmaAllocation> allocations;
-
-
-const uint32_t allocCount = (uint32_t)allocations.size();
-std::vector<VkBool32> allocationsChanged(allocCount);
-
-VkCommandBufferBeginInfo cmdBufBeginInfo = ...;
-vkBeginCommandBuffer(commandBuffer, &cmdBufBeginInfo);
-
-VmaDefragmentationInfo2 defragInfo = {};
-defragInfo.allocationCount = allocCount;
-defragInfo.pAllocations = allocations.data();
-defragInfo.pAllocationsChanged = allocationsChanged.data();
-defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE; // Notice it's "GPU" this time.
-defragInfo.maxGpuAllocationsToMove = UINT32_MAX; // Notice it's "GPU" this time.
-defragInfo.commandBuffer = commandBuffer;
-
-VmaDefragmentationContext defragCtx;
-vmaDefragmentationBegin(allocator, &defragInfo, nullptr, &defragCtx);
-
-vkEndCommandBuffer(commandBuffer);
-
-// Submit commandBuffer.
-// Wait for a fence that ensures commandBuffer execution finished.
-
-vmaDefragmentationEnd(allocator, defragCtx);
-
-for(uint32_t i = 0; i < allocCount; ++i)
-{
-    if(allocationsChanged[i])
-    {
-        // Destroy buffer that is immutably bound to memory region which is no longer valid.
-        vkDestroyBuffer(device, buffers[i], nullptr);
-
-        // Create new buffer with same parameters.
-        VkBufferCreateInfo bufferInfo = ...;
-        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
-
-        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
-
-        // Bind new buffer to new memory region. Data contained in it is already moved.
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
-        vmaBindBufferMemory(allocator, allocations[i], buffers[i]);
-    }
-}
-\endcode
-
-You can combine these two methods by specifying non-zero `maxGpu*` as well as `maxCpu*` parameters.
-The library automatically chooses best method to defragment each memory pool.
-
-You may try not to block your entire program to wait until defragmentation finishes,
-but do it in the background, as long as you carefully fullfill requirements described
-in function vmaDefragmentationBegin().
-
-\section defragmentation_additional_notes Additional notes
-
-It is only legal to defragment allocations bound to:
-
-- buffers
-- images created with `VK_IMAGE_CREATE_ALIAS_BIT`, `VK_IMAGE_TILING_LINEAR`, and
-  being currently in `VK_IMAGE_LAYOUT_GENERAL` or `VK_IMAGE_LAYOUT_PREINITIALIZED`.
-
-Defragmentation of images created with `VK_IMAGE_TILING_OPTIMAL` or in any other
-layout may give undefined results.
-
-If you defragment allocations bound to images, new images to be bound to new
-memory region after defragmentation should be created with `VK_IMAGE_LAYOUT_PREINITIALIZED`
-and then transitioned to their original layout from before defragmentation if
-needed using an image memory barrier.
-
-While using defragmentation, you may experience validation layer warnings, which you just need to ignore.
-See [Validation layer warnings](@ref general_considerations_validation_layer_warnings).
-
-Please don't expect memory to be fully compacted after defragmentation.
-Algorithms inside are based on some heuristics that try to maximize number of Vulkan
-memory blocks to make totally empty to release them, as well as to maximize continuous
-empty space inside remaining blocks, while minimizing the number and size of allocations that
-need to be moved. Some fragmentation may still remain - this is normal.
-
-\section defragmentation_custom_algorithm Writing custom defragmentation algorithm
-
-If you want to implement your own, custom defragmentation algorithm,
-there is infrastructure prepared for that,
-but it is not exposed through the library API - you need to hack its source code.
-Here are steps needed to do this:
-
--# Main thing you need to do is to define your own class derived from base abstract
-   class `VmaDefragmentationAlgorithm` and implement your version of its pure virtual methods.
-   See definition and comments of this class for details.
--# Your code needs to interact with device memory block metadata.
-   If you need more access to its data than it's provided by its public interface,
-   declare your new class as a friend class e.g. in class `VmaBlockMetadata_Generic`.
--# If you want to create a flag that would enable your algorithm or pass some additional
-   flags to configure it, add them to `VmaDefragmentationFlagBits` and use them in
-   VmaDefragmentationInfo2::flags.
--# Modify function `VmaBlockVectorDefragmentationContext::Begin` to create object
-   of your new class whenever needed.
-
-
-\page lost_allocations Lost allocations
-
-If your game oversubscribes video memory, if may work OK in previous-generation
-graphics APIs (DirectX 9, 10, 11, OpenGL) because resources are automatically
-paged to system RAM. In Vulkan you can't do it because when you run out of
-memory, an allocation just fails. If you have more data (e.g. textures) that can
-fit into VRAM and you don't need it all at once, you may want to upload them to
-GPU on demand and "push out" ones that are not used for a long time to make room
-for the new ones, effectively using VRAM (or a cartain memory pool) as a form of
-cache. Vulkan Memory Allocator can help you with that by supporting a concept of
-"lost allocations".
-
-To create an allocation that can become lost, include #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT
-flag in VmaAllocationCreateInfo::flags. Before using a buffer or image bound to
-such allocation in every new frame, you need to query it if it's not lost.
-To check it, call vmaTouchAllocation().
-If the allocation is lost, you should not use it or buffer/image bound to it.
-You mustn't forget to destroy this allocation and this buffer/image.
-vmaGetAllocationInfo() can also be used for checking status of the allocation.
-Allocation is lost when returned VmaAllocationInfo::deviceMemory == `VK_NULL_HANDLE`.
-
-To create an allocation that can make some other allocations lost to make room
-for it, use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag. You will
-usually use both flags #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT and
-#VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT at the same time.
-
-Warning! Current implementation uses quite naive, brute force algorithm,
-which can make allocation calls that use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT
-flag quite slow. A new, more optimal algorithm and data structure to speed this
-up is planned for the future.
-
-<b>Q: When interleaving creation of new allocations with usage of existing ones,
-how do you make sure that an allocation won't become lost while it's used in the
-current frame?</b>
-
-It is ensured because vmaTouchAllocation() / vmaGetAllocationInfo() not only returns allocation
-status/parameters and checks whether it's not lost, but when it's not, it also
-atomically marks it as used in the current frame, which makes it impossible to
-become lost in that frame. It uses lockless algorithm, so it works fast and
-doesn't involve locking any internal mutex.
-
-<b>Q: What if my allocation may still be in use by the GPU when it's rendering a
-previous frame while I already submit new frame on the CPU?</b>
-
-You can make sure that allocations "touched" by vmaTouchAllocation() / vmaGetAllocationInfo() will not
-become lost for a number of additional frames back from the current one by
-specifying this number as VmaAllocatorCreateInfo::frameInUseCount (for default
-memory pool) and VmaPoolCreateInfo::frameInUseCount (for custom pool).
-
-<b>Q: How do you inform the library when new frame starts?</b>
-
-You need to call function vmaSetCurrentFrameIndex().
-
-Example code:
-
-\code
-struct MyBuffer
-{
-    VkBuffer m_Buf = nullptr;
-    VmaAllocation m_Alloc = nullptr;
-
-    // Called when the buffer is really needed in the current frame.
-    void EnsureBuffer();
-};
-
-void MyBuffer::EnsureBuffer()
-{
-    // Buffer has been created.
-    if(m_Buf != VK_NULL_HANDLE)
-    {
-        // Check if its allocation is not lost + mark it as used in current frame.
-        if(vmaTouchAllocation(allocator, m_Alloc))
-        {
-            // It's all OK - safe to use m_Buf.
-            return;
-        }
-    }
-
-    // Buffer not yet exists or lost - destroy and recreate it.
-
-    vmaDestroyBuffer(allocator, m_Buf, m_Alloc);
-
-    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufCreateInfo.size = 1024;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
-        VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
-
-    vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &m_Buf, &m_Alloc, nullptr);
-}
-\endcode
-
-When using lost allocations, you may see some Vulkan validation layer warnings
-about overlapping regions of memory bound to different kinds of buffers and
-images. This is still valid as long as you implement proper handling of lost
-allocations (like in the example above) and don't use them.
-
-You can create an allocation that is already in lost state from the beginning using function
-vmaCreateLostAllocation(). It may be useful if you need a "dummy" allocation that is not null.
-
-You can call function vmaMakePoolAllocationsLost() to set all eligible allocations
-in a specified custom pool to lost state.
-Allocations that have been "touched" in current frame or VmaPoolCreateInfo::frameInUseCount frames back
-cannot become lost.
-
-<b>Q: Can I touch allocation that cannot become lost?</b>
-
-Yes, although it has no visible effect.
-Calls to vmaGetAllocationInfo() and vmaTouchAllocation() update last use frame index
-also for allocations that cannot become lost, but the only way to observe it is to dump
-internal allocator state using vmaBuildStatsString().
-You can use this feature for debugging purposes to explicitly mark allocations that you use
-in current frame and then analyze JSON dump to see for how long each allocation stays unused.
-
-
-\page statistics Statistics
-
-This library contains functions that return information about its internal state,
-especially the amount of memory allocated from Vulkan.
-Please keep in mind that these functions need to traverse all internal data structures
-to gather these information, so they may be quite time-consuming.
-Don't call them too often.
-
-\section statistics_numeric_statistics Numeric statistics
-
-You can query for overall statistics of the allocator using function vmaCalculateStats().
-Information are returned using structure #VmaStats.
-It contains #VmaStatInfo - number of allocated blocks, number of allocations
-(occupied ranges in these blocks), number of unused (free) ranges in these blocks,
-number of bytes used and unused (but still allocated from Vulkan) and other information.
-They are summed across memory heaps, memory types and total for whole allocator.
-
-You can query for statistics of a custom pool using function vmaGetPoolStats().
-Information are returned using structure #VmaPoolStats.
-
-You can query for information about specific allocation using function vmaGetAllocationInfo().
-It fill structure #VmaAllocationInfo.
-
-\section statistics_json_dump JSON dump
-
-You can dump internal state of the allocator to a string in JSON format using function vmaBuildStatsString().
-The result is guaranteed to be correct JSON.
-It uses ANSI encoding.
-Any strings provided by user (see [Allocation names](@ref allocation_names))
-are copied as-is and properly escaped for JSON, so if they use UTF-8, ISO-8859-2 or any other encoding,
-this JSON string can be treated as using this encoding.
-It must be freed using function vmaFreeStatsString().
-
-The format of this JSON string is not part of official documentation of the library,
-but it will not change in backward-incompatible way without increasing library major version number
-and appropriate mention in changelog.
-
-The JSON string contains all the data that can be obtained using vmaCalculateStats().
-It can also contain detailed map of allocated memory blocks and their regions -
-free and occupied by allocations.
-This allows e.g. to visualize the memory or assess fragmentation.
-
-
-\page allocation_annotation Allocation names and user data
-
-\section allocation_user_data Allocation user data
-
-You can annotate allocations with your own information, e.g. for debugging purposes.
-To do that, fill VmaAllocationCreateInfo::pUserData field when creating
-an allocation. It's an opaque `void*` pointer. You can use it e.g. as a pointer,
-some handle, index, key, ordinal number or any other value that would associate
-the allocation with your custom metadata.
-
-\code
-VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-// Fill bufferInfo...
-
-MyBufferMetadata* pMetadata = CreateBufferMetadata();
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-allocCreateInfo.pUserData = pMetadata;
-
-VkBuffer buffer;
-VmaAllocation allocation;
-vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr);
-\endcode
-
-The pointer may be later retrieved as VmaAllocationInfo::pUserData:
-
-\code
-VmaAllocationInfo allocInfo;
-vmaGetAllocationInfo(allocator, allocation, &allocInfo);
-MyBufferMetadata* pMetadata = (MyBufferMetadata*)allocInfo.pUserData;
-\endcode
-
-It can also be changed using function vmaSetAllocationUserData().
-
-Values of (non-zero) allocations' `pUserData` are printed in JSON report created by
-vmaBuildStatsString(), in hexadecimal form.
-
-\section allocation_names Allocation names
-
-There is alternative mode available where `pUserData` pointer is used to point to
-a null-terminated string, giving a name to the allocation. To use this mode,
-set #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT flag in VmaAllocationCreateInfo::flags.
-Then `pUserData` passed as VmaAllocationCreateInfo::pUserData or argument to
-vmaSetAllocationUserData() must be either null or pointer to a null-terminated string.
-The library creates internal copy of the string, so the pointer you pass doesn't need
-to be valid for whole lifetime of the allocation. You can free it after the call.
-
-\code
-VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-// Fill imageInfo...
-
-std::string imageName = "Texture: ";
-imageName += fileName;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-allocCreateInfo.pUserData = imageName.c_str();
-
-VkImage image;
-VmaAllocation allocation;
-vmaCreateImage(allocator, &imageInfo, &allocCreateInfo, &image, &allocation, nullptr);
-\endcode
-
-The value of `pUserData` pointer of the allocation will be different than the one
-you passed when setting allocation's name - pointing to a buffer managed
-internally that holds copy of the string.
-
-\code
-VmaAllocationInfo allocInfo;
-vmaGetAllocationInfo(allocator, allocation, &allocInfo);
-const char* imageName = (const char*)allocInfo.pUserData;
-printf("Image name: %s\n", imageName);
-\endcode
-
-That string is also printed in JSON report created by vmaBuildStatsString().
-
-\note Passing string name to VMA allocation doesn't automatically set it to the Vulkan buffer or image created with it.
-You must do it manually using an extension like VK_EXT_debug_utils, which is independent of this library.
-
-
-\page debugging_memory_usage Debugging incorrect memory usage
-
-If you suspect a bug with memory usage, like usage of uninitialized memory or
-memory being overwritten out of bounds of an allocation,
-you can use debug features of this library to verify this.
-
-\section debugging_memory_usage_initialization Memory initialization
-
-If you experience a bug with incorrect and nondeterministic data in your program and you suspect uninitialized memory to be used,
-you can enable automatic memory initialization to verify this.
-To do it, define macro `VMA_DEBUG_INITIALIZE_ALLOCATIONS` to 1.
-
-\code
-#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
-#include "vk_mem_alloc.h"
-\endcode
-
-It makes memory of all new allocations initialized to bit pattern `0xDCDCDCDC`.
-Before an allocation is destroyed, its memory is filled with bit pattern `0xEFEFEFEF`.
-Memory is automatically mapped and unmapped if necessary.
-
-If you find these values while debugging your program, good chances are that you incorrectly
-read Vulkan memory that is allocated but not initialized, or already freed, respectively.
-
-Memory initialization works only with memory types that are `HOST_VISIBLE`.
-It works also with dedicated allocations.
-It doesn't work with allocations created with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag,
-as they cannot be mapped.
-
-\section debugging_memory_usage_margins Margins
-
-By default, allocations are laid out in memory blocks next to each other if possible
-(considering required alignment, `bufferImageGranularity`, and `nonCoherentAtomSize`).
-
-![Allocations without margin](../gfx/Margins_1.png)
-
-Define macro `VMA_DEBUG_MARGIN` to some non-zero value (e.g. 16) to enforce specified
-number of bytes as a margin before and after every allocation.
-
-\code
-#define VMA_DEBUG_MARGIN 16
-#include "vk_mem_alloc.h"
-\endcode
-
-![Allocations with margin](../gfx/Margins_2.png)
-
-If your bug goes away after enabling margins, it means it may be caused by memory
-being overwritten outside of allocation boundaries. It is not 100% certain though.
-Change in application behavior may also be caused by different order and distribution
-of allocations across memory blocks after margins are applied.
-
-The margin is applied also before first and after last allocation in a block.
-It may occur only once between two adjacent allocations.
-
-Margins work with all types of memory.
-
-Margin is applied only to allocations made out of memory blocks and not to dedicated
-allocations, which have their own memory block of specific size.
-It is thus not applied to allocations made using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag
-or those automatically decided to put into dedicated allocations, e.g. due to its
-large size or recommended by VK_KHR_dedicated_allocation extension.
-Margins are also not active in custom pools created with #VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT flag.
-
-Margins appear in [JSON dump](@ref statistics_json_dump) as part of free space.
-
-Note that enabling margins increases memory usage and fragmentation.
-
-\section debugging_memory_usage_corruption_detection Corruption detection
-
-You can additionally define macro `VMA_DEBUG_DETECT_CORRUPTION` to 1 to enable validation
-of contents of the margins.
-
-\code
-#define VMA_DEBUG_MARGIN 16
-#define VMA_DEBUG_DETECT_CORRUPTION 1
-#include "vk_mem_alloc.h"
-\endcode
-
-When this feature is enabled, number of bytes specified as `VMA_DEBUG_MARGIN`
-(it must be multiply of 4) before and after every allocation is filled with a magic number.
-This idea is also know as "canary".
-Memory is automatically mapped and unmapped if necessary.
-
-This number is validated automatically when the allocation is destroyed.
-If it's not equal to the expected value, `VMA_ASSERT()` is executed.
-It clearly means that either CPU or GPU overwritten the memory outside of boundaries of the allocation,
-which indicates a serious bug.
-
-You can also explicitly request checking margins of all allocations in all memory blocks
-that belong to specified memory types by using function vmaCheckCorruption(),
-or in memory blocks that belong to specified custom pool, by using function
-vmaCheckPoolCorruption().
-
-Margin validation (corruption detection) works only for memory types that are
-`HOST_VISIBLE` and `HOST_COHERENT`.
-
-
-\page record_and_replay Record and replay
-
-\section record_and_replay_introduction Introduction
-
-While using the library, sequence of calls to its functions together with their
-parameters can be recorded to a file and later replayed using standalone player
-application. It can be useful to:
-
-- Test correctness - check if same sequence of calls will not cause crash or
-  failures on a target platform.
-- Gather statistics - see number of allocations, peak memory usage, number of
-  calls etc.
-- Benchmark performance - see how much time it takes to replay the whole
-  sequence.
-
-\section record_and_replay_usage Usage
-
-Recording functionality is disabled by default.
-To enable it, define following macro before every include of this library:
-
-\code
-#define VMA_RECORDING_ENABLED 1
-\endcode
-
-<b>To record sequence of calls to a file:</b> Fill in
-VmaAllocatorCreateInfo::pRecordSettings member while creating #VmaAllocator
-object. File is opened and written during whole lifetime of the allocator.
-
-<b>To replay file:</b> Use VmaReplay - standalone command-line program.
-Precompiled binary can be found in "bin" directory.
-Its source can be found in "src/VmaReplay" directory.
-Its project is generated by Premake.
-Command line syntax is printed when the program is launched without parameters.
-Basic usage:
-
-    VmaReplay.exe MyRecording.csv
-
-<b>Documentation of file format</b> can be found in file: "docs/Recording file format.md".
-It's a human-readable, text file in CSV format (Comma Separated Values).
-
-\section record_and_replay_additional_considerations Additional considerations
-
-- Replaying file that was recorded on a different GPU (with different parameters
-  like `bufferImageGranularity`, `nonCoherentAtomSize`, and especially different
-  set of memory heaps and types) may give different performance and memory usage
-  results, as well as issue some warnings and errors.
-- Current implementation of recording in VMA, as well as VmaReplay application, is
-  coded and tested only on Windows. Inclusion of recording code is driven by
-  `VMA_RECORDING_ENABLED` macro. Support for other platforms should be easy to
-  add. Contributions are welcomed.
-
-
-\page usage_patterns Recommended usage patterns
-
-See also slides from talk:
-[Sawicki, Adam. Advanced Graphics Techniques Tutorial: Memory management in Vulkan and DX12. Game Developers Conference, 2018](https://www.gdcvault.com/play/1025458/Advanced-Graphics-Techniques-Tutorial-New)
-
-
-\section usage_patterns_common_mistakes Common mistakes
-
-<b>Use of CPU_TO_GPU instead of CPU_ONLY memory</b>
-
-#VMA_MEMORY_USAGE_CPU_TO_GPU is recommended only for resources that will be
-mapped and written by the CPU, as well as read directly by the GPU - like some
-buffers or textures updated every frame (dynamic). If you create a staging copy
-of a resource to be written by CPU and then used as a source of transfer to
-another resource placed in the GPU memory, that staging resource should be
-created with #VMA_MEMORY_USAGE_CPU_ONLY. Please read the descriptions of these
-enums carefully for details.
-
-<b>Unnecessary use of custom pools</b>
-
-\ref custom_memory_pools may be useful for special purposes - when you want to
-keep certain type of resources separate e.g. to reserve minimum amount of memory
-for them, limit maximum amount of memory they can occupy, or make some of them
-push out the other through the mechanism of \ref lost_allocations. For most
-resources this is not needed and so it is not recommended to create #VmaPool
-objects and allocations out of them. Allocating from the default pool is sufficient.
-
-\section usage_patterns_simple Simple patterns
-
-\subsection usage_patterns_simple_render_targets Render targets
-
-<b>When:</b>
-Any resources that you frequently write and read on GPU,
-e.g. images used as color attachments (aka "render targets"), depth-stencil attachments,
-images/buffers used as storage image/buffer (aka "Unordered Access View (UAV)").
-
-<b>What to do:</b>
-Create them in video memory that is fastest to access from GPU using
-#VMA_MEMORY_USAGE_GPU_ONLY.
-
-Consider using [VK_KHR_dedicated_allocation](@ref vk_khr_dedicated_allocation) extension
-and/or manually creating them as dedicated allocations using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-especially if they are large or if you plan to destroy and recreate them e.g. when
-display resolution changes.
-Prefer to create such resources first and all other GPU resources (like textures and vertex buffers) later.
-
-\subsection usage_patterns_simple_immutable_resources Immutable resources
-
-<b>When:</b>
-Any resources that you fill on CPU only once (aka "immutable") or infrequently
-and then read frequently on GPU,
-e.g. textures, vertex and index buffers, constant buffers that don't change often.
-
-<b>What to do:</b>
-Create them in video memory that is fastest to access from GPU using
-#VMA_MEMORY_USAGE_GPU_ONLY.
-
-To initialize content of such resource, create a CPU-side (aka "staging") copy of it
-in system memory - #VMA_MEMORY_USAGE_CPU_ONLY, map it, fill it,
-and submit a transfer from it to the GPU resource.
-You can keep the staging copy if you need it for another upload transfer in the future.
-If you don't, you can destroy it or reuse this buffer for uploading different resource
-after the transfer finishes.
-
-Prefer to create just buffers in system memory rather than images, even for uploading textures.
-Use `vkCmdCopyBufferToImage()`.
-Dont use images with `VK_IMAGE_TILING_LINEAR`.
-
-\subsection usage_patterns_dynamic_resources Dynamic resources
-
-<b>When:</b>
-Any resources that change frequently (aka "dynamic"), e.g. every frame or every draw call,
-written on CPU, read on GPU.
-
-<b>What to do:</b>
-Create them using #VMA_MEMORY_USAGE_CPU_TO_GPU.
-You can map it and write to it directly on CPU, as well as read from it on GPU.
-
-This is a more complex situation. Different solutions are possible,
-and the best one depends on specific GPU type, but you can use this simple approach for the start.
-Prefer to write to such resource sequentially (e.g. using `memcpy`).
-Don't perform random access or any reads from it on CPU, as it may be very slow.
-Also note that textures written directly from the host through a mapped pointer need to be in LINEAR not OPTIMAL layout.
-
-\subsection usage_patterns_readback Readback
-
-<b>When:</b>
-Resources that contain data written by GPU that you want to read back on CPU,
-e.g. results of some computations.
-
-<b>What to do:</b>
-Create them using #VMA_MEMORY_USAGE_GPU_TO_CPU.
-You can write to them directly on GPU, as well as map and read them on CPU.
-
-\section usage_patterns_advanced Advanced patterns
-
-\subsection usage_patterns_integrated_graphics Detecting integrated graphics
-
-You can support integrated graphics (like Intel HD Graphics, AMD APU) better
-by detecting it in Vulkan.
-To do it, call `vkGetPhysicalDeviceProperties()`, inspect
-`VkPhysicalDeviceProperties::deviceType` and look for `VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU`.
-When you find it, you can assume that memory is unified and all memory types are comparably fast
-to access from GPU, regardless of `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT`.
-
-You can then sum up sizes of all available memory heaps and treat them as useful for
-your GPU resources, instead of only `DEVICE_LOCAL` ones.
-You can also prefer to create your resources in memory types that are `HOST_VISIBLE` to map them
-directly instead of submitting explicit transfer (see below).
-
-\subsection usage_patterns_direct_vs_transfer Direct access versus transfer
-
-For resources that you frequently write on CPU and read on GPU, many solutions are possible:
-
--# Create one copy in video memory using #VMA_MEMORY_USAGE_GPU_ONLY,
-   second copy in system memory using #VMA_MEMORY_USAGE_CPU_ONLY and submit explicit transfer each time.
--# Create just a single copy using #VMA_MEMORY_USAGE_CPU_TO_GPU, map it and fill it on CPU,
-   read it directly on GPU.
--# Create just a single copy using #VMA_MEMORY_USAGE_CPU_ONLY, map it and fill it on CPU,
-   read it directly on GPU.
-
-Which solution is the most efficient depends on your resource and especially on the GPU.
-It is best to measure it and then make the decision.
-Some general recommendations:
-
-- On integrated graphics use (2) or (3) to avoid unnecessary time and memory overhead
-  related to using a second copy and making transfer.
-- For small resources (e.g. constant buffers) use (2).
-  Discrete AMD cards have special 256 MiB pool of video memory that is directly mappable.
-  Even if the resource ends up in system memory, its data may be cached on GPU after first
-  fetch over PCIe bus.
-- For larger resources (e.g. textures), decide between (1) and (2).
-  You may want to differentiate NVIDIA and AMD, e.g. by looking for memory type that is
-  both `DEVICE_LOCAL` and `HOST_VISIBLE`. When you find it, use (2), otherwise use (1).
-
-Similarly, for resources that you frequently write on GPU and read on CPU, multiple
-solutions are possible:
-
--# Create one copy in video memory using #VMA_MEMORY_USAGE_GPU_ONLY,
-   second copy in system memory using #VMA_MEMORY_USAGE_GPU_TO_CPU and submit explicit tranfer each time.
--# Create just single copy using #VMA_MEMORY_USAGE_GPU_TO_CPU, write to it directly on GPU,
-   map it and read it on CPU.
-
-You should take some measurements to decide which option is faster in case of your specific
-resource.
-
-Note that textures accessed directly from the host through a mapped pointer need to be in LINEAR layout,
-which may slow down their usage on the device.
-Textures accessed only by the device and transfer operations can use OPTIMAL layout.
-
-If you don't want to specialize your code for specific types of GPUs, you can still make
-an simple optimization for cases when your resource ends up in mappable memory to use it
-directly in this case instead of creating CPU-side staging copy.
-For details see [Finding out if memory is mappable](@ref memory_mapping_finding_if_memory_mappable).
-
-
-\page configuration Configuration
-
-Please check "CONFIGURATION SECTION" in the code to find macros that you can define
-before each include of this file or change directly in this file to provide
-your own implementation of basic facilities like assert, `min()` and `max()` functions,
-mutex, atomic etc.
-The library uses its own implementation of containers by default, but you can switch to using
-STL containers instead.
-
-For example, define `VMA_ASSERT(expr)` before including the library to provide
-custom implementation of the assertion, compatible with your project.
-By default it is defined to standard C `assert(expr)` in `_DEBUG` configuration
-and empty otherwise.
-
-\section config_Vulkan_functions Pointers to Vulkan functions
-
-There are multiple ways to import pointers to Vulkan functions in the library.
-In the simplest case you don't need to do anything.
-If the compilation or linking of your program or the initialization of the #VmaAllocator
-doesn't work for you, you can try to reconfigure it.
-
-First, the allocator tries to fetch pointers to Vulkan functions linked statically,
-like this:
-
-\code
-m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
-\endcode
-
-If you want to disable this feature, set configuration macro: `#define VMA_STATIC_VULKAN_FUNCTIONS 0`.
-
-Second, you can provide the pointers yourself by setting member VmaAllocatorCreateInfo::pVulkanFunctions.
-You can fetch them e.g. using functions `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` or
-by using a helper library like [volk](https://github.com/zeux/volk).
-
-Third, VMA tries to fetch remaining pointers that are still null by calling
-`vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` on its own.
-If you want to disable this feature, set configuration macro: `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0`.
-
-Finally, all the function pointers required by the library (considering selected
-Vulkan version and enabled extensions) are checked with `VMA_ASSERT` if they are not null.
-
-
-\section custom_memory_allocator Custom host memory allocator
-
-If you use custom allocator for CPU memory rather than default operator `new`
-and `delete` from C++, you can make this library using your allocator as well
-by filling optional member VmaAllocatorCreateInfo::pAllocationCallbacks. These
-functions will be passed to Vulkan, as well as used by the library itself to
-make any CPU-side allocations.
-
-\section allocation_callbacks Device memory allocation callbacks
-
-The library makes calls to `vkAllocateMemory()` and `vkFreeMemory()` internally.
-You can setup callbacks to be informed about these calls, e.g. for the purpose
-of gathering some statistics. To do it, fill optional member
-VmaAllocatorCreateInfo::pDeviceMemoryCallbacks.
-
-\section heap_memory_limit Device heap memory limit
-
-When device memory of certain heap runs out of free space, new allocations may
-fail (returning error code) or they may succeed, silently pushing some existing
-memory blocks from GPU VRAM to system RAM (which degrades performance). This
-behavior is implementation-dependent - it depends on GPU vendor and graphics
-driver.
-
-On AMD cards it can be controlled while creating Vulkan device object by using
-VK_AMD_memory_overallocation_behavior extension, if available.
-
-Alternatively, if you want to test how your program behaves with limited amount of Vulkan device
-memory available without switching your graphics card to one that really has
-smaller VRAM, you can use a feature of this library intended for this purpose.
-To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
-
-
-
-\page vk_khr_dedicated_allocation VK_KHR_dedicated_allocation
-
-VK_KHR_dedicated_allocation is a Vulkan extension which can be used to improve
-performance on some GPUs. It augments Vulkan API with possibility to query
-driver whether it prefers particular buffer or image to have its own, dedicated
-allocation (separate `VkDeviceMemory` block) for better efficiency - to be able
-to do some internal optimizations.
-
-The extension is supported by this library. It will be used automatically when
-enabled. To enable it:
-
-1 . When creating Vulkan device, check if following 2 device extensions are
-supported (call `vkEnumerateDeviceExtensionProperties()`).
-If yes, enable them (fill `VkDeviceCreateInfo::ppEnabledExtensionNames`).
-
-- VK_KHR_get_memory_requirements2
-- VK_KHR_dedicated_allocation
-
-If you enabled these extensions:
-
-2 . Use #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag when creating
-your #VmaAllocator`to inform the library that you enabled required extensions
-and you want the library to use them.
-
-\code
-allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-
-vmaCreateAllocator(&allocatorInfo, &allocator);
-\endcode
-
-That's all. The extension will be automatically used whenever you create a
-buffer using vmaCreateBuffer() or image using vmaCreateImage().
-
-When using the extension together with Vulkan Validation Layer, you will receive
-warnings like this:
-
-    vkBindBufferMemory(): Binding memory to buffer 0x33 but vkGetBufferMemoryRequirements() has not been called on that buffer.
-
-It is OK, you should just ignore it. It happens because you use function
-`vkGetBufferMemoryRequirements2KHR()` instead of standard
-`vkGetBufferMemoryRequirements()`, while the validation layer seems to be
-unaware of it.
-
-To learn more about this extension, see:
-
-- [VK_KHR_dedicated_allocation in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap50.html#VK_KHR_dedicated_allocation)
-- [VK_KHR_dedicated_allocation unofficial manual](http://asawicki.info/articles/VK_KHR_dedicated_allocation.php5)
-
-
-
-\page vk_amd_device_coherent_memory VK_AMD_device_coherent_memory
-
-VK_AMD_device_coherent_memory is a device extension that enables access to
-additional memory types with `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` and
-`VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD` flag. It is useful mostly for
-allocation of buffers intended for writing "breadcrumb markers" in between passes
-or draw calls, which in turn are useful for debugging GPU crash/hang/TDR cases.
-
-When the extension is available but has not been enabled, Vulkan physical device
-still exposes those memory types, but their usage is forbidden. VMA automatically
-takes care of that - it returns `VK_ERROR_FEATURE_NOT_PRESENT` when an attempt
-to allocate memory of such type is made.
-
-If you want to use this extension in connection with VMA, follow these steps:
-
-\section vk_amd_device_coherent_memory_initialization Initialization
-
-1) Call `vkEnumerateDeviceExtensionProperties` for the physical device.
-Check if the extension is supported - if returned array of `VkExtensionProperties` contains "VK_AMD_device_coherent_memory".
-
-2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
-Attach additional structure `VkPhysicalDeviceCoherentMemoryFeaturesAMD` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
-Check if the device feature is really supported - check if `VkPhysicalDeviceCoherentMemoryFeaturesAMD::deviceCoherentMemory` is true.
-
-3) While creating device with `vkCreateDevice`, enable this extension - add "VK_AMD_device_coherent_memory"
-to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
-
-4) While creating the device, also don't set `VkDeviceCreateInfo::pEnabledFeatures`.
-Fill in `VkPhysicalDeviceFeatures2` structure instead and pass it as `VkDeviceCreateInfo::pNext`.
-Enable this device feature - attach additional structure `VkPhysicalDeviceCoherentMemoryFeaturesAMD` to
-`VkPhysicalDeviceFeatures2::pNext` and set its member `deviceCoherentMemory` to `VK_TRUE`.
-
-5) While creating #VmaAllocator with vmaCreateAllocator() inform VMA that you
-have enabled this extension and feature - add #VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT
-to VmaAllocatorCreateInfo::flags.
-
-\section vk_amd_device_coherent_memory_usage Usage
-
-After following steps described above, you can create VMA allocations and custom pools
-out of the special `DEVICE_COHERENT` and `DEVICE_UNCACHED` memory types on eligible
-devices. There are multiple ways to do it, for example:
-
-- You can request or prefer to allocate out of such memory types by adding
-  `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` to VmaAllocationCreateInfo::requiredFlags
-  or VmaAllocationCreateInfo::preferredFlags. Those flags can be freely mixed with
-  other ways of \ref choosing_memory_type, like setting VmaAllocationCreateInfo::usage.
-- If you manually found memory type index to use for this purpose, force allocation
-  from this specific index by setting VmaAllocationCreateInfo::memoryTypeBits `= 1u << index`.
-
-\section vk_amd_device_coherent_memory_more_information More information
-
-To learn more about this extension, see [VK_AMD_device_coherent_memory in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap44.html#VK_AMD_device_coherent_memory)
-
-Example use of this extension can be found in the code of the sample and test suite
-accompanying this library.
-
-
-\page enabling_buffer_device_address Enabling buffer device address
-
-Device extension VK_KHR_buffer_device_address
-allow to fetch raw GPU pointer to a buffer and pass it for usage in a shader code.
-It is promoted to core Vulkan 1.2.
-
-If you want to use this feature in connection with VMA, follow these steps:
-
-\section enabling_buffer_device_address_initialization Initialization
-
-1) (For Vulkan version < 1.2) Call `vkEnumerateDeviceExtensionProperties` for the physical device.
-Check if the extension is supported - if returned array of `VkExtensionProperties` contains
-"VK_KHR_buffer_device_address".
-
-2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
-Attach additional structure `VkPhysicalDeviceBufferDeviceAddressFeatures*` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
-Check if the device feature is really supported - check if `VkPhysicalDeviceBufferDeviceAddressFeatures*::bufferDeviceAddress` is true.
-
-3) (For Vulkan version < 1.2) While creating device with `vkCreateDevice`, enable this extension - add
-"VK_KHR_buffer_device_address" to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
-
-4) While creating the device, also don't set `VkDeviceCreateInfo::pEnabledFeatures`.
-Fill in `VkPhysicalDeviceFeatures2` structure instead and pass it as `VkDeviceCreateInfo::pNext`.
-Enable this device feature - attach additional structure `VkPhysicalDeviceBufferDeviceAddressFeatures*` to
-`VkPhysicalDeviceFeatures2::pNext` and set its member `bufferDeviceAddress` to `VK_TRUE`.
-
-5) While creating #VmaAllocator with vmaCreateAllocator() inform VMA that you
-have enabled this feature - add #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
-to VmaAllocatorCreateInfo::flags.
-
-\section enabling_buffer_device_address_usage Usage
-
-After following steps described above, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*` using VMA.
-The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT*` to
-allocated memory blocks wherever it might be needed.
-
-Please note that the library supports only `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*`.
-The second part of this functionality related to "capture and replay" is not supported,
-as it is intended for usage in debugging tools like RenderDoc, not in everyday Vulkan usage.
-
-\section enabling_buffer_device_address_more_information More information
-
-To learn more about this extension, see [VK_KHR_buffer_device_address in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap46.html#VK_KHR_buffer_device_address)
-
-Example use of this extension can be found in the code of the sample and test suite
-accompanying this library.
-
-\page general_considerations General considerations
-
-\section general_considerations_thread_safety Thread safety
-
-- The library has no global state, so separate #VmaAllocator objects can be used
-  independently.
-  There should be no need to create multiple such objects though - one per `VkDevice` is enough.
-- By default, all calls to functions that take #VmaAllocator as first parameter
-  are safe to call from multiple threads simultaneously because they are
-  synchronized internally when needed.
-- When the allocator is created with #VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
-  flag, calls to functions that take such #VmaAllocator object must be
-  synchronized externally.
-- Access to a #VmaAllocation object must be externally synchronized. For example,
-  you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
-  threads at the same time if you pass the same #VmaAllocation object to these
-  functions.
-
-\section general_considerations_validation_layer_warnings Validation layer warnings
-
-When using this library, you can meet following types of warnings issued by
-Vulkan validation layer. They don't necessarily indicate a bug, so you may need
-to just ignore them.
-
-- *vkBindBufferMemory(): Binding memory to buffer 0xeb8e4 but vkGetBufferMemoryRequirements() has not been called on that buffer.*
-  - It happens when VK_KHR_dedicated_allocation extension is enabled.
-    `vkGetBufferMemoryRequirements2KHR` function is used instead, while validation layer seems to be unaware of it.
-- *Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.*
-  - It happens when you map a buffer or image, because the library maps entire
-    `VkDeviceMemory` block, where different types of images and buffers may end
-    up together, especially on GPUs with unified memory like Intel.
-- *Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.*
-  - It happens when you use lost allocations, and a new image or buffer is
-    created in place of an existing object that became lost.
-  - It may happen also when you use [defragmentation](@ref defragmentation).
-
-\section general_considerations_allocation_algorithm Allocation algorithm
-
-The library uses following algorithm for allocation, in order:
-
--# Try to find free range of memory in existing blocks.
--# If failed, try to create a new block of `VkDeviceMemory`, with preferred block size.
--# If failed, try to create such block with size/2, size/4, size/8.
--# If failed and #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag was
-   specified, try to find space in existing blocks, possilby making some other
-   allocations lost.
--# If failed, try to allocate separate `VkDeviceMemory` for this allocation,
-   just like when you use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
--# If failed, choose other memory type that meets the requirements specified in
-   VmaAllocationCreateInfo and go to point 1.
--# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
-
-\section general_considerations_features_not_supported Features not supported
-
-Features deliberately excluded from the scope of this library:
-
-- **Data transfer.** Uploading (streaming) and downloading data of buffers and images
-  between CPU and GPU memory and related synchronization is responsibility of the user.
-  Defining some "texture" object that would automatically stream its data from a
-  staging copy in CPU memory to GPU memory would rather be a feature of another,
-  higher-level library implemented on top of VMA.
-- **Recreation of buffers and images.** Although the library has functions for
-  buffer and image creation (vmaCreateBuffer(), vmaCreateImage()), you need to
-  recreate these objects yourself after defragmentation. That's because the big
-  structures `VkBufferCreateInfo`, `VkImageCreateInfo` are not stored in
-  #VmaAllocation object.
-- **Handling CPU memory allocation failures.** When dynamically creating small C++
-  objects in CPU memory (not Vulkan memory), allocation failures are not checked
-  and handled gracefully, because that would complicate code significantly and
-  is usually not needed in desktop PC applications anyway.
-  Success of an allocation is just checked with an assert.
-- **Code free of any compiler warnings.** Maintaining the library to compile and
-  work correctly on so many different platforms is hard enough. Being free of
-  any warnings, on any version of any compiler, is simply not feasible.
-  There are many preprocessor macros that make some variables unused, function parameters unreferenced,
-  or conditional expressions constant in some configurations.
-  The code of this library should not be bigger or more complicated just to silence these warnings.
-  It is recommended to disable such warnings instead.
-- This is a C++ library with C interface. **Bindings or ports to any other programming languages** are welcome as external projects but
-  are not going to be included into this repository.
-
 */
 
 #ifdef __cplusplus
@@ -19789,3 +17878,1912 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 }
 
 #endif // #ifdef VMA_IMPLEMENTATION
+
+/**
+\page quick_start Quick start
+
+\section quick_start_project_setup Project setup
+
+Vulkan Memory Allocator comes in form of a "stb-style" single header file.
+You don't need to build it as a separate library project.
+You can add this file directly to your project and submit it to code repository next to your other source files.
+
+"Single header" doesn't mean that everything is contained in C/C++ declarations,
+like it tends to be in case of inline functions or C++ templates.
+It means that implementation is bundled with interface in a single file and needs to be extracted using preprocessor macro.
+If you don't do it properly, you will get linker errors.
+
+To do it properly:
+
+-# Include "vk_mem_alloc.h" file in each CPP file where you want to use the library.
+   This includes declarations of all members of the library.
+-# In exactly one CPP file define following macro before this include.
+   It enables also internal definitions.
+
+\code
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+\endcode
+
+It may be a good idea to create dedicated CPP file just for this purpose.
+
+Note on language: This library is written in C++, but has C-compatible interface.
+Thus you can include and use vk_mem_alloc.h in C or C++ code, but full
+implementation with `VMA_IMPLEMENTATION` macro must be compiled as C++, NOT as C.
+
+Please note that this library includes header `<vulkan/vulkan.h>`, which in turn
+includes `<windows.h>` on Windows. If you need some specific macros defined
+before including these headers (like `WIN32_LEAN_AND_MEAN` or
+`WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
+them before every `#include` of this library.
+
+You may need to configure the way you import Vulkan functions.
+
+- By default, VMA assumes you you link statically with Vulkan API. If this is not the case,
+  `#define VMA_STATIC_VULKAN_FUNCTIONS 0` before `#include` of the VMA implementation and use another way.
+- You can `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1` and make sure `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` globals are defined.
+  All the remaining Vulkan functions will be fetched automatically.
+- Finally, you can provide your own pointers to all Vulkan functions needed by VMA using structure member
+  VmaAllocatorCreateInfo::pVulkanFunctions, if you fetched them in some custom way e.g. using some loader like [Volk](https://github.com/zeux/volk).
+
+
+\section quick_start_initialization Initialization
+
+At program startup:
+
+-# Initialize Vulkan to have `VkPhysicalDevice`, `VkDevice` and `VkInstance` object.
+-# Fill VmaAllocatorCreateInfo structure and create #VmaAllocator object by
+   calling vmaCreateAllocator().
+
+\code
+VmaAllocatorCreateInfo allocatorInfo = {};
+allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+allocatorInfo.physicalDevice = physicalDevice;
+allocatorInfo.device = device;
+allocatorInfo.instance = instance;
+
+VmaAllocator allocator;
+vmaCreateAllocator(&allocatorInfo, &allocator);
+\endcode
+
+Only members `physicalDevice`, `device`, `instance` are required.
+However, you should inform the library which Vulkan version do you use by setting
+VmaAllocatorCreateInfo::vulkanApiVersion and which extensions did you enable
+by setting VmaAllocatorCreateInfo::flags (like #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT for VK_KHR_buffer_device_address).
+Otherwise, VMA would use only features of Vulkan 1.0 core with no extensions.
+
+
+\section quick_start_resource_allocation Resource allocation
+
+When you want to create a buffer or image:
+
+-# Fill `VkBufferCreateInfo` / `VkImageCreateInfo` structure.
+-# Fill VmaAllocationCreateInfo structure.
+-# Call vmaCreateBuffer() / vmaCreateImage() to get `VkBuffer`/`VkImage` with memory
+   already allocated and bound to it.
+
+\code
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufferInfo.size = 65536;
+bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+Don't forget to destroy your objects when no longer needed:
+
+\code
+vmaDestroyBuffer(allocator, buffer, allocation);
+vmaDestroyAllocator(allocator);
+\endcode
+
+
+\page choosing_memory_type Choosing memory type
+
+Physical devices in Vulkan support various combinations of memory heaps and
+types. Help with choosing correct and optimal memory type for your specific
+resource is one of the key features of this library. You can use it by filling
+appropriate members of VmaAllocationCreateInfo structure, as described below.
+You can also combine multiple methods.
+
+-# If you just want to find memory type index that meets your requirements, you
+   can use function: vmaFindMemoryTypeIndex(), vmaFindMemoryTypeIndexForBufferInfo(),
+   vmaFindMemoryTypeIndexForImageInfo().
+-# If you want to allocate a region of device memory without association with any
+   specific image or buffer, you can use function vmaAllocateMemory(). Usage of
+   this function is not recommended and usually not needed.
+   vmaAllocateMemoryPages() function is also provided for creating multiple allocations at once,
+   which may be useful for sparse binding.
+-# If you already have a buffer or an image created, you want to allocate memory
+   for it and then you will bind it yourself, you can use function
+   vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
+   For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory()
+   or their extended versions: vmaBindBufferMemory2(), vmaBindImageMemory2().
+-# If you want to create a buffer or an image, allocate memory for it and bind
+   them together, all in one call, you can use function vmaCreateBuffer(),
+   vmaCreateImage(). This is the easiest and recommended way to use this library.
+
+When using 3. or 4., the library internally queries Vulkan for memory types
+supported for that buffer or image (function `vkGetBufferMemoryRequirements()`)
+and uses only one of these types.
+
+If no memory type can be found that meets all the requirements, these functions
+return `VK_ERROR_FEATURE_NOT_PRESENT`.
+
+You can leave VmaAllocationCreateInfo structure completely filled with zeros.
+It means no requirements are specified for memory type.
+It is valid, although not very useful.
+
+\section choosing_memory_type_usage Usage
+
+The easiest way to specify memory requirements is to fill member
+VmaAllocationCreateInfo::usage using one of the values of enum #VmaMemoryUsage.
+It defines high level, common usage types.
+For more details, see description of this enum.
+
+For example, if you want to create a uniform buffer that will be filled using
+transfer only once or infrequently and used for rendering every frame, you can
+do it using following code:
+
+\code
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufferInfo.size = 65536;
+bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+\section choosing_memory_type_required_preferred_flags Required and preferred flags
+
+You can specify more detailed requirements by filling members
+VmaAllocationCreateInfo::requiredFlags and VmaAllocationCreateInfo::preferredFlags
+with a combination of bits from enum `VkMemoryPropertyFlags`. For example,
+if you want to create a buffer that will be persistently mapped on host (so it
+must be `HOST_VISIBLE`) and preferably will also be `HOST_COHERENT` and `HOST_CACHED`,
+use following code:
+
+\code
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+A memory type is chosen that has all the required flags and as many preferred
+flags set as possible.
+
+If you use VmaAllocationCreateInfo::usage, it is just internally converted to
+a set of required and preferred flags.
+
+\section choosing_memory_type_explicit_memory_types Explicit memory types
+
+If you inspected memory types available on the physical device and you have
+a preference for memory types that you want to use, you can fill member
+VmaAllocationCreateInfo::memoryTypeBits. It is a bit mask, where each bit set
+means that a memory type with that index is allowed to be used for the
+allocation. Special value 0, just like `UINT32_MAX`, means there are no
+restrictions to memory type index.
+
+Please note that this member is NOT just a memory type index.
+Still you can use it to choose just one, specific memory type.
+For example, if you already determined that your buffer should be created in
+memory type 2, use following code:
+
+\code
+uint32_t memoryTypeIndex = 2;
+
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.memoryTypeBits = 1u << memoryTypeIndex;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+
+\section choosing_memory_type_custom_memory_pools Custom memory pools
+
+If you allocate from custom memory pool, all the ways of specifying memory
+requirements described above are not applicable and the aforementioned members
+of VmaAllocationCreateInfo structure are ignored. Memory type is selected
+explicitly when creating the pool and then used to make all the allocations from
+that pool. For further details, see \ref custom_memory_pools.
+
+\section choosing_memory_type_dedicated_allocations Dedicated allocations
+
+Memory for allocations is reserved out of larger block of `VkDeviceMemory`
+allocated from Vulkan internally. That's the main feature of this whole library.
+You can still request a separate memory block to be created for an allocation,
+just like you would do in a trivial solution without using any allocator.
+In that case, a buffer or image is always bound to that memory at offset 0.
+This is called a "dedicated allocation".
+You can explicitly request it by using flag #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
+The library can also internally decide to use dedicated allocation in some cases, e.g.:
+
+- When the size of the allocation is large.
+- When [VK_KHR_dedicated_allocation](@ref vk_khr_dedicated_allocation) extension is enabled
+  and it reports that dedicated allocation is required or recommended for the resource.
+- When allocation of next big memory block fails due to not enough device memory,
+  but allocation with the exact requested size succeeds.
+
+
+\page memory_mapping Memory mapping
+
+To "map memory" in Vulkan means to obtain a CPU pointer to `VkDeviceMemory`,
+to be able to read from it or write to it in CPU code.
+Mapping is possible only of memory allocated from a memory type that has
+`VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag.
+Functions `vkMapMemory()`, `vkUnmapMemory()` are designed for this purpose.
+You can use them directly with memory allocated by this library,
+but it is not recommended because of following issue:
+Mapping the same `VkDeviceMemory` block multiple times is illegal - only one mapping at a time is allowed.
+This includes mapping disjoint regions. Mapping is not reference-counted internally by Vulkan.
+Because of this, Vulkan Memory Allocator provides following facilities:
+
+\section memory_mapping_mapping_functions Mapping functions
+
+The library provides following functions for mapping of a specific #VmaAllocation: vmaMapMemory(), vmaUnmapMemory().
+They are safer and more convenient to use than standard Vulkan functions.
+You can map an allocation multiple times simultaneously - mapping is reference-counted internally.
+You can also map different allocations simultaneously regardless of whether they use the same `VkDeviceMemory` block.
+The way it's implemented is that the library always maps entire memory block, not just region of the allocation.
+For further details, see description of vmaMapMemory() function.
+Example:
+
+\code
+// Having these objects initialized:
+
+struct ConstantBuffer
+{
+    ...
+};
+ConstantBuffer constantBufferData;
+
+VmaAllocator allocator;
+VkBuffer constantBuffer;
+VmaAllocation constantBufferAllocation;
+
+// You can map and fill your buffer using following code:
+
+void* mappedData;
+vmaMapMemory(allocator, constantBufferAllocation, &mappedData);
+memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
+vmaUnmapMemory(allocator, constantBufferAllocation);
+\endcode
+
+When mapping, you may see a warning from Vulkan validation layer similar to this one:
+
+<i>Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.</i>
+
+It happens because the library maps entire `VkDeviceMemory` block, where different
+types of images and buffers may end up together, especially on GPUs with unified memory like Intel.
+You can safely ignore it if you are sure you access only memory of the intended
+object that you wanted to map.
+
+
+\section memory_mapping_persistently_mapped_memory Persistently mapped memory
+
+Kepping your memory persistently mapped is generally OK in Vulkan.
+You don't need to unmap it before using its data on the GPU.
+The library provides a special feature designed for that:
+Allocations made with #VMA_ALLOCATION_CREATE_MAPPED_BIT flag set in
+VmaAllocationCreateInfo::flags stay mapped all the time,
+so you can just access CPU pointer to it any time
+without a need to call any "map" or "unmap" function.
+Example:
+
+\code
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = sizeof(ConstantBuffer);
+bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+
+// Buffer is already mapped. You can access its memory.
+memcpy(allocInfo.pMappedData, &constantBufferData, sizeof(constantBufferData));
+\endcode
+
+There are some exceptions though, when you should consider mapping memory only for a short period of time:
+
+- When operating system is Windows 7 or 8.x (Windows 10 is not affected because it uses WDDM2),
+  device is discrete AMD GPU,
+  and memory type is the special 256 MiB pool of `DEVICE_LOCAL + HOST_VISIBLE` memory
+  (selected when you use #VMA_MEMORY_USAGE_CPU_TO_GPU),
+  then whenever a memory block allocated from this memory type stays mapped
+  for the time of any call to `vkQueueSubmit()` or `vkQueuePresentKHR()`, this
+  block is migrated by WDDM to system RAM, which degrades performance. It doesn't
+  matter if that particular memory block is actually used by the command buffer
+  being submitted.
+- Keeping many large memory blocks mapped may impact performance or stability of some debugging tools.
+
+\section memory_mapping_cache_control Cache flush and invalidate
+
+Memory in Vulkan doesn't need to be unmapped before using it on GPU,
+but unless a memory types has `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` flag set,
+you need to manually **invalidate** cache before reading of mapped pointer
+and **flush** cache after writing to mapped pointer.
+Map/unmap operations don't do that automatically.
+Vulkan provides following functions for this purpose `vkFlushMappedMemoryRanges()`,
+`vkInvalidateMappedMemoryRanges()`, but this library provides more convenient
+functions that refer to given allocation object: vmaFlushAllocation(),
+vmaInvalidateAllocation(),
+or multiple objects at once: vmaFlushAllocations(), vmaInvalidateAllocations().
+
+Regions of memory specified for flush/invalidate must be aligned to
+`VkPhysicalDeviceLimits::nonCoherentAtomSize`. This is automatically ensured by the library.
+In any memory type that is `HOST_VISIBLE` but not `HOST_COHERENT`, all allocations
+within blocks are aligned to this value, so their offsets are always multiply of
+`nonCoherentAtomSize` and two different allocations never share same "line" of this size.
+
+Please note that memory allocated with #VMA_MEMORY_USAGE_CPU_ONLY is guaranteed to be `HOST_COHERENT`.
+
+Also, Windows drivers from all 3 **PC** GPU vendors (AMD, Intel, NVIDIA)
+currently provide `HOST_COHERENT` flag on all memory types that are
+`HOST_VISIBLE`, so on this platform you may not need to bother.
+
+\section memory_mapping_finding_if_memory_mappable Finding out if memory is mappable
+
+It may happen that your allocation ends up in memory that is `HOST_VISIBLE` (available for mapping)
+despite it wasn't explicitly requested.
+For example, application may work on integrated graphics with unified memory (like Intel) or
+allocation from video memory might have failed, so the library chose system memory as fallback.
+
+You can detect this case and map such allocation to access its memory on CPU directly,
+instead of launching a transfer operation.
+In order to do that: inspect `allocInfo.memoryType`, call vmaGetMemoryTypeProperties(),
+and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag in properties of that memory type.
+
+\code
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = sizeof(ConstantBuffer);
+bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+
+VkMemoryPropertyFlags memFlags;
+vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
+{
+    // Allocation ended up in mappable memory. You can map it and access it directly.
+    void* mappedData;
+    vmaMapMemory(allocator, alloc, &mappedData);
+    memcpy(mappedData, &constantBufferData, sizeof(constantBufferData));
+    vmaUnmapMemory(allocator, alloc);
+}
+else
+{
+    // Allocation ended up in non-mappable memory.
+    // You need to create CPU-side buffer in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
+}
+\endcode
+
+You can even use #VMA_ALLOCATION_CREATE_MAPPED_BIT flag while creating allocations
+that are not necessarily `HOST_VISIBLE` (e.g. using #VMA_MEMORY_USAGE_GPU_ONLY).
+If the allocation ends up in memory type that is `HOST_VISIBLE`, it will be persistently mapped and you can use it directly.
+If not, the flag is just ignored.
+Example:
+
+\code
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = sizeof(ConstantBuffer);
+bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+
+if(allocInfo.pMappedData != nullptr)
+{
+    // Allocation ended up in mappable memory.
+    // It's persistently mapped. You can access it directly.
+    memcpy(allocInfo.pMappedData, &constantBufferData, sizeof(constantBufferData));
+}
+else
+{
+    // Allocation ended up in non-mappable memory.
+    // You need to create CPU-side buffer in VMA_MEMORY_USAGE_CPU_ONLY and make a transfer.
+}
+\endcode
+
+
+\page staying_within_budget Staying within budget
+
+When developing a graphics-intensive game or program, it is important to avoid allocating
+more GPU memory than it's physically available. When the memory is over-committed,
+various bad things can happen, depending on the specific GPU, graphics driver, and
+operating system:
+
+- It may just work without any problems.
+- The application may slow down because some memory blocks are moved to system RAM
+  and the GPU has to access them through PCI Express bus.
+- A new allocation may take very long time to complete, even few seconds, and possibly
+  freeze entire system.
+- The new allocation may fail with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+- It may even result in GPU crash (TDR), observed as `VK_ERROR_DEVICE_LOST`
+  returned somewhere later.
+
+\section staying_within_budget_querying_for_budget Querying for budget
+
+To query for current memory usage and available budget, use function vmaGetBudget().
+Returned structure #VmaBudget contains quantities expressed in bytes, per Vulkan memory heap.
+
+Please note that this function returns different information and works faster than
+vmaCalculateStats(). vmaGetBudget() can be called every frame or even before every
+allocation, while vmaCalculateStats() is intended to be used rarely,
+only to obtain statistical information, e.g. for debugging purposes.
+
+It is recommended to use <b>VK_EXT_memory_budget</b> device extension to obtain information
+about the budget from Vulkan device. VMA is able to use this extension automatically.
+When not enabled, the allocator behaves same way, but then it estimates current usage
+and available budget based on its internal information and Vulkan memory heap sizes,
+which may be less precise. In order to use this extension:
+
+1. Make sure extensions VK_EXT_memory_budget and VK_KHR_get_physical_device_properties2
+   required by it are available and enable them. Please note that the first is a device
+   extension and the second is instance extension!
+2. Use flag #VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT when creating #VmaAllocator object.
+3. Make sure to call vmaSetCurrentFrameIndex() every frame. Budget is queried from
+   Vulkan inside of it to avoid overhead of querying it with every allocation.
+
+\section staying_within_budget_controlling_memory_usage Controlling memory usage
+
+There are many ways in which you can try to stay within the budget.
+
+First, when making new allocation requires allocating a new memory block, the library
+tries not to exceed the budget automatically. If a block with default recommended size
+(e.g. 256 MB) would go over budget, a smaller block is allocated, possibly even
+dedicated memory for just this resource.
+
+If the size of the requested resource plus current memory usage is more than the
+budget, by default the library still tries to create it, leaving it to the Vulkan
+implementation whether the allocation succeeds or fails. You can change this behavior
+by using #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag. With it, the allocation is
+not made if it would exceed the budget or if the budget is already exceeded.
+Some other allocations become lost instead to make room for it, if the mechanism of
+[lost allocations](@ref lost_allocations) is used.
+If that is not possible, the allocation fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+Example usage pattern may be to pass the #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag
+when creating resources that are not essential for the application (e.g. the texture
+of a specific object) and not to pass it when creating critically important resources
+(e.g. render targets).
+
+Finally, you can also use #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT flag to make sure
+a new allocation is created only when it fits inside one of the existing memory blocks.
+If it would require to allocate a new block, if fails instead with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+This also ensures that the function call is very fast because it never goes to Vulkan
+to obtain a new block.
+
+Please note that creating \ref custom_memory_pools with VmaPoolCreateInfo::minBlockCount
+set to more than 0 will try to allocate memory blocks without checking whether they
+fit within budget.
+
+
+\page resource_aliasing Resource aliasing (overlap)
+
+New explicit graphics APIs (Vulkan and Direct3D 12), thanks to manual memory
+management, give an opportunity to alias (overlap) multiple resources in the
+same region of memory - a feature not available in the old APIs (Direct3D 11, OpenGL).
+It can be useful to save video memory, but it must be used with caution.
+
+For example, if you know the flow of your whole render frame in advance, you
+are going to use some intermediate textures or buffers only during a small range of render passes,
+and you know these ranges don't overlap in time, you can bind these resources to
+the same place in memory, even if they have completely different parameters (width, height, format etc.).
+
+![Resource aliasing (overlap)](../gfx/Aliasing.png)
+
+Such scenario is possible using VMA, but you need to create your images manually.
+Then you need to calculate parameters of an allocation to be made using formula:
+
+- allocation size = max(size of each image)
+- allocation alignment = max(alignment of each image)
+- allocation memoryTypeBits = bitwise AND(memoryTypeBits of each image)
+
+Following example shows two different images bound to the same place in memory,
+allocated to fit largest of them.
+
+\code
+// A 512x512 texture to be sampled.
+VkImageCreateInfo img1CreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+img1CreateInfo.imageType = VK_IMAGE_TYPE_2D;
+img1CreateInfo.extent.width = 512;
+img1CreateInfo.extent.height = 512;
+img1CreateInfo.extent.depth = 1;
+img1CreateInfo.mipLevels = 10;
+img1CreateInfo.arrayLayers = 1;
+img1CreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+img1CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+img1CreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+img1CreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+img1CreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+// A full screen texture to be used as color attachment.
+VkImageCreateInfo img2CreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+img2CreateInfo.imageType = VK_IMAGE_TYPE_2D;
+img2CreateInfo.extent.width = 1920;
+img2CreateInfo.extent.height = 1080;
+img2CreateInfo.extent.depth = 1;
+img2CreateInfo.mipLevels = 1;
+img2CreateInfo.arrayLayers = 1;
+img2CreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+img2CreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+img2CreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+img2CreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+img2CreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+VkImage img1;
+res = vkCreateImage(device, &img1CreateInfo, nullptr, &img1);
+VkImage img2;
+res = vkCreateImage(device, &img2CreateInfo, nullptr, &img2);
+
+VkMemoryRequirements img1MemReq;
+vkGetImageMemoryRequirements(device, img1, &img1MemReq);
+VkMemoryRequirements img2MemReq;
+vkGetImageMemoryRequirements(device, img2, &img2MemReq);
+
+VkMemoryRequirements finalMemReq = {};
+finalMemReq.size = std::max(img1MemReq.size, img2MemReq.size);
+finalMemReq.alignment = std::max(img1MemReq.alignment, img2MemReq.alignment);
+finalMemReq.memoryTypeBits = img1MemReq.memoryTypeBits & img2MemReq.memoryTypeBits;
+// Validate if(finalMemReq.memoryTypeBits != 0)
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+VmaAllocation alloc;
+res = vmaAllocateMemory(allocator, &finalMemReq, &allocCreateInfo, &alloc, nullptr);
+
+res = vmaBindImageMemory(allocator, alloc, img1);
+res = vmaBindImageMemory(allocator, alloc, img2);
+
+// You can use img1, img2 here, but not at the same time!
+
+vmaFreeMemory(allocator, alloc);
+vkDestroyImage(allocator, img2, nullptr);
+vkDestroyImage(allocator, img1, nullptr);
+\endcode
+
+Remember that using resources that alias in memory requires proper synchronization.
+You need to issue a memory barrier to make sure commands that use `img1` and `img2`
+don't overlap on GPU timeline.
+You also need to treat a resource after aliasing as uninitialized - containing garbage data.
+For example, if you use `img1` and then want to use `img2`, you need to issue
+an image memory barrier for `img2` with `oldLayout` = `VK_IMAGE_LAYOUT_UNDEFINED`.
+
+Additional considerations:
+
+- Vulkan also allows to interpret contents of memory between aliasing resources consistently in some cases.
+See chapter 11.8. "Memory Aliasing" of Vulkan specification or `VK_IMAGE_CREATE_ALIAS_BIT` flag.
+- You can create more complex layout where different images and buffers are bound
+at different offsets inside one large allocation. For example, one can imagine
+a big texture used in some render passes, aliasing with a set of many small buffers
+used between in some further passes. To bind a resource at non-zero offset of an allocation,
+use vmaBindBufferMemory2() / vmaBindImageMemory2().
+- Before allocating memory for the resources you want to alias, check `memoryTypeBits`
+returned in memory requirements of each resource to make sure the bits overlap.
+Some GPUs may expose multiple memory types suitable e.g. only for buffers or
+images with `COLOR_ATTACHMENT` usage, so the sets of memory types supported by your
+resources may be disjoint. Aliasing them is not possible in that case.
+
+
+\page custom_memory_pools Custom memory pools
+
+A memory pool contains a number of `VkDeviceMemory` blocks.
+The library automatically creates and manages default pool for each memory type available on the device.
+Default memory pool automatically grows in size.
+Size of allocated blocks is also variable and managed automatically.
+
+You can create custom pool and allocate memory out of it.
+It can be useful if you want to:
+
+- Keep certain kind of allocations separate from others.
+- Enforce particular, fixed size of Vulkan memory blocks.
+- Limit maximum amount of Vulkan memory allocated for that pool.
+- Reserve minimum or fixed amount of Vulkan memory always preallocated for that pool.
+
+To use custom memory pools:
+
+-# Fill VmaPoolCreateInfo structure.
+-# Call vmaCreatePool() to obtain #VmaPool handle.
+-# When making an allocation, set VmaAllocationCreateInfo::pool to this handle.
+   You don't need to specify any other parameters of this structure, like `usage`.
+
+Example:
+
+\code
+// Create a pool that can have at most 2 blocks, 128 MiB each.
+VmaPoolCreateInfo poolCreateInfo = {};
+poolCreateInfo.memoryTypeIndex = ...
+poolCreateInfo.blockSize = 128ull * 1024 * 1024;
+poolCreateInfo.maxBlockCount = 2;
+
+VmaPool pool;
+vmaCreatePool(allocator, &poolCreateInfo, &pool);
+
+// Allocate a buffer out of it.
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = 1024;
+bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.pool = pool;
+
+VkBuffer buf;
+VmaAllocation alloc;
+VmaAllocationInfo allocInfo;
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+\endcode
+
+You have to free all allocations made from this pool before destroying it.
+
+\code
+vmaDestroyBuffer(allocator, buf, alloc);
+vmaDestroyPool(allocator, pool);
+\endcode
+
+\section custom_memory_pools_MemTypeIndex Choosing memory type index
+
+When creating a pool, you must explicitly specify memory type index.
+To find the one suitable for your buffers or images, you can use helper functions
+vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo().
+You need to provide structures with example parameters of buffers or images
+that you are going to create in that pool.
+
+\code
+VkBufferCreateInfo exampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+exampleBufCreateInfo.size = 1024; // Whatever.
+exampleBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change if needed.
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Change if needed.
+
+uint32_t memTypeIndex;
+vmaFindMemoryTypeIndexForBufferInfo(allocator, &exampleBufCreateInfo, &allocCreateInfo, &memTypeIndex);
+
+VmaPoolCreateInfo poolCreateInfo = {};
+poolCreateInfo.memoryTypeIndex = memTypeIndex;
+// ...
+\endcode
+
+When creating buffers/images allocated in that pool, provide following parameters:
+
+- `VkBufferCreateInfo`: Prefer to pass same parameters as above.
+  Otherwise you risk creating resources in a memory type that is not suitable for them, which may result in undefined behavior.
+  Using different `VK_BUFFER_USAGE_` flags may work, but you shouldn't create images in a pool intended for buffers
+  or the other way around.
+- VmaAllocationCreateInfo: You don't need to pass same parameters. Fill only `pool` member.
+  Other members are ignored anyway.
+
+\section linear_algorithm Linear allocation algorithm
+
+Each Vulkan memory block managed by this library has accompanying metadata that
+keeps track of used and unused regions. By default, the metadata structure and
+algorithm tries to find best place for new allocations among free regions to
+optimize memory usage. This way you can allocate and free objects in any order.
+
+![Default allocation algorithm](../gfx/Linear_allocator_1_algo_default.png)
+
+Sometimes there is a need to use simpler, linear allocation algorithm. You can
+create custom pool that uses such algorithm by adding flag
+#VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT to VmaPoolCreateInfo::flags while creating
+#VmaPool object. Then an alternative metadata management is used. It always
+creates new allocations after last one and doesn't reuse free regions after
+allocations freed in the middle. It results in better allocation performance and
+less memory consumed by metadata.
+
+![Linear allocation algorithm](../gfx/Linear_allocator_2_algo_linear.png)
+
+With this one flag, you can create a custom pool that can be used in many ways:
+free-at-once, stack, double stack, and ring buffer. See below for details.
+
+\subsection linear_algorithm_free_at_once Free-at-once
+
+In a pool that uses linear algorithm, you still need to free all the allocations
+individually, e.g. by using vmaFreeMemory() or vmaDestroyBuffer(). You can free
+them in any order. New allocations are always made after last one - free space
+in the middle is not reused. However, when you release all the allocation and
+the pool becomes empty, allocation starts from the beginning again. This way you
+can use linear algorithm to speed up creation of allocations that you are going
+to release all at once.
+
+![Free-at-once](../gfx/Linear_allocator_3_free_at_once.png)
+
+This mode is also available for pools created with VmaPoolCreateInfo::maxBlockCount
+value that allows multiple memory blocks.
+
+\subsection linear_algorithm_stack Stack
+
+When you free an allocation that was created last, its space can be reused.
+Thanks to this, if you always release allocations in the order opposite to their
+creation (LIFO - Last In First Out), you can achieve behavior of a stack.
+
+![Stack](../gfx/Linear_allocator_4_stack.png)
+
+This mode is also available for pools created with VmaPoolCreateInfo::maxBlockCount
+value that allows multiple memory blocks.
+
+\subsection linear_algorithm_double_stack Double stack
+
+The space reserved by a custom pool with linear algorithm may be used by two
+stacks:
+
+- First, default one, growing up from offset 0.
+- Second, "upper" one, growing down from the end towards lower offsets.
+
+To make allocation from upper stack, add flag #VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
+to VmaAllocationCreateInfo::flags.
+
+![Double stack](../gfx/Linear_allocator_7_double_stack.png)
+
+Double stack is available only in pools with one memory block -
+VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
+
+When the two stacks' ends meet so there is not enough space between them for a
+new allocation, such allocation fails with usual
+`VK_ERROR_OUT_OF_DEVICE_MEMORY` error.
+
+\subsection linear_algorithm_ring_buffer Ring buffer
+
+When you free some allocations from the beginning and there is not enough free space
+for a new one at the end of a pool, allocator's "cursor" wraps around to the
+beginning and starts allocation there. Thanks to this, if you always release
+allocations in the same order as you created them (FIFO - First In First Out),
+you can achieve behavior of a ring buffer / queue.
+
+![Ring buffer](../gfx/Linear_allocator_5_ring_buffer.png)
+
+Pools with linear algorithm support [lost allocations](@ref lost_allocations) when used as ring buffer.
+If there is not enough free space for a new allocation, but existing allocations
+from the front of the queue can become lost, they become lost and the allocation
+succeeds.
+
+![Ring buffer with lost allocations](../gfx/Linear_allocator_6_ring_buffer_lost.png)
+
+Ring buffer is available only in pools with one memory block -
+VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
+
+\section buddy_algorithm Buddy allocation algorithm
+
+There is another allocation algorithm that can be used with custom pools, called
+"buddy". Its internal data structure is based on a tree of blocks, each having
+size that is a power of two and a half of its parent's size. When you want to
+allocate memory of certain size, a free node in the tree is located. If it's too
+large, it is recursively split into two halves (called "buddies"). However, if
+requested allocation size is not a power of two, the size of a tree node is
+aligned up to the nearest power of two and the remaining space is wasted. When
+two buddy nodes become free, they are merged back into one larger node.
+
+![Buddy allocator](../gfx/Buddy_allocator.png)
+
+The advantage of buddy allocation algorithm over default algorithm is faster
+allocation and deallocation, as well as smaller external fragmentation. The
+disadvantage is more wasted space (internal fragmentation).
+
+For more information, please read ["Buddy memory allocation" on Wikipedia](https://en.wikipedia.org/wiki/Buddy_memory_allocation)
+or other sources that describe this concept in general.
+
+To use buddy allocation algorithm with a custom pool, add flag
+#VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT to VmaPoolCreateInfo::flags while creating
+#VmaPool object.
+
+Several limitations apply to pools that use buddy algorithm:
+
+- It is recommended to use VmaPoolCreateInfo::blockSize that is a power of two.
+  Otherwise, only largest power of two smaller than the size is used for
+  allocations. The remaining space always stays unused.
+- [Margins](@ref debugging_memory_usage_margins) and
+  [corruption detection](@ref debugging_memory_usage_corruption_detection)
+  don't work in such pools.
+- [Lost allocations](@ref lost_allocations) don't work in such pools. You can
+  use them, but they never become lost. Support may be added in the future.
+- [Defragmentation](@ref defragmentation) doesn't work with allocations made from
+  such pool.
+
+\page defragmentation Defragmentation
+
+Interleaved allocations and deallocations of many objects of varying size can
+cause fragmentation over time, which can lead to a situation where the library is unable
+to find a continuous range of free memory for a new allocation despite there is
+enough free space, just scattered across many small free ranges between existing
+allocations.
+
+To mitigate this problem, you can use defragmentation feature:
+structure #VmaDefragmentationInfo2, function vmaDefragmentationBegin(), vmaDefragmentationEnd().
+Given set of allocations,
+this function can move them to compact used memory, ensure more continuous free
+space and possibly also free some `VkDeviceMemory` blocks.
+
+What the defragmentation does is:
+
+- Updates #VmaAllocation objects to point to new `VkDeviceMemory` and offset.
+  After allocation has been moved, its VmaAllocationInfo::deviceMemory and/or
+  VmaAllocationInfo::offset changes. You must query them again using
+  vmaGetAllocationInfo() if you need them.
+- Moves actual data in memory.
+
+What it doesn't do, so you need to do it yourself:
+
+- Recreate buffers and images that were bound to allocations that were defragmented and
+  bind them with their new places in memory.
+  You must use `vkDestroyBuffer()`, `vkDestroyImage()`,
+  `vkCreateBuffer()`, `vkCreateImage()`, vmaBindBufferMemory(), vmaBindImageMemory()
+  for that purpose and NOT vmaDestroyBuffer(),
+  vmaDestroyImage(), vmaCreateBuffer(), vmaCreateImage(), because you don't need to
+  destroy or create allocation objects!
+- Recreate views and update descriptors that point to these buffers and images.
+
+\section defragmentation_cpu Defragmenting CPU memory
+
+Following example demonstrates how you can run defragmentation on CPU.
+Only allocations created in memory types that are `HOST_VISIBLE` can be defragmented.
+Others are ignored.
+
+The way it works is:
+
+- It temporarily maps entire memory blocks when necessary.
+- It moves data using `memmove()` function.
+
+\code
+// Given following variables already initialized:
+VkDevice device;
+VmaAllocator allocator;
+std::vector<VkBuffer> buffers;
+std::vector<VmaAllocation> allocations;
+
+
+const uint32_t allocCount = (uint32_t)allocations.size();
+std::vector<VkBool32> allocationsChanged(allocCount);
+
+VmaDefragmentationInfo2 defragInfo = {};
+defragInfo.allocationCount = allocCount;
+defragInfo.pAllocations = allocations.data();
+defragInfo.pAllocationsChanged = allocationsChanged.data();
+defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE; // No limit.
+defragInfo.maxCpuAllocationsToMove = UINT32_MAX; // No limit.
+
+VmaDefragmentationContext defragCtx;
+vmaDefragmentationBegin(allocator, &defragInfo, nullptr, &defragCtx);
+vmaDefragmentationEnd(allocator, defragCtx);
+
+for(uint32_t i = 0; i < allocCount; ++i)
+{
+    if(allocationsChanged[i])
+    {
+        // Destroy buffer that is immutably bound to memory region which is no longer valid.
+        vkDestroyBuffer(device, buffers[i], nullptr);
+
+        // Create new buffer with same parameters.
+        VkBufferCreateInfo bufferInfo = ...;
+        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
+
+        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
+
+        // Bind new buffer to new memory region. Data contained in it is already moved.
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
+        vmaBindBufferMemory(allocator, allocations[i], buffers[i]);
+    }
+}
+\endcode
+
+Setting VmaDefragmentationInfo2::pAllocationsChanged is optional.
+This output array tells whether particular allocation in VmaDefragmentationInfo2::pAllocations at the same index
+has been modified during defragmentation.
+You can pass null, but you then need to query every allocation passed to defragmentation
+for new parameters using vmaGetAllocationInfo() if you might need to recreate and rebind a buffer or image associated with it.
+
+If you use [Custom memory pools](@ref choosing_memory_type_custom_memory_pools),
+you can fill VmaDefragmentationInfo2::poolCount and VmaDefragmentationInfo2::pPools
+instead of VmaDefragmentationInfo2::allocationCount and VmaDefragmentationInfo2::pAllocations
+to defragment all allocations in given pools.
+You cannot use VmaDefragmentationInfo2::pAllocationsChanged in that case.
+You can also combine both methods.
+
+\section defragmentation_gpu Defragmenting GPU memory
+
+It is also possible to defragment allocations created in memory types that are not `HOST_VISIBLE`.
+To do that, you need to pass a command buffer that meets requirements as described in
+VmaDefragmentationInfo2::commandBuffer. The way it works is:
+
+- It creates temporary buffers and binds them to entire memory blocks when necessary.
+- It issues `vkCmdCopyBuffer()` to passed command buffer.
+
+Example:
+
+\code
+// Given following variables already initialized:
+VkDevice device;
+VmaAllocator allocator;
+VkCommandBuffer commandBuffer;
+std::vector<VkBuffer> buffers;
+std::vector<VmaAllocation> allocations;
+
+
+const uint32_t allocCount = (uint32_t)allocations.size();
+std::vector<VkBool32> allocationsChanged(allocCount);
+
+VkCommandBufferBeginInfo cmdBufBeginInfo = ...;
+vkBeginCommandBuffer(commandBuffer, &cmdBufBeginInfo);
+
+VmaDefragmentationInfo2 defragInfo = {};
+defragInfo.allocationCount = allocCount;
+defragInfo.pAllocations = allocations.data();
+defragInfo.pAllocationsChanged = allocationsChanged.data();
+defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE; // Notice it's "GPU" this time.
+defragInfo.maxGpuAllocationsToMove = UINT32_MAX; // Notice it's "GPU" this time.
+defragInfo.commandBuffer = commandBuffer;
+
+VmaDefragmentationContext defragCtx;
+vmaDefragmentationBegin(allocator, &defragInfo, nullptr, &defragCtx);
+
+vkEndCommandBuffer(commandBuffer);
+
+// Submit commandBuffer.
+// Wait for a fence that ensures commandBuffer execution finished.
+
+vmaDefragmentationEnd(allocator, defragCtx);
+
+for(uint32_t i = 0; i < allocCount; ++i)
+{
+    if(allocationsChanged[i])
+    {
+        // Destroy buffer that is immutably bound to memory region which is no longer valid.
+        vkDestroyBuffer(device, buffers[i], nullptr);
+
+        // Create new buffer with same parameters.
+        VkBufferCreateInfo bufferInfo = ...;
+        vkCreateBuffer(device, &bufferInfo, nullptr, &buffers[i]);
+
+        // You can make dummy call to vkGetBufferMemoryRequirements here to silence validation layer warning.
+
+        // Bind new buffer to new memory region. Data contained in it is already moved.
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, allocations[i], &allocInfo);
+        vmaBindBufferMemory(allocator, allocations[i], buffers[i]);
+    }
+}
+\endcode
+
+You can combine these two methods by specifying non-zero `maxGpu*` as well as `maxCpu*` parameters.
+The library automatically chooses best method to defragment each memory pool.
+
+You may try not to block your entire program to wait until defragmentation finishes,
+but do it in the background, as long as you carefully fullfill requirements described
+in function vmaDefragmentationBegin().
+
+\section defragmentation_additional_notes Additional notes
+
+It is only legal to defragment allocations bound to:
+
+- buffers
+- images created with `VK_IMAGE_CREATE_ALIAS_BIT`, `VK_IMAGE_TILING_LINEAR`, and
+  being currently in `VK_IMAGE_LAYOUT_GENERAL` or `VK_IMAGE_LAYOUT_PREINITIALIZED`.
+
+Defragmentation of images created with `VK_IMAGE_TILING_OPTIMAL` or in any other
+layout may give undefined results.
+
+If you defragment allocations bound to images, new images to be bound to new
+memory region after defragmentation should be created with `VK_IMAGE_LAYOUT_PREINITIALIZED`
+and then transitioned to their original layout from before defragmentation if
+needed using an image memory barrier.
+
+While using defragmentation, you may experience validation layer warnings, which you just need to ignore.
+See [Validation layer warnings](@ref general_considerations_validation_layer_warnings).
+
+Please don't expect memory to be fully compacted after defragmentation.
+Algorithms inside are based on some heuristics that try to maximize number of Vulkan
+memory blocks to make totally empty to release them, as well as to maximize continuous
+empty space inside remaining blocks, while minimizing the number and size of allocations that
+need to be moved. Some fragmentation may still remain - this is normal.
+
+\section defragmentation_custom_algorithm Writing custom defragmentation algorithm
+
+If you want to implement your own, custom defragmentation algorithm,
+there is infrastructure prepared for that,
+but it is not exposed through the library API - you need to hack its source code.
+Here are steps needed to do this:
+
+-# Main thing you need to do is to define your own class derived from base abstract
+   class `VmaDefragmentationAlgorithm` and implement your version of its pure virtual methods.
+   See definition and comments of this class for details.
+-# Your code needs to interact with device memory block metadata.
+   If you need more access to its data than it's provided by its public interface,
+   declare your new class as a friend class e.g. in class `VmaBlockMetadata_Generic`.
+-# If you want to create a flag that would enable your algorithm or pass some additional
+   flags to configure it, add them to `VmaDefragmentationFlagBits` and use them in
+   VmaDefragmentationInfo2::flags.
+-# Modify function `VmaBlockVectorDefragmentationContext::Begin` to create object
+   of your new class whenever needed.
+
+
+\page lost_allocations Lost allocations
+
+If your game oversubscribes video memory, if may work OK in previous-generation
+graphics APIs (DirectX 9, 10, 11, OpenGL) because resources are automatically
+paged to system RAM. In Vulkan you can't do it because when you run out of
+memory, an allocation just fails. If you have more data (e.g. textures) that can
+fit into VRAM and you don't need it all at once, you may want to upload them to
+GPU on demand and "push out" ones that are not used for a long time to make room
+for the new ones, effectively using VRAM (or a cartain memory pool) as a form of
+cache. Vulkan Memory Allocator can help you with that by supporting a concept of
+"lost allocations".
+
+To create an allocation that can become lost, include #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT
+flag in VmaAllocationCreateInfo::flags. Before using a buffer or image bound to
+such allocation in every new frame, you need to query it if it's not lost.
+To check it, call vmaTouchAllocation().
+If the allocation is lost, you should not use it or buffer/image bound to it.
+You mustn't forget to destroy this allocation and this buffer/image.
+vmaGetAllocationInfo() can also be used for checking status of the allocation.
+Allocation is lost when returned VmaAllocationInfo::deviceMemory == `VK_NULL_HANDLE`.
+
+To create an allocation that can make some other allocations lost to make room
+for it, use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag. You will
+usually use both flags #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT and
+#VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT at the same time.
+
+Warning! Current implementation uses quite naive, brute force algorithm,
+which can make allocation calls that use #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT
+flag quite slow. A new, more optimal algorithm and data structure to speed this
+up is planned for the future.
+
+<b>Q: When interleaving creation of new allocations with usage of existing ones,
+how do you make sure that an allocation won't become lost while it's used in the
+current frame?</b>
+
+It is ensured because vmaTouchAllocation() / vmaGetAllocationInfo() not only returns allocation
+status/parameters and checks whether it's not lost, but when it's not, it also
+atomically marks it as used in the current frame, which makes it impossible to
+become lost in that frame. It uses lockless algorithm, so it works fast and
+doesn't involve locking any internal mutex.
+
+<b>Q: What if my allocation may still be in use by the GPU when it's rendering a
+previous frame while I already submit new frame on the CPU?</b>
+
+You can make sure that allocations "touched" by vmaTouchAllocation() / vmaGetAllocationInfo() will not
+become lost for a number of additional frames back from the current one by
+specifying this number as VmaAllocatorCreateInfo::frameInUseCount (for default
+memory pool) and VmaPoolCreateInfo::frameInUseCount (for custom pool).
+
+<b>Q: How do you inform the library when new frame starts?</b>
+
+You need to call function vmaSetCurrentFrameIndex().
+
+Example code:
+
+\code
+struct MyBuffer
+{
+    VkBuffer m_Buf = nullptr;
+    VmaAllocation m_Alloc = nullptr;
+
+    // Called when the buffer is really needed in the current frame.
+    void EnsureBuffer();
+};
+
+void MyBuffer::EnsureBuffer()
+{
+    // Buffer has been created.
+    if(m_Buf != VK_NULL_HANDLE)
+    {
+        // Check if its allocation is not lost + mark it as used in current frame.
+        if(vmaTouchAllocation(allocator, m_Alloc))
+        {
+            // It's all OK - safe to use m_Buf.
+            return;
+        }
+    }
+
+    // Buffer not yet exists or lost - destroy and recreate it.
+
+    vmaDestroyBuffer(allocator, m_Buf, m_Alloc);
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 1024;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
+        VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
+
+    vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &m_Buf, &m_Alloc, nullptr);
+}
+\endcode
+
+When using lost allocations, you may see some Vulkan validation layer warnings
+about overlapping regions of memory bound to different kinds of buffers and
+images. This is still valid as long as you implement proper handling of lost
+allocations (like in the example above) and don't use them.
+
+You can create an allocation that is already in lost state from the beginning using function
+vmaCreateLostAllocation(). It may be useful if you need a "dummy" allocation that is not null.
+
+You can call function vmaMakePoolAllocationsLost() to set all eligible allocations
+in a specified custom pool to lost state.
+Allocations that have been "touched" in current frame or VmaPoolCreateInfo::frameInUseCount frames back
+cannot become lost.
+
+<b>Q: Can I touch allocation that cannot become lost?</b>
+
+Yes, although it has no visible effect.
+Calls to vmaGetAllocationInfo() and vmaTouchAllocation() update last use frame index
+also for allocations that cannot become lost, but the only way to observe it is to dump
+internal allocator state using vmaBuildStatsString().
+You can use this feature for debugging purposes to explicitly mark allocations that you use
+in current frame and then analyze JSON dump to see for how long each allocation stays unused.
+
+
+\page statistics Statistics
+
+This library contains functions that return information about its internal state,
+especially the amount of memory allocated from Vulkan.
+Please keep in mind that these functions need to traverse all internal data structures
+to gather these information, so they may be quite time-consuming.
+Don't call them too often.
+
+\section statistics_numeric_statistics Numeric statistics
+
+You can query for overall statistics of the allocator using function vmaCalculateStats().
+Information are returned using structure #VmaStats.
+It contains #VmaStatInfo - number of allocated blocks, number of allocations
+(occupied ranges in these blocks), number of unused (free) ranges in these blocks,
+number of bytes used and unused (but still allocated from Vulkan) and other information.
+They are summed across memory heaps, memory types and total for whole allocator.
+
+You can query for statistics of a custom pool using function vmaGetPoolStats().
+Information are returned using structure #VmaPoolStats.
+
+You can query for information about specific allocation using function vmaGetAllocationInfo().
+It fill structure #VmaAllocationInfo.
+
+\section statistics_json_dump JSON dump
+
+You can dump internal state of the allocator to a string in JSON format using function vmaBuildStatsString().
+The result is guaranteed to be correct JSON.
+It uses ANSI encoding.
+Any strings provided by user (see [Allocation names](@ref allocation_names))
+are copied as-is and properly escaped for JSON, so if they use UTF-8, ISO-8859-2 or any other encoding,
+this JSON string can be treated as using this encoding.
+It must be freed using function vmaFreeStatsString().
+
+The format of this JSON string is not part of official documentation of the library,
+but it will not change in backward-incompatible way without increasing library major version number
+and appropriate mention in changelog.
+
+The JSON string contains all the data that can be obtained using vmaCalculateStats().
+It can also contain detailed map of allocated memory blocks and their regions -
+free and occupied by allocations.
+This allows e.g. to visualize the memory or assess fragmentation.
+
+
+\page allocation_annotation Allocation names and user data
+
+\section allocation_user_data Allocation user data
+
+You can annotate allocations with your own information, e.g. for debugging purposes.
+To do that, fill VmaAllocationCreateInfo::pUserData field when creating
+an allocation. It's an opaque `void*` pointer. You can use it e.g. as a pointer,
+some handle, index, key, ordinal number or any other value that would associate
+the allocation with your custom metadata.
+
+\code
+VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+// Fill bufferInfo...
+
+MyBufferMetadata* pMetadata = CreateBufferMetadata();
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+allocCreateInfo.pUserData = pMetadata;
+
+VkBuffer buffer;
+VmaAllocation allocation;
+vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr);
+\endcode
+
+The pointer may be later retrieved as VmaAllocationInfo::pUserData:
+
+\code
+VmaAllocationInfo allocInfo;
+vmaGetAllocationInfo(allocator, allocation, &allocInfo);
+MyBufferMetadata* pMetadata = (MyBufferMetadata*)allocInfo.pUserData;
+\endcode
+
+It can also be changed using function vmaSetAllocationUserData().
+
+Values of (non-zero) allocations' `pUserData` are printed in JSON report created by
+vmaBuildStatsString(), in hexadecimal form.
+
+\section allocation_names Allocation names
+
+There is alternative mode available where `pUserData` pointer is used to point to
+a null-terminated string, giving a name to the allocation. To use this mode,
+set #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT flag in VmaAllocationCreateInfo::flags.
+Then `pUserData` passed as VmaAllocationCreateInfo::pUserData or argument to
+vmaSetAllocationUserData() must be either null or pointer to a null-terminated string.
+The library creates internal copy of the string, so the pointer you pass doesn't need
+to be valid for whole lifetime of the allocation. You can free it after the call.
+
+\code
+VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+// Fill imageInfo...
+
+std::string imageName = "Texture: ";
+imageName += fileName;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+allocCreateInfo.pUserData = imageName.c_str();
+
+VkImage image;
+VmaAllocation allocation;
+vmaCreateImage(allocator, &imageInfo, &allocCreateInfo, &image, &allocation, nullptr);
+\endcode
+
+The value of `pUserData` pointer of the allocation will be different than the one
+you passed when setting allocation's name - pointing to a buffer managed
+internally that holds copy of the string.
+
+\code
+VmaAllocationInfo allocInfo;
+vmaGetAllocationInfo(allocator, allocation, &allocInfo);
+const char* imageName = (const char*)allocInfo.pUserData;
+printf("Image name: %s\n", imageName);
+\endcode
+
+That string is also printed in JSON report created by vmaBuildStatsString().
+
+\note Passing string name to VMA allocation doesn't automatically set it to the Vulkan buffer or image created with it.
+You must do it manually using an extension like VK_EXT_debug_utils, which is independent of this library.
+
+
+\page debugging_memory_usage Debugging incorrect memory usage
+
+If you suspect a bug with memory usage, like usage of uninitialized memory or
+memory being overwritten out of bounds of an allocation,
+you can use debug features of this library to verify this.
+
+\section debugging_memory_usage_initialization Memory initialization
+
+If you experience a bug with incorrect and nondeterministic data in your program and you suspect uninitialized memory to be used,
+you can enable automatic memory initialization to verify this.
+To do it, define macro `VMA_DEBUG_INITIALIZE_ALLOCATIONS` to 1.
+
+\code
+#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+#include "vk_mem_alloc.h"
+\endcode
+
+It makes memory of all new allocations initialized to bit pattern `0xDCDCDCDC`.
+Before an allocation is destroyed, its memory is filled with bit pattern `0xEFEFEFEF`.
+Memory is automatically mapped and unmapped if necessary.
+
+If you find these values while debugging your program, good chances are that you incorrectly
+read Vulkan memory that is allocated but not initialized, or already freed, respectively.
+
+Memory initialization works only with memory types that are `HOST_VISIBLE`.
+It works also with dedicated allocations.
+It doesn't work with allocations created with #VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag,
+as they cannot be mapped.
+
+\section debugging_memory_usage_margins Margins
+
+By default, allocations are laid out in memory blocks next to each other if possible
+(considering required alignment, `bufferImageGranularity`, and `nonCoherentAtomSize`).
+
+![Allocations without margin](../gfx/Margins_1.png)
+
+Define macro `VMA_DEBUG_MARGIN` to some non-zero value (e.g. 16) to enforce specified
+number of bytes as a margin before and after every allocation.
+
+\code
+#define VMA_DEBUG_MARGIN 16
+#include "vk_mem_alloc.h"
+\endcode
+
+![Allocations with margin](../gfx/Margins_2.png)
+
+If your bug goes away after enabling margins, it means it may be caused by memory
+being overwritten outside of allocation boundaries. It is not 100% certain though.
+Change in application behavior may also be caused by different order and distribution
+of allocations across memory blocks after margins are applied.
+
+The margin is applied also before first and after last allocation in a block.
+It may occur only once between two adjacent allocations.
+
+Margins work with all types of memory.
+
+Margin is applied only to allocations made out of memory blocks and not to dedicated
+allocations, which have their own memory block of specific size.
+It is thus not applied to allocations made using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag
+or those automatically decided to put into dedicated allocations, e.g. due to its
+large size or recommended by VK_KHR_dedicated_allocation extension.
+Margins are also not active in custom pools created with #VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT flag.
+
+Margins appear in [JSON dump](@ref statistics_json_dump) as part of free space.
+
+Note that enabling margins increases memory usage and fragmentation.
+
+\section debugging_memory_usage_corruption_detection Corruption detection
+
+You can additionally define macro `VMA_DEBUG_DETECT_CORRUPTION` to 1 to enable validation
+of contents of the margins.
+
+\code
+#define VMA_DEBUG_MARGIN 16
+#define VMA_DEBUG_DETECT_CORRUPTION 1
+#include "vk_mem_alloc.h"
+\endcode
+
+When this feature is enabled, number of bytes specified as `VMA_DEBUG_MARGIN`
+(it must be multiply of 4) before and after every allocation is filled with a magic number.
+This idea is also know as "canary".
+Memory is automatically mapped and unmapped if necessary.
+
+This number is validated automatically when the allocation is destroyed.
+If it's not equal to the expected value, `VMA_ASSERT()` is executed.
+It clearly means that either CPU or GPU overwritten the memory outside of boundaries of the allocation,
+which indicates a serious bug.
+
+You can also explicitly request checking margins of all allocations in all memory blocks
+that belong to specified memory types by using function vmaCheckCorruption(),
+or in memory blocks that belong to specified custom pool, by using function
+vmaCheckPoolCorruption().
+
+Margin validation (corruption detection) works only for memory types that are
+`HOST_VISIBLE` and `HOST_COHERENT`.
+
+
+\page record_and_replay Record and replay
+
+\section record_and_replay_introduction Introduction
+
+While using the library, sequence of calls to its functions together with their
+parameters can be recorded to a file and later replayed using standalone player
+application. It can be useful to:
+
+- Test correctness - check if same sequence of calls will not cause crash or
+  failures on a target platform.
+- Gather statistics - see number of allocations, peak memory usage, number of
+  calls etc.
+- Benchmark performance - see how much time it takes to replay the whole
+  sequence.
+
+\section record_and_replay_usage Usage
+
+Recording functionality is disabled by default.
+To enable it, define following macro before every include of this library:
+
+\code
+#define VMA_RECORDING_ENABLED 1
+\endcode
+
+<b>To record sequence of calls to a file:</b> Fill in
+VmaAllocatorCreateInfo::pRecordSettings member while creating #VmaAllocator
+object. File is opened and written during whole lifetime of the allocator.
+
+<b>To replay file:</b> Use VmaReplay - standalone command-line program.
+Precompiled binary can be found in "bin" directory.
+Its source can be found in "src/VmaReplay" directory.
+Its project is generated by Premake.
+Command line syntax is printed when the program is launched without parameters.
+Basic usage:
+
+    VmaReplay.exe MyRecording.csv
+
+<b>Documentation of file format</b> can be found in file: "docs/Recording file format.md".
+It's a human-readable, text file in CSV format (Comma Separated Values).
+
+\section record_and_replay_additional_considerations Additional considerations
+
+- Replaying file that was recorded on a different GPU (with different parameters
+  like `bufferImageGranularity`, `nonCoherentAtomSize`, and especially different
+  set of memory heaps and types) may give different performance and memory usage
+  results, as well as issue some warnings and errors.
+- Current implementation of recording in VMA, as well as VmaReplay application, is
+  coded and tested only on Windows. Inclusion of recording code is driven by
+  `VMA_RECORDING_ENABLED` macro. Support for other platforms should be easy to
+  add. Contributions are welcomed.
+
+
+\page usage_patterns Recommended usage patterns
+
+See also slides from talk:
+[Sawicki, Adam. Advanced Graphics Techniques Tutorial: Memory management in Vulkan and DX12. Game Developers Conference, 2018](https://www.gdcvault.com/play/1025458/Advanced-Graphics-Techniques-Tutorial-New)
+
+
+\section usage_patterns_common_mistakes Common mistakes
+
+<b>Use of CPU_TO_GPU instead of CPU_ONLY memory</b>
+
+#VMA_MEMORY_USAGE_CPU_TO_GPU is recommended only for resources that will be
+mapped and written by the CPU, as well as read directly by the GPU - like some
+buffers or textures updated every frame (dynamic). If you create a staging copy
+of a resource to be written by CPU and then used as a source of transfer to
+another resource placed in the GPU memory, that staging resource should be
+created with #VMA_MEMORY_USAGE_CPU_ONLY. Please read the descriptions of these
+enums carefully for details.
+
+<b>Unnecessary use of custom pools</b>
+
+\ref custom_memory_pools may be useful for special purposes - when you want to
+keep certain type of resources separate e.g. to reserve minimum amount of memory
+for them, limit maximum amount of memory they can occupy, or make some of them
+push out the other through the mechanism of \ref lost_allocations. For most
+resources this is not needed and so it is not recommended to create #VmaPool
+objects and allocations out of them. Allocating from the default pool is sufficient.
+
+\section usage_patterns_simple Simple patterns
+
+\subsection usage_patterns_simple_render_targets Render targets
+
+<b>When:</b>
+Any resources that you frequently write and read on GPU,
+e.g. images used as color attachments (aka "render targets"), depth-stencil attachments,
+images/buffers used as storage image/buffer (aka "Unordered Access View (UAV)").
+
+<b>What to do:</b>
+Create them in video memory that is fastest to access from GPU using
+#VMA_MEMORY_USAGE_GPU_ONLY.
+
+Consider using [VK_KHR_dedicated_allocation](@ref vk_khr_dedicated_allocation) extension
+and/or manually creating them as dedicated allocations using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+especially if they are large or if you plan to destroy and recreate them e.g. when
+display resolution changes.
+Prefer to create such resources first and all other GPU resources (like textures and vertex buffers) later.
+
+\subsection usage_patterns_simple_immutable_resources Immutable resources
+
+<b>When:</b>
+Any resources that you fill on CPU only once (aka "immutable") or infrequently
+and then read frequently on GPU,
+e.g. textures, vertex and index buffers, constant buffers that don't change often.
+
+<b>What to do:</b>
+Create them in video memory that is fastest to access from GPU using
+#VMA_MEMORY_USAGE_GPU_ONLY.
+
+To initialize content of such resource, create a CPU-side (aka "staging") copy of it
+in system memory - #VMA_MEMORY_USAGE_CPU_ONLY, map it, fill it,
+and submit a transfer from it to the GPU resource.
+You can keep the staging copy if you need it for another upload transfer in the future.
+If you don't, you can destroy it or reuse this buffer for uploading different resource
+after the transfer finishes.
+
+Prefer to create just buffers in system memory rather than images, even for uploading textures.
+Use `vkCmdCopyBufferToImage()`.
+Dont use images with `VK_IMAGE_TILING_LINEAR`.
+
+\subsection usage_patterns_dynamic_resources Dynamic resources
+
+<b>When:</b>
+Any resources that change frequently (aka "dynamic"), e.g. every frame or every draw call,
+written on CPU, read on GPU.
+
+<b>What to do:</b>
+Create them using #VMA_MEMORY_USAGE_CPU_TO_GPU.
+You can map it and write to it directly on CPU, as well as read from it on GPU.
+
+This is a more complex situation. Different solutions are possible,
+and the best one depends on specific GPU type, but you can use this simple approach for the start.
+Prefer to write to such resource sequentially (e.g. using `memcpy`).
+Don't perform random access or any reads from it on CPU, as it may be very slow.
+Also note that textures written directly from the host through a mapped pointer need to be in LINEAR not OPTIMAL layout.
+
+\subsection usage_patterns_readback Readback
+
+<b>When:</b>
+Resources that contain data written by GPU that you want to read back on CPU,
+e.g. results of some computations.
+
+<b>What to do:</b>
+Create them using #VMA_MEMORY_USAGE_GPU_TO_CPU.
+You can write to them directly on GPU, as well as map and read them on CPU.
+
+\section usage_patterns_advanced Advanced patterns
+
+\subsection usage_patterns_integrated_graphics Detecting integrated graphics
+
+You can support integrated graphics (like Intel HD Graphics, AMD APU) better
+by detecting it in Vulkan.
+To do it, call `vkGetPhysicalDeviceProperties()`, inspect
+`VkPhysicalDeviceProperties::deviceType` and look for `VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU`.
+When you find it, you can assume that memory is unified and all memory types are comparably fast
+to access from GPU, regardless of `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT`.
+
+You can then sum up sizes of all available memory heaps and treat them as useful for
+your GPU resources, instead of only `DEVICE_LOCAL` ones.
+You can also prefer to create your resources in memory types that are `HOST_VISIBLE` to map them
+directly instead of submitting explicit transfer (see below).
+
+\subsection usage_patterns_direct_vs_transfer Direct access versus transfer
+
+For resources that you frequently write on CPU and read on GPU, many solutions are possible:
+
+-# Create one copy in video memory using #VMA_MEMORY_USAGE_GPU_ONLY,
+   second copy in system memory using #VMA_MEMORY_USAGE_CPU_ONLY and submit explicit transfer each time.
+-# Create just a single copy using #VMA_MEMORY_USAGE_CPU_TO_GPU, map it and fill it on CPU,
+   read it directly on GPU.
+-# Create just a single copy using #VMA_MEMORY_USAGE_CPU_ONLY, map it and fill it on CPU,
+   read it directly on GPU.
+
+Which solution is the most efficient depends on your resource and especially on the GPU.
+It is best to measure it and then make the decision.
+Some general recommendations:
+
+- On integrated graphics use (2) or (3) to avoid unnecessary time and memory overhead
+  related to using a second copy and making transfer.
+- For small resources (e.g. constant buffers) use (2).
+  Discrete AMD cards have special 256 MiB pool of video memory that is directly mappable.
+  Even if the resource ends up in system memory, its data may be cached on GPU after first
+  fetch over PCIe bus.
+- For larger resources (e.g. textures), decide between (1) and (2).
+  You may want to differentiate NVIDIA and AMD, e.g. by looking for memory type that is
+  both `DEVICE_LOCAL` and `HOST_VISIBLE`. When you find it, use (2), otherwise use (1).
+
+Similarly, for resources that you frequently write on GPU and read on CPU, multiple
+solutions are possible:
+
+-# Create one copy in video memory using #VMA_MEMORY_USAGE_GPU_ONLY,
+   second copy in system memory using #VMA_MEMORY_USAGE_GPU_TO_CPU and submit explicit tranfer each time.
+-# Create just single copy using #VMA_MEMORY_USAGE_GPU_TO_CPU, write to it directly on GPU,
+   map it and read it on CPU.
+
+You should take some measurements to decide which option is faster in case of your specific
+resource.
+
+Note that textures accessed directly from the host through a mapped pointer need to be in LINEAR layout,
+which may slow down their usage on the device.
+Textures accessed only by the device and transfer operations can use OPTIMAL layout.
+
+If you don't want to specialize your code for specific types of GPUs, you can still make
+an simple optimization for cases when your resource ends up in mappable memory to use it
+directly in this case instead of creating CPU-side staging copy.
+For details see [Finding out if memory is mappable](@ref memory_mapping_finding_if_memory_mappable).
+
+
+\page configuration Configuration
+
+Please check "CONFIGURATION SECTION" in the code to find macros that you can define
+before each include of this file or change directly in this file to provide
+your own implementation of basic facilities like assert, `min()` and `max()` functions,
+mutex, atomic etc.
+The library uses its own implementation of containers by default, but you can switch to using
+STL containers instead.
+
+For example, define `VMA_ASSERT(expr)` before including the library to provide
+custom implementation of the assertion, compatible with your project.
+By default it is defined to standard C `assert(expr)` in `_DEBUG` configuration
+and empty otherwise.
+
+\section config_Vulkan_functions Pointers to Vulkan functions
+
+There are multiple ways to import pointers to Vulkan functions in the library.
+In the simplest case you don't need to do anything.
+If the compilation or linking of your program or the initialization of the #VmaAllocator
+doesn't work for you, you can try to reconfigure it.
+
+First, the allocator tries to fetch pointers to Vulkan functions linked statically,
+like this:
+
+\code
+m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
+\endcode
+
+If you want to disable this feature, set configuration macro: `#define VMA_STATIC_VULKAN_FUNCTIONS 0`.
+
+Second, you can provide the pointers yourself by setting member VmaAllocatorCreateInfo::pVulkanFunctions.
+You can fetch them e.g. using functions `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` or
+by using a helper library like [volk](https://github.com/zeux/volk).
+
+Third, VMA tries to fetch remaining pointers that are still null by calling
+`vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` on its own.
+If you want to disable this feature, set configuration macro: `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0`.
+
+Finally, all the function pointers required by the library (considering selected
+Vulkan version and enabled extensions) are checked with `VMA_ASSERT` if they are not null.
+
+
+\section custom_memory_allocator Custom host memory allocator
+
+If you use custom allocator for CPU memory rather than default operator `new`
+and `delete` from C++, you can make this library using your allocator as well
+by filling optional member VmaAllocatorCreateInfo::pAllocationCallbacks. These
+functions will be passed to Vulkan, as well as used by the library itself to
+make any CPU-side allocations.
+
+\section allocation_callbacks Device memory allocation callbacks
+
+The library makes calls to `vkAllocateMemory()` and `vkFreeMemory()` internally.
+You can setup callbacks to be informed about these calls, e.g. for the purpose
+of gathering some statistics. To do it, fill optional member
+VmaAllocatorCreateInfo::pDeviceMemoryCallbacks.
+
+\section heap_memory_limit Device heap memory limit
+
+When device memory of certain heap runs out of free space, new allocations may
+fail (returning error code) or they may succeed, silently pushing some existing
+memory blocks from GPU VRAM to system RAM (which degrades performance). This
+behavior is implementation-dependent - it depends on GPU vendor and graphics
+driver.
+
+On AMD cards it can be controlled while creating Vulkan device object by using
+VK_AMD_memory_overallocation_behavior extension, if available.
+
+Alternatively, if you want to test how your program behaves with limited amount of Vulkan device
+memory available without switching your graphics card to one that really has
+smaller VRAM, you can use a feature of this library intended for this purpose.
+To do it, fill optional member VmaAllocatorCreateInfo::pHeapSizeLimit.
+
+
+
+\page vk_khr_dedicated_allocation VK_KHR_dedicated_allocation
+
+VK_KHR_dedicated_allocation is a Vulkan extension which can be used to improve
+performance on some GPUs. It augments Vulkan API with possibility to query
+driver whether it prefers particular buffer or image to have its own, dedicated
+allocation (separate `VkDeviceMemory` block) for better efficiency - to be able
+to do some internal optimizations.
+
+The extension is supported by this library. It will be used automatically when
+enabled. To enable it:
+
+1 . When creating Vulkan device, check if following 2 device extensions are
+supported (call `vkEnumerateDeviceExtensionProperties()`).
+If yes, enable them (fill `VkDeviceCreateInfo::ppEnabledExtensionNames`).
+
+- VK_KHR_get_memory_requirements2
+- VK_KHR_dedicated_allocation
+
+If you enabled these extensions:
+
+2 . Use #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag when creating
+your #VmaAllocator`to inform the library that you enabled required extensions
+and you want the library to use them.
+
+\code
+allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+
+vmaCreateAllocator(&allocatorInfo, &allocator);
+\endcode
+
+That's all. The extension will be automatically used whenever you create a
+buffer using vmaCreateBuffer() or image using vmaCreateImage().
+
+When using the extension together with Vulkan Validation Layer, you will receive
+warnings like this:
+
+    vkBindBufferMemory(): Binding memory to buffer 0x33 but vkGetBufferMemoryRequirements() has not been called on that buffer.
+
+It is OK, you should just ignore it. It happens because you use function
+`vkGetBufferMemoryRequirements2KHR()` instead of standard
+`vkGetBufferMemoryRequirements()`, while the validation layer seems to be
+unaware of it.
+
+To learn more about this extension, see:
+
+- [VK_KHR_dedicated_allocation in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap50.html#VK_KHR_dedicated_allocation)
+- [VK_KHR_dedicated_allocation unofficial manual](http://asawicki.info/articles/VK_KHR_dedicated_allocation.php5)
+
+
+
+\page vk_amd_device_coherent_memory VK_AMD_device_coherent_memory
+
+VK_AMD_device_coherent_memory is a device extension that enables access to
+additional memory types with `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` and
+`VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD` flag. It is useful mostly for
+allocation of buffers intended for writing "breadcrumb markers" in between passes
+or draw calls, which in turn are useful for debugging GPU crash/hang/TDR cases.
+
+When the extension is available but has not been enabled, Vulkan physical device
+still exposes those memory types, but their usage is forbidden. VMA automatically
+takes care of that - it returns `VK_ERROR_FEATURE_NOT_PRESENT` when an attempt
+to allocate memory of such type is made.
+
+If you want to use this extension in connection with VMA, follow these steps:
+
+\section vk_amd_device_coherent_memory_initialization Initialization
+
+1) Call `vkEnumerateDeviceExtensionProperties` for the physical device.
+Check if the extension is supported - if returned array of `VkExtensionProperties` contains "VK_AMD_device_coherent_memory".
+
+2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
+Attach additional structure `VkPhysicalDeviceCoherentMemoryFeaturesAMD` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
+Check if the device feature is really supported - check if `VkPhysicalDeviceCoherentMemoryFeaturesAMD::deviceCoherentMemory` is true.
+
+3) While creating device with `vkCreateDevice`, enable this extension - add "VK_AMD_device_coherent_memory"
+to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
+
+4) While creating the device, also don't set `VkDeviceCreateInfo::pEnabledFeatures`.
+Fill in `VkPhysicalDeviceFeatures2` structure instead and pass it as `VkDeviceCreateInfo::pNext`.
+Enable this device feature - attach additional structure `VkPhysicalDeviceCoherentMemoryFeaturesAMD` to
+`VkPhysicalDeviceFeatures2::pNext` and set its member `deviceCoherentMemory` to `VK_TRUE`.
+
+5) While creating #VmaAllocator with vmaCreateAllocator() inform VMA that you
+have enabled this extension and feature - add #VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT
+to VmaAllocatorCreateInfo::flags.
+
+\section vk_amd_device_coherent_memory_usage Usage
+
+After following steps described above, you can create VMA allocations and custom pools
+out of the special `DEVICE_COHERENT` and `DEVICE_UNCACHED` memory types on eligible
+devices. There are multiple ways to do it, for example:
+
+- You can request or prefer to allocate out of such memory types by adding
+  `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` to VmaAllocationCreateInfo::requiredFlags
+  or VmaAllocationCreateInfo::preferredFlags. Those flags can be freely mixed with
+  other ways of \ref choosing_memory_type, like setting VmaAllocationCreateInfo::usage.
+- If you manually found memory type index to use for this purpose, force allocation
+  from this specific index by setting VmaAllocationCreateInfo::memoryTypeBits `= 1u << index`.
+
+\section vk_amd_device_coherent_memory_more_information More information
+
+To learn more about this extension, see [VK_AMD_device_coherent_memory in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap44.html#VK_AMD_device_coherent_memory)
+
+Example use of this extension can be found in the code of the sample and test suite
+accompanying this library.
+
+
+\page enabling_buffer_device_address Enabling buffer device address
+
+Device extension VK_KHR_buffer_device_address
+allow to fetch raw GPU pointer to a buffer and pass it for usage in a shader code.
+It is promoted to core Vulkan 1.2.
+
+If you want to use this feature in connection with VMA, follow these steps:
+
+\section enabling_buffer_device_address_initialization Initialization
+
+1) (For Vulkan version < 1.2) Call `vkEnumerateDeviceExtensionProperties` for the physical device.
+Check if the extension is supported - if returned array of `VkExtensionProperties` contains
+"VK_KHR_buffer_device_address".
+
+2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
+Attach additional structure `VkPhysicalDeviceBufferDeviceAddressFeatures*` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
+Check if the device feature is really supported - check if `VkPhysicalDeviceBufferDeviceAddressFeatures*::bufferDeviceAddress` is true.
+
+3) (For Vulkan version < 1.2) While creating device with `vkCreateDevice`, enable this extension - add
+"VK_KHR_buffer_device_address" to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
+
+4) While creating the device, also don't set `VkDeviceCreateInfo::pEnabledFeatures`.
+Fill in `VkPhysicalDeviceFeatures2` structure instead and pass it as `VkDeviceCreateInfo::pNext`.
+Enable this device feature - attach additional structure `VkPhysicalDeviceBufferDeviceAddressFeatures*` to
+`VkPhysicalDeviceFeatures2::pNext` and set its member `bufferDeviceAddress` to `VK_TRUE`.
+
+5) While creating #VmaAllocator with vmaCreateAllocator() inform VMA that you
+have enabled this feature - add #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
+to VmaAllocatorCreateInfo::flags.
+
+\section enabling_buffer_device_address_usage Usage
+
+After following steps described above, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*` using VMA.
+The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT*` to
+allocated memory blocks wherever it might be needed.
+
+Please note that the library supports only `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT*`.
+The second part of this functionality related to "capture and replay" is not supported,
+as it is intended for usage in debugging tools like RenderDoc, not in everyday Vulkan usage.
+
+\section enabling_buffer_device_address_more_information More information
+
+To learn more about this extension, see [VK_KHR_buffer_device_address in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap46.html#VK_KHR_buffer_device_address)
+
+Example use of this extension can be found in the code of the sample and test suite
+accompanying this library.
+
+\page general_considerations General considerations
+
+\section general_considerations_thread_safety Thread safety
+
+- The library has no global state, so separate #VmaAllocator objects can be used
+  independently.
+  There should be no need to create multiple such objects though - one per `VkDevice` is enough.
+- By default, all calls to functions that take #VmaAllocator as first parameter
+  are safe to call from multiple threads simultaneously because they are
+  synchronized internally when needed.
+- When the allocator is created with #VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
+  flag, calls to functions that take such #VmaAllocator object must be
+  synchronized externally.
+- Access to a #VmaAllocation object must be externally synchronized. For example,
+  you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
+  threads at the same time if you pass the same #VmaAllocation object to these
+  functions.
+
+\section general_considerations_validation_layer_warnings Validation layer warnings
+
+When using this library, you can meet following types of warnings issued by
+Vulkan validation layer. They don't necessarily indicate a bug, so you may need
+to just ignore them.
+
+- *vkBindBufferMemory(): Binding memory to buffer 0xeb8e4 but vkGetBufferMemoryRequirements() has not been called on that buffer.*
+  - It happens when VK_KHR_dedicated_allocation extension is enabled.
+    `vkGetBufferMemoryRequirements2KHR` function is used instead, while validation layer seems to be unaware of it.
+- *Mapping an image with layout VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL can result in undefined behavior if this memory is used by the device. Only GENERAL or PREINITIALIZED should be used.*
+  - It happens when you map a buffer or image, because the library maps entire
+    `VkDeviceMemory` block, where different types of images and buffers may end
+    up together, especially on GPUs with unified memory like Intel.
+- *Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.*
+  - It happens when you use lost allocations, and a new image or buffer is
+    created in place of an existing object that became lost.
+  - It may happen also when you use [defragmentation](@ref defragmentation).
+
+\section general_considerations_allocation_algorithm Allocation algorithm
+
+The library uses following algorithm for allocation, in order:
+
+-# Try to find free range of memory in existing blocks.
+-# If failed, try to create a new block of `VkDeviceMemory`, with preferred block size.
+-# If failed, try to create such block with size/2, size/4, size/8.
+-# If failed and #VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT flag was
+   specified, try to find space in existing blocks, possilby making some other
+   allocations lost.
+-# If failed, try to allocate separate `VkDeviceMemory` for this allocation,
+   just like when you use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
+-# If failed, choose other memory type that meets the requirements specified in
+   VmaAllocationCreateInfo and go to point 1.
+-# If failed, return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+
+\section general_considerations_features_not_supported Features not supported
+
+Features deliberately excluded from the scope of this library:
+
+- **Data transfer.** Uploading (streaming) and downloading data of buffers and images
+  between CPU and GPU memory and related synchronization is responsibility of the user.
+  Defining some "texture" object that would automatically stream its data from a
+  staging copy in CPU memory to GPU memory would rather be a feature of another,
+  higher-level library implemented on top of VMA.
+- **Recreation of buffers and images.** Although the library has functions for
+  buffer and image creation (vmaCreateBuffer(), vmaCreateImage()), you need to
+  recreate these objects yourself after defragmentation. That's because the big
+  structures `VkBufferCreateInfo`, `VkImageCreateInfo` are not stored in
+  #VmaAllocation object.
+- **Handling CPU memory allocation failures.** When dynamically creating small C++
+  objects in CPU memory (not Vulkan memory), allocation failures are not checked
+  and handled gracefully, because that would complicate code significantly and
+  is usually not needed in desktop PC applications anyway.
+  Success of an allocation is just checked with an assert.
+- **Code free of any compiler warnings.** Maintaining the library to compile and
+  work correctly on so many different platforms is hard enough. Being free of
+  any warnings, on any version of any compiler, is simply not feasible.
+  There are many preprocessor macros that make some variables unused, function parameters unreferenced,
+  or conditional expressions constant in some configurations.
+  The code of this library should not be bigger or more complicated just to silence these warnings.
+  It is recommended to disable such warnings instead.
+- This is a C++ library with C interface. **Bindings or ports to any other programming languages** are welcome as external projects but
+  are not going to be included into this repository.
+*/
