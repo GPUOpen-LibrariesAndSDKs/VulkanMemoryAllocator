@@ -1987,32 +1987,29 @@ The library uses following algorithm for allocation, in order:
 
 Features deliberately excluded from the scope of this library:
 
-- Data transfer. Uploading (streaming) and downloading data of buffers and images
+- **Data transfer.** Uploading (streaming) and downloading data of buffers and images
   between CPU and GPU memory and related synchronization is responsibility of the user.
   Defining some "texture" object that would automatically stream its data from a
   staging copy in CPU memory to GPU memory would rather be a feature of another,
   higher-level library implemented on top of VMA.
-- Allocations for imported/exported external memory. They tend to require
-  explicit memory type index and dedicated allocation anyway, so they don't
-  interact with main features of this library. Such special purpose allocations
-  should be made manually, using `vkCreateBuffer()` and `vkAllocateMemory()`.
-- Sub-allocation of parts of one large buffer. Although recommended as a good practice,
-  it is the user's responsibility to implement such logic on top of VMA.
-- Recreation of buffers and images. Although the library has functions for
+- **Recreation of buffers and images.** Although the library has functions for
   buffer and image creation (vmaCreateBuffer(), vmaCreateImage()), you need to
   recreate these objects yourself after defragmentation. That's because the big
   structures `VkBufferCreateInfo`, `VkImageCreateInfo` are not stored in
   #VmaAllocation object.
-- Handling CPU memory allocation failures. When dynamically creating small C++
+- **Handling CPU memory allocation failures.** When dynamically creating small C++
   objects in CPU memory (not Vulkan memory), allocation failures are not checked
   and handled gracefully, because that would complicate code significantly and
   is usually not needed in desktop PC applications anyway.
   Success of an allocation is just checked with an assert.
-- Code free of any compiler warnings. Maintaining the library to compile and
+- **Code free of any compiler warnings.** Maintaining the library to compile and
   work correctly on so many different platforms is hard enough. Being free of
   any warnings, on any version of any compiler, is simply not feasible.
-- This is a C++ library with C interface.
-  Bindings or ports to any other programming languages are welcomed as external projects and
+  There are many preprocessor macros that make some variables unused, function parameters unreferenced,
+  or conditional expressions constant in some configurations.
+  The code of this library should not be bigger or more complicated just to silence these warnings.
+  It is recommended to disable such warnings instead.
+- This is a C++ library with C interface. **Bindings or ports to any other programming languages** are welcome as external projects but
   are not going to be included into this repository.
 
 */
@@ -9563,7 +9560,6 @@ void VmaBlockMetadata_Generic::PrintDetailedMap(class VmaJsonWriter& json) const
         m_Suballocations.size() - (size_t)m_FreeCount, // allocationCount
         m_FreeCount); // unusedRangeCount
 
-    size_t i = 0;
     for(const auto& suballoc : m_Suballocations)
     {
         if(suballoc.type == VMA_SUBALLOCATION_TYPE_FREE)
