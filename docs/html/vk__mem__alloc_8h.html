@@ -1353,6 +1353,9 @@ Functions</h2></td></tr>
 <p>General purpose memory allocation. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
@@ -1408,6 +1411,9 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">buffer</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
@@ -1652,7 +1658,10 @@ Functions</h2></td></tr>
 <p>Binds buffer to allocation with additional parameters. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramname">allocation</td><td></td></tr>
     <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginning of the <code>allocation</code>. Normally it should be 0. </td></tr>
+    <tr><td class="paramname">buffer</td><td></td></tr>
     <tr><td class="paramname">pNext</td><td>A chain of structures to be attached to <code>VkBindBufferMemoryInfoKHR</code> structure used internally. Normally it should be null.</td></tr>
   </table>
   </dd>
@@ -1747,7 +1756,10 @@ Functions</h2></td></tr>
 <p>Binds image to allocation with additional parameters. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramname">allocation</td><td></td></tr>
     <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginning of the <code>allocation</code>. Normally it should be 0. </td></tr>
+    <tr><td class="paramname">image</td><td></td></tr>
     <tr><td class="paramname">pNext</td><td>A chain of structures to be attached to <code>VkBindImageMemoryInfoKHR</code> structure used internally. Normally it should be null.</td></tr>
   </table>
   </dd>
@@ -1792,7 +1804,9 @@ Functions</h2></td></tr>
 <p>Builds and returns statistics as string in JSON format. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">ppStatsString</td><td>Must be freed using <a class="el" href="vk__mem__alloc_8h.html#a3104eb30d8122c84dd8541063f145288">vmaFreeStatsString()</a> function. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td></td></tr>
   </table>
   </dd>
 </dl>
@@ -1860,6 +1874,7 @@ Functions</h2></td></tr>
 <p>Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramname">memoryTypeBits</td><td>Bit mask, where each bit set means that a memory type with that index should be checked.</td></tr>
   </table>
   </dd>
@@ -1994,6 +2009,9 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pBufferCreateInfo</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pAllocationCreateInfo</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pBuffer</td><td>Buffer that was created. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Allocation that was created. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.</td></tr>
@@ -2258,6 +2276,7 @@ Functions</h2></td></tr>
 <p>Deprecated. Compacts memory by moving allocations. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pAllocations</td><td>Array of allocations that can be moved during this compation. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">allocationCount</td><td>Number of elements in pAllocations and pAllocationsChanged arrays. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationsChanged</td><td>Array of boolean values that will indicate whether matching allocation in pAllocations array has been moved. This parameter is optional. Pass null if you don't need this information. </td></tr>
@@ -2993,6 +3012,7 @@ Functions</h2></td></tr>
 <p>Retrieves information about current memory budget for all memory heaps. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pBudget</td><td>Must point to array with number of elements at least equal to number of memory heaps in physical device used.</td></tr>
   </table>
   </dd>

@@ -79,6 +79,7 @@ Documentation of all members: vk_mem_alloc.h
     - [Margins](@ref debugging_memory_usage_margins)
     - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
   - \subpage record_and_replay
+  - \subpage opengl_interop
 - \subpage usage_patterns
   - [Common mistakes](@ref usage_patterns_common_mistakes)
   - [Simple patterns](@ref usage_patterns_simple)
@@ -761,6 +762,7 @@ typedef struct VmaBudget
 
 /** \brief Retrieves information about current memory budget for all memory heaps.
 
+\param allocator
 \param[out] pBudget Must point to array with number of elements at least equal to number of memory heaps in physical device used.
 
 This function is called "get" not "calculate" because it is very fast, suitable to be called
@@ -780,7 +782,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
 #if VMA_STATS_STRING_ENABLED
 
 /// Builds and returns statistics as string in JSON format.
-/** @param[out] ppStatsString Must be freed using vmaFreeStatsString() function.
+/**
+@param allocator
+@param[out] ppStatsString Must be freed using vmaFreeStatsString() function.
+@param detailedMap
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -1404,6 +1409,9 @@ typedef struct VmaAllocationInfo {
 
 /** \brief General purpose memory allocation.
 
+@param allocator
+@param pVkMemoryRequirements
+@param pCreateInfo
 @param[out] pAllocation Handle to allocated memory.
 @param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
 
@@ -1447,6 +1455,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
     VmaAllocationInfo* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(allocationCount) pAllocationInfo);
 
 /**
+@param allocator
+@param buffer
+@param pCreateInfo
 @param[out] pAllocation Handle to allocated memory.
 @param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
 
@@ -1714,6 +1725,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocations(
 
 /** \brief Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions.
 
+@param allocator
 @param memoryTypeBits Bit mask, where each bit set means that a memory type with that index should be checked.
 
 Corruption detection is enabled only when `VMA_DEBUG_DETECT_CORRUPTION` macro is defined to nonzero,
@@ -1921,6 +1933,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
 
 /** \brief Deprecated. Compacts memory by moving allocations.
 
+@param allocator
 @param pAllocations Array of allocations that can be moved during this compation.
 @param allocationCount Number of elements in pAllocations and pAllocationsChanged arrays.
 @param[out] pAllocationsChanged Array of boolean values that will indicate whether matching allocation in pAllocations array has been moved. This parameter is optional. Pass null if you don't need this information.
@@ -1986,7 +1999,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindBufferMemory(
 
 /** \brief Binds buffer to allocation with additional parameters.
 
+@param allocator
+@param allocation
 @param allocationLocalOffset Additional offset to be added while binding, relative to the beginning of the `allocation`. Normally it should be 0.
+@param buffer
 @param pNext A chain of structures to be attached to `VkBindBufferMemoryInfoKHR` structure used internally. Normally it should be null.
 
 This function is similar to vmaBindBufferMemory(), but it provides additional parameters.
@@ -2020,7 +2036,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory(
 
 /** \brief Binds image to allocation with additional parameters.
 
+@param allocator
+@param allocation
 @param allocationLocalOffset Additional offset to be added while binding, relative to the beginning of the `allocation`. Normally it should be 0.
+@param image
 @param pNext A chain of structures to be attached to `VkBindImageMemoryInfoKHR` structure used internally. Normally it should be null.
 
 This function is similar to vmaBindImageMemory(), but it provides additional parameters.
@@ -2036,6 +2055,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory2(
     const void* VMA_NULLABLE pNext);
 
 /**
+@param allocator
+@param pBufferCreateInfo
+@param pAllocationCreateInfo
 @param[out] pBuffer Buffer that was created.
 @param[out] pAllocation Allocation that was created.
 @param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
@@ -19321,6 +19343,55 @@ It's a human-readable, text file in CSV format (Comma Separated Values).
   add. Contributions are welcomed.
 
 
+\page opengl_interop OpenGL Interop
+
+VMA provides some features that help with interoperability with OpenGL.
+
+\section opengl_interop_exporting_memory Exporting memory
+
+If you want to attach `VkExportMemoryAllocateInfoKHR` structure to `pNext` chain of memory allocations made by the library:
+
+It is recommended to create a \ref custom_memory_pools for such allocations.
+Define and fill in your `VkExportMemoryAllocateInfoKHR` structure and attach it to VmaPoolCreateInfo::pMemoryAllocateNext
+while creating the custom pool.
+Please note that the structure must remain alive and unchanged for the whole lifetime of the #VmaPool,
+not only while creating it, as no copy of the structure is made,
+but its original pointer is used for each allocation instead.
+
+If you want to export all memory allocated by the library from certain memory types,
+also dedicated allocations or other allocations made from default pools,
+an alternative solution is to fill in VmaAllocatorCreateInfo::pTypeExternalMemoryHandleTypes.
+It should point to an array with `VkExternalMemoryHandleTypeFlagsKHR` to be automatically passed by the library
+through `VkExportMemoryAllocateInfoKHR` on each allocation made from a specific memory type.
+This is currently the only method to use if you need exported dedicated allocations, as they cannot be created out of custom pools.
+This will change in future versions of the library though.
+
+You should not mix these two methods in a way that allows to apply both to the same memory type.
+Otherwise, `VkExportMemoryAllocateInfoKHR` structure would be attached twice to the `pNext` chain of `VkMemoryAllocateInfo`.
+
+
+\section opengl_interop_custom_alignment Custom alignment
+
+Buffers or images exported to a different API like OpenGL may require a different alignment,
+higher than the one used by the library automatically, queried from functions like `vkGetBufferMemoryRequirements`.
+To impose such alignment:
+
+It is recommended to create a \ref custom_memory_pools for such allocations.
+Set VmaPoolCreateInfo::minAllocationAlignment member to the minimum alignment required for each allocation
+to be made out of this pool.
+The alignment actually used will be the maximum of this member and the alignment returned for the specific buffer or image
+from a function like `vkGetBufferMemoryRequirements`, which is called by VMA automatically.
+
+If you want to create a buffer with a specific minimum alignment out of default pools,
+use special function vmaCreateBufferWithAlignment(), which takes additional parameter `minAlignment`.
+This is currently the only method to use if you need exported dedicated allocations, as they cannot be created out of custom pools.
+This will change in future versions of the library though.
+
+Note the problem of alignment affects only resources placed inside bigger `VkDeviceMemory` blocks and not dedicated
+allocations, as these, by definition, always have alignment = 0 because the resource is bound to the beginning of its dedicated block.
+Contrary to Direct3D 12, Vulkan doesn't have a concept of alignment of the entire memory block passed on its allocation.
+
+
 \page usage_patterns Recommended usage patterns
 
 See also slides from talk:
@@ -19653,7 +19724,7 @@ devices. There are multiple ways to do it, for example:
 
 \section vk_amd_device_coherent_memory_more_information More information
 
-To learn more about this extension, see [VK_AMD_device_coherent_memory in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap44.html#VK_AMD_device_coherent_memory)
+To learn more about this extension, see [VK_AMD_device_coherent_memory in Vulkan specification](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_AMD_device_coherent_memory.html)
 
 Example use of this extension can be found in the code of the sample and test suite
 accompanying this library.
@@ -19675,7 +19746,7 @@ Check if the extension is supported - if returned array of `VkExtensionPropertie
 
 2) Call `vkGetPhysicalDeviceFeatures2` for the physical device instead of old `vkGetPhysicalDeviceFeatures`.
 Attach additional structure `VkPhysicalDeviceBufferDeviceAddressFeatures*` to `VkPhysicalDeviceFeatures2::pNext` to be returned.
-Check if the device feature is really supported - check if `VkPhysicalDeviceBufferDeviceAddressFeatures*::bufferDeviceAddress` is true.
+Check if the device feature is really supported - check if `VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress` is true.
 
 3) (For Vulkan version < 1.2) While creating device with `vkCreateDevice`, enable this extension - add
 "VK_KHR_buffer_device_address" to the list passed as `VkDeviceCreateInfo::ppEnabledExtensionNames`.
