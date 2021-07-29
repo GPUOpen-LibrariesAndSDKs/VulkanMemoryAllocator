@@ -18535,6 +18535,8 @@ It can be useful if you want to:
 - Enforce particular, fixed size of Vulkan memory blocks.
 - Limit maximum amount of Vulkan memory allocated for that pool.
 - Reserve minimum or fixed amount of Vulkan memory always preallocated for that pool.
+- Use extra parameters for a set of your allocations that are available in #VmaPoolCreateInfo but not in
+  #VmaAllocationCreateInfo - e.g., custom minimum alignment, custom `pNext` chain.
 
 To use custom memory pools:
 
@@ -19351,7 +19353,7 @@ VMA provides some features that help with interoperability with OpenGL.
 
 If you want to attach `VkExportMemoryAllocateInfoKHR` structure to `pNext` chain of memory allocations made by the library:
 
-It is recommended to create a \ref custom_memory_pools for such allocations.
+It is recommended to create \ref custom_memory_pools for such allocations.
 Define and fill in your `VkExportMemoryAllocateInfoKHR` structure and attach it to VmaPoolCreateInfo::pMemoryAllocateNext
 while creating the custom pool.
 Please note that the structure must remain alive and unchanged for the whole lifetime of the #VmaPool,
@@ -19376,7 +19378,7 @@ Buffers or images exported to a different API like OpenGL may require a differen
 higher than the one used by the library automatically, queried from functions like `vkGetBufferMemoryRequirements`.
 To impose such alignment:
 
-It is recommended to create a \ref custom_memory_pools for such allocations.
+It is recommended to create \ref custom_memory_pools for such allocations.
 Set VmaPoolCreateInfo::minAllocationAlignment member to the minimum alignment required for each allocation
 to be made out of this pool.
 The alignment actually used will be the maximum of this member and the alignment returned for the specific buffer or image

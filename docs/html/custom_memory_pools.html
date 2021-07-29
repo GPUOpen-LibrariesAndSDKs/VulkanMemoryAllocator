@@ -76,6 +76,7 @@ $(function() {
 <li>Enforce particular, fixed size of Vulkan memory blocks.</li>
 <li>Limit maximum amount of Vulkan memory allocated for that pool.</li>
 <li>Reserve minimum or fixed amount of Vulkan memory always preallocated for that pool.</li>
+<li>Use extra parameters for a set of your allocations that are available in <a class="el" href="struct_vma_pool_create_info.html" title="Describes parameter of created VmaPool.">VmaPoolCreateInfo</a> but not in <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> - e.g., custom minimum alignment, custom <code>pNext</code> chain.</li>
 </ul>
 <p>To use custom memory pools:</p>
 <ol type="1">
@@ -181,7 +182,7 @@ Ring buffer</h2>
 <p>Ring buffer is available only in pools with one memory block - <a class="el" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c" title="Maximum number of blocks that can be allocated in this pool. Optional.">VmaPoolCreateInfo::maxBlockCount</a> must be 1. Otherwise behavior is undefined.</p>
 <h1><a class="anchor" id="buddy_algorithm"></a>
 Buddy allocation algorithm</h1>
-<p>There is another allocation algorithm that can be used with custom pools, called "buddy". Its internal data structure is based on a tree of blocks, each having size that is a power of two and a half of its parent's size. When you want to allocate memory of certain size, a free node in the tree is located. If it's too large, it is recursively split into two halves (called "buddies"). However, if requested allocation size is not a power of two, the size of a tree node is aligned up to the nearest power of two and the remaining space is wasted. When two buddy nodes become free, they are merged back into one larger node.</p>
+<p>There is another allocation algorithm that can be used with custom pools, called "buddy". Its internal data structure is based on a tree of blocks, each having size that is a power of two and a half of its parent's size. When you want to allocate memory of certain size, a free node in the tree is located. If it is too large, it is recursively split into two halves (called "buddies"). However, if requested allocation size is not a power of two, the size of a tree node is aligned up to the nearest power of two and the remaining space is wasted. When two buddy nodes become free, they are merged back into one larger node.</p>
 <p><img src="../gfx/Buddy_allocator.png" alt="Buddy allocator" class="inline"/></p>
 <p>The advantage of buddy allocation algorithm over default algorithm is faster allocation and deallocation, as well as smaller external fragmentation. The disadvantage is more wasted space (internal fragmentation).</p>
 <p>For more information, please read <a href="https://en.wikipedia.org/wiki/Buddy_memory_allocation">"Buddy memory allocation" on Wikipedia</a> or other sources that describe this concept in general.</p>

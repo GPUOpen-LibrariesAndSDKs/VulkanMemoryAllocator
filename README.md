@@ -60,6 +60,7 @@ Additional features:
 - Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
 - Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number before and after every allocation to detect out-of-bounds memory corruption.
 - Record and replay sequence of calls to library functions to a file to check correctness, measure performance, and gather statistics.
+- Support for interoperability with OpenGL.
 
 # Prequisites
 

@@ -170,8 +170,8 @@ Defragmenting GPU memory</h1>
 <div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a3cf86ab32c1da779b4923d301a3056ba">allocationCount</a> = allocCount;</div>
 <div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#ab6d288f29d028156cf73542d630a2e32">pAllocations</a> = allocations.data();</div>
 <div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a76d51a644dc7f5405d0cdd0025ecd0cc">pAllocationsChanged</a> = allocationsChanged.data();</div>
-<div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a4ddbc898d0afe1518f863a3763628f08">maxGpuBytesToMove</a> = VK_WHOLE_SIZE; <span class="comment">// Notice it&#39;s &quot;GPU&quot; this time.</span></div>
-<div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a40d53d33e71ba0b66f844ed63c05a3f6">maxGpuAllocationsToMove</a> = UINT32_MAX; <span class="comment">// Notice it&#39;s &quot;GPU&quot; this time.</span></div>
+<div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a4ddbc898d0afe1518f863a3763628f08">maxGpuBytesToMove</a> = VK_WHOLE_SIZE; <span class="comment">// Notice it is &quot;GPU&quot; this time.</span></div>
+<div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a40d53d33e71ba0b66f844ed63c05a3f6">maxGpuAllocationsToMove</a> = UINT32_MAX; <span class="comment">// Notice it is &quot;GPU&quot; this time.</span></div>
 <div class="line">defragInfo.<a class="code" href="struct_vma_defragmentation_info2.html#a7f71f39590c5316771493d2333f9c1bd">commandBuffer</a> = commandBuffer;</div>
 <div class="line"> </div>
 <div class="line"><a class="code" href="struct_vma_defragmentation_context.html">VmaDefragmentationContext</a> defragCtx;</div>
@@ -224,7 +224,7 @@ Writing custom defragmentation algorithm</h1>
 <p>If you want to implement your own, custom defragmentation algorithm, there is infrastructure prepared for that, but it is not exposed through the library API - you need to hack its source code. Here are steps needed to do this:</p>
 <ol type="1">
 <li>Main thing you need to do is to define your own class derived from base abstract class <code>VmaDefragmentationAlgorithm</code> and implement your version of its pure virtual methods. See definition and comments of this class for details.</li>
-<li>Your code needs to interact with device memory block metadata. If you need more access to its data than it's provided by its public interface, declare your new class as a friend class e.g. in class <code>VmaBlockMetadata_Generic</code>.</li>
+<li>Your code needs to interact with device memory block metadata. If you need more access to its data than it is provided by its public interface, declare your new class as a friend class e.g. in class <code>VmaBlockMetadata_Generic</code>.</li>
 <li>If you want to create a flag that would enable your algorithm or pass some additional flags to configure it, add them to <code>VmaDefragmentationFlagBits</code> and use them in <a class="el" href="struct_vma_defragmentation_info2.html#a53e844ee5633e229cf6daf14b2d9fff9" title="Reserved for future use. Should be 0.">VmaDefragmentationInfo2::flags</a>.</li>
 <li>Modify function <code>VmaBlockVectorDefragmentationContext::Begin</code> to create object of your new class whenever needed. </li>
 </ol>

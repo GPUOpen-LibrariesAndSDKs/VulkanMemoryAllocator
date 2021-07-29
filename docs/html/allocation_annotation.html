@@ -71,7 +71,7 @@ $(function() {
 <div class="contents">
 <div class="textblock"><h1><a class="anchor" id="allocation_user_data"></a>
 Allocation user data</h1>
-<p>You can annotate allocations with your own information, e.g. for debugging purposes. To do that, fill <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> field when creating an allocation. It's an opaque <code>void*</code> pointer. You can use it e.g. as a pointer, some handle, index, key, ordinal number or any other value that would associate the allocation with your custom metadata.</p>
+<p>You can annotate allocations with your own information, e.g. for debugging purposes. To do that, fill <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> field when creating an allocation. It is an opaque <code>void*</code> pointer. You can use it e.g. as a pointer, some handle, index, key, ordinal number or any other value that would associate the allocation with your custom metadata.</p>
 <div class="fragment"><div class="line">VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };</div>
 <div class="line"><span class="comment">// Fill bufferInfo...</span></div>
 <div class="line"> </div>
