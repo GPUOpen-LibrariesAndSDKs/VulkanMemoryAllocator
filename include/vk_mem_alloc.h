@@ -1300,7 +1300,7 @@ Possible return values:
 
 - `VK_ERROR_FEATURE_NOT_PRESENT` - corruption detection is not enabled for specified pool.
 - `VK_SUCCESS` - corruption detection has been performed and succeeded.
-- `VK_ERROR_VALIDATION_FAILED_EXT` - corruption detection has been performed and found memory corruptions around one of the allocations.
+- `VK_ERROR_UNKNOWN` - corruption detection has been performed and found memory corruptions around one of the allocations.
   `VMA_ASSERT` is also fired in that case.
 - Other value: Error returned by Vulkan, e.g. memory mapping failure.
 */
@@ -1736,7 +1736,7 @@ Possible return values:
 
 - `VK_ERROR_FEATURE_NOT_PRESENT` - corruption detection is not enabled for any of specified memory types.
 - `VK_SUCCESS` - corruption detection has been performed and succeeded.
-- `VK_ERROR_VALIDATION_FAILED_EXT` - corruption detection has been performed and found memory corruptions around one of the allocations.
+- `VK_ERROR_UNKNOWN` - corruption detection has been performed and found memory corruptions around one of the allocations.
   `VMA_ASSERT` is also fired in that case.
 - Other value: Error returned by Vulkan, e.g. memory mapping failure.
 */
@@ -7911,12 +7911,12 @@ VkResult VmaBlockMetadata_Generic::CheckCorruption(const void* pBlockData)
             if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
-                return VK_ERROR_VALIDATION_FAILED_EXT;
+                return VK_ERROR_UNKNOWN;
             }
             if(!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
-                return VK_ERROR_VALIDATION_FAILED_EXT;
+                return VK_ERROR_UNKNOWN;
             }
         }
     }
@@ -9904,12 +9904,12 @@ VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
             if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
-                return VK_ERROR_VALIDATION_FAILED_EXT;
+                return VK_ERROR_UNKNOWN;
             }
             if(!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
-                return VK_ERROR_VALIDATION_FAILED_EXT;
+                return VK_ERROR_UNKNOWN;
             }
         }
     }
@@ -9923,12 +9923,12 @@ VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
             if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
-                return VK_ERROR_VALIDATION_FAILED_EXT;
+                return VK_ERROR_UNKNOWN;
             }
             if(!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
-                return VK_ERROR_VALIDATION_FAILED_EXT;
+                return VK_ERROR_UNKNOWN;
             }
         }
     }
@@ -15042,7 +15042,7 @@ VkResult VmaAllocator_T::AllocateMemory(
 
     if(vkMemReq.size == 0)
     {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
     if((createInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0 &&
         (createInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
@@ -17529,13 +17529,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
 
     if(pBufferCreateInfo->size == 0)
     {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
     if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY) != 0 &&
         !allocator->m_UseKhrBufferDeviceAddress)
     {
         VMA_ASSERT(0 && "Creating a buffer with VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT is not valid if VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT was not used.");
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
 
     VMA_DEBUG_LOG("vmaCreateBuffer");
@@ -17632,13 +17632,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
 
     if(pBufferCreateInfo->size == 0)
     {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
     if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY) != 0 &&
         !allocator->m_UseKhrBufferDeviceAddress)
     {
         VMA_ASSERT(0 && "Creating a buffer with VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT is not valid if VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT was not used.");
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
 
     VMA_DEBUG_LOG("vmaCreateBufferWithAlignment");
@@ -17775,7 +17775,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
         pImageCreateInfo->mipLevels == 0 ||
         pImageCreateInfo->arrayLayers == 0)
     {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
 
     VMA_DEBUG_LOG("vmaCreateImage");
