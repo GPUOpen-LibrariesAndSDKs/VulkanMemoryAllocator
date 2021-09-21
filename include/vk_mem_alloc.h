@@ -116,10 +116,6 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #define VMA_RECORDING_ENABLED 0
 #endif
 
-#if !defined(NOMINMAX) && defined(VMA_IMPLEMENTATION)
-    #define NOMINMAX // For windows.h
-#endif
-
 #if defined(__ANDROID__) && defined(VK_NO_PROTOTYPES) && VMA_STATIC_VULKAN_FUNCTIONS
     extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
     extern PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
@@ -2382,11 +2378,11 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
 #endif
 
 #ifndef VMA_MIN
-   #define VMA_MIN(v1, v2)    (std::min((v1), (v2)))
+   #define VMA_MIN(v1, v2)    ((std::min)((v1), (v2)))
 #endif
 
 #ifndef VMA_MAX
-   #define VMA_MAX(v1, v2)    (std::max((v1), (v2)))
+   #define VMA_MAX(v1, v2)    ((std::max)((v1), (v2)))
 #endif
 
 #ifndef VMA_SWAP
