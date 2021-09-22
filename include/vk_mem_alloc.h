@@ -1025,7 +1025,7 @@ typedef struct VmaAllocationCreateInfo
     */
     void* VMA_NULLABLE pUserData;
     /** \brief A floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.
-    
+
     It is used only when #VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT flag was used during creation of the #VmaAllocator object
     and this allocation ends up as dedicated or is explicitly forced as dedicated using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
     Otherwise, it has the priority of a memory block where it is placed and this variable is ignored.
@@ -1202,14 +1202,14 @@ typedef struct VmaPoolCreateInfo {
     */
     float priority;
     /** \brief Additional minimum alignment to be used for all allocations created from this pool. Can be 0.
-    
+
     Leave 0 (default) not to impose any additional alignment. If not 0, it must be a power of two.
     It can be useful in cases where alignment returned by Vulkan by functions like `vkGetBufferMemoryRequirements` is not enough,
     e.g. when doing interop with OpenGL.
     */
     VkDeviceSize minAllocationAlignment;
     /** \brief Additional `pNext` chain to be attached to `VkMemoryAllocateInfo` used for every allocation made by this pool. Optional.
-    
+
     Optional, can be null. If not null, it must point to a `pNext` chain of structures that can be attached to `VkMemoryAllocateInfo`.
     It can be useful for special needs such as adding `VkExportMemoryAllocateInfoKHR`.
     Structures pointed by this member must remain alive and unchanged for the whole lifetime of the custom pool.
@@ -4188,7 +4188,7 @@ public:
 
     const_iterator cbegin() const { return const_iterator(&m_RawList, m_RawList.Front()); }
     const_iterator cend() const { return const_iterator(&m_RawList, VMA_NULL); }
-    
+
     const_iterator begin() const { return cbegin(); }
     const_iterator end() const { return cend(); }
 
