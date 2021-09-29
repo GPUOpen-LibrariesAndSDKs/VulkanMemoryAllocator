@@ -3616,7 +3616,7 @@ class VmaPoolAllocator
 public:
     VmaPoolAllocator(const VkAllocationCallbacks* pAllocationCallbacks, uint32_t firstBlockCapacity);
     ~VmaPoolAllocator();
-    template<typename... Types> T* Alloc(Types... args);
+    template<typename... Types> T* Alloc(Types&&... args);
     void Free(T* ptr);
 
 private:
@@ -3658,7 +3658,7 @@ VmaPoolAllocator<T>::~VmaPoolAllocator()
 }
 
 template<typename T>
-template<typename... Types> T* VmaPoolAllocator<T>::Alloc(Types... args)
+template<typename... Types> T* VmaPoolAllocator<T>::Alloc(Types&&... args)
 {
     for(size_t i = m_ItemBlocks.size(); i--; )
     {
@@ -6272,7 +6272,7 @@ class VmaAllocationObjectAllocator
 public:
     VmaAllocationObjectAllocator(const VkAllocationCallbacks* pAllocationCallbacks);
 
-    template<typename... Types> VmaAllocation Allocate(Types... args);
+    template<typename... Types> VmaAllocation Allocate(Types&&... args);
     void Free(VmaAllocation hAlloc);
 
 private:
@@ -14160,7 +14160,7 @@ VmaAllocationObjectAllocator::VmaAllocationObjectAllocator(const VkAllocationCal
 {
 }
 
-template<typename... Types> VmaAllocation VmaAllocationObjectAllocator::Allocate(Types... args)
+template<typename... Types> VmaAllocation VmaAllocationObjectAllocator::Allocate(Types&&... args)
 {
     VmaMutexLock mutexLock(m_Mutex);
     return m_Allocator.Alloc<Types...>(std::forward<Types>(args)...);
