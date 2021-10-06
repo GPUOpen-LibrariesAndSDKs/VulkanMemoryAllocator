@@ -2,6 +2,10 @@ set(VMA_LIBRARY_SOURCE_FILES
     VmaUsage.cpp
 )
 
+set(CMAKE_DEBUG_POSTFIX d)
+set(CMAKE_RELWITHDEBINFO_POSTFIX rd)
+set(CMAKE_MINSIZEREL_POSTFIX s)
+
 add_library(VulkanMemoryAllocator ${VMA_LIBRARY_SOURCE_FILES})
 
 set_target_properties(
@@ -33,6 +37,9 @@ target_compile_definitions(
     VMA_RECORDING_ENABLED=$<BOOL:${VMA_RECORDING_ENABLED}>
 )
 
+install(TARGETS VulkanMemoryAllocator DESTINATION lib)
+install(FILES ../include/vk_mem_alloc.h DESTINATION include)
+
 if (VMA_BUILD_SAMPLE)
     if(WIN32)
         set(VMA_SAMPLE_SOURCE_FILES
@@ -43,7 +50,8 @@ if (VMA_BUILD_SAMPLE)
         )
 
         add_executable(VmaSample ${VMA_SAMPLE_SOURCE_FILES})
-
+		add_dependencies(VmaSample VmaSampleShaders)
+		
         # Visual Studio specific settings
         if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
             # Use Unicode instead of multibyte set
@@ -73,8 +81,8 @@ if (VMA_BUILD_SAMPLE)
 
         target_link_libraries(
             VmaSample
-
             PRIVATE
+            
             VulkanMemoryAllocator
             Vulkan::Vulkan
         )
