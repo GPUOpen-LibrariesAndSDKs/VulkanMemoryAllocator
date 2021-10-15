@@ -2151,6 +2151,11 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
 }
 #endif
 
+#ifndef VMA_NULL
+   // Value used as null pointer. Define it to e.g.: nullptr, NULL, 0, (void*)0.
+   #define VMA_NULL   nullptr
+#endif
+
 #endif // AMD_VULKAN_MEMORY_ALLOCATOR_H
 
 // For Visual Studio IntelliSense.
@@ -2259,11 +2264,6 @@ remove them if not needed.
 #include <cassert> // for assert
 #include <algorithm> // for min, max
 #include <mutex>
-
-#ifndef VMA_NULL
-   // Value used as null pointer. Define it to e.g.: nullptr, NULL, 0, (void*)0.
-   #define VMA_NULL   nullptr
-#endif
 
 #if defined(__ANDROID_API__) && (__ANDROID_API__ < 16)
 #include <cstdlib>
