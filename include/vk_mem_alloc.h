@@ -3800,11 +3800,9 @@ VmaRawList<T>::VmaRawList(const VkAllocationCallbacks* pAllocationCallbacks) :
 }
 
 template<typename T>
-VmaRawList<T>::~VmaRawList()
-{
-    // Intentionally not calling Clear, because that would be unnecessary
-    // computations to return all items to m_ItemAllocator as free.
-}
+VmaRawList<T>::~VmaRawList() = default;
+// Intentionally not calling Clear, because that would be unnecessary
+// computations to return all items to m_ItemAllocator as free.
 
 template<typename T>
 void VmaRawList<T>::Clear()
@@ -4224,7 +4222,7 @@ public:
     static ItemType* GetPrev(const ItemType* item) { return ItemTypeTraits::GetPrev(item); }
     static ItemType* GetNext(const ItemType* item) { return ItemTypeTraits::GetNext(item); }
     // Movable, not copyable.
-    VmaIntrusiveLinkedList() { }
+    VmaIntrusiveLinkedList() = default;
     VmaIntrusiveLinkedList(const VmaIntrusiveLinkedList<ItemTypeTraits>& src) = delete;
     VmaIntrusiveLinkedList(VmaIntrusiveLinkedList<ItemTypeTraits>&& src) :
         m_Front(src.m_Front), m_Back(src.m_Back), m_Count(src.m_Count)
@@ -12225,13 +12223,14 @@ void VmaBlockVector::Defragment(
 
         const VkDeviceSize maxBytesToMove = defragmentOnGpu ? maxGpuBytesToMove : maxCpuBytesToMove;
         const uint32_t maxAllocationsToMove = defragmentOnGpu ? maxGpuAllocationsToMove : maxCpuAllocationsToMove;
-        pCtx->res = pCtx->GetAlgorithm()->Defragment(pCtx->defragmentationMoves, maxBytesToMove, maxAllocationsToMove, flags);
+        VmaDefragmentationAlgorithm* algo = pCtx->GetAlgorithm();
+        pCtx->res = algo->Defragment(pCtx->defragmentationMoves, maxBytesToMove, maxAllocationsToMove, flags);
 
         // Accumulate statistics.
         if(pStats != VMA_NULL)
         {
-            const VkDeviceSize bytesMoved = pCtx->GetAlgorithm()->GetBytesMoved();
-            const uint32_t allocationsMoved = pCtx->GetAlgorithm()->GetAllocationsMoved();
+            const VkDeviceSize bytesMoved = algo->GetBytesMoved();
+            const uint32_t allocationsMoved = algo->GetAllocationsMoved();
             pStats->bytesMoved += bytesMoved;
             pStats->allocationsMoved += allocationsMoved;
             VMA_ASSERT(bytesMoved <= maxBytesToMove);
@@ -13072,9 +13071,9 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                         freeSize, // size
                         VMA_NULL, // hAllocation
                         VMA_SUBALLOCATION_TYPE_FREE };
-                    VmaSuballocationList::iterator precedingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                     if(freeSize >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
                     {
+                        VmaSuballocationList::iterator precedingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                         pMetadata->m_FreeSuballocationsBySize.push_back(precedingFreeIt);
                     }
                 }
@@ -13094,9 +13093,9 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                     VMA_NULL, // hAllocation
                     VMA_SUBALLOCATION_TYPE_FREE };
                 VMA_ASSERT(it == pMetadata->m_Suballocations.end());
-                VmaSuballocationList::iterator trailingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                 if(freeSize > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
                 {
+                    VmaSuballocationList::iterator trailingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                     pMetadata->m_FreeSuballocationsBySize.push_back(trailingFreeIt);
                 }
             }
@@ -16633,12 +16632,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
 
     const VkDevice hDev = allocator->m_hDevice;
     VkBuffer hBuffer = VK_NULL_HANDLE;
-    VkResult res = allocator->GetVulkanFunctions().vkCreateBuffer(
+    const VmaVulkanFunctions* funcs = &allocator->GetVulkanFunctions();
+    VkResult res = funcs->vkCreateBuffer(
         hDev, pBufferCreateInfo, allocator->GetAllocationCallbacks(), &hBuffer);
     if(res == VK_SUCCESS)
     {
         VkMemoryRequirements memReq = {};
-        allocator->GetVulkanFunctions().vkGetBufferMemoryRequirements(
+        funcs->vkGetBufferMemoryRequirements(
             hDev, hBuffer, &memReq);
 
         res = vmaFindMemoryTypeIndex(
@@ -16647,7 +16647,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
             pAllocationCreateInfo,
             pMemoryTypeIndex);
 
-        allocator->GetVulkanFunctions().vkDestroyBuffer(
+        funcs->vkDestroyBuffer(
             hDev, hBuffer, allocator->GetAllocationCallbacks());
     }
     return res;
@@ -16666,12 +16666,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
 
     const VkDevice hDev = allocator->m_hDevice;
     VkImage hImage = VK_NULL_HANDLE;
-    VkResult res = allocator->GetVulkanFunctions().vkCreateImage(
+    const VmaVulkanFunctions* funcs = &allocator->GetVulkanFunctions();
+    VkResult res = funcs->vkCreateImage(
         hDev, pImageCreateInfo, allocator->GetAllocationCallbacks(), &hImage);
     if(res == VK_SUCCESS)
     {
         VkMemoryRequirements memReq = {};
-        allocator->GetVulkanFunctions().vkGetImageMemoryRequirements(
+        funcs->vkGetImageMemoryRequirements(
             hDev, hImage, &memReq);
 
         res = vmaFindMemoryTypeIndex(
@@ -16680,7 +16681,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
             pAllocationCreateInfo,
             pMemoryTypeIndex);
 
-        allocator->GetVulkanFunctions().vkDestroyImage(
+        funcs->vkDestroyImage(
             hDev, hImage, allocator->GetAllocationCallbacks());
     }
     return res;
