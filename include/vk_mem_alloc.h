@@ -13071,9 +13071,9 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                         freeSize, // size
                         VMA_NULL, // hAllocation
                         VMA_SUBALLOCATION_TYPE_FREE };
+                    VmaSuballocationList::iterator precedingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                     if(freeSize >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
                     {
-                        VmaSuballocationList::iterator precedingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                         pMetadata->m_FreeSuballocationsBySize.push_back(precedingFreeIt);
                     }
                 }
@@ -13093,9 +13093,9 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                     VMA_NULL, // hAllocation
                     VMA_SUBALLOCATION_TYPE_FREE };
                 VMA_ASSERT(it == pMetadata->m_Suballocations.end());
+                VmaSuballocationList::iterator trailingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                 if(freeSize > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
                 {
-                    VmaSuballocationList::iterator trailingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
                     pMetadata->m_FreeSuballocationsBySize.push_back(trailingFreeIt);
                 }
             }
