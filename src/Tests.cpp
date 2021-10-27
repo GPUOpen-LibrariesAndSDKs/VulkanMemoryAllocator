@@ -2528,7 +2528,7 @@ static void TestInvalidAllocations()
         memReq.memoryTypeBits = UINT32_MAX;
         VmaAllocation alloc = VK_NULL_HANDLE;
         res = vmaAllocateMemory(g_hAllocator, &memReq, &allocCreateInfo, &alloc, nullptr);
-        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && alloc == VK_NULL_HANDLE);
+        TEST(res == VK_ERROR_INITIALIZATION_FAILED && alloc == VK_NULL_HANDLE);
     }
 
     // Try to create buffer with size = 0.
@@ -2539,7 +2539,7 @@ static void TestInvalidAllocations()
         VkBuffer buf = VK_NULL_HANDLE;
         VmaAllocation alloc = VK_NULL_HANDLE;
         res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
-        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && buf == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
+        TEST(res == VK_ERROR_INITIALIZATION_FAILED && buf == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
     }
 
     // Try to create image with one dimension = 0.
@@ -2559,7 +2559,7 @@ static void TestInvalidAllocations()
         VkImage image = VK_NULL_HANDLE;
         VmaAllocation alloc = VK_NULL_HANDLE;
         res = vmaCreateImage(g_hAllocator, &imageCreateInfo, &allocCreateInfo, &image, &alloc, nullptr);
-        TEST(res == VK_ERROR_VALIDATION_FAILED_EXT && image == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
+        TEST(res == VK_ERROR_INITIALIZATION_FAILED && image == VK_NULL_HANDLE && alloc == VK_NULL_HANDLE);
     }
 }
 
