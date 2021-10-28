@@ -2147,7 +2147,74 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
     VkImage VMA_NULLABLE_NON_DISPATCHABLE image,
     VmaAllocation VMA_NULLABLE allocation);
 
-/// Parameters of an existing virtual allocation, returned by TODO().
+/// Flags to be passed as VmaPoolCreateInfo::flags.
+typedef enum VmaVirtualBlockCreateFlagBits {
+    /** \brief TODO
+    
+    TODO
+    */
+    VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT = 0x00000001,
+
+    /** \brief TODO
+    
+    TODO
+    */
+    VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT = 0x00000002,
+
+    /** Bit mask to extract only `ALGORITHM` bits from entire set of flags.
+    */
+    VMA_VIRTUAL_BLOCK_CREATE_ALGORITHM_MASK =
+        VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT |
+        VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT,
+
+    VMA_VIRTUAL_BLOCK_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaVirtualBlockCreateFlagBits;
+typedef VkFlags VmaVirtualBlockCreateFlags;
+
+/// Parameters of created #VmaVirtualBlock object to be passed to vmaCreateVirtualBlock().
+struct VmaVirtualBlockCreateInfo
+{
+    /** \brief Total size of the block.
+
+    Sizes can be expressed in bytes or any units you want as long as you are consistent in using them.
+    For example, if you allocate from some array of structures, 1 can mean single instance of entire structure.
+    */
+    VkDeviceSize size;
+    
+    /** \brief TODO
+    
+    TODO
+    */
+    VmaVirtualBlockCreateFlagBits flags;
+
+    /** \brief Custom CPU memory allocation callbacks. Optional.
+
+    Optional, can be null. When specified, will be used for all CPU-side memory allocations.
+    */
+    const VkAllocationCallbacks* VMA_NULLABLE pAllocationCallbacks;
+};
+
+/// Parameters of created virtual allocation to be passed to vma TODO.
+struct VmaVirtualAllocationCreateInfo
+{
+    /** \brief Size of the allocation.
+
+    Cannot be zero.
+    */
+    VkDeviceSize size;
+    /** \brief Required alignment of the allocation.
+
+    Must be power of two. Special value 0 has the same meaning as 1 - means no special alignment is required, so allocation can start at any offset.
+    */
+    VkDeviceSize alignment;
+    /** \brief Custom pointer to be associated with the allocation.
+
+    It can be fetched or changed later.
+    */
+    void* VMA_NULLABLE pUserData;
+};
+
+/// Parameters of an existing virtual allocation, returned by TODO GetAllocationInfo().
 struct VmaVirtualAllocationInfo
 {
     /** \brief Size of the allocation.
@@ -2162,11 +2229,95 @@ struct VmaVirtualAllocationInfo
     void* VMA_NULLABLE pUserData;
 };
 
+VK_DEFINE_HANDLE(VmaVirtualBlock);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
+    const VmaVirtualBlockCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaVirtualBlock VMA_NULLABLE * VMA_NOT_NULL pVirtualBlock);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLABLE virtualBlock);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE VkBool32 VMA_CALL_POST vmaIsVirtualBlockEmpty(VmaVirtualBlock VMA_NOT_NULL virtualBlock);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualAllocationInfo(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VkDeviceSize offset, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    const VmaVirtualAllocationCreateInfo* VMA_NOT_NULL pCreateInfo, VkDeviceSize* VMA_NOT_NULL pOffset);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virtualBlock, VkDeviceSize offset);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaClearVirtualBlock(VmaVirtualBlock VMA_NOT_NULL virtualBlock);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VkDeviceSize offset, void* VMA_NULLABLE pUserData);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VmaStatInfo* VMA_NOT_NULL pStatInfo);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaBuildVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    char* VMA_NULLABLE * VMA_NOT_NULL ppStatsString, VkBool32 detailedMap);
+
+/** \brief TODO
+
+TODO.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    char* VMA_NULLABLE pStatsString);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif // AMD_VULKAN_MEMORY_ALLOCATOR_H
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// 
+//    IMPLEMENTATION
+// 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 // For Visual Studio IntelliSense.
 #if defined(__cplusplus) && defined(__INTELLISENSE__)
@@ -6397,7 +6548,7 @@ public:
 
     const VkAllocationCallbacks* GetAllocationCallbacks() const
     {
-        return m_AllocationCallbacksSpecified ? &m_AllocationCallbacks : 0;
+        return m_AllocationCallbacksSpecified ? &m_AllocationCallbacks : VMA_NULL;
     }
     const VmaVulkanFunctions& GetVulkanFunctions() const
     {
@@ -6670,6 +6821,32 @@ private:
 #if VMA_MEMORY_BUDGET
     void UpdateVulkanBudget();
 #endif // #if VMA_MEMORY_BUDGET
+};
+
+struct VmaVirtualBlock_T
+{
+    VMA_CLASS_NO_COPY(VmaVirtualBlock_T)
+public:
+    const bool m_AllocationCallbacksSpecified;
+    const VkAllocationCallbacks m_AllocationCallbacks;
+
+    VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo);
+    ~VmaVirtualBlock_T();
+    VkResult Init();
+
+    const VkAllocationCallbacks* GetAllocationCallbacks() const
+    {
+        return m_AllocationCallbacksSpecified ? &m_AllocationCallbacks : VMA_NULL;
+    }
+    bool IsEmpty() const;
+    void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const;
+
+    VkResult Allocate(const VmaVirtualAllocationCreateInfo& createInfo, VkDeviceSize& outOffset);
+    void Free(VkDeviceSize offset);
+    void Clear();
+    void SetAllocationUserData(VkDeviceSize offset, void* userData);
+
+private:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -16413,6 +16590,57 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 #endif // #if VMA_STATS_STRING_ENABLED
 
 ////////////////////////////////////////////////////////////////////////////////
+// VmaVirtualBlock_T
+
+VmaVirtualBlock_T::VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo) :
+    m_AllocationCallbacksSpecified(createInfo.pAllocationCallbacks != VMA_NULL),
+    m_AllocationCallbacks(createInfo.pAllocationCallbacks != VMA_NULL ? *createInfo.pAllocationCallbacks : VmaEmptyAllocationCallbacks)
+{
+    //TODO
+}
+
+VmaVirtualBlock_T::~VmaVirtualBlock_T()
+{
+    //TODO
+}
+
+VkResult VmaVirtualBlock_T::Init()
+{
+    //TODO
+    return VK_SUCCESS;
+}
+
+bool VmaVirtualBlock_T::IsEmpty() const
+{
+    return true;//TODO
+}
+
+void VmaVirtualBlock_T::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
+{
+    //TODO
+}
+
+VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& createInfo, VkDeviceSize& outOffset)
+{
+    return VK_ERROR_DEVICE_LOST;//TODO
+}
+
+void VmaVirtualBlock_T::Free(VkDeviceSize offset)
+{
+    //TODO
+}
+
+void VmaVirtualBlock_T::Clear()
+{
+    //TODO
+}
+
+void VmaVirtualBlock_T::SetAllocationUserData(VkDeviceSize offset, void* userData)
+{
+    //TODO
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Public interface
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
@@ -16433,7 +16661,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyAllocator(
     if(allocator != VK_NULL_HANDLE)
     {
         VMA_DEBUG_LOG("vmaDestroyAllocator");
-        VkAllocationCallbacks allocationCallbacks = allocator->m_AllocationCallbacks;
+        VkAllocationCallbacks allocationCallbacks = allocator->m_AllocationCallbacks; // Have to copy the callbacks when destroying.
         vma_delete(&allocationCallbacks, allocator);
     }
 }
@@ -18033,6 +18261,104 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
             1, // allocationCount
             &allocation);
     }
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
+    const VmaVirtualBlockCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaVirtualBlock VMA_NULLABLE * VMA_NOT_NULL pVirtualBlock)
+{
+    VMA_ASSERT(pCreateInfo && pVirtualBlock);
+    VMA_ASSERT(pCreateInfo->size > 0);
+    VMA_DEBUG_LOG("vmaCreateVirtualBlock");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    *pVirtualBlock = vma_new(pCreateInfo->pAllocationCallbacks, VmaVirtualBlock_T)(*pCreateInfo);
+    VkResult res = (*pVirtualBlock)->Init();
+    if(res < 0)
+    {
+        vma_delete(pCreateInfo->pAllocationCallbacks, *pVirtualBlock);
+        *pVirtualBlock = VK_NULL_HANDLE;
+    }
+    return res;
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLABLE virtualBlock)
+{
+    if(virtualBlock != VK_NULL_HANDLE)
+    {
+        VMA_DEBUG_LOG("vmaDestroyVirtualBlock");
+        VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+        VkAllocationCallbacks allocationCallbacks = virtualBlock->m_AllocationCallbacks; // Have to copy the callbacks when destroying.
+        vma_delete(&allocationCallbacks, virtualBlock);
+    }
+}
+
+VMA_CALL_PRE VkBool32 VMA_CALL_POST vmaIsVirtualBlockEmpty(VmaVirtualBlock VMA_NOT_NULL virtualBlock)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
+    VMA_DEBUG_LOG("vmaIsVirtualBlockEmpty");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    return virtualBlock->IsEmpty() ? VK_TRUE : VK_FALSE;
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualAllocationInfo(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VkDeviceSize offset, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pVirtualAllocInfo != VMA_NULL);
+    VMA_DEBUG_LOG("vmaGetVirtualAllocationInfo");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->GetAllocationInfo(offset, *pVirtualAllocInfo);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    const VmaVirtualAllocationCreateInfo* VMA_NOT_NULL pCreateInfo, VkDeviceSize* VMA_NOT_NULL pOffset)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pCreateInfo != VMA_NULL && pOffset != VMA_NULL);
+    VMA_DEBUG_LOG("vmaVirtualAllocate");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    return virtualBlock->Allocate(*pCreateInfo, *pOffset);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virtualBlock, VkDeviceSize offset)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
+    VMA_DEBUG_LOG("vmaVirtualFree");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->Free(offset);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaClearVirtualBlock(VmaVirtualBlock VMA_NOT_NULL virtualBlock)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
+    VMA_DEBUG_LOG("vmaClearVirtualBlock");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->Clear();
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VkDeviceSize offset, void* VMA_NULLABLE pUserData)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
+    VMA_DEBUG_LOG("vmaSetVirtualAllocationUserData");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->SetAllocationUserData(offset, pUserData);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VmaStatInfo* VMA_NOT_NULL pStatInfo)
+{
+    VMA_ASSERT(0 && "TODO implement");
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaBuildVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    char* VMA_NULLABLE * VMA_NOT_NULL ppStatsString, VkBool32 detailedMap)
+{
+    VMA_ASSERT(0 && "TODO implement");
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    char* VMA_NULLABLE pStatsString)
+{
+    VMA_ASSERT(0 && "TODO implement");
 }
 
 #endif // #ifdef VMA_IMPLEMENTATION
