@@ -16725,7 +16725,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
         (VK_VERSION_MAJOR(pCreateInfo->vulkanApiVersion) == 1 && VK_VERSION_MINOR(pCreateInfo->vulkanApiVersion) <= 2));
     VMA_DEBUG_LOG("vmaCreateAllocator");
     *pAllocator = vma_new(pCreateInfo->pAllocationCallbacks, VmaAllocator_T)(pCreateInfo);
-    return (*pAllocator)->Init(pCreateInfo);
+    VkResult result = (*pAllocator)->Init(pCreateInfo);
+    if(result < 0)
+    {
+        vma_delete(pCreateInfo->pAllocationCallbacks, *pAllocator);
+        *pAllocator = VK_NULL_HANDLE;
+    }
+    return result;
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyAllocator(
