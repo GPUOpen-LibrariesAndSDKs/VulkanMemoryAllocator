@@ -2194,6 +2194,30 @@ struct VmaVirtualBlockCreateInfo
     const VkAllocationCallbacks* VMA_NULLABLE pAllocationCallbacks;
 };
 
+/// TODO
+typedef enum VmaVirtualAllocationCreateFlagBits {
+    /** Allocation will be created from upper stack in a double stack pool.
+
+    This flag is only allowed for virtual blocks created with #VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT flag.
+    */
+    VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT = VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT,
+    /** Allocation strategy that tries to minimize memory usage.
+    */
+    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT,
+    /** Allocation strategy that tries to minimize allocation time.
+    */
+    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT,
+    /** Allocation strategy that tries to minimize memory fragmentation.
+    */
+    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT,
+    /** A bit mask to extract only `STRATEGY` bits from entire set of flags.
+    */
+    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK = VMA_ALLOCATION_CREATE_STRATEGY_MASK,
+
+    VMA_VIRTUAL_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaVirtualAllocationCreateFlagBits;
+typedef VkFlags VmaVirtualAllocationCreateFlags;
+
 /// Parameters of created virtual allocation to be passed to vma TODO.
 struct VmaVirtualAllocationCreateInfo
 {
@@ -2207,6 +2231,10 @@ struct VmaVirtualAllocationCreateInfo
     Must be power of two. Special value 0 has the same meaning as 1 - means no special alignment is required, so allocation can start at any offset.
     */
     VkDeviceSize alignment;
+    /** \brief TODO
+    
+    */
+    VmaVirtualAllocationCreateFlags flags;
     /** \brief Custom pointer to be associated with the allocation.
 
     It can be fetched or changed later.
@@ -6831,22 +6859,43 @@ public:
     const VkAllocationCallbacks m_AllocationCallbacks;
 
     VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo);
-    ~VmaVirtualBlock_T();
-    VkResult Init();
+    ~VmaVirtualBlock_T()
+    {
+        vma_delete(GetAllocationCallbacks(), m_Metadata);
+    }
+    VkResult Init()
+    {
+        return VK_SUCCESS;
+    }
 
     const VkAllocationCallbacks* GetAllocationCallbacks() const
     {
         return m_AllocationCallbacksSpecified ? &m_AllocationCallbacks : VMA_NULL;
     }
-    bool IsEmpty() const;
-    void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const;
-
+    bool IsEmpty() const
+    {
+        return m_Metadata->IsEmpty();
+    }
+    void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
+    {
+        m_Metadata->GetAllocationInfo(offset, outInfo);
+    }
     VkResult Allocate(const VmaVirtualAllocationCreateInfo& createInfo, VkDeviceSize& outOffset);
-    void Free(VkDeviceSize offset);
-    void Clear();
-    void SetAllocationUserData(VkDeviceSize offset, void* userData);
+    void Free(VkDeviceSize offset)
+    {
+        m_Metadata->FreeAtOffset(offset);
+    }
+    void Clear()
+    {
+        m_Metadata->Clear();
+    }
+    void SetAllocationUserData(VkDeviceSize offset, void* userData)
+    {
+        m_Metadata->SetAllocationUserData(offset, userData);
+    }
 
 private:
+    VmaBlockMetadata* m_Metadata;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -16596,48 +16645,49 @@ VmaVirtualBlock_T::VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo
     m_AllocationCallbacksSpecified(createInfo.pAllocationCallbacks != VMA_NULL),
     m_AllocationCallbacks(createInfo.pAllocationCallbacks != VMA_NULL ? *createInfo.pAllocationCallbacks : VmaEmptyAllocationCallbacks)
 {
-    //TODO
-}
+    const uint32_t algorithm = createInfo.flags & VMA_VIRTUAL_BLOCK_CREATE_ALGORITHM_MASK;
+    switch(algorithm)
+    {
+    case 0:
+        m_Metadata = vma_new(GetAllocationCallbacks(), VmaBlockMetadata_Generic)(VK_NULL_HANDLE, true);
+        break;
+    case VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT:
+        m_Metadata = vma_new(GetAllocationCallbacks(), VmaBlockMetadata_Buddy)(VK_NULL_HANDLE, true);
+        break;
+    case VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT:
+        m_Metadata = vma_new(GetAllocationCallbacks(), VmaBlockMetadata_Linear)(VK_NULL_HANDLE, true);
+        break;
+    default:
+        VMA_ASSERT(0);
+    }
 
-VmaVirtualBlock_T::~VmaVirtualBlock_T()
-{
-    //TODO
-}
-
-VkResult VmaVirtualBlock_T::Init()
-{
-    //TODO
-    return VK_SUCCESS;
-}
-
-bool VmaVirtualBlock_T::IsEmpty() const
-{
-    return true;//TODO
-}
-
-void VmaVirtualBlock_T::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
-{
-    //TODO
+    m_Metadata->Init(createInfo.size);
 }
 
 VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& createInfo, VkDeviceSize& outOffset)
 {
-    return VK_ERROR_DEVICE_LOST;//TODO
-}
-
-void VmaVirtualBlock_T::Free(VkDeviceSize offset)
-{
-    //TODO
-}
-
-void VmaVirtualBlock_T::Clear()
-{
-    //TODO
-}
-
-void VmaVirtualBlock_T::SetAllocationUserData(VkDeviceSize offset, void* userData)
-{
-    //TODO
+    outOffset = VK_WHOLE_SIZE;
+    VmaAllocationRequest request = {};
+    if(m_Metadata->CreateAllocationRequest(
+        0, // currentFrameIndex - unimportant
+        0, // frameInUseCount - unimportant
+        1, // bufferImageGranularity
+        createInfo.size, // allocSize
+        VMA_MAX(createInfo.alignment, 1llu), // allocAlignment
+        (createInfo.flags & VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0, // upperAddress
+        VMA_SUBALLOCATION_TYPE_UNKNOWN, // allocType - unimportant
+        false, // canMakeOthersLost
+        createInfo.flags & VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK, // strategy
+        &request))
+    {
+        m_Metadata->Alloc(request,
+            VMA_SUBALLOCATION_TYPE_UNKNOWN, // type - unimportant
+            createInfo.size, // allocSize
+            createInfo.pUserData);
+        outOffset = request.offset;
+        return VK_SUCCESS;
+    }
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
