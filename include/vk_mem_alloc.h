@@ -8887,14 +8887,20 @@ bool VmaBlockMetadata_Linear::Validate() const
     if(!suballocations1st.empty())
     {
         // Null item at the beginning should be accounted into m_1stNullItemsBeginCount.
-        VMA_VALIDATE(suballocations1st[m_1stNullItemsBeginCount].userData != VMA_NULL);
-        // Null item at the end should be just pop_back().
-        VMA_VALIDATE(suballocations1st.back().userData != VMA_NULL);
+        if(!IsVirtual())
+        {
+            VMA_VALIDATE(suballocations1st[m_1stNullItemsBeginCount].userData != VMA_NULL);
+            // Null item at the end should be just pop_back().
+            VMA_VALIDATE(suballocations1st.back().userData != VMA_NULL);
+        }
     }
     if(!suballocations2nd.empty())
     {
-        // Null item at the end should be just pop_back().
-        VMA_VALIDATE(suballocations2nd.back().userData != VMA_NULL);
+        if(!IsVirtual())
+        {
+            // Null item at the end should be just pop_back().
+            VMA_VALIDATE(suballocations2nd.back().userData != VMA_NULL);
+        }
     }
 
     VMA_VALIDATE(m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount <= suballocations1st.size());
@@ -10555,7 +10561,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
         // Find more null items at the beginning of 1st vector.
         while(m_1stNullItemsBeginCount < suballoc1stCount &&
-            suballocations1st[m_1stNullItemsBeginCount].userData == VMA_NULL)
+            suballocations1st[m_1stNullItemsBeginCount].type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             ++m_1stNullItemsBeginCount;
             --m_1stNullItemsMiddleCount;
@@ -10563,7 +10569,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
         // Find more null items at the end of 1st vector.
         while(m_1stNullItemsMiddleCount > 0 &&
-            suballocations1st.back().userData == VMA_NULL)
+            suballocations1st.back().type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             --m_1stNullItemsMiddleCount;
             suballocations1st.pop_back();
@@ -10571,7 +10577,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
         // Find more null items at the end of 2nd vector.
         while(m_2ndNullItemsCount > 0 &&
-            suballocations2nd.back().userData == VMA_NULL)
+            suballocations2nd.back().type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             --m_2ndNullItemsCount;
             suballocations2nd.pop_back();
@@ -10579,7 +10585,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
         // Find more null items at the beginning of 2nd vector.
         while(m_2ndNullItemsCount > 0 &&
-            suballocations2nd[0].userData == VMA_NULL)
+            suballocations2nd[0].type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             --m_2ndNullItemsCount;
             VmaVectorRemove(suballocations2nd, 0);
@@ -10591,7 +10597,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
             size_t srcIndex = m_1stNullItemsBeginCount;
             for(size_t dstIndex = 0; dstIndex < nonNullItemCount; ++dstIndex)
             {
-                while(suballocations1st[srcIndex].userData == VMA_NULL)
+                while(suballocations1st[srcIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
                 {
                     ++srcIndex;
                 }
@@ -10624,7 +10630,7 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
                 m_2ndVectorMode = SECOND_VECTOR_EMPTY;
                 m_1stNullItemsMiddleCount = m_2ndNullItemsCount;
                 while(m_1stNullItemsBeginCount < suballocations2nd.size() &&
-                    suballocations2nd[m_1stNullItemsBeginCount].userData == VMA_NULL)
+                    suballocations2nd[m_1stNullItemsBeginCount].type == VMA_SUBALLOCATION_TYPE_FREE)
                 {
                     ++m_1stNullItemsBeginCount;
                     --m_1stNullItemsMiddleCount;

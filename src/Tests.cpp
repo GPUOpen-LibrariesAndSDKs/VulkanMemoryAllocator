@@ -2817,6 +2817,144 @@ static void TestVirtualBlocks()
     }
 }
 
+static void TestVirtualBlocksAlgorithms()
+{
+    wprintf(L"Test virtual blocks algorithms\n");
+
+    RandomNumberGenerator rand{3454335};
+    auto calcRandomAllocSize = [&rand]() -> VkDeviceSize { return rand.Generate() % 20 + 5; };
+
+    for(size_t algorithmIndex = 0; algorithmIndex < 1/*3*/; ++algorithmIndex)
+    {
+        // Create the block
+        VmaVirtualBlockCreateInfo blockCreateInfo = {};
+        blockCreateInfo.pAllocationCallbacks = g_Allocs;
+        blockCreateInfo.size = 10'000;
+        switch(algorithmIndex)
+        {
+        case 1: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT; break;
+        case 2: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT; break;
+        }
+        VmaVirtualBlock block = nullptr;
+        VkResult res = vmaCreateVirtualBlock(&blockCreateInfo, &block);
+        TEST(res == VK_SUCCESS);
+
+        struct AllocData
+        {
+            VkDeviceSize offset, size;
+        };
+        std::vector<AllocData> allocations;
+        
+        // Make some allocations
+        for(size_t i = 0; i < 20; ++i)
+        {
+            VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.size = calcRandomAllocSize();
+            allocCreateInfo.pUserData = (void*)(uintptr_t)(allocCreateInfo.size * 10);
+            if(i < 10) { }
+            else if(i < 12) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT;
+            else if(i < 14) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
+            else if(i < 16) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT;
+            else if(i < 18 && algorithmIndex == 1) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
+
+            AllocData alloc = {};
+            alloc.size = allocCreateInfo.size;
+            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
+            TEST(res == VK_SUCCESS);
+            allocations.push_back(alloc);
+        }
+
+        // Free some of the allocations
+        for(size_t i = 0; i < 5; ++i)
+        {
+            const size_t index = rand.Generate() % allocations.size();
+            vmaVirtualFree(block, allocations[index].offset);
+            allocations.erase(allocations.begin() + index);
+        }
+
+        // Allocate some more
+        for(size_t i = 0; i < 6; ++i)
+        {
+            VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.size = calcRandomAllocSize();
+            allocCreateInfo.pUserData = (void*)(uintptr_t)(allocCreateInfo.size * 10);
+
+            AllocData alloc = {};
+            alloc.size = allocCreateInfo.size;
+            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
+            TEST(res == VK_SUCCESS);
+            allocations.push_back(alloc);
+        }
+
+        // Allocate some with extra alignment
+        for(size_t i = 0; i < 3; ++i)
+        {
+            VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.size = calcRandomAllocSize();
+            allocCreateInfo.alignment = 16;
+            allocCreateInfo.pUserData = (void*)(uintptr_t)(allocCreateInfo.size * 10);
+
+            AllocData alloc = {};
+            alloc.size = allocCreateInfo.size;
+            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
+            TEST(res == VK_SUCCESS);
+            TEST(alloc.offset % 16 == 0);
+            allocations.push_back(alloc);
+        }
+
+        // Check if the allocations don't overlap
+        std::sort(allocations.begin(), allocations.end(), [](const AllocData& lhs, const AllocData& rhs) {
+            return lhs.offset < rhs.offset; });
+        for(size_t i = 0; i < allocations.size() - 1; ++i)
+        {
+            TEST(allocations[i+1].offset >= allocations[i].offset + allocations[i].size);
+        }
+
+        // Check pUserData
+        {
+            const AllocData& alloc = allocations.back();
+            VmaVirtualAllocationInfo allocInfo = {};
+            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            TEST((uintptr_t)allocInfo.pUserData == alloc.size * 10);
+
+            vmaSetVirtualAllocationUserData(block, alloc.offset, (void*)(uintptr_t)666);
+            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            TEST((uintptr_t)allocInfo.pUserData == 666);
+        }
+
+        // Calculate statistics
+        {
+            VkDeviceSize allocSizeMin = VK_WHOLE_SIZE, allocSizeMax = 0, allocSizeSum = 0;
+            std::for_each(allocations.begin(), allocations.end(), [&](const AllocData& a) {
+                allocSizeMin = std::min(allocSizeMin, a.size);
+                allocSizeMax = std::max(allocSizeMax, a.size);
+                allocSizeSum += a.size;
+            });
+
+            VmaStatInfo statInfo = {};
+            vmaCalculateVirtualBlockStats(block, &statInfo);
+            TEST(statInfo.allocationCount == allocations.size());
+            TEST(statInfo.blockCount == 1);
+            TEST(statInfo.usedBytes + statInfo.unusedBytes == blockCreateInfo.size);
+            TEST(statInfo.allocationSizeMax == allocSizeMax);
+            TEST(statInfo.allocationSizeMin == allocSizeMin);
+            TEST(statInfo.usedBytes >= allocSizeSum);
+        }
+
+        // Build JSON dump string
+        {
+            char* json = nullptr;
+            vmaBuildVirtualBlockStatsString(block, &json, VK_TRUE);
+            int I = 0; // put a breakpoint here to debug
+            vmaFreeVirtualBlockStatsString(block, json);
+        }
+
+        // Final cleanup
+        vmaClearVirtualBlock(block);
+        vmaDestroyVirtualBlock(block);
+    }
+}
+
 static void TestAllocationVersusResourceSize()
 {
     wprintf(L"Test allocation versus resource size\n");
@@ -6696,7 +6834,7 @@ void Test()
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
-        TestVirtualBlocks();
+        TestVirtualBlocksAlgorithms();
         return;
     }
 
