@@ -2773,36 +2773,33 @@ static void TestVirtualBlocks()
 
     vmaVirtualFree(block, alloc0Offset);
 
-#if 0
     // # Test alignment
 
     {
         constexpr size_t allocCount = 10;
-        UINT64 allocOffset[allocCount] = {};
+        VkDeviceSize allocOffset[allocCount] = {};
         for(size_t i = 0; i < allocCount; ++i)
         {
             const bool alignment0 = i == allocCount - 1;
-            allocDesc.Size = i * 3 + 15;
-            allocDesc.Alignment = alignment0 ? 0 : 8;
-            CHECK_HR(block->Allocate(&allocDesc, &allocOffset[i]));
+            allocCreateInfo.size = i * 3 + 15;
+            allocCreateInfo.alignment = alignment0 ? 0 : 8;
+            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocOffset[i]) == VK_SUCCESS);
             if(!alignment0)
             {
-                CHECK_BOOL(allocOffset[i] % allocDesc.Alignment == 0);
+                TEST(allocOffset[i] % allocCreateInfo.alignment == 0);
             }
         }
 
         for(size_t i = allocCount; i--; )
         {
-            block->FreeAllocation(allocOffset[i]);
+            vmaVirtualFree(block, allocOffset[i]);
         }
     }
 
     // # Final cleanup
 
-    block->FreeAllocation(alloc2Offset);
-#endif
-
     vmaVirtualFree(block, alloc2Offset);
+
     //vmaClearVirtualBlock(block);
     vmaDestroyVirtualBlock(block);
 }
