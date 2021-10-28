@@ -2067,7 +2067,7 @@ Functions</h2></td></tr>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">virtualBlock</td><td>Virtual block. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">ppStatsString</td><td>Returned string. </td></tr>
-    <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td>Pass <code>VK_FALSE</code> to also list statistics as returned by <a class="el" href="vk__mem__alloc_8h.html#a95169b4730e94757897470086ec2768a" title="Calculates and returns statistics about virtual allocations and memory usage in given VmaVirtualBlock...">vmaCalculateVirtualBlockStats()</a>. Pass <code>VK_TRUE</code> to also obtain full list of allocations and free spaces.</td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td>Pass <code>VK_FALSE</code> to only obtain statistics as returned by <a class="el" href="vk__mem__alloc_8h.html#a95169b4730e94757897470086ec2768a" title="Calculates and returns statistics about virtual allocations and memory usage in given VmaVirtualBlock...">vmaCalculateVirtualBlockStats()</a>. Pass <code>VK_TRUE</code> to also obtain full list of allocations and free spaces.</td></tr>
   </table>
   </dd>
 </dl>
@@ -4098,7 +4098,7 @@ Functions</h2></td></tr>
 
 <p>Allocates new virtual allocation inside given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
 <p >There is no handle type for a virtual allocation. Virtual allocations within a specific virtual block are uniquely identified by their offsets.</p>
-<p >If the allocation fails due to not enough free space available, <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> is returned, despite the function doesn't ever allocate actual GPU memory. </p>
+<p >If the allocation fails due to not enough free space available, <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> is returned (despite the function doesn't ever allocate actual GPU memory). </p>
 
 </div>
 </div>

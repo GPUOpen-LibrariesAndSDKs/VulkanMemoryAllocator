@@ -74,6 +74,7 @@ Documentation of all members: vk_mem_alloc.h
   - \subpage allocation_annotation
     - [Allocation user data](@ref allocation_user_data)
     - [Allocation names](@ref allocation_names)
+  - \subpage virtual_allocator
   - \subpage debugging_memory_usage
     - [Memory initialization](@ref debugging_memory_usage_initialization)
     - [Margins](@ref debugging_memory_usage_margins)
@@ -19818,6 +19819,158 @@ That string is also printed in JSON report created by vmaBuildStatsString().
 
 \note Passing string name to VMA allocation doesn't automatically set it to the Vulkan buffer or image created with it.
 You must do it manually using an extension like VK_EXT_debug_utils, which is independent of this library.
+
+
+\page virtual_allocator Virtual allocator
+
+As an extra feature, the core allocation algorithm of the library is exposed through a simple and convenient API of "virtual allocator".
+It doesn't allocate any real GPU memory. It just keeps track of used and free regions of a "virtual block".
+You can use it to allocate your own memory or other objects, even completely unrelated to Vulkan.
+A common use case is sub-allocation of pieces of one large GPU buffer.
+
+\section virtual_allocator_creating_virtual_block Creating virtual block
+
+To use this functionality, there is no main "allocator" object.
+You don't need to have #VmaAllocator object created.
+All you need to do is to create a separate #VmaVirtualBlock object for each block of memory you want to be managed by the allocator:
+
+-# Fill in #VmaVirtualBlockCreateInfo structure.
+-# Call vmaCreateVirtualBlock(). Get new #VmaVirtualBlock object.
+
+Example:
+
+\code
+VmaVirtualBlockCreateInfo blockCreateInfo = {};
+blockCreateInfo.size = 1048576; // 1 MB
+
+VmaVirtualBlock block;
+VkResult res = vmaCreateVirtualBlock(&blockCreateInfo, &block);
+\endcode
+
+\section virtual_allocator_making_virtual_allocations Making virtual allocations
+
+#VmaVirtualBlock object contains internal data structure that keeps track of free and occupied regions
+using the same code as the main Vulkan memory allocator.
+However, there is no "virtual allocation" object.
+When you request a new allocation, a `VkDeviceSize` number is returned.
+It is an offset inside the block where the allocation has been placed, but it also uniquely identifies the allocation within this block.
+
+In order to make an allocation:
+
+-# Fill in #VmaVirtualAllocationCreateInfo structure.
+-# Call vmaVirtualAllocate(). Get new `VkDeviceSize offset` that identifies the allocation.
+
+Example:
+
+\code
+VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.size = 4096; // 4 KB
+
+VkDeviceSize allocOffset;
+res = vmaVirtualAllocate(block, &allocCreateInfo, &allocOffset);
+if(res == VK_SUCCESS)
+{
+    // Use the 4 KB of your memory starting at allocOffset.
+}
+else
+{
+    // Allocation failed - no space for it could be found. Handle this error!
+}
+\endcode
+
+\section virtual_allocator_deallocation Deallocation
+
+When no longer needed, an allocation can be freed by calling vmaVirtualFree().
+You can only pass to this function the exact offset that was previously returned by vmaVirtualAllocate()
+and not any other location within the memory.
+
+When whole block is no longer needed, the block object can be released by calling vmaDestroyVirtualBlock().
+All allocations must be freed before the block is destroyed, which is checked internally by an assert.
+However, if you don't want to call vmaVirtualFree() for each allocation, you can use vmaClearVirtualBlock() to free them all at once -
+a feature not available in normal Vulkan memory allocator. Example:
+
+\code
+vmaVirtualFree(block, allocOffset);
+vmaDestroyVirtualBlock(block);
+\endcode
+
+\section virtual_allocator_allocation_parameters Allocation parameters
+
+You can attach a custom pointer to each allocation by using vmaSetVirtualAllocationUserData().
+Its default value is null.
+It can be used to store any data that needs to be associated with that allocation - e.g. an index, a handle, or a pointer to some
+larger data structure containing more information. Example:
+
+\code
+struct CustomAllocData
+{
+    std::string m_AllocName;
+};
+CustomAllocData* allocData = new CustomAllocData();
+allocData->m_AllocName = "My allocation 1";
+vmaSetVirtualAllocationUserData(block, allocOffset, allocData);
+\endcode
+
+The pointer can later be fetched, along with allocation size, by passing the allocation offset to function
+vmaGetVirtualAllocationInfo() and inspecting returned structure #VmaVirtualAllocationInfo.
+If you allocated a new object to be used as the custom pointer, don't forget to delete that object before freeing the allocation!
+Example:
+
+\code
+VmaVirtualAllocationInfo allocInfo;
+vmaGetVirtualAllocationInfo(block, allocOffset, &allocInfo);
+delete (CustomAllocData*)allocInfo.pUserData;
+
+vmaVirtualFree(block, allocOffset);
+\endcode
+
+\section virtual_allocator_alignment_and_units Alignment and units
+
+It feels natural to express sizes and offsets in bytes.
+If an offset of an allocation needs to be aligned to a multiply of some number (e.g. 4 bytes), you can fill optional member
+VmaVirtualAllocationCreateInfo::alignment to request it. Example:
+
+\code
+VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.size = 4096; // 4 KB
+allocCreateInfo.alignment = 4; // Returned offset must be a multiply of 4 B
+
+VkDeviceSize allocOffset;
+res = vmaVirtualAllocate(block, &allocCreateInfo, &allocOffset);
+\endcode
+
+Alignments of different allocations made from one block may vary.
+However, if all alignments and sizes are always multiply of some size e.g. 4 B or `sizeof(MyDataStruct)`,
+you can express all sizes, alignments, and offsets in multiples of that size instead of individual bytes.
+It might be more convenient, but you need to make sure to use this new unit consistently in all the places:
+
+- VmaVirtualBlockCreateInfo::size
+- VmaVirtualAllocationCreateInfo::size and VmaVirtualAllocationCreateInfo::alignment
+- Using offset returned by vmaVirtualAllocate()
+
+\section virtual_allocator_statistics Statistics
+
+You can obtain statistics of a virtual block using vmaCalculateVirtualBlockStats().
+The function fills structure #VmaStatInfo - same as used by the normal Vulkan memory allocator.
+Example:
+
+\code
+VmaStatInfo statInfo;
+vmaCalculateVirtualBlockStats(block, &statInfo);
+printf("My virtual block has %llu bytes used by %u virtual allocations\n",
+    statInfo.usedBytes, statInfo.allocationCount);
+\endcode
+
+You can also request a full list of allocations and free regions as a string in JSON format by calling
+vmaBuildVirtualBlockStatsString().
+Returned string must be later freed using vmaFreeVirtualBlockStatsString().
+The format of this string differs from the one returned by the main Vulkan allocator, but it is similar.
+
+\section virtual_allocator_additional_considerations Additional considerations
+
+Note that the "virtual allocator" functionality is implemented on a level of individual memory blocks.
+Keeping track of a whole collection of blocks, allocating new ones when out of free space,
+deleting empty ones, and deciding which one to try first for a new allocation must be implemented by the user.
 
 
 \page debugging_memory_usage Debugging incorrect memory usage
