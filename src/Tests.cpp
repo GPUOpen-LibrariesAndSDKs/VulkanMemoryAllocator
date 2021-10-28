@@ -2747,16 +2747,16 @@ static void TestVirtualBlocks()
     TEST(alloc2Offset < blockSize);
     TEST(alloc2Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc2Offset); // Check if they don't overlap.
 
-#if 0
     // # Calculate statistics
 
-    StatInfo statInfo = {};
-    block->CalculateStats(&statInfo);
-    CHECK_BOOL(statInfo.AllocationCount == 2);
-    CHECK_BOOL(statInfo.BlockCount == 1);
-    CHECK_BOOL(statInfo.UsedBytes == blockSize);
-    CHECK_BOOL(statInfo.UnusedBytes + statInfo.UsedBytes == blockSize);
+    VmaStatInfo statInfo = {};
+    vmaCalculateVirtualBlockStats(block, &statInfo);
+    TEST(statInfo.allocationCount == 2);
+    TEST(statInfo.blockCount == 1);
+    TEST(statInfo.usedBytes == blockSize);
+    TEST(statInfo.unusedBytes + statInfo.usedBytes == blockSize);
 
+#if 0
     // # Generate JSON dump
 
     WCHAR* json = nullptr;

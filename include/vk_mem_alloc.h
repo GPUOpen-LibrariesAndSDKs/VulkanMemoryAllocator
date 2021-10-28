@@ -6891,6 +6891,10 @@ public:
     {
         m_Metadata->SetAllocationUserData(offset, userData);
     }
+    void CalculateStats(VmaStatInfo& outStatInfo) const
+    {
+        m_Metadata->CalcAllocationStatInfo(outStatInfo);
+    }
 
 private:
     VmaBlockMetadata* m_Metadata;
@@ -18403,7 +18407,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock 
 VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     VmaStatInfo* VMA_NOT_NULL pStatInfo)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pStatInfo != VMA_NULL);
+    VMA_DEBUG_LOG("vmaCalculateVirtualBlockStats");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->CalculateStats(*pStatInfo);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaBuildVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
