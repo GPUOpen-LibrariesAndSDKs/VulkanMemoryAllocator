@@ -2709,46 +2709,45 @@ static void TestVirtualBlocks()
     allocCreateInfo.pUserData = (void*)(uintptr_t)1;
     allocCreateInfo.size = 8 * MEGABYTE;
     VkDeviceSize alloc0Offset;
-    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc0Offset) == VK_SUCCESS && alloc0Offset < blockSize);
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc0Offset) == VK_SUCCESS);
+    TEST(alloc0Offset < blockSize);
 
-#if 0
     // # Validate the allocation
   
-    VIRTUAL_ALLOCATION_INFO allocInfo = {};
-    block->GetAllocationInfo(alloc0Offset, &allocInfo);
-    CHECK_BOOL( allocInfo.size == allocDesc.Size );
-    CHECK_BOOL( allocInfo.pUserData == allocDesc.pUserData );
+    VmaVirtualAllocationInfo allocInfo = {};
+    vmaGetVirtualAllocationInfo(block, alloc0Offset, &allocInfo);
+    TEST(allocInfo.size == allocCreateInfo.size);
+    TEST(allocInfo.pUserData = allocCreateInfo.pUserData);
 
     // # Check SetUserData
 
-    block->SetAllocationUserData(alloc0Offset, (void*)(uintptr_t)2);
-    block->GetAllocationInfo(alloc0Offset, &allocInfo);
-    CHECK_BOOL( allocInfo.pUserData == (void*)(uintptr_t)2 );
+    vmaSetVirtualAllocationUserData(block, alloc0Offset, (void*)(uintptr_t)2);
+    vmaGetVirtualAllocationInfo(block, alloc0Offset, &allocInfo);
+    TEST(allocInfo.pUserData = (void*)(uintptr_t)2);
 
     // # Allocate 4 MB
 
-    allocDesc.Size = 4 * MEGABYTE;
-    allocDesc.Alignment = alignment;
+    allocCreateInfo.size = 4 * MEGABYTE;
     UINT64 alloc1Offset;
-    CHECK_HR( block->Allocate(&allocDesc, &alloc1Offset) );
-    CHECK_BOOL( alloc1Offset < blockSize );
-    CHECK_BOOL( alloc1Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc1Offset ); // Check if they don't overlap.
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc1Offset) == VK_SUCCESS);
+    TEST(alloc1Offset < blockSize);
+    TEST(alloc1Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc1Offset); // Check if they don't overlap.
 
     // # Allocate another 8 MB - it should fail
 
-    allocDesc.Size = 8 * MEGABYTE;
-    allocDesc.Alignment = alignment;
+    allocCreateInfo.size = 8 * MEGABYTE;
     UINT64 alloc2Offset;
-    CHECK_BOOL( FAILED(block->Allocate(&allocDesc, &alloc2Offset)) );
-    CHECK_BOOL( alloc2Offset == UINT64_MAX );
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc2Offset) < 0);
+    TEST(alloc2Offset == VK_WHOLE_SIZE);
 
     // # Free the 4 MB block. Now allocation of 8 MB should succeed.
 
-    block->FreeAllocation(alloc1Offset);
-    CHECK_HR( block->Allocate(&allocDesc, &alloc2Offset) );
-    CHECK_BOOL( alloc2Offset < blockSize );
-    CHECK_BOOL( alloc2Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc2Offset ); // Check if they don't overlap.
+    vmaVirtualFree(block, alloc1Offset);
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc2Offset) == VK_SUCCESS);
+    TEST(alloc2Offset < blockSize);
+    TEST(alloc2Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc2Offset); // Check if they don't overlap.
 
+#if 0
     // # Calculate statistics
 
     StatInfo statInfo = {};
@@ -2803,6 +2802,7 @@ static void TestVirtualBlocks()
     block->FreeAllocation(alloc2Offset);
 #endif
 
+    vmaVirtualFree(block, alloc2Offset);
     //vmaClearVirtualBlock(block);
     vmaDestroyVirtualBlock(block);
 }

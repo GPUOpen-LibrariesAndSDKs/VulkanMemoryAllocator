@@ -6860,10 +6860,7 @@ public:
     const VkAllocationCallbacks m_AllocationCallbacks;
 
     VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo);
-    ~VmaVirtualBlock_T()
-    {
-        vma_delete(GetAllocationCallbacks(), m_Metadata);
-    }
+    ~VmaVirtualBlock_T();
     VkResult Init()
     {
         return VK_SUCCESS;
@@ -16663,6 +16660,15 @@ VmaVirtualBlock_T::VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo
     }
 
     m_Metadata->Init(createInfo.size);
+}
+
+VmaVirtualBlock_T::~VmaVirtualBlock_T()
+{
+    // This is an important assert!!!
+    // Hitting it means you have some memory leak - unreleased virtual allocations.
+    VMA_ASSERT(m_Metadata->IsEmpty() && "Some virtual allocations were not freed before destruction of this virtual block!");
+
+    vma_delete(GetAllocationCallbacks(), m_Metadata);
 }
 
 VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& createInfo, VkDeviceSize& outOffset)
