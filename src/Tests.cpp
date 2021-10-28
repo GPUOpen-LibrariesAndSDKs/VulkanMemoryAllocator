@@ -2799,9 +2799,24 @@ static void TestVirtualBlocks()
     // # Final cleanup
 
     vmaVirtualFree(block, alloc2Offset);
-
-    //vmaClearVirtualBlock(block);
     vmaDestroyVirtualBlock(block);
+
+    {
+        // Another virtual block, using Clear this time.
+        TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS);
+
+        allocCreateInfo = VmaVirtualAllocationCreateInfo{};
+        allocCreateInfo.size = MEGABYTE;
+
+        for(size_t i = 0; i < 8; ++i)
+        {
+            VkDeviceSize offset = 0;
+            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &offset) == VK_SUCCESS);
+        }
+
+        vmaClearVirtualBlock(block);
+        vmaDestroyVirtualBlock(block);
+    }
 }
 
 static void TestAllocationVersusResourceSize()
@@ -6679,7 +6694,7 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(true)
+    if(false)
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:

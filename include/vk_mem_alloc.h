@@ -7767,13 +7767,10 @@ void VmaBlockMetadata_Generic::Init(VkDeviceSize size)
     suballoc.offset = 0;
     suballoc.size = size;
     suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
-    suballoc.userData = VMA_NULL;
 
     VMA_ASSERT(size > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
     m_Suballocations.push_back(suballoc);
-    VmaSuballocationList::iterator suballocItem = m_Suballocations.end();
-    --suballocItem;
-    m_FreeSuballocationsBySize.push_back(suballocItem);
+    m_FreeSuballocationsBySize.push_back(m_Suballocations.begin());
 }
 
 bool VmaBlockMetadata_Generic::Validate() const
@@ -8288,7 +8285,22 @@ void VmaBlockMetadata_Generic::GetAllocationInfo(VkDeviceSize offset, VmaVirtual
 
 void VmaBlockMetadata_Generic::Clear()
 {
-    VMA_ASSERT(0 && "TODO implement");
+    const VkDeviceSize size = GetSize();
+
+    VMA_ASSERT(IsVirtual());
+    m_FreeCount = 1;
+    m_SumFreeSize = size;
+    m_Suballocations.clear();
+    m_FreeSuballocationsBySize.clear();
+
+    VmaSuballocation suballoc = {};
+    suballoc.offset = 0;
+    suballoc.size = size;
+    suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
+    m_Suballocations.push_back(suballoc);
+
+    VMA_ASSERT(size > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
+    m_FreeSuballocationsBySize.push_back(m_Suballocations.begin());
 }
 
 void VmaBlockMetadata_Generic::SetAllocationUserData(VkDeviceSize offset, void* userData)
