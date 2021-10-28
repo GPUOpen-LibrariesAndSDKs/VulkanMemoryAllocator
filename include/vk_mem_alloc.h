@@ -777,7 +777,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
 
 #if VMA_STATS_STRING_ENABLED
 
-/// Builds and returns statistics as string in JSON format.
+/// Builds and returns statistics as a null-terminated string in JSON format.
 /**
 @param allocator
 @param[out] ppStatsString Must be freed using vmaFreeStatsString() function.
@@ -1120,12 +1120,10 @@ typedef enum VmaPoolCreateFlagBits {
     structure, which has better performance and uses less memory for metadata.
 
     By using this flag, you can achieve behavior of free-at-once, stack,
-    ring buffer, and double stack. For details, see documentation chapter
-    \ref linear_algorithm.
+    ring buffer, and double stack.
+    For details, see documentation chapter \ref linear_algorithm.
 
     When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
-
-    For more details, see [Linear allocation algorithm](@ref linear_algorithm).
     */
     VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT = 0x00000004,
 
@@ -1135,8 +1133,7 @@ typedef enum VmaPoolCreateFlagBits {
     a half of its parent's size. Comparing to default algorithm, this one provides
     faster allocation and deallocation and decreased external fragmentation,
     at the expense of more memory wasted (internal fragmentation).
-
-    For more details, see [Buddy allocation algorithm](@ref buddy_algorithm).
+    For details, see documentation chapter \ref buddy_algorithm.
     */
     VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT = 0x00000008,
 
@@ -1148,6 +1145,7 @@ typedef enum VmaPoolCreateFlagBits {
 
     VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaPoolCreateFlagBits;
+/// Flags to be passed as VmaPoolCreateInfo::flags. See #VmaPoolCreateFlagBits.
 typedef VkFlags VmaPoolCreateFlags;
 
 /** \brief Describes parameter of created #VmaPool.
@@ -2147,21 +2145,32 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
     VkImage VMA_NULLABLE_NON_DISPATCHABLE image,
     VmaAllocation VMA_NULLABLE allocation);
 
-/// Flags to be passed as VmaPoolCreateInfo::flags.
+/// Flags to be passed as VmaVirtualBlockCreateInfo::flags.
 typedef enum VmaVirtualBlockCreateFlagBits {
-    /** \brief TODO
-    
-    TODO
+    /** \brief Enables alternative, linear allocation algorithm in this virtual block.
+
+    Specify this flag to enable linear allocation algorithm, which always creates
+    new allocations after last one and doesn't reuse space from allocations freed in
+    between. It trades memory consumption for simplified algorithm and data
+    structure, which has better performance and uses less memory for metadata.
+
+    By using this flag, you can achieve behavior of free-at-once, stack,
+    ring buffer, and double stack.
+    For details, see documentation chapter \ref linear_algorithm.
     */
     VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT = 0x00000001,
 
-    /** \brief TODO
-    
-    TODO
+    /** \brief Enables alternative, buddy allocation algorithm in this virtual block.
+
+    It operates on a tree of blocks, each having size that is a power of two and
+    a half of its parent's size. Comparing to default algorithm, this one provides
+    faster allocation and deallocation and decreased external fragmentation,
+    at the expense of more memory wasted (internal fragmentation).
+    For details, see documentation chapter \ref buddy_algorithm.
     */
     VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT = 0x00000002,
 
-    /** Bit mask to extract only `ALGORITHM` bits from entire set of flags.
+    /** \brief Bit mask to extract only `ALGORITHM` bits from entire set of flags.
     */
     VMA_VIRTUAL_BLOCK_CREATE_ALGORITHM_MASK =
         VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT |
@@ -2169,56 +2178,58 @@ typedef enum VmaVirtualBlockCreateFlagBits {
 
     VMA_VIRTUAL_BLOCK_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaVirtualBlockCreateFlagBits;
+/// Flags to be passed as VmaVirtualBlockCreateInfo::flags. See #VmaVirtualBlockCreateFlagBits.
 typedef VkFlags VmaVirtualBlockCreateFlags;
 
 /// Parameters of created #VmaVirtualBlock object to be passed to vmaCreateVirtualBlock().
 struct VmaVirtualBlockCreateInfo
 {
-    /** \brief Total size of the block.
+    /** \brief Total size of the virtual block.
 
     Sizes can be expressed in bytes or any units you want as long as you are consistent in using them.
     For example, if you allocate from some array of structures, 1 can mean single instance of entire structure.
     */
     VkDeviceSize size;
     
-    /** \brief TODO
-    
-    TODO
+    /** \brief Use combination of #VmaVirtualBlockCreateFlagBits.
     */
     VmaVirtualBlockCreateFlagBits flags;
 
     /** \brief Custom CPU memory allocation callbacks. Optional.
 
-    Optional, can be null. When specified, will be used for all CPU-side memory allocations.
+    Optional, can be null. When specified, they will be used for all CPU-side memory allocations.
     */
     const VkAllocationCallbacks* VMA_NULLABLE pAllocationCallbacks;
 };
 
-/// TODO
+/// Flags to be passed as VmaVirtualAllocationCreateInfo::flags.
 typedef enum VmaVirtualAllocationCreateFlagBits {
-    /** Allocation will be created from upper stack in a double stack pool.
+    /** \brief Allocation will be created from upper stack in a double stack pool.
 
     This flag is only allowed for virtual blocks created with #VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT flag.
     */
     VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT = VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT,
-    /** Allocation strategy that tries to minimize memory usage.
+    /** \brief Allocation strategy that tries to minimize memory usage.
     */
     VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT,
-    /** Allocation strategy that tries to minimize allocation time.
+    /** \brief Allocation strategy that tries to minimize allocation time.
     */
     VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT,
-    /** Allocation strategy that tries to minimize memory fragmentation.
+    /** \brief Allocation strategy that tries to minimize memory fragmentation.
     */
     VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT,
-    /** A bit mask to extract only `STRATEGY` bits from entire set of flags.
+    /** \brief A bit mask to extract only `STRATEGY` bits from entire set of flags.
+    
+    These stategy flags are binary compatible with equivalent flags in #VmaAllocationCreateFlagBits.
     */
     VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK = VMA_ALLOCATION_CREATE_STRATEGY_MASK,
 
     VMA_VIRTUAL_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaVirtualAllocationCreateFlagBits;
+/// Flags to be passed as VmaVirtualAllocationCreateInfo::flags. See #VmaVirtualAllocationCreateFlagBits.
 typedef VkFlags VmaVirtualAllocationCreateFlags;
 
-/// Parameters of created virtual allocation to be passed to vma TODO.
+/// Parameters of created virtual allocation to be passed to vmaVirtualAllocate().
 struct VmaVirtualAllocationCreateInfo
 {
     /** \brief Size of the allocation.
@@ -2226,109 +2237,119 @@ struct VmaVirtualAllocationCreateInfo
     Cannot be zero.
     */
     VkDeviceSize size;
-    /** \brief Required alignment of the allocation.
+    /** \brief Required alignment of the allocation. Optional.
 
     Must be power of two. Special value 0 has the same meaning as 1 - means no special alignment is required, so allocation can start at any offset.
     */
     VkDeviceSize alignment;
-    /** \brief TODO
-    
+    /** \brief Use combination of #VmaVirtualAllocationCreateFlagBits.
     */
     VmaVirtualAllocationCreateFlags flags;
-    /** \brief Custom pointer to be associated with the allocation.
+    /** \brief Custom pointer to be associated with the allocation. Optional.
 
-    It can be fetched or changed later.
+    It can be any value and can be used for user-defined purposes. It can be fetched or changed later.
     */
     void* VMA_NULLABLE pUserData;
 };
 
-/// Parameters of an existing virtual allocation, returned by TODO GetAllocationInfo().
+/// Parameters of an existing virtual allocation, returned by vmaGetVirtualAllocationInfo().
 struct VmaVirtualAllocationInfo
 {
     /** \brief Size of the allocation.
 
-    Same value as passed in TODO::size.
+    Same value as passed in VmaVirtualAllocationCreateInfo::size.
     */
     VkDeviceSize size;
     /** \brief Custom pointer associated with the allocation.
 
-    Same value as passed in TODO::pUserData or TODO::SetAllocationUserData().
+    Same value as passed in VmaVirtualAllocationCreateInfo::pUserData or to vmaSetVirtualAllocationUserData().
     */
     void* VMA_NULLABLE pUserData;
 };
 
+/** \struct VmaVirtualBlock
+\brief Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory.
+
+Fill in #VmaVirtualBlockCreateInfo structure and Use vmaCreateVirtualBlock() to create it. Use vmaDestroyVirtualBlock() to destroy it.
+For more information, see documentation chapter \ref virtual_allocator.
+*/
 VK_DEFINE_HANDLE(VmaVirtualBlock);
 
-/** \brief TODO
+/** \brief Creates new #VmaVirtualBlock object.
 
-TODO.
+\param pCreateInfo Parameters for creation.
+\param[out] pVirtualBlock Returned virtual block object or `VMA_NULL` if creation failed.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
     const VmaVirtualBlockCreateInfo* VMA_NOT_NULL pCreateInfo,
     VmaVirtualBlock VMA_NULLABLE * VMA_NOT_NULL pVirtualBlock);
 
-/** \brief TODO
+/** \brief Destroys #VmaVirtualBlock object.
 
-TODO.
+Please note that you should consciously handle virtual allocations that could remain unfreed in the block.
+You should either free them individually using vmaVirtualFree() or call vmaClearVirtualBlock()
+if you are sure this is what you want. If you do neither, an assert is called.
+
+If you keep pointers to some additional metadata associated with your virtual allocations in their `pUserData`,
+don't forget to free them.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLABLE virtualBlock);
 
-/** \brief TODO
-
-TODO.
+/** \brief Returns true of the #VmaVirtualBlock is empty - contains 0 virtual allocations and has all its space available for new allocations.
 */
 VMA_CALL_PRE VkBool32 VMA_CALL_POST vmaIsVirtualBlockEmpty(VmaVirtualBlock VMA_NOT_NULL virtualBlock);
 
-/** \brief TODO
-
-TODO.
+/** \brief Returns information about a specific virtual allocation within a virtual block, like its size and `pUserData` pointer.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualAllocationInfo(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     VkDeviceSize offset, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo);
 
-/** \brief TODO
+/** \brief Allocates new virtual allocation inside given #VmaVirtualBlock.
 
-TODO.
+There is no handle type for a virtual allocation.
+Virtual allocations within a specific virtual block are uniquely identified by their offsets.
+
+If the allocation fails due to not enough free space available, `VK_ERROR_OUT_OF_DEVICE_MEMORY` is returned
+(despite the function doesn't ever allocate actual GPU memory).
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     const VmaVirtualAllocationCreateInfo* VMA_NOT_NULL pCreateInfo, VkDeviceSize* VMA_NOT_NULL pOffset);
 
-/** \brief TODO
-
-TODO.
+/** \brief Frees virtual allocation inside given #VmaVirtualBlock.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virtualBlock, VkDeviceSize offset);
 
-/** \brief TODO
+/** \brief Frees all virtual allocations inside given #VmaVirtualBlock.
 
-TODO.
+You must either call this function or free each virtual allocation individually with vmaVirtualFree()
+before destroying a virtual block. Otherwise, an assert is called.
+
+If you keep pointer to some additional metadata associated with your virtual allocation in its `pUserData`,
+don't forget to free it as well.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaClearVirtualBlock(VmaVirtualBlock VMA_NOT_NULL virtualBlock);
 
-/** \brief TODO
-
-TODO.
+/** \brief Changes custom pointer associated with given virtual allocation.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     VkDeviceSize offset, void* VMA_NULLABLE pUserData);
 
-/** \brief TODO
-
-TODO.
+/** \brief Calculates and returns statistics about virtual allocations and memory usage in given #VmaVirtualBlock.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     VmaStatInfo* VMA_NOT_NULL pStatInfo);
 
-/** \brief TODO
+/** \brief Builds and returns a null-terminated string in JSON format with information about given #VmaVirtualBlock.
+\param virtualBlock Virtual block.
+\param[out] ppStatsString Returned string.
+\param detailedMap Pass `VK_FALSE` to only obtain statistics as returned by vmaCalculateVirtualBlockStats(). Pass `VK_TRUE` to also obtain full list of allocations and free spaces.
 
-TODO.
+Returned string must be freed using vmaFreeVirtualBlockStatsString().
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaBuildVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     char* VMA_NULLABLE * VMA_NOT_NULL ppStatsString, VkBool32 detailedMap);
 
-/** \brief TODO
-
-TODO.
+/** \brief Frees a string returned by vmaBuildVirtualBlockStatsString().
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     char* VMA_NULLABLE pStatsString);

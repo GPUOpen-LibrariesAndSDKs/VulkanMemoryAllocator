@@ -67,7 +67,9 @@ var menudata={children:[
 {text:"v",url:"globals.html#index_v"}]},
 {text:"Functions",url:"globals_func.html",children:[
 {text:"v",url:"globals_func.html#index_v"}]},
-{text:"Typedefs",url:"globals_type.html"},
+{text:"Typedefs",url:"globals_type.html",children:[
+{text:"p",url:"globals_type.html#index_p"},
+{text:"v",url:"globals_type.html#index_v"}]},
 {text:"Enumerations",url:"globals_enum.html"},
 {text:"Enumerator",url:"globals_eval.html",children:[
 {text:"v",url:"globals_eval.html#index_v"}]},
