@@ -2756,18 +2756,16 @@ static void TestVirtualBlocks()
     TEST(statInfo.usedBytes == blockSize);
     TEST(statInfo.unusedBytes + statInfo.usedBytes == blockSize);
 
-#if 0
     // # Generate JSON dump
 
-    WCHAR* json = nullptr;
-    block->BuildStatsString(&json);
+    char* json = nullptr;
+    vmaBuildVirtualBlockStatsString(block, &json, VK_TRUE);
     {
-        std::wstring str(json);
-        CHECK_BOOL( str.find(L"\"UserData\": 1") != std::wstring::npos );
-        CHECK_BOOL( str.find(L"\"UserData\": 2") != std::wstring::npos );
+        std::string str(json);
+        TEST( str.find("\"UserData\": \"0000000000000001\"") != std::string::npos );
+        TEST( str.find("\"UserData\": \"0000000000000002\"") != std::string::npos );
     }
-    block->FreeStatsString(json);
-#endif
+    vmaFreeVirtualBlockStatsString(block, json);
 
     // # Free alloc0, leave alloc2 unfreed.
 

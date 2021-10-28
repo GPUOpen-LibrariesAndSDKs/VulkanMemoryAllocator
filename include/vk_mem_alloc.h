@@ -3279,10 +3279,19 @@ static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char
         memcpy(result, srcStr, len + 1);
         return result;
     }
-    else
+    return VMA_NULL;
+}
+
+static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char* srcStr, size_t strLen)
+{
+    if(srcStr != VMA_NULL)
     {
-        return VMA_NULL;
+        char* const result = vma_new_array(allocs, char, strLen + 1);
+        memcpy(result, srcStr, strLen);
+        result[strLen] = '\0';
+        return result;
     }
+    return VMA_NULL;
 }
 
 static void VmaFreeString(const VkAllocationCallbacks* allocs, char* str)
@@ -5121,8 +5130,7 @@ protected:
         size_t allocationCount,
         size_t unusedRangeCount) const;
     void PrintDetailedMap_Allocation(class VmaJsonWriter& json,
-        VkDeviceSize offset,
-        VmaAllocation hAllocation) const;
+        VkDeviceSize offset, VkDeviceSize size, void* userData) const;
     void PrintDetailedMap_UnusedRange(class VmaJsonWriter& json,
         VkDeviceSize offset,
         VkDeviceSize size) const;
@@ -6852,6 +6860,37 @@ private:
 #endif // #if VMA_MEMORY_BUDGET
 };
 
+class VmaStringBuilder;
+
+static void InitStatInfo(VmaStatInfo& outInfo)
+{
+    memset(&outInfo, 0, sizeof(outInfo));
+    outInfo.allocationSizeMin = UINT64_MAX;
+    outInfo.unusedRangeSizeMin = UINT64_MAX;
+}
+
+// Adds statistics srcInfo into inoutInfo, like: inoutInfo += srcInfo.
+static void VmaAddStatInfo(VmaStatInfo& inoutInfo, const VmaStatInfo& srcInfo)
+{
+    inoutInfo.blockCount += srcInfo.blockCount;
+    inoutInfo.allocationCount += srcInfo.allocationCount;
+    inoutInfo.unusedRangeCount += srcInfo.unusedRangeCount;
+    inoutInfo.usedBytes += srcInfo.usedBytes;
+    inoutInfo.unusedBytes += srcInfo.unusedBytes;
+    inoutInfo.allocationSizeMin = VMA_MIN(inoutInfo.allocationSizeMin, srcInfo.allocationSizeMin);
+    inoutInfo.allocationSizeMax = VMA_MAX(inoutInfo.allocationSizeMax, srcInfo.allocationSizeMax);
+    inoutInfo.unusedRangeSizeMin = VMA_MIN(inoutInfo.unusedRangeSizeMin, srcInfo.unusedRangeSizeMin);
+    inoutInfo.unusedRangeSizeMax = VMA_MAX(inoutInfo.unusedRangeSizeMax, srcInfo.unusedRangeSizeMax);
+}
+
+static void VmaPostprocessCalcStatInfo(VmaStatInfo& inoutInfo)
+{
+    inoutInfo.allocationSizeAvg = (inoutInfo.allocationCount > 0) ?
+        VmaRoundDiv<VkDeviceSize>(inoutInfo.usedBytes, inoutInfo.allocationCount) : 0;
+    inoutInfo.unusedRangeSizeAvg = (inoutInfo.unusedRangeCount > 0) ?
+        VmaRoundDiv<VkDeviceSize>(inoutInfo.unusedBytes, inoutInfo.unusedRangeCount) : 0;
+}
+
 struct VmaVirtualBlock_T
 {
     VMA_CLASS_NO_COPY(VmaVirtualBlock_T)
@@ -6894,7 +6933,11 @@ public:
     void CalculateStats(VmaStatInfo& outStatInfo) const
     {
         m_Metadata->CalcAllocationStatInfo(outStatInfo);
+        VmaPostprocessCalcStatInfo(outStatInfo);
     }
+#if VMA_STATS_STRING_ENABLED
+    void BuildStatsString(bool detailedMap, VmaStringBuilder& sb) const;
+#endif
 
 private:
     VmaBlockMetadata* m_Metadata;
@@ -6954,7 +6997,7 @@ static void vma_delete_array(VmaAllocator hAllocator, T* ptr, size_t count)
 class VmaStringBuilder
 {
 public:
-    VmaStringBuilder(VmaAllocator alloc) : m_Data(VmaStlAllocator<char>(alloc->GetAllocationCallbacks())) { }
+    VmaStringBuilder(const VkAllocationCallbacks* allocationCallbacks) : m_Data(VmaStlAllocator<char>(allocationCallbacks)) { }
     size_t GetLength() const { return m_Data.size(); }
     const char* GetData() const { return m_Data.data(); }
 
@@ -7701,15 +7744,33 @@ void VmaBlockMetadata::PrintDetailedMap_Begin(class VmaJsonWriter& json,
 }
 
 void VmaBlockMetadata::PrintDetailedMap_Allocation(class VmaJsonWriter& json,
-    VkDeviceSize offset,
-    VmaAllocation hAllocation) const
+    VkDeviceSize offset, VkDeviceSize size, void* userData) const
 {
     json.BeginObject(true);
 
     json.WriteString("Offset");
     json.WriteNumber(offset);
 
-    hAllocation->PrintParameters(json);
+    if(IsVirtual())
+    {
+        json.WriteString("Type");
+        json.WriteString("VirtualAllocation");
+
+        json.WriteString("Size");
+        json.WriteNumber(size);
+
+        if(userData != VMA_NULL)
+        {
+            json.WriteString("UserData");
+            json.BeginString();
+            json.ContinueString_Pointer(userData);
+            json.EndString();
+        }
+    }
+    else
+    {
+        ((VmaAllocation)userData)->PrintParameters(json);
+    }
 
     json.EndObject();
 }
@@ -7934,8 +7995,7 @@ void VmaBlockMetadata_Generic::PrintDetailedMap(class VmaJsonWriter& json) const
         }
         else
         {
-            VMA_ASSERT(!IsVirtual()); // TODO?
-            PrintDetailedMap_Allocation(json, suballoc.offset, (VmaAllocation)suballoc.userData);
+            PrintDetailedMap_Allocation(json, suballoc.offset, suballoc.size, suballoc.userData);
         }
     }
 
@@ -9575,7 +9635,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
 
                 // 2. Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
-                PrintDetailedMap_Allocation(json, suballoc.offset, (VmaAllocation)suballoc.userData);
+                PrintDetailedMap_Allocation(json, suballoc.offset, suballoc.size, suballoc.userData);
 
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
@@ -9622,7 +9682,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
 
             // 2. Process this allocation.
             // There is allocation with suballoc.offset, suballoc.size.
-            PrintDetailedMap_Allocation(json, suballoc.offset, (VmaAllocation)suballoc.userData);
+            PrintDetailedMap_Allocation(json, suballoc.offset, suballoc.size, suballoc.userData);
 
             // 3. Prepare for next iteration.
             lastOffset = suballoc.offset + suballoc.size;
@@ -9670,7 +9730,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
 
                 // 2. Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
-                PrintDetailedMap_Allocation(json, suballoc.offset, (VmaAllocation)suballoc.userData);
+                PrintDetailedMap_Allocation(json, suballoc.offset, suballoc.size, suballoc.userData);
 
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
@@ -11123,8 +11183,8 @@ void VmaBlockMetadata_Buddy::PrintDetailedMapNode(class VmaJsonWriter& json, con
     case Node::TYPE_ALLOCATION:
         {
             VmaAllocation const alloc = (VmaAllocation)node->allocation.userData;
-            PrintDetailedMap_Allocation(json, node->offset, alloc);
             const VkDeviceSize allocSize = alloc->GetSize();
+            PrintDetailedMap_Allocation(json, node->offset, allocSize, node->allocation.userData);
             if(allocSize < levelNodeSize)
             {
                 PrintDetailedMap_UnusedRange(json, node->offset + allocSize, levelNodeSize - allocSize);
@@ -11374,35 +11434,6 @@ VkResult VmaDeviceMemoryBlock::BindImageMemory(
     // This lock is important so that we don't call vkBind... and/or vkMap... simultaneously on the same VkDeviceMemory from multiple threads.
     VmaMutexLock lock(m_Mutex, hAllocator->m_UseMutex);
     return hAllocator->BindVulkanImage(m_hMemory, memoryOffset, hImage, pNext);
-}
-
-static void InitStatInfo(VmaStatInfo& outInfo)
-{
-    memset(&outInfo, 0, sizeof(outInfo));
-    outInfo.allocationSizeMin = UINT64_MAX;
-    outInfo.unusedRangeSizeMin = UINT64_MAX;
-}
-
-// Adds statistics srcInfo into inoutInfo, like: inoutInfo += srcInfo.
-static void VmaAddStatInfo(VmaStatInfo& inoutInfo, const VmaStatInfo& srcInfo)
-{
-    inoutInfo.blockCount += srcInfo.blockCount;
-    inoutInfo.allocationCount += srcInfo.allocationCount;
-    inoutInfo.unusedRangeCount += srcInfo.unusedRangeCount;
-    inoutInfo.usedBytes += srcInfo.usedBytes;
-    inoutInfo.unusedBytes += srcInfo.unusedBytes;
-    inoutInfo.allocationSizeMin = VMA_MIN(inoutInfo.allocationSizeMin, srcInfo.allocationSizeMin);
-    inoutInfo.allocationSizeMax = VMA_MAX(inoutInfo.allocationSizeMax, srcInfo.allocationSizeMax);
-    inoutInfo.unusedRangeSizeMin = VMA_MIN(inoutInfo.unusedRangeSizeMin, srcInfo.unusedRangeSizeMin);
-    inoutInfo.unusedRangeSizeMax = VMA_MAX(inoutInfo.unusedRangeSizeMax, srcInfo.unusedRangeSizeMax);
-}
-
-static void VmaPostprocessCalcStatInfo(VmaStatInfo& inoutInfo)
-{
-    inoutInfo.allocationSizeAvg = (inoutInfo.allocationCount > 0) ?
-        VmaRoundDiv<VkDeviceSize>(inoutInfo.usedBytes, inoutInfo.allocationCount) : 0;
-    inoutInfo.unusedRangeSizeAvg = (inoutInfo.unusedRangeCount > 0) ?
-        VmaRoundDiv<VkDeviceSize>(inoutInfo.unusedBytes, inoutInfo.unusedRangeCount) : 0;
 }
 
 VmaPool_T::VmaPool_T(
@@ -16713,6 +16744,28 @@ VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& creat
     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 
+#if VMA_STATS_STRING_ENABLED
+void VmaVirtualBlock_T::BuildStatsString(bool detailedMap, VmaStringBuilder& sb) const
+{
+    VmaJsonWriter json(GetAllocationCallbacks(), sb);
+    json.BeginObject();
+
+    VmaStatInfo stat = {};
+    CalculateStats(stat);
+
+    json.WriteString("Stats");
+    VmaPrintStatInfo(json, stat);
+
+    if(detailedMap)
+    {
+        json.WriteString("Details");
+        m_Metadata->PrintDetailedMap(json);
+    }
+
+    json.EndObject();
+}
+#endif // #if VMA_STATS_STRING_ENABLED
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public interface
 
@@ -16819,7 +16872,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
     VMA_ASSERT(allocator && ppStatsString);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VmaStringBuilder sb(allocator);
+    VmaStringBuilder sb(allocator->GetAllocationCallbacks());
     {
         VmaJsonWriter json(allocator->GetAllocationCallbacks(), sb);
         json.BeginObject();
@@ -16942,14 +16995,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
         json.EndObject();
     }
 
-    const size_t len = sb.GetLength();
-    char* const pChars = vma_new_array(allocator, char, len + 1);
-    if(len > 0)
-    {
-        memcpy(pChars, sb.GetData(), len);
-    }
-    pChars[len] = '\0';
-    *ppStatsString = pChars;
+    *ppStatsString = VmaCreateStringCopy(allocator->GetAllocationCallbacks(), sb.GetData(), sb.GetLength());
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
@@ -16959,8 +17005,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
     if(pStatsString != VMA_NULL)
     {
         VMA_ASSERT(allocator);
-        size_t len = strlen(pStatsString);
-        vma_delete_array(allocator, pStatsString, len + 1);
+        VmaFreeString(allocator->GetAllocationCallbacks(), pStatsString);
     }
 }
 
@@ -18431,16 +18476,30 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(VmaVirtualBlock VM
     virtualBlock->CalculateStats(*pStatInfo);
 }
 
+#if VMA_STATS_STRING_ENABLED
+
 VMA_CALL_PRE void VMA_CALL_POST vmaBuildVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     char* VMA_NULLABLE * VMA_NOT_NULL ppStatsString, VkBool32 detailedMap)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && ppStatsString != VMA_NULL);
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    const VkAllocationCallbacks* allocationCallbacks = virtualBlock->GetAllocationCallbacks();
+    VmaStringBuilder sb(allocationCallbacks);
+    virtualBlock->BuildStatsString(detailedMap != VK_FALSE, sb);
+    *ppStatsString = VmaCreateStringCopy(allocationCallbacks, sb.GetData(), sb.GetLength());
 }
+
+#endif // #if VMA_STATS_STRING_ENABLED
 
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     char* VMA_NULLABLE pStatsString)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    if(pStatsString != VMA_NULL)
+    {
+        VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
+        VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+        VmaFreeString(virtualBlock->GetAllocationCallbacks(), pStatsString);
+    }
 }
 
 #endif // #ifdef VMA_IMPLEMENTATION
