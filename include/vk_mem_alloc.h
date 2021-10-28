@@ -5047,7 +5047,8 @@ in a single VkDeviceMemory block.
 class VmaBlockMetadata
 {
 public:
-    VmaBlockMetadata(VmaAllocator hAllocator, bool isVirtual);
+    // pAllocationCallbacks, if not null, must be owned externally - alive and unchanged for the whole lifetime of this object.
+    VmaBlockMetadata(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual);
     virtual ~VmaBlockMetadata() { }
     virtual void Init(VkDeviceSize size) { m_Size = size; }
 
@@ -5143,7 +5144,7 @@ class VmaBlockMetadata_Generic : public VmaBlockMetadata
 {
     VMA_CLASS_NO_COPY(VmaBlockMetadata_Generic)
 public:
-    VmaBlockMetadata_Generic(VmaAllocator hAllocator, bool isVirtual);
+    VmaBlockMetadata_Generic(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual);
     virtual ~VmaBlockMetadata_Generic();
     virtual void Init(VkDeviceSize size);
 
@@ -5323,7 +5324,7 @@ class VmaBlockMetadata_Linear : public VmaBlockMetadata
 {
     VMA_CLASS_NO_COPY(VmaBlockMetadata_Linear)
 public:
-    VmaBlockMetadata_Linear(VmaAllocator hAllocator, bool isVirtual);
+    VmaBlockMetadata_Linear(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual);
     virtual ~VmaBlockMetadata_Linear();
     virtual void Init(VkDeviceSize size);
 
@@ -5455,7 +5456,7 @@ class VmaBlockMetadata_Buddy : public VmaBlockMetadata
 {
     VMA_CLASS_NO_COPY(VmaBlockMetadata_Buddy)
 public:
-    VmaBlockMetadata_Buddy(VmaAllocator hAllocator, bool isVirtual);
+    VmaBlockMetadata_Buddy(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual);
     virtual ~VmaBlockMetadata_Buddy();
     virtual void Init(VkDeviceSize size);
 
@@ -7666,9 +7667,9 @@ struct VmaSuballocationItemSizeLess
 ////////////////////////////////////////////////////////////////////////////////
 // class VmaBlockMetadata
 
-VmaBlockMetadata::VmaBlockMetadata(VmaAllocator hAllocator, bool isVirtual) :
+VmaBlockMetadata::VmaBlockMetadata(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual) :
     m_Size(0),
-    m_pAllocationCallbacks(hAllocator->GetAllocationCallbacks()),
+    m_pAllocationCallbacks(pAllocationCallbacks),
     m_IsVirtual(isVirtual)
 {
 }
@@ -7741,12 +7742,12 @@ void VmaBlockMetadata::PrintDetailedMap_End(class VmaJsonWriter& json) const
 ////////////////////////////////////////////////////////////////////////////////
 // class VmaBlockMetadata_Generic
 
-VmaBlockMetadata_Generic::VmaBlockMetadata_Generic(VmaAllocator hAllocator, bool isVirtual) :
-    VmaBlockMetadata(hAllocator, isVirtual),
+VmaBlockMetadata_Generic::VmaBlockMetadata_Generic(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual) :
+    VmaBlockMetadata(pAllocationCallbacks, isVirtual),
     m_FreeCount(0),
     m_SumFreeSize(0),
-    m_Suballocations(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
-    m_FreeSuballocationsBySize(VmaStlAllocator<VmaSuballocationList::iterator>(hAllocator->GetAllocationCallbacks()))
+    m_Suballocations(VmaStlAllocator<VmaSuballocation>(pAllocationCallbacks)),
+    m_FreeSuballocationsBySize(VmaStlAllocator<VmaSuballocationList::iterator>(pAllocationCallbacks))
 {
 }
 
@@ -8755,11 +8756,11 @@ bool VmaBlockMetadata_Generic::IsBufferImageGranularityConflictPossible(
 ////////////////////////////////////////////////////////////////////////////////
 // class VmaBlockMetadata_Linear
 
-VmaBlockMetadata_Linear::VmaBlockMetadata_Linear(VmaAllocator hAllocator, bool isVirtual) :
-    VmaBlockMetadata(hAllocator, isVirtual),
+VmaBlockMetadata_Linear::VmaBlockMetadata_Linear(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual) :
+    VmaBlockMetadata(pAllocationCallbacks, isVirtual),
     m_SumFreeSize(0),
-    m_Suballocations0(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
-    m_Suballocations1(VmaStlAllocator<VmaSuballocation>(hAllocator->GetAllocationCallbacks())),
+    m_Suballocations0(VmaStlAllocator<VmaSuballocation>(pAllocationCallbacks)),
+    m_Suballocations1(VmaStlAllocator<VmaSuballocation>(pAllocationCallbacks)),
     m_1stVectorIndex(0),
     m_2ndVectorMode(SECOND_VECTOR_EMPTY),
     m_1stNullItemsBeginCount(0),
@@ -10546,8 +10547,8 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 ////////////////////////////////////////////////////////////////////////////////
 // class VmaBlockMetadata_Buddy
 
-VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(VmaAllocator hAllocator, bool isVirtual) :
-    VmaBlockMetadata(hAllocator, isVirtual),
+VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual) :
+    VmaBlockMetadata(pAllocationCallbacks, isVirtual),
     m_Root(VMA_NULL),
     m_AllocationCount(0),
     m_FreeCount(1),
@@ -11165,18 +11166,18 @@ void VmaDeviceMemoryBlock::Init(
     switch(algorithm)
     {
     case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
-        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Linear)(hAllocator,
+        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Linear)(hAllocator->GetAllocationCallbacks(),
             false); // isVirtual
         break;
     case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
-        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Buddy)(hAllocator,
+        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Buddy)(hAllocator->GetAllocationCallbacks(),
             false); // isVirtual
         break;
     default:
         VMA_ASSERT(0);
         // Fall-through.
     case 0:
-        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Generic)(hAllocator,
+        m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Generic)(hAllocator->GetAllocationCallbacks(),
             false); // isVirtual
     }
     m_pMetadata->Init(newSize);
