@@ -10524,7 +10524,14 @@ void VmaBlockMetadata_Linear::GetAllocationInfo(VkDeviceSize offset, VmaVirtualA
 
 void VmaBlockMetadata_Linear::Clear()
 {
-    VMA_ASSERT(0 && "TODO implement");
+    m_SumFreeSize = GetSize();
+    m_Suballocations0.clear();
+    m_Suballocations1.clear();
+    m_1stVectorIndex = 0;
+    m_2ndVectorMode = SECOND_VECTOR_EMPTY;
+    m_1stNullItemsBeginCount = 0;
+    m_1stNullItemsMiddleCount = 0;
+    m_2ndNullItemsCount = 0;
 }
 
 void VmaBlockMetadata_Linear::SetAllocationUserData(VkDeviceSize offset, void* userData)
