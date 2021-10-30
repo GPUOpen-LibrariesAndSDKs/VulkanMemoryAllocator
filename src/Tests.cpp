@@ -2824,7 +2824,7 @@ static void TestVirtualBlocksAlgorithms()
     RandomNumberGenerator rand{3454335};
     auto calcRandomAllocSize = [&rand]() -> VkDeviceSize { return rand.Generate() % 20 + 5; };
 
-    for(size_t algorithmIndex = 0; algorithmIndex < 1/*3*/; ++algorithmIndex)
+    for(size_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
     {
         // Create the block
         VmaVirtualBlockCreateInfo blockCreateInfo = {};
@@ -2841,7 +2841,7 @@ static void TestVirtualBlocksAlgorithms()
 
         struct AllocData
         {
-            VkDeviceSize offset, size;
+            VkDeviceSize offset, requestedSize, allocationSize;
         };
         std::vector<AllocData> allocations;
         
@@ -2858,9 +2858,15 @@ static void TestVirtualBlocksAlgorithms()
             else if(i < 18 && algorithmIndex == 1) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
 
             AllocData alloc = {};
-            alloc.size = allocCreateInfo.size;
+            alloc.requestedSize = allocCreateInfo.size;
             res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
             TEST(res == VK_SUCCESS);
+            
+            VmaVirtualAllocationInfo allocInfo;
+            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            TEST(allocInfo.size >= allocCreateInfo.size);
+            alloc.allocationSize = allocInfo.size;
+
             allocations.push_back(alloc);
         }
 
@@ -2880,9 +2886,15 @@ static void TestVirtualBlocksAlgorithms()
             allocCreateInfo.pUserData = (void*)(uintptr_t)(allocCreateInfo.size * 10);
 
             AllocData alloc = {};
-            alloc.size = allocCreateInfo.size;
+            alloc.requestedSize = allocCreateInfo.size;
             res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
             TEST(res == VK_SUCCESS);
+
+            VmaVirtualAllocationInfo allocInfo;
+            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            TEST(allocInfo.size >= allocCreateInfo.size);
+            alloc.allocationSize = allocInfo.size;
+
             allocations.push_back(alloc);
         }
 
@@ -2895,10 +2907,16 @@ static void TestVirtualBlocksAlgorithms()
             allocCreateInfo.pUserData = (void*)(uintptr_t)(allocCreateInfo.size * 10);
 
             AllocData alloc = {};
-            alloc.size = allocCreateInfo.size;
+            alloc.requestedSize = allocCreateInfo.size;
             res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
             TEST(res == VK_SUCCESS);
             TEST(alloc.offset % 16 == 0);
+
+            VmaVirtualAllocationInfo allocInfo;
+            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            TEST(allocInfo.size >= allocCreateInfo.size);
+            alloc.allocationSize = allocInfo.size;
+
             allocations.push_back(alloc);
         }
 
@@ -2907,7 +2925,7 @@ static void TestVirtualBlocksAlgorithms()
             return lhs.offset < rhs.offset; });
         for(size_t i = 0; i < allocations.size() - 1; ++i)
         {
-            TEST(allocations[i+1].offset >= allocations[i].offset + allocations[i].size);
+            TEST(allocations[i+1].offset >= allocations[i].offset + allocations[i].allocationSize);
         }
 
         // Check pUserData
@@ -2915,7 +2933,7 @@ static void TestVirtualBlocksAlgorithms()
             const AllocData& alloc = allocations.back();
             VmaVirtualAllocationInfo allocInfo = {};
             vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
-            TEST((uintptr_t)allocInfo.pUserData == alloc.size * 10);
+            TEST((uintptr_t)allocInfo.pUserData == alloc.requestedSize * 10);
 
             vmaSetVirtualAllocationUserData(block, alloc.offset, (void*)(uintptr_t)666);
             vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
@@ -2924,11 +2942,11 @@ static void TestVirtualBlocksAlgorithms()
 
         // Calculate statistics
         {
-            VkDeviceSize allocSizeMin = VK_WHOLE_SIZE, allocSizeMax = 0, allocSizeSum = 0;
+            VkDeviceSize actualAllocSizeMin = VK_WHOLE_SIZE, actualAllocSizeMax = 0, actualAllocSizeSum = 0;
             std::for_each(allocations.begin(), allocations.end(), [&](const AllocData& a) {
-                allocSizeMin = std::min(allocSizeMin, a.size);
-                allocSizeMax = std::max(allocSizeMax, a.size);
-                allocSizeSum += a.size;
+                actualAllocSizeMin = std::min(actualAllocSizeMin, a.allocationSize);
+                actualAllocSizeMax = std::max(actualAllocSizeMax, a.allocationSize);
+                actualAllocSizeSum += a.allocationSize;
             });
 
             VmaStatInfo statInfo = {};
@@ -2936,9 +2954,9 @@ static void TestVirtualBlocksAlgorithms()
             TEST(statInfo.allocationCount == allocations.size());
             TEST(statInfo.blockCount == 1);
             TEST(statInfo.usedBytes + statInfo.unusedBytes == blockCreateInfo.size);
-            TEST(statInfo.allocationSizeMax == allocSizeMax);
-            TEST(statInfo.allocationSizeMin == allocSizeMin);
-            TEST(statInfo.usedBytes >= allocSizeSum);
+            TEST(statInfo.allocationSizeMax == actualAllocSizeMax);
+            TEST(statInfo.allocationSizeMin == actualAllocSizeMin);
+            TEST(statInfo.usedBytes >= actualAllocSizeSum);
         }
 
         // Build JSON dump string
@@ -6834,6 +6852,7 @@ void Test()
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
+        TestVirtualBlocks();
         TestVirtualBlocksAlgorithms();
         return;
     }
@@ -6842,6 +6861,7 @@ void Test()
 
     TestBasics();
     TestVirtualBlocks();
+    TestVirtualBlocksAlgorithms();
     TestAllocationVersusResourceSize();
     //TestGpuData(); // Not calling this because it's just testing the testing environment.
 #if VMA_DEBUG_MARGIN
