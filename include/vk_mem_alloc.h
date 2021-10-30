@@ -16741,7 +16741,7 @@ VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& creat
         0, // frameInUseCount - unimportant
         1, // bufferImageGranularity
         createInfo.size, // allocSize
-        VMA_MAX(createInfo.alignment, 1llu), // allocAlignment
+        VMA_MAX(createInfo.alignment, (VkDeviceSize)1), // allocAlignment
         (createInfo.flags & VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT) != 0, // upperAddress
         VMA_SUBALLOCATION_TYPE_UNKNOWN, // allocType - unimportant
         false, // canMakeOthersLost
