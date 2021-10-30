@@ -3143,9 +3143,6 @@ private:
     #define VMA_DEBUG_GLOBAL_MUTEX_LOCK
 #endif
 
-// Minimum size of a free suballocation to register it in the free suballocation collection.
-static const VkDeviceSize VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER = 16;
-
 /*
 Performs binary search and returns iterator to first element that is greater or
 equal to (key), according to comparison (cmp).
@@ -5237,9 +5234,13 @@ private:
     uint32_t m_FreeCount;
     VkDeviceSize m_SumFreeSize;
     VmaSuballocationList m_Suballocations;
-    // Suballocations that are free and have size greater than certain threshold.
-    // Sorted by size, ascending.
+    // Suballocations that are free. Sorted by size, ascending.
     VmaVector< VmaSuballocationList::iterator, VmaStlAllocator< VmaSuballocationList::iterator > > m_FreeSuballocationsBySize;
+
+    VkDeviceSize AlignAllocationSize(VkDeviceSize size) const
+    {
+        return IsVirtual() ? size : VmaAlignUp(size, (VkDeviceSize)16);
+    }
 
     bool ValidateFreeSuballocationList() const;
 
@@ -5539,6 +5540,8 @@ public:
 private:
     static const VkDeviceSize MIN_NODE_SIZE = 32;
     static const size_t MAX_LEVELS = 30;
+    
+    static VkDeviceSize AlignAllocationSize(VkDeviceSize size) { return VmaNextPow2(size); }
 
     struct ValidationContext
     {
@@ -6148,11 +6151,6 @@ private:
 
         void Register(size_t blockInfoIndex, VkDeviceSize offset, VkDeviceSize size)
         {
-            if(size < VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
-            {
-                return;
-            }
-
             // Find first invalid or the smallest structure.
             size_t bestIndex = SIZE_MAX;
             for(size_t i = 0; i < MAX_COUNT; ++i)
@@ -6208,18 +6206,10 @@ private:
                 outBlockInfoIndex = m_FreeSpaces[bestIndex].blockInfoIndex;
                 outDstOffset = VmaAlignUp(m_FreeSpaces[bestIndex].offset, alignment);
 
-                if(bestFreeSpaceAfter >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
-                {
-                    // Leave this structure for remaining empty space.
-                    const VkDeviceSize alignmentPlusSize = (outDstOffset - m_FreeSpaces[bestIndex].offset) + size;
-                    m_FreeSpaces[bestIndex].offset += alignmentPlusSize;
-                    m_FreeSpaces[bestIndex].size -= alignmentPlusSize;
-                }
-                else
-                {
-                    // This structure becomes invalid.
-                    m_FreeSpaces[bestIndex].blockInfoIndex = SIZE_MAX;
-                }
+                // Leave this structure for remaining empty space.
+                const VkDeviceSize alignmentPlusSize = (outDstOffset - m_FreeSpaces[bestIndex].offset) + size;
+                m_FreeSpaces[bestIndex].offset += alignmentPlusSize;
+                m_FreeSpaces[bestIndex].size -= alignmentPlusSize;
 
                 return true;
             }
@@ -7847,7 +7837,6 @@ void VmaBlockMetadata_Generic::Init(VkDeviceSize size)
     suballoc.size = size;
     suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
 
-    VMA_ASSERT(size > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
     m_Suballocations.push_back(suballoc);
     m_FreeSuballocationsBySize.push_back(m_Suballocations.begin());
 }
@@ -7887,10 +7876,7 @@ bool VmaBlockMetadata_Generic::Validate() const
         {
             calculatedSumFreeSize += subAlloc.size;
             ++calculatedFreeCount;
-            if(subAlloc.size >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
-            {
-                ++freeSuballocationsToRegister;
-            }
+            ++freeSuballocationsToRegister;
 
             // Margin required between allocations - every free space must be at least that large.
             VMA_VALIDATE(subAlloc.size >= VMA_DEBUG_MARGIN);
@@ -8039,6 +8025,8 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     VMA_ASSERT(allocType != VMA_SUBALLOCATION_TYPE_FREE);
     VMA_ASSERT(pAllocationRequest != VMA_NULL);
     VMA_HEAVY_ASSERT(Validate());
+
+    allocSize = AlignAllocationSize(allocSize);
 
     pAllocationRequest->type = VmaAllocationRequestType::Normal;
 
@@ -8269,6 +8257,8 @@ void VmaBlockMetadata_Generic::Alloc(
     VkDeviceSize allocSize,
     void* userData)
 {
+    allocSize = AlignAllocationSize(allocSize);
+
     VMA_ASSERT(request.type == VmaAllocationRequestType::Normal);
     VMA_ASSERT(request.item != m_Suballocations.end());
     VmaSuballocation& suballoc = *request.item;
@@ -8377,7 +8367,6 @@ void VmaBlockMetadata_Generic::Clear()
     suballoc.type = VMA_SUBALLOCATION_TYPE_FREE;
     m_Suballocations.push_back(suballoc);
 
-    VMA_ASSERT(size > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
     m_FreeSuballocationsBySize.push_back(m_Suballocations.begin());
 }
 
@@ -8405,7 +8394,6 @@ bool VmaBlockMetadata_Generic::ValidateFreeSuballocationList() const
         const VmaSuballocationList::iterator it = m_FreeSuballocationsBySize[i];
 
         VMA_VALIDATE(it->type == VMA_SUBALLOCATION_TYPE_FREE);
-        VMA_VALIDATE(it->size >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER);
         VMA_VALIDATE(it->size >= lastSize);
         lastSize = it->size;
     }
@@ -8766,16 +8754,13 @@ void VmaBlockMetadata_Generic::RegisterFreeSuballocation(VmaSuballocationList::i
     // this function, depending on what do you want to check.
     VMA_HEAVY_ASSERT(ValidateFreeSuballocationList());
 
-    if(item->size >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
+    if(m_FreeSuballocationsBySize.empty())
     {
-        if(m_FreeSuballocationsBySize.empty())
-        {
-            m_FreeSuballocationsBySize.push_back(item);
-        }
-        else
-        {
-            VmaVectorInsertSorted<VmaSuballocationItemSizeLess>(m_FreeSuballocationsBySize, item);
-        }
+        m_FreeSuballocationsBySize.push_back(item);
+    }
+    else
+    {
+        VmaVectorInsertSorted<VmaSuballocationItemSizeLess>(m_FreeSuballocationsBySize, item);
     }
 
     //VMA_HEAVY_ASSERT(ValidateFreeSuballocationList());
@@ -8791,26 +8776,23 @@ void VmaBlockMetadata_Generic::UnregisterFreeSuballocation(VmaSuballocationList:
     // this function, depending on what do you want to check.
     VMA_HEAVY_ASSERT(ValidateFreeSuballocationList());
 
-    if(item->size >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
+    VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
+        m_FreeSuballocationsBySize.data(),
+        m_FreeSuballocationsBySize.data() + m_FreeSuballocationsBySize.size(),
+        item,
+        VmaSuballocationItemSizeLess());
+    for(size_t index = it - m_FreeSuballocationsBySize.data();
+        index < m_FreeSuballocationsBySize.size();
+        ++index)
     {
-        VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
-            m_FreeSuballocationsBySize.data(),
-            m_FreeSuballocationsBySize.data() + m_FreeSuballocationsBySize.size(),
-            item,
-            VmaSuballocationItemSizeLess());
-        for(size_t index = it - m_FreeSuballocationsBySize.data();
-            index < m_FreeSuballocationsBySize.size();
-            ++index)
+        if(m_FreeSuballocationsBySize[index] == item)
         {
-            if(m_FreeSuballocationsBySize[index] == item)
-            {
-                VmaVectorRemove(m_FreeSuballocationsBySize, index);
-                return;
-            }
-            VMA_ASSERT((m_FreeSuballocationsBySize[index]->size == item->size) && "Not found.");
+            VmaVectorRemove(m_FreeSuballocationsBySize, index);
+            return;
         }
-        VMA_ASSERT(0 && "Not found.");
+        VMA_ASSERT((m_FreeSuballocationsBySize[index]->size == item->size) && "Not found.");
     }
+    VMA_ASSERT(0 && "Not found.");
 
     //VMA_HEAVY_ASSERT(ValidateFreeSuballocationList());
 }
@@ -10860,6 +10842,8 @@ bool VmaBlockMetadata_Buddy::CreateAllocationRequest(
 {
     VMA_ASSERT(!upperAddress && "VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT can be used only with linear algorithm.");
 
+    allocSize = AlignAllocationSize(allocSize);
+    
     // Simple way to respect bufferImageGranularity. May be optimized some day.
     // Whenever it might be an OPTIMAL image...
     if(allocType == VMA_SUBALLOCATION_TYPE_UNKNOWN ||
@@ -10925,7 +10909,7 @@ void VmaBlockMetadata_Buddy::Alloc(
     VkDeviceSize allocSize,
     void* userData)
 {
-    allocSize = VmaNextPow2(allocSize);
+    allocSize = AlignAllocationSize(allocSize);
 
     VMA_ASSERT(request.type == VmaAllocationRequestType::Normal);
 
@@ -13537,10 +13521,7 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                         VMA_NULL, // hAllocation
                         VMA_SUBALLOCATION_TYPE_FREE };
                     VmaSuballocationList::iterator precedingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
-                    if(freeSize >= VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
-                    {
-                        pMetadata->m_FreeSuballocationsBySize.push_back(precedingFreeIt);
-                    }
+                    pMetadata->m_FreeSuballocationsBySize.push_back(precedingFreeIt);
                 }
 
                 pMetadata->m_SumFreeSize -= it->size;
@@ -13559,10 +13540,7 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
                     VMA_SUBALLOCATION_TYPE_FREE };
                 VMA_ASSERT(it == pMetadata->m_Suballocations.end());
                 VmaSuballocationList::iterator trailingFreeIt = pMetadata->m_Suballocations.insert(it, suballoc);
-                if(freeSize > VMA_MIN_FREE_SUBALLOCATION_SIZE_TO_REGISTER)
-                {
-                    pMetadata->m_FreeSuballocationsBySize.push_back(trailingFreeIt);
-                }
+                pMetadata->m_FreeSuballocationsBySize.push_back(trailingFreeIt);
             }
 
             VMA_SORT(
