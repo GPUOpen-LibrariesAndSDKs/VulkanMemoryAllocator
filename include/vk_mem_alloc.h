@@ -5092,7 +5092,7 @@ public:
     virtual VkDeviceSize GetUnusedRangeSizeMax() const = 0;
     // Returns true if this block is empty - contains only single free suballocation.
     virtual bool IsEmpty() const = 0;
-    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const = 0;
+    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) = 0;
 
     virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const = 0;
     // Shouldn't modify blockCount.
@@ -5219,7 +5219,7 @@ public:
         void* userData);
 
     virtual void FreeAtOffset(VkDeviceSize offset);
-    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const;
+    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo);
     virtual void Clear();
     virtual void SetAllocationUserData(VkDeviceSize offset, void* userData);
 
@@ -5399,7 +5399,7 @@ public:
         void* userData);
 
     virtual void FreeAtOffset(VkDeviceSize offset);
-    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const;
+    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo);
     virtual void Clear();
     virtual void SetAllocationUserData(VkDeviceSize offset, void* userData);
 
@@ -5438,6 +5438,7 @@ private:
     SuballocationVectorType& AccessSuballocations2nd() { return m_1stVectorIndex ? m_Suballocations0 : m_Suballocations1; }
     const SuballocationVectorType& AccessSuballocations1st() const { return m_1stVectorIndex ? m_Suballocations1 : m_Suballocations0; }
     const SuballocationVectorType& AccessSuballocations2nd() const { return m_1stVectorIndex ? m_Suballocations0 : m_Suballocations1; }
+    VmaSuballocation& FindSuballocation(VkDeviceSize offset);
 
     // Number of items in 1st vector with hAllocation = null at the beginning.
     size_t m_1stNullItemsBeginCount;
@@ -5531,7 +5532,7 @@ public:
         void* userData);
 
     virtual void FreeAtOffset(VkDeviceSize offset) { FreeAtOffset(VK_NULL_HANDLE, offset); }
-    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const;
+    virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo);
     virtual void Clear();
     virtual void SetAllocationUserData(VkDeviceSize offset, void* userData);
 
@@ -6935,7 +6936,7 @@ public:
     {
         return m_Metadata->IsEmpty();
     }
-    void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
+    void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
     {
         m_Metadata->GetAllocationInfo(offset, outInfo);
     }
@@ -8348,7 +8349,7 @@ void VmaBlockMetadata_Generic::FreeAtOffset(VkDeviceSize offset)
     VMA_ASSERT(0 && "Not found!");
 }
 
-void VmaBlockMetadata_Generic::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
+void VmaBlockMetadata_Generic::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
 {
     for (VmaSuballocationList::const_iterator suballocItem = m_Suballocations.begin();
         suballocItem != m_Suballocations.end();
@@ -8887,20 +8888,14 @@ bool VmaBlockMetadata_Linear::Validate() const
     if(!suballocations1st.empty())
     {
         // Null item at the beginning should be accounted into m_1stNullItemsBeginCount.
-        if(!IsVirtual())
-        {
-            VMA_VALIDATE(suballocations1st[m_1stNullItemsBeginCount].userData != VMA_NULL);
-            // Null item at the end should be just pop_back().
-            VMA_VALIDATE(suballocations1st.back().userData != VMA_NULL);
-        }
+        VMA_VALIDATE(suballocations1st[m_1stNullItemsBeginCount].type != VMA_SUBALLOCATION_TYPE_FREE);
+        // Null item at the end should be just pop_back().
+        VMA_VALIDATE(suballocations1st.back().type != VMA_SUBALLOCATION_TYPE_FREE);
     }
     if(!suballocations2nd.empty())
     {
-        if(!IsVirtual())
-        {
-            // Null item at the end should be just pop_back().
-            VMA_VALIDATE(suballocations2nd.back().userData != VMA_NULL);
-        }
+        // Null item at the end should be just pop_back().
+        VMA_VALIDATE(suballocations2nd.back().type != VMA_SUBALLOCATION_TYPE_FREE);
     }
 
     VMA_VALIDATE(m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount <= suballocations1st.size());
@@ -9030,7 +9025,7 @@ bool VmaBlockMetadata_Linear::Validate() const
 
 size_t VmaBlockMetadata_Linear::GetAllocationCount() const
 {
-    return AccessSuballocations1st().size() - (m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount) +
+    return AccessSuballocations1st().size() - m_1stNullItemsBeginCount - m_1stNullItemsMiddleCount +
         AccessSuballocations2nd().size() - m_2ndNullItemsCount;
 }
 
@@ -9100,8 +9095,6 @@ VkDeviceSize VmaBlockMetadata_Linear::GetUnusedRangeSizeMax() const
 
 void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
-    VMA_ASSERT(!IsVirtual()); // TODO
-
     const VkDeviceSize size = GetSize();
     const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
@@ -9145,14 +9138,14 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                     ++outInfo.unusedRangeCount;
                     outInfo.unusedBytes += unusedRangeSize;
                     outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
-                    outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                    outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
                 }
 
                 // 2. Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
                 outInfo.usedBytes += suballoc.size;
                 outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, suballoc.size);
-                outInfo.allocationSizeMax = VMA_MIN(outInfo.allocationSizeMax, suballoc.size);
+                outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, suballoc.size);
 
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
@@ -9168,7 +9161,7 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                     ++outInfo.unusedRangeCount;
                     outInfo.unusedBytes += unusedRangeSize;
                     outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
-                    outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                    outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
                }
 
                 // End of loop.
@@ -9202,14 +9195,14 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                 ++outInfo.unusedRangeCount;
                 outInfo.unusedBytes += unusedRangeSize;
                 outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
-                outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
             }
 
             // 2. Process this allocation.
             // There is allocation with suballoc.offset, suballoc.size.
             outInfo.usedBytes += suballoc.size;
             outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, suballoc.size);
-            outInfo.allocationSizeMax = VMA_MIN(outInfo.allocationSizeMax, suballoc.size);
+            outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, suballoc.size);
 
             // 3. Prepare for next iteration.
             lastOffset = suballoc.offset + suballoc.size;
@@ -9225,7 +9218,7 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                 ++outInfo.unusedRangeCount;
                 outInfo.unusedBytes += unusedRangeSize;
                 outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
-                outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
            }
 
             // End of loop.
@@ -9258,14 +9251,14 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                     ++outInfo.unusedRangeCount;
                     outInfo.unusedBytes += unusedRangeSize;
                     outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
-                    outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                    outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
                 }
 
                 // 2. Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
                 outInfo.usedBytes += suballoc.size;
                 outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, suballoc.size);
-                outInfo.allocationSizeMax = VMA_MIN(outInfo.allocationSizeMax, suballoc.size);
+                outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, suballoc.size);
 
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
@@ -9281,7 +9274,7 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                     ++outInfo.unusedRangeCount;
                     outInfo.unusedBytes += unusedRangeSize;
                     outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, unusedRangeSize);
-                    outInfo.unusedRangeSizeMax = VMA_MIN(outInfo.unusedRangeSizeMax, unusedRangeSize);
+                    outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
                }
 
                 // End of loop.
@@ -9295,8 +9288,6 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 
 void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
 {
-    VMA_ASSERT(!IsVirtual()); // TODO
-
     const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
     const VkDeviceSize size = GetSize();
@@ -10319,6 +10310,7 @@ uint32_t VmaBlockMetadata_Linear::MakeAllocationsLost(uint32_t currentFrameIndex
 
 VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
 {
+    VMA_ASSERT(!IsVirtual());
     SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     for(size_t i = m_1stNullItemsBeginCount, count = suballocations1st.size(); i < count; ++i)
     {
@@ -10473,12 +10465,13 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
         }
     }
 
+    VmaSuballocation refSuballoc;
+    refSuballoc.offset = offset;
+    // Rest of members stays uninitialized intentionally for better performance.
+
     // Item from the middle of 1st vector.
     {
-        VmaSuballocation refSuballoc;
-        refSuballoc.offset = offset;
-        // Rest of members stays uninitialized intentionally for better performance.
-        SuballocationVectorType::iterator it = VmaBinaryFindSorted(
+        const SuballocationVectorType::iterator it = VmaBinaryFindSorted(
             suballocations1st.begin() + m_1stNullItemsBeginCount,
             suballocations1st.end(),
             refSuballoc,
@@ -10497,10 +10490,7 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
     if(m_2ndVectorMode != SECOND_VECTOR_EMPTY)
     {
         // Item from the middle of 2nd vector.
-        VmaSuballocation refSuballoc;
-        refSuballoc.offset = offset;
-        // Rest of members stays uninitialized intentionally for better performance.
-        SuballocationVectorType::iterator it = m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER ?
+        const SuballocationVectorType::iterator it = m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER ?
             VmaBinaryFindSorted(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc, VmaSuballocationOffsetLess()) :
             VmaBinaryFindSorted(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc, VmaSuballocationOffsetGreater());
         if(it != suballocations2nd.end())
@@ -10517,9 +10507,11 @@ void VmaBlockMetadata_Linear::FreeAtOffset(VkDeviceSize offset)
     VMA_ASSERT(0 && "Allocation to free not found in linear allocator!");
 }
 
-void VmaBlockMetadata_Linear::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
+void VmaBlockMetadata_Linear::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    VmaSuballocation& suballoc = FindSuballocation(offset);
+    outInfo.size = suballoc.size;
+    outInfo.pUserData = suballoc.userData;
 }
 
 void VmaBlockMetadata_Linear::Clear()
@@ -10527,7 +10519,7 @@ void VmaBlockMetadata_Linear::Clear()
     m_SumFreeSize = GetSize();
     m_Suballocations0.clear();
     m_Suballocations1.clear();
-    m_1stVectorIndex = 0;
+    // Leaving m_1stVectorIndex unchanged - it doesn't matter.
     m_2ndVectorMode = SECOND_VECTOR_EMPTY;
     m_1stNullItemsBeginCount = 0;
     m_1stNullItemsMiddleCount = 0;
@@ -10536,7 +10528,46 @@ void VmaBlockMetadata_Linear::Clear()
 
 void VmaBlockMetadata_Linear::SetAllocationUserData(VkDeviceSize offset, void* userData)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    VmaSuballocation& suballoc = FindSuballocation(offset);
+    suballoc.userData = userData;
+}
+
+VmaSuballocation& VmaBlockMetadata_Linear::FindSuballocation(VkDeviceSize offset)
+{
+    SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+    SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+
+    VmaSuballocation refSuballoc;
+    refSuballoc.offset = offset;
+    // Rest of members stays uninitialized intentionally for better performance.
+
+    // Item from the 1st vector.
+    {
+        const SuballocationVectorType::iterator it = VmaBinaryFindSorted(
+            suballocations1st.begin() + m_1stNullItemsBeginCount,
+            suballocations1st.end(),
+            refSuballoc,
+            VmaSuballocationOffsetLess());
+        if(it != suballocations1st.end())
+        {
+            return *it;
+        }
+    }
+
+    if(m_2ndVectorMode != SECOND_VECTOR_EMPTY)
+    {
+        // Rest of members stays uninitialized intentionally for better performance.
+        const SuballocationVectorType::iterator it = m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER ?
+            VmaBinaryFindSorted(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc, VmaSuballocationOffsetLess()) :
+            VmaBinaryFindSorted(suballocations2nd.begin(), suballocations2nd.end(), refSuballoc, VmaSuballocationOffsetGreater());
+        if(it != suballocations2nd.end())
+        {
+            return *it;
+        }
+    }
+
+    VMA_ASSERT(0 && "Allocation not found in linear allocator!");
+    return suballocations1st.back(); // Should never occur.
 }
 
 bool VmaBlockMetadata_Linear::ShouldCompact1st() const
@@ -10969,7 +11000,7 @@ void VmaBlockMetadata_Buddy::Alloc(
     m_SumFreeSize -= allocSize;
 }
 
-void VmaBlockMetadata_Buddy::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) const
+void VmaBlockMetadata_Buddy::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
 {
     VMA_ASSERT(0 && "TODO implement");
 }
