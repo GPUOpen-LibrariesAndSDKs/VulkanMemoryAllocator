@@ -5531,7 +5531,7 @@ public:
         VkDeviceSize allocSize,
         void* userData);
 
-    virtual void FreeAtOffset(VkDeviceSize offset) { FreeAtOffset(VK_NULL_HANDLE, offset); }
+    virtual void FreeAtOffset(VkDeviceSize offset);
     virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo);
     virtual void Clear();
     virtual void SetAllocationUserData(VkDeviceSize offset, void* userData);
@@ -5596,12 +5596,11 @@ private:
     VkDeviceSize m_SumFreeSize;
 
     VkDeviceSize GetUnusableSize() const { return GetSize() - m_UsableSize; }
-    void DeleteNode(Node* node);
+    Node* FindAllocationNode(VkDeviceSize offset, uint32_t& outLevel);
+    void DeleteNodeChildren(Node* node);
     bool ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
     uint32_t AllocSizeToLevel(VkDeviceSize allocSize) const;
     inline VkDeviceSize LevelToNodeSize(uint32_t level) const { return m_UsableSize >> level; }
-    // Alloc passed just for validation. Can be null.
-    void FreeAtOffset(VmaAllocation allocForValidation, VkDeviceSize offset);
     void CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const;
     // Adds node to the front of FreeList at given level.
     // node->type must be FREE.
@@ -10694,7 +10693,8 @@ VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(const VkAllocationCallbacks* pAll
 
 VmaBlockMetadata_Buddy::~VmaBlockMetadata_Buddy()
 {
-    DeleteNode(m_Root);
+    DeleteNodeChildren(m_Root);
+    vma_delete(GetAllocationCallbacks(), m_Root);
 }
 
 void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
@@ -10999,28 +10999,64 @@ void VmaBlockMetadata_Buddy::Alloc(
 
 void VmaBlockMetadata_Buddy::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    uint32_t level = 0;
+    const Node* const node = FindAllocationNode(offset, level);
+    outInfo.size = LevelToNodeSize(level);
+    outInfo.pUserData = node->allocation.userData;
+}
+
+void VmaBlockMetadata_Buddy::DeleteNodeChildren(Node* node)
+{
+    if(node->type == Node::TYPE_SPLIT)
+    {
+        DeleteNodeChildren(node->split.leftChild->buddy);
+        DeleteNodeChildren(node->split.leftChild);
+        const VkAllocationCallbacks* allocationCallbacks = GetAllocationCallbacks();
+        vma_delete(allocationCallbacks, node->split.leftChild->buddy);
+        vma_delete(allocationCallbacks, node->split.leftChild);
+    }
 }
 
 void VmaBlockMetadata_Buddy::Clear()
 {
-    VMA_ASSERT(0 && "TODO implement");
+    DeleteNodeChildren(m_Root);
+    m_Root->type = Node::TYPE_FREE;
+    m_AllocationCount = 0;
+    m_FreeCount = 1;
+    m_SumFreeSize = m_UsableSize;
 }
 
 void VmaBlockMetadata_Buddy::SetAllocationUserData(VkDeviceSize offset, void* userData)
 {
-    VMA_ASSERT(0 && "TODO implement");
+    uint32_t level = 0;
+    Node* const node = FindAllocationNode(offset, level);
+    node->allocation.userData = userData;
 }
 
-void VmaBlockMetadata_Buddy::DeleteNode(Node* node)
+VmaBlockMetadata_Buddy::Node* VmaBlockMetadata_Buddy::FindAllocationNode(VkDeviceSize offset, uint32_t& outLevel)
 {
-    if(node->type == Node::TYPE_SPLIT)
+    Node* node = m_Root;
+    VkDeviceSize nodeOffset = 0;
+    outLevel = 0;
+    VkDeviceSize levelNodeSize = LevelToNodeSize(0);
+    while(node->type == Node::TYPE_SPLIT)
     {
-        DeleteNode(node->split.leftChild->buddy);
-        DeleteNode(node->split.leftChild);
+        const VkDeviceSize nextLevelSize = levelNodeSize >> 1;
+        if(offset < nodeOffset + nextLevelSize)
+        {
+            node = node->split.leftChild;
+        }
+        else
+        {
+            node = node->split.leftChild->buddy;
+            nodeOffset += nextLevelSize;
+        }
+        ++outLevel;
+        levelNodeSize = nextLevelSize;
     }
 
-    vma_delete(GetAllocationCallbacks(), node);
+    VMA_ASSERT(node != VMA_NULL && node->type == Node::TYPE_ALLOCATION);
+    return node;
 }
 
 bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
@@ -11085,39 +11121,14 @@ uint32_t VmaBlockMetadata_Buddy::AllocSizeToLevel(VkDeviceSize allocSize) const
     return level;
 }
 
-void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation allocForValidation, VkDeviceSize offset)
+void VmaBlockMetadata_Buddy::FreeAtOffset(VkDeviceSize offset)
 {
-    // Find node and level.
-    Node* node = m_Root;
-    VkDeviceSize nodeOffset = 0;
     uint32_t level = 0;
-    VkDeviceSize levelNodeSize = LevelToNodeSize(0);
-    while(node->type == Node::TYPE_SPLIT)
-    {
-        const VkDeviceSize nextLevelSize = levelNodeSize >> 1;
-        if(offset < nodeOffset + nextLevelSize)
-        {
-            node = node->split.leftChild;
-        }
-        else
-        {
-            node = node->split.leftChild->buddy;
-            nodeOffset += nextLevelSize;
-        }
-        ++level;
-        levelNodeSize = nextLevelSize;
-    }
-
-    VMA_ASSERT(node != VMA_NULL && node->type == Node::TYPE_ALLOCATION);
-    VmaAllocation const alloc = (VmaAllocation)node->allocation.userData;
-    if(!IsVirtual() && allocForValidation)
-    {
-        VMA_ASSERT(alloc == allocForValidation);
-    }
+    Node* node = FindAllocationNode(offset, level);
 
     ++m_FreeCount;
     --m_AllocationCount;
-    m_SumFreeSize += levelNodeSize;
+    m_SumFreeSize += LevelToNodeSize(level);
 
     node->type = Node::TYPE_FREE;
 
