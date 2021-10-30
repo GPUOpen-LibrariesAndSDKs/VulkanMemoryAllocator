@@ -5538,8 +5538,7 @@ public:
     virtual void SetAllocationUserData(VkDeviceSize offset, void* userData);
 
 private:
-    static const VkDeviceSize MIN_NODE_SIZE = 32;
-    static const size_t MAX_LEVELS = 30;
+    static const size_t MAX_LEVELS = 48;
     
     static VkDeviceSize AlignAllocationSize(VkDeviceSize size) { return VmaNextPow2(size); }
 
@@ -10687,9 +10686,10 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
     m_SumFreeSize = m_UsableSize;
 
     // Calculate m_LevelCount.
+    const VkDeviceSize minNodeSize = IsVirtual() ? 1 : 16;
     m_LevelCount = 1;
     while(m_LevelCount < MAX_LEVELS &&
-        LevelToNodeSize(m_LevelCount) >= MIN_NODE_SIZE)
+        LevelToNodeSize(m_LevelCount) >= minNodeSize)
     {
         ++m_LevelCount;
     }
