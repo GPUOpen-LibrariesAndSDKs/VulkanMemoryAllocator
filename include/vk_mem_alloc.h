@@ -5585,6 +5585,8 @@ private:
     VkDeviceSize m_UsableSize;
     uint32_t m_LevelCount;
 
+    VmaPoolAllocator<Node> m_NodeAllocator;
+
     Node* m_Root;
     struct {
         Node* front;
@@ -10651,6 +10653,8 @@ void VmaBlockMetadata_Linear::CleanupAfterFree()
 
 VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(const VkAllocationCallbacks* pAllocationCallbacks, bool isVirtual) :
     VmaBlockMetadata(pAllocationCallbacks, isVirtual),
+    m_NodeAllocator(pAllocationCallbacks,
+        32), // firstBlockCapacity
     m_Root(VMA_NULL),
     m_AllocationCount(0),
     m_FreeCount(1),
@@ -10662,7 +10666,7 @@ VmaBlockMetadata_Buddy::VmaBlockMetadata_Buddy(const VkAllocationCallbacks* pAll
 VmaBlockMetadata_Buddy::~VmaBlockMetadata_Buddy()
 {
     DeleteNodeChildren(m_Root);
-    vma_delete(GetAllocationCallbacks(), m_Root);
+    m_NodeAllocator.Free(m_Root);
 }
 
 void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
@@ -10681,7 +10685,7 @@ void VmaBlockMetadata_Buddy::Init(VkDeviceSize size)
         ++m_LevelCount;
     }
 
-    Node* rootNode = vma_new(GetAllocationCallbacks(), Node)();
+    Node* rootNode = m_NodeAllocator.Alloc();
     rootNode->offset = 0;
     rootNode->type = Node::TYPE_FREE;
     rootNode->parent = VMA_NULL;
@@ -10912,8 +10916,8 @@ void VmaBlockMetadata_Buddy::Alloc(
         const uint32_t childrenLevel = currLevel + 1;
 
         // Create two free sub-nodes.
-        Node* leftChild = vma_new(GetAllocationCallbacks(), Node)();
-        Node* rightChild = vma_new(GetAllocationCallbacks(), Node)();
+        Node* leftChild = m_NodeAllocator.Alloc();
+        Node* rightChild = m_NodeAllocator.Alloc();
 
         leftChild->offset = currNode->offset;
         leftChild->type = Node::TYPE_FREE;
@@ -10974,8 +10978,8 @@ void VmaBlockMetadata_Buddy::DeleteNodeChildren(Node* node)
         DeleteNodeChildren(node->split.leftChild->buddy);
         DeleteNodeChildren(node->split.leftChild);
         const VkAllocationCallbacks* allocationCallbacks = GetAllocationCallbacks();
-        vma_delete(allocationCallbacks, node->split.leftChild->buddy);
-        vma_delete(allocationCallbacks, node->split.leftChild);
+        m_NodeAllocator.Free(node->split.leftChild->buddy);
+        m_NodeAllocator.Free(node->split.leftChild);
     }
 }
 
@@ -11023,7 +11027,6 @@ VmaBlockMetadata_Buddy::Node* VmaBlockMetadata_Buddy::FindAllocationNode(VkDevic
 
 bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const
 {
-    VMA_ASSERT(!IsVirtual()); // TODO
     VMA_VALIDATE(level < m_LevelCount);
     VMA_VALIDATE(curr->parent == parent);
     VMA_VALIDATE((curr->buddy == VMA_NULL) == (parent == VMA_NULL));
@@ -11100,8 +11103,8 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VkDeviceSize offset)
         RemoveFromFreeList(level, node->buddy);
         Node* const parent = node->parent;
 
-        vma_delete(GetAllocationCallbacks(), node->buddy);
-        vma_delete(GetAllocationCallbacks(), node);
+        m_NodeAllocator.Free(node->buddy);
+        m_NodeAllocator.Free(node);
         parent->type = Node::TYPE_FREE;
 
         node = parent;
