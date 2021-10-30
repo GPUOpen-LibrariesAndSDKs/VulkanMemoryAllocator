@@ -5143,6 +5143,10 @@ public:
 
 protected:
     const VkAllocationCallbacks* GetAllocationCallbacks() const { return m_pAllocationCallbacks; }
+    VkDeviceSize GetDebugMargin() const
+    {
+        return IsVirtual() ? 0 : VMA_DEBUG_MARGIN;
+    }
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap_Begin(class VmaJsonWriter& json,
@@ -7890,6 +7894,8 @@ bool VmaBlockMetadata_Generic::Validate() const
     // True if previous visited suballocation was free.
     bool prevFree = false;
 
+    const VkDeviceSize debugMargin = GetDebugMargin();
+
     for(const auto& subAlloc : m_Suballocations)
     {
         // Actual offset of this suballocation doesn't match expected one.
@@ -7912,7 +7918,7 @@ bool VmaBlockMetadata_Generic::Validate() const
             ++freeSuballocationsToRegister;
 
             // Margin required between allocations - every free space must be at least that large.
-            VMA_VALIDATE(subAlloc.size >= VMA_DEBUG_MARGIN);
+            VMA_VALIDATE(subAlloc.size >= debugMargin);
         }
         else
         {
@@ -7923,7 +7929,7 @@ bool VmaBlockMetadata_Generic::Validate() const
             }
 
             // Margin required between allocations - previous allocation must be free.
-            VMA_VALIDATE(VMA_DEBUG_MARGIN == 0 || prevFree);
+            VMA_VALIDATE(debugMargin == 0 || prevFree);
         }
 
         calculatedOffset += subAlloc.size;
@@ -8052,9 +8058,11 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     pAllocationRequest->type = VmaAllocationRequestType::Normal;
     pAllocationRequest->size = allocSize;
 
+    const VkDeviceSize debugMargin = GetDebugMargin();
+
     // There is not enough total free space in this block to fulfill the request: Early return.
     if(canMakeOtherLost == false &&
-        m_SumFreeSize < allocSize + 2 * VMA_DEBUG_MARGIN)
+        m_SumFreeSize < allocSize + 2 * debugMargin)
     {
         return false;
     }
@@ -8065,11 +8073,11 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     {
         if(strategy == VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
         {
-            // Find first free suballocation with size not less than allocSize + 2 * VMA_DEBUG_MARGIN.
+            // Find first free suballocation with size not less than allocSize + 2 * debugMargin.
             VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
                 m_FreeSuballocationsBySize.data(),
                 m_FreeSuballocationsBySize.data() + freeSuballocCount,
-                allocSize + 2 * VMA_DEBUG_MARGIN,
+                allocSize + 2 * debugMargin,
                 VmaSuballocationItemSizeLess());
             size_t index = it - m_FreeSuballocationsBySize.data();
             for(; index < freeSuballocCount; ++index)
@@ -8258,7 +8266,7 @@ VkResult VmaBlockMetadata_Generic::CheckCorruption(const void* pBlockData)
     {
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - GetDebugMargin()))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
                 return VK_ERROR_UNKNOWN;
@@ -8443,6 +8451,8 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
     *pSumFreeSize = 0;
     *pSumItemSize = 0;
 
+    const VkDeviceSize debugMargin = GetDebugMargin();
+
     if(canMakeOtherLost)
     {
         VMA_ASSERT(!IsVirtual());
@@ -8474,10 +8484,10 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
         // Start from offset equal to beginning of this suballocation.
         *pOffset = suballocItem->offset;
 
-        // Apply VMA_DEBUG_MARGIN at the beginning.
-        if(VMA_DEBUG_MARGIN > 0)
+        // Apply debugMargin at the beginning.
+        if(debugMargin > 0)
         {
-            *pOffset += VMA_DEBUG_MARGIN;
+            *pOffset += debugMargin;
         }
 
         // Apply alignment.
@@ -8522,7 +8532,7 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
         const VkDeviceSize paddingBegin = *pOffset - suballocItem->offset;
 
         // Calculate required margin at the end.
-        const VkDeviceSize requiredEndMargin = VMA_DEBUG_MARGIN;
+        const VkDeviceSize requiredEndMargin = debugMargin;
 
         const VkDeviceSize totalSize = paddingBegin + allocSize + requiredEndMargin;
         // Another early return check.
@@ -8619,10 +8629,10 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
         // Start from offset equal to beginning of this suballocation.
         *pOffset = suballoc.offset;
 
-        // Apply VMA_DEBUG_MARGIN at the beginning.
-        if(VMA_DEBUG_MARGIN > 0)
+        // Apply debugMargin at the beginning.
+        if(debugMargin > 0)
         {
-            *pOffset += VMA_DEBUG_MARGIN;
+            *pOffset += debugMargin;
         }
 
         // Apply alignment.
@@ -8660,7 +8670,7 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
         const VkDeviceSize paddingBegin = *pOffset - suballoc.offset;
 
         // Calculate required margin at the end.
-        const VkDeviceSize requiredEndMargin = VMA_DEBUG_MARGIN;
+        const VkDeviceSize requiredEndMargin = debugMargin;
 
         // Fail if requested size plus margin before and after is bigger than size of this suballocation.
         if(paddingBegin + allocSize + requiredEndMargin > suballoc.size)
@@ -8900,7 +8910,8 @@ bool VmaBlockMetadata_Linear::Validate() const
 
     VkDeviceSize sumUsedSize = 0;
     const size_t suballoc1stCount = suballocations1st.size();
-    VkDeviceSize offset = VMA_DEBUG_MARGIN;
+    const VkDeviceSize debugMargin = GetDebugMargin();
+    VkDeviceSize offset = debugMargin;
 
     if(m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
     {
@@ -8932,7 +8943,7 @@ bool VmaBlockMetadata_Linear::Validate() const
                 ++nullItem2ndCount;
             }
 
-            offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
+            offset = suballoc.offset + suballoc.size + debugMargin;
         }
 
         VMA_VALIDATE(nullItem2ndCount == m_2ndNullItemsCount);
@@ -8974,7 +8985,7 @@ bool VmaBlockMetadata_Linear::Validate() const
             ++nullItem1stCount;
         }
 
-        offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
+        offset = suballoc.offset + suballoc.size + debugMargin;
     }
     VMA_VALIDATE(nullItem1stCount == m_1stNullItemsBeginCount + m_1stNullItemsMiddleCount);
 
@@ -9008,7 +9019,7 @@ bool VmaBlockMetadata_Linear::Validate() const
                 ++nullItem2ndCount;
             }
 
-            offset = suballoc.offset + suballoc.size + VMA_DEBUG_MARGIN;
+            offset = suballoc.offset + suballoc.size + debugMargin;
         }
 
         VMA_VALIDATE(nullItem2ndCount == m_2ndNullItemsCount);
@@ -9808,14 +9819,16 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_UpperAddress(
     // Start from offset equal to end of free space.
     VkDeviceSize resultOffset = resultBaseOffset;
 
-    // Apply VMA_DEBUG_MARGIN at the end.
-    if(VMA_DEBUG_MARGIN > 0)
+    const VkDeviceSize debugMargin = GetDebugMargin();
+
+    // Apply debugMargin at the end.
+    if(debugMargin > 0)
     {
-        if(resultOffset < VMA_DEBUG_MARGIN)
+        if(resultOffset < debugMargin)
         {
             return false;
         }
-        resultOffset -= VMA_DEBUG_MARGIN;
+        resultOffset -= debugMargin;
     }
 
     // Apply alignment.
@@ -9851,7 +9864,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_UpperAddress(
     const VkDeviceSize endOf1st = !suballocations1st.empty() ?
         suballocations1st.back().offset + suballocations1st.back().size :
         0;
-    if(endOf1st + VMA_DEBUG_MARGIN <= resultOffset)
+    if(endOf1st + debugMargin <= resultOffset)
     {
         // Check previous suballocations for BufferImageGranularity conflicts.
         // If conflict exists, allocation cannot be made here.
@@ -9900,6 +9913,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
     VmaAllocationRequest* pAllocationRequest)
 {
     const VkDeviceSize blockSize = GetSize();
+    const VkDeviceSize debugMargin = GetDebugMargin();
     SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
 
@@ -9917,10 +9931,10 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
         // Start from offset equal to beginning of free space.
         VkDeviceSize resultOffset = resultBaseOffset;
 
-        // Apply VMA_DEBUG_MARGIN at the beginning.
-        if(VMA_DEBUG_MARGIN > 0)
+        // Apply debugMargin at the beginning.
+        if(debugMargin > 0)
         {
-            resultOffset += VMA_DEBUG_MARGIN;
+            resultOffset += debugMargin;
         }
 
         // Apply alignment.
@@ -9956,7 +9970,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
             suballocations2nd.back().offset : blockSize;
 
         // There is enough free space at the end after alignment.
-        if(resultOffset + allocSize + VMA_DEBUG_MARGIN <= freeSpaceEnd)
+        if(resultOffset + allocSize + debugMargin <= freeSpaceEnd)
         {
             // Check next suballocations for BufferImageGranularity conflicts.
             // If conflict exists, allocation cannot be made here.
@@ -10007,10 +10021,10 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
         // Start from offset equal to beginning of free space.
         VkDeviceSize resultOffset = resultBaseOffset;
 
-        // Apply VMA_DEBUG_MARGIN at the beginning.
-        if(VMA_DEBUG_MARGIN > 0)
+        // Apply debugMargin at the beginning.
+        if(debugMargin > 0)
         {
-            resultOffset += VMA_DEBUG_MARGIN;
+            resultOffset += debugMargin;
         }
 
         // Apply alignment.
@@ -10050,7 +10064,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
         {
             VMA_ASSERT(!IsVirtual());
             while(index1st < suballocations1st.size() &&
-                resultOffset + allocSize + VMA_DEBUG_MARGIN > suballocations1st[index1st].offset)
+                resultOffset + allocSize + debugMargin > suballocations1st[index1st].offset)
             {
                 // Next colliding allocation at the beginning of 1st vector found. Try to make it lost.
                 const VmaSuballocation& suballoc = suballocations1st[index1st];
@@ -10112,7 +10126,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
 
             // Special case: There is not enough room at the end for this allocation, even after making all from the 1st lost.
             if(index1st == suballocations1st.size() &&
-                resultOffset + allocSize + VMA_DEBUG_MARGIN > blockSize)
+                resultOffset + allocSize + debugMargin > blockSize)
             {
                 // TODO: This is a known bug that it's not yet implemented and the allocation is failing.
                 VMA_DEBUG_LOG("Unsupported special case in custom pool with linear allocation algorithm used as ring buffer with allocations that can be lost.");
@@ -10120,8 +10134,8 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
         }
 
         // There is enough free space at the end after alignment.
-        if((index1st == suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= blockSize) ||
-            (index1st < suballocations1st.size() && resultOffset + allocSize + VMA_DEBUG_MARGIN <= suballocations1st[index1st].offset))
+        if((index1st == suballocations1st.size() && resultOffset + allocSize + debugMargin <= blockSize) ||
+            (index1st < suballocations1st.size() && resultOffset + allocSize + debugMargin <= suballocations1st[index1st].offset))
         {
             // Check next suballocations for BufferImageGranularity conflicts.
             // If conflict exists, allocation cannot be made here.
@@ -10285,7 +10299,7 @@ VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
         const VmaSuballocation& suballoc = suballocations1st[i];
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - GetDebugMargin()))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
                 return VK_ERROR_UNKNOWN;
@@ -10304,7 +10318,7 @@ VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
         const VmaSuballocation& suballoc = suballocations2nd[i];
         if(suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - VMA_DEBUG_MARGIN))
+            if(!VmaValidateMagicValue(pBlockData, suballoc.offset - GetDebugMargin()))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
                 return VK_ERROR_UNKNOWN;
@@ -13583,7 +13597,7 @@ void VmaBlockVectorDefragmentationContext::Begin(bool overlappingMoveSupported, 
     /*
     Fast algorithm is supported only when certain criteria are met:
     - VMA_DEBUG_MARGIN is 0.
-    - All allocations in this block vector are moveable.
+    - All allocations in this block vector are movable.
     - There is no possibility of image/buffer granularity conflict.
     - The defragmentation is not incremental
     */
@@ -19234,6 +19248,7 @@ less memory consumed by metadata.
 
 With this one flag, you can create a custom pool that can be used in many ways:
 free-at-once, stack, double stack, and ring buffer. See below for details.
+You don't need to specify explicitly which of these options you are going to use - it is detected automatically.
 
 \subsection linear_algorithm_free_at_once Free-at-once
 
@@ -19269,7 +19284,7 @@ stacks:
 - First, default one, growing up from offset 0.
 - Second, "upper" one, growing down from the end towards lower offsets.
 
-To make allocation from upper stack, add flag #VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
+To make allocation from the upper stack, add flag #VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
 to VmaAllocationCreateInfo::flags.
 
 ![Double stack](../gfx/Linear_allocator_7_double_stack.png)
@@ -19304,11 +19319,11 @@ VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
 \section buddy_algorithm Buddy allocation algorithm
 
 There is another allocation algorithm that can be used with custom pools, called
-"buddy". Its internal data structure is based on a tree of blocks, each having
+"buddy". Its internal data structure is based on a binary tree of blocks, each having
 size that is a power of two and a half of its parent's size. When you want to
 allocate memory of certain size, a free node in the tree is located. If it is too
 large, it is recursively split into two halves (called "buddies"). However, if
-requested allocation size is not a power of two, the size of a tree node is
+requested allocation size is not a power of two, the size of the allocation is
 aligned up to the nearest power of two and the remaining space is wasted. When
 two buddy nodes become free, they are merged back into one larger node.
 
@@ -19317,7 +19332,6 @@ two buddy nodes become free, they are merged back into one larger node.
 The advantage of buddy allocation algorithm over default algorithm is faster
 allocation and deallocation, as well as smaller external fragmentation. The
 disadvantage is more wasted space (internal fragmentation).
-
 For more information, please search the Internet for "Buddy memory allocation" -
 sources that describe this concept in general.
 
@@ -19945,9 +19959,18 @@ The format of this string differs from the one returned by the main Vulkan alloc
 
 \section virtual_allocator_additional_considerations Additional considerations
 
-Note that the "virtual allocator" functionality is implemented on a level of individual memory blocks.
+The "virtual allocator" functionality is implemented on a level of individual memory blocks.
 Keeping track of a whole collection of blocks, allocating new ones when out of free space,
 deleting empty ones, and deciding which one to try first for a new allocation must be implemented by the user.
+
+Alternative allocation algorithms are supported, just like in custom pools of the real GPU memory.
+See enum #VmaVirtualBlockCreateFlagBits to learn how to specify them (e.g. #VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT).
+You can find their description in chapter \ref custom_memory_pools.
+Allocation strategies are also supported.
+See enum #VmaVirtualAllocationCreateFlagBits to learn how to specify them (e.g. #VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT).
+
+Following features are supported only by the allocator of the real GPU memory and not by virtual allocations:
+buffer-image granularity, \ref lost_allocations, `VMA_DEBUG_MARGIN`, `VMA_MIN_ALIGNMENT`.
 
 
 \page debugging_memory_usage Debugging incorrect memory usage
