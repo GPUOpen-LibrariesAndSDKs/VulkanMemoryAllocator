@@ -5542,14 +5542,9 @@ private:
 
     struct ValidationContext
     {
-        size_t calculatedAllocationCount;
-        size_t calculatedFreeCount;
-        VkDeviceSize calculatedSumFreeSize;
-
-        ValidationContext() :
-            calculatedAllocationCount(0),
-            calculatedFreeCount(0),
-            calculatedSumFreeSize(0) { }
+        size_t calculatedAllocationCount = 0;
+        size_t calculatedFreeCount = 0;
+        VkDeviceSize calculatedSumFreeSize = 0;
     };
 
     struct Node
@@ -5596,7 +5591,8 @@ private:
     size_t m_AllocationCount;
     // Number of nodes in the tree with type == TYPE_FREE.
     size_t m_FreeCount;
-    // This includes space wasted due to internal fragmentation. Doesn't include unusable size.
+    // Doesn't include space wasted due to internal fragmentation - allocation sizes are just aligned up to node sizes.
+    // Doesn't include unusable size.
     VkDeviceSize m_SumFreeSize;
 
     VkDeviceSize GetUnusableSize() const { return GetSize() - m_UsableSize; }
@@ -10783,8 +10779,6 @@ VkDeviceSize VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
 
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
-    const VkDeviceSize unusableSize = GetUnusableSize();
-
     outInfo.blockCount = 1;
 
     outInfo.allocationCount = outInfo.unusedRangeCount = 0;
@@ -10796,6 +10790,7 @@ void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 
     CalcAllocationStatInfoNode(outInfo, m_Root, LevelToNodeSize(0));
 
+    const VkDeviceSize unusableSize = GetUnusableSize();
     if(unusableSize > 0)
     {
         ++outInfo.unusedRangeCount;
@@ -10826,7 +10821,7 @@ void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
 
 void VmaBlockMetadata_Buddy::PrintDetailedMap(class VmaJsonWriter& json) const
 {
-    // TODO optimize
+    // TODO optimize - this was already calculated.
     VmaStatInfo stat;
     CalcAllocationStatInfo(stat);
 
@@ -10930,6 +10925,8 @@ void VmaBlockMetadata_Buddy::Alloc(
     VkDeviceSize allocSize,
     void* userData)
 {
+    allocSize = VmaNextPow2(allocSize);
+
     VMA_ASSERT(request.type == VmaAllocationRequestType::Normal);
 
     const uint32_t targetLevel = AllocSizeToLevel(allocSize);
@@ -10981,7 +10978,7 @@ void VmaBlockMetadata_Buddy::Alloc(
 
         /*
         We can be sure that currNode, as left child of node previously split,
-        also fullfills the alignment requirement.
+        also fulfills the alignment requirement.
         */
     }
 
@@ -11042,8 +11039,10 @@ bool VmaBlockMetadata_Buddy::ValidateNode(ValidationContext& ctx, const Node* pa
         break;
     case Node::TYPE_ALLOCATION:
         ++ctx.calculatedAllocationCount;
-        VMA_VALIDATE(curr->allocation.userData != VMA_NULL);
-        ctx.calculatedSumFreeSize += levelNodeSize - ((VmaAllocation)(curr->allocation.userData))->GetSize();
+        if(!IsVirtual())
+        {
+            VMA_VALIDATE(curr->allocation.userData != VMA_NULL);
+        }
         break;
     case Node::TYPE_SPLIT:
         {
@@ -11118,7 +11117,7 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation allocForValidation, VkDe
 
     ++m_FreeCount;
     --m_AllocationCount;
-    m_SumFreeSize += alloc->GetSize();
+    m_SumFreeSize += levelNodeSize;
 
     node->type = Node::TYPE_FREE;
 
@@ -11143,32 +11142,19 @@ void VmaBlockMetadata_Buddy::FreeAtOffset(VmaAllocation allocForValidation, VkDe
 
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfoNode(VmaStatInfo& outInfo, const Node* node, VkDeviceSize levelNodeSize) const
 {
-    VMA_ASSERT(!IsVirtual()); // TODO
     switch(node->type)
     {
     case Node::TYPE_FREE:
         ++outInfo.unusedRangeCount;
         outInfo.unusedBytes += levelNodeSize;
         outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, levelNodeSize);
-        outInfo.unusedRangeSizeMin = VMA_MAX(outInfo.unusedRangeSizeMin, levelNodeSize);
+        outInfo.unusedRangeSizeMin = VMA_MIN(outInfo.unusedRangeSizeMin, levelNodeSize);
         break;
     case Node::TYPE_ALLOCATION:
-        {
-            const VkDeviceSize allocSize = ((VmaAllocation)(node->allocation.userData))->GetSize();
-            ++outInfo.allocationCount;
-            outInfo.usedBytes += allocSize;
-            outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, allocSize);
-            outInfo.allocationSizeMin = VMA_MAX(outInfo.allocationSizeMin, allocSize);
-
-            const VkDeviceSize unusedRangeSize = levelNodeSize - allocSize;
-            if(unusedRangeSize > 0)
-            {
-                ++outInfo.unusedRangeCount;
-                outInfo.unusedBytes += unusedRangeSize;
-                outInfo.unusedRangeSizeMax = VMA_MAX(outInfo.unusedRangeSizeMax, unusedRangeSize);
-                outInfo.unusedRangeSizeMin = VMA_MAX(outInfo.unusedRangeSizeMin, unusedRangeSize);
-            }
-        }
+        ++outInfo.allocationCount;
+        outInfo.usedBytes += levelNodeSize;
+        outInfo.allocationSizeMax = VMA_MAX(outInfo.allocationSizeMax, levelNodeSize);
+        outInfo.allocationSizeMin = VMA_MIN(outInfo.allocationSizeMin, levelNodeSize);
         break;
     case Node::TYPE_SPLIT:
         {
@@ -11240,22 +11226,13 @@ void VmaBlockMetadata_Buddy::RemoveFromFreeList(uint32_t level, Node* node)
 #if VMA_STATS_STRING_ENABLED
 void VmaBlockMetadata_Buddy::PrintDetailedMapNode(class VmaJsonWriter& json, const Node* node, VkDeviceSize levelNodeSize) const
 {
-    VMA_ASSERT(!IsVirtual()); // TODO
     switch(node->type)
     {
     case Node::TYPE_FREE:
         PrintDetailedMap_UnusedRange(json, node->offset, levelNodeSize);
         break;
     case Node::TYPE_ALLOCATION:
-        {
-            VmaAllocation const alloc = (VmaAllocation)node->allocation.userData;
-            const VkDeviceSize allocSize = alloc->GetSize();
-            PrintDetailedMap_Allocation(json, node->offset, allocSize, node->allocation.userData);
-            if(allocSize < levelNodeSize)
-            {
-                PrintDetailedMap_UnusedRange(json, node->offset + allocSize, levelNodeSize - allocSize);
-            }
-        }
+        PrintDetailedMap_Allocation(json, node->offset, levelNodeSize, node->allocation.userData);
         break;
     case Node::TYPE_SPLIT:
         {
