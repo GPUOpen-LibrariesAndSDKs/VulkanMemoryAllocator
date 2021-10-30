@@ -20,5 +20,9 @@ var searchData=
   ['vmarecordsettings_17',['VmaRecordSettings',['../struct_vma_record_settings.html',1,'']]],
   ['vmastatinfo_18',['VmaStatInfo',['../struct_vma_stat_info.html',1,'']]],
   ['vmastats_19',['VmaStats',['../struct_vma_stats.html',1,'']]],
-  ['vmavulkanfunctions_20',['VmaVulkanFunctions',['../struct_vma_vulkan_functions.html',1,'']]]
+  ['vmavirtualallocationcreateinfo_20',['VmaVirtualAllocationCreateInfo',['../struct_vma_virtual_allocation_create_info.html',1,'']]],
+  ['vmavirtualallocationinfo_21',['VmaVirtualAllocationInfo',['../struct_vma_virtual_allocation_info.html',1,'']]],
+  ['vmavirtualblock_22',['VmaVirtualBlock',['../struct_vma_virtual_block.html',1,'']]],
+  ['vmavirtualblockcreateinfo_23',['VmaVirtualBlockCreateInfo',['../struct_vma_virtual_block_create_info.html',1,'']]],
+  ['vmavulkanfunctions_24',['VmaVulkanFunctions',['../struct_vma_vulkan_functions.html',1,'']]]
 ];
