@@ -61,6 +61,7 @@ Additional features:
 - Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number before and after every allocation to detect out-of-bounds memory corruption.
 - Record and replay sequence of calls to library functions to a file to check correctness, measure performance, and gather statistics.
 - Support for interoperability with OpenGL.
+- Virtual allocator: Interface for using core allocation algorithm to allocate any custom data, e.g. pieces of one large buffer.
 
 # Prequisites
 
