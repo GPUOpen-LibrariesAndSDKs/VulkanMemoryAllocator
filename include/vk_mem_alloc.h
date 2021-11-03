@@ -2183,7 +2183,7 @@ typedef enum VmaVirtualBlockCreateFlagBits {
 typedef VkFlags VmaVirtualBlockCreateFlags;
 
 /// Parameters of created #VmaVirtualBlock object to be passed to vmaCreateVirtualBlock().
-struct VmaVirtualBlockCreateInfo
+typedef struct VmaVirtualBlockCreateInfo
 {
     /** \brief Total size of the virtual block.
 
@@ -2201,7 +2201,7 @@ struct VmaVirtualBlockCreateInfo
     Optional, can be null. When specified, they will be used for all CPU-side memory allocations.
     */
     const VkAllocationCallbacks* VMA_NULLABLE pAllocationCallbacks;
-};
+} VmaVirtualBlockCreateInfo;
 
 /// Flags to be passed as VmaVirtualAllocationCreateInfo::flags.
 typedef enum VmaVirtualAllocationCreateFlagBits {
@@ -2231,7 +2231,7 @@ typedef enum VmaVirtualAllocationCreateFlagBits {
 typedef VkFlags VmaVirtualAllocationCreateFlags;
 
 /// Parameters of created virtual allocation to be passed to vmaVirtualAllocate().
-struct VmaVirtualAllocationCreateInfo
+typedef struct VmaVirtualAllocationCreateInfo
 {
     /** \brief Size of the allocation.
 
@@ -2251,10 +2251,10 @@ struct VmaVirtualAllocationCreateInfo
     It can be any value and can be used for user-defined purposes. It can be fetched or changed later.
     */
     void* VMA_NULLABLE pUserData;
-};
+} VmaVirtualAllocationCreateInfo;
 
 /// Parameters of an existing virtual allocation, returned by vmaGetVirtualAllocationInfo().
-struct VmaVirtualAllocationInfo
+typedef struct VmaVirtualAllocationInfo
 {
     /** \brief Size of the allocation.
 
@@ -2266,7 +2266,7 @@ struct VmaVirtualAllocationInfo
     Same value as passed in VmaVirtualAllocationCreateInfo::pUserData or to vmaSetVirtualAllocationUserData().
     */
     void* VMA_NULLABLE pUserData;
-};
+} VmaVirtualAllocationInfo;
 
 /** \struct VmaVirtualBlock
 \brief Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory.
