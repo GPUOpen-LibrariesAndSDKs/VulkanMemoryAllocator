@@ -4,8 +4,6 @@ var searchData=
   ['vma_5fbuffer_5fdevice_5faddress_1',['VMA_BUFFER_DEVICE_ADDRESS',['../vk__mem__alloc_8h.html#a7f9d5e71b70dd1a137c303a8a8262c10',1,'vk_mem_alloc.h']]],
   ['vma_5fdedicated_5fallocation_2',['VMA_DEDICATED_ALLOCATION',['../vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4',1,'vk_mem_alloc.h']]],
   ['vma_5fmemory_5fbudget_3',['VMA_MEMORY_BUDGET',['../vk__mem__alloc_8h.html#a05decf1cf4ebf767beba7acca6c1ec3a',1,'vk_mem_alloc.h']]],
-  ['vma_5fmemory_5fpriority_4',['VMA_MEMORY_PRIORITY',['../vk__mem__alloc_8h.html#a81af8a3a87e34bbb493848143cde43e4',1,'vk_mem_alloc.h']]],
-  ['vma_5frecording_5fenabled_5',['VMA_RECORDING_ENABLED',['../vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c',1,'vk_mem_alloc.h']]],
-  ['vma_5fstats_5fstring_5fenabled_6',['VMA_STATS_STRING_ENABLED',['../vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1',1,'vk_mem_alloc.h']]],
-  ['vma_5fvulkan_5fversion_7',['VMA_VULKAN_VERSION',['../vk__mem__alloc_8h.html#a1a2407c283893638cc039bb31fcd74b6',1,'vk_mem_alloc.h']]]
+  ['vma_5frecording_5fenabled_4',['VMA_RECORDING_ENABLED',['../vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c',1,'vk_mem_alloc.h']]],
+  ['vma_5fstats_5fstring_5fenabled_5',['VMA_STATS_STRING_ENABLED',['../vk__mem__alloc_8h.html#ae25f0d55fd91cb166f002b63244800e1',1,'vk_mem_alloc.h']]]
 ];

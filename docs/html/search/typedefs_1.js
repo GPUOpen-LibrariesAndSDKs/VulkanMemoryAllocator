@@ -29,7 +29,10 @@ var searchData=
   ['vmastats_26',['VmaStats',['../vk__mem__alloc_8h.html#a21813b2efdf3836767a9058cd8a94034',1,'vk_mem_alloc.h']]],
   ['vmavirtualallocationcreateflagbits_27',['VmaVirtualAllocationCreateFlagBits',['../vk__mem__alloc_8h.html#a936815e64946a6b6d812d08d10184c23',1,'vk_mem_alloc.h']]],
   ['vmavirtualallocationcreateflags_28',['VmaVirtualAllocationCreateFlags',['../vk__mem__alloc_8h.html#ae96ffc099bf898257fb19e9410ed08a7',1,'vk_mem_alloc.h']]],
-  ['vmavirtualblockcreateflagbits_29',['VmaVirtualBlockCreateFlagBits',['../vk__mem__alloc_8h.html#a0860ba1c0a67178fae4aecb63a78573e',1,'vk_mem_alloc.h']]],
-  ['vmavirtualblockcreateflags_30',['VmaVirtualBlockCreateFlags',['../vk__mem__alloc_8h.html#a4e49c2f0ab7f6b4868833e5bac78d91e',1,'vk_mem_alloc.h']]],
-  ['vmavulkanfunctions_31',['VmaVulkanFunctions',['../vk__mem__alloc_8h.html#abb0a8e3b5040d847571cca6c7f9a8074',1,'vk_mem_alloc.h']]]
+  ['vmavirtualallocationcreateinfo_29',['VmaVirtualAllocationCreateInfo',['../vk__mem__alloc_8h.html#ac3c90d80bedc6847a41b82d0e2158c9e',1,'vk_mem_alloc.h']]],
+  ['vmavirtualallocationinfo_30',['VmaVirtualAllocationInfo',['../vk__mem__alloc_8h.html#a75bc33ff7cf18c98e101f570dc2a5ebc',1,'vk_mem_alloc.h']]],
+  ['vmavirtualblockcreateflagbits_31',['VmaVirtualBlockCreateFlagBits',['../vk__mem__alloc_8h.html#a0860ba1c0a67178fae4aecb63a78573e',1,'vk_mem_alloc.h']]],
+  ['vmavirtualblockcreateflags_32',['VmaVirtualBlockCreateFlags',['../vk__mem__alloc_8h.html#a4e49c2f0ab7f6b4868833e5bac78d91e',1,'vk_mem_alloc.h']]],
+  ['vmavirtualblockcreateinfo_33',['VmaVirtualBlockCreateInfo',['../vk__mem__alloc_8h.html#a4753d42d40217a3a652a3cdf253ad773',1,'vk_mem_alloc.h']]],
+  ['vmavulkanfunctions_34',['VmaVulkanFunctions',['../vk__mem__alloc_8h.html#abb0a8e3b5040d847571cca6c7f9a8074',1,'vk_mem_alloc.h']]]
 ];
