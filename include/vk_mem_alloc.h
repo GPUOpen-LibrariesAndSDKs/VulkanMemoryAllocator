@@ -150,6 +150,10 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #include <vulkan/vulkan.h>
 #endif
 
+#if !defined(VK_VERSION_1_2)
+    #define VK_ERROR_UNKNOWN ((VkResult)-13)
+#endif
+
 // Define this macro to declare maximum supported Vulkan version in format AAABBBCCC,
 // where AAA = major, BBB = minor, CCC = patch.
 // If you want to use version > 1.0, it still needs to be enabled via VmaAllocatorCreateInfo::vulkanApiVersion.
