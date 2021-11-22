@@ -279,6 +279,11 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
+// Macro that will evaluate anything to nothing.
+// The purpose is to work around variables that are potentially unused,
+// for example when used in an assertion that can be compiled out.
+#define VMA_POTENTIALLY_UNUSED(x) (void)(x)
+
 /** \struct VmaAllocator
 \brief Represents main object of this library initialized.
 
@@ -7985,7 +7990,6 @@ bool VmaBlockMetadata_Generic::IsEmpty() const
 
 void VmaBlockMetadata_Generic::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
-    const uint32_t rangeCount = (uint32_t)m_Suballocations.size();
     VmaInitStatInfo(outInfo);
     outInfo.blockCount = 1;
 
@@ -10374,6 +10378,8 @@ void VmaBlockMetadata_Linear::Alloc(
             // New allocation at the end of 2-part ring buffer, so before first allocation from 1st vector.
             VMA_ASSERT(!suballocations1st.empty() &&
                 request.offset + request.size <= suballocations1st[m_1stNullItemsBeginCount].offset);
+            VMA_POTENTIALLY_UNUSED(suballocations1st);
+
             SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
 
             switch(m_2ndVectorMode)
@@ -10993,7 +10999,6 @@ void VmaBlockMetadata_Buddy::DeleteNodeChildren(Node* node)
     {
         DeleteNodeChildren(node->split.leftChild->buddy);
         DeleteNodeChildren(node->split.leftChild);
-        const VkAllocationCallbacks* allocationCallbacks = GetAllocationCallbacks();
         m_NodeAllocator.Free(node->split.leftChild->buddy);
         m_NodeAllocator.Free(node->split.leftChild);
     }
@@ -12015,6 +12020,7 @@ VkResult VmaBlockVector::AllocatePage(
                     {
                         VkResult res = pBestRequestBlock->WriteMagicValueAroundAllocation(m_hAllocator, bestRequest.offset, bestRequest.size);
                         VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
+                        VMA_POTENTIALLY_UNUSED(res);
                     }
                     return VK_SUCCESS;
                 }
@@ -12061,6 +12067,7 @@ void VmaBlockVector::Free(
         {
             VkResult res = pBlock->ValidateMagicValueAroundAllocation(m_hAllocator, hAllocation->GetOffset(), hAllocation->GetSize());
             VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to validate magic value.");
+            VMA_POTENTIALLY_UNUSED(res);
         }
 
         if(hAllocation->IsPersistentMap())
@@ -12218,6 +12225,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
         {
             VkResult res = pBlock->WriteMagicValueAroundAllocation(m_hAllocator, currRequest.offset, currRequest.size);
             VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
+            VMA_POTENTIALLY_UNUSED(res);
         }
         return VK_SUCCESS;
     }
@@ -16100,8 +16108,8 @@ private:
 VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAllocateInfo, VkDeviceMemory* pMemory)
 {
     AtomicTransactionalIncrement<uint32_t> deviceMemoryCountIncrement;
-    const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
 #if VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT
+    const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
     if(prevDeviceMemoryCount >= m_PhysicalDeviceProperties.limits.maxMemoryAllocationCount)
     {
         return VK_ERROR_TOO_MANY_OBJECTS;
