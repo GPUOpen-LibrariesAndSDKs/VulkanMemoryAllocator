@@ -1571,6 +1571,17 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCreateLostAllocation(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NULLABLE * VMA_NOT_NULL pAllocation);
 
+/**
+\brief Given an allocation, returns Property Flags of its memory type.
+
+This is just a convenience function. Same information can be obtained using
+vmaGetAllocationInfo() + vmaGetMemoryProperties().
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VkMemoryPropertyFlags* VMA_NOT_NULL pFlags);
+
 /** \brief Maps memory represented by given allocation and returns pointer to it.
 
 Maps memory represented by given allocation to make it accessible to CPU code.
@@ -17665,6 +17676,16 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCreateLostAllocation(
 #endif
 }
 
+VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VkMemoryPropertyFlags* VMA_NOT_NULL pFlags)
+{
+    VMA_ASSERT(allocator && allocation && pFlags);
+    const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
+    *pFlags = allocator->m_MemProps.memoryTypes[memTypeIndex].propertyFlags;
+}
+
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapMemory(
     VmaAllocator allocator,
     VmaAllocation allocation,
@@ -18893,8 +18914,8 @@ allocation from video memory might have failed, so the library chose system memo
 
 You can detect this case and map such allocation to access its memory on CPU directly,
 instead of launching a transfer operation.
-In order to do that: inspect `allocInfo.memoryType`, call vmaGetMemoryTypeProperties(),
-and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag in properties of that memory type.
+In order to do that: call vmaGetAllocationMemoryProperties()
+and look for `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag.
 
 \code
 VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -18907,11 +18928,10 @@ allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
 VkBuffer buf;
 VmaAllocation alloc;
-VmaAllocationInfo allocInfo;
-vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
 
 VkMemoryPropertyFlags memFlags;
-vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+vmaGetAllocationMemoryProperties(allocator, alloc, &memFlags);
 if((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
 {
     // Allocation ended up in mappable memory. You can map it and access it directly.

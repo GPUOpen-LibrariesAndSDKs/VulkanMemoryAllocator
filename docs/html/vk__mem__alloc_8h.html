@@ -447,6 +447,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae5c9657d9e94756269145b01c05d16f1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae5c9657d9e94756269145b01c05d16f1">vmaCreateLostAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation)</td></tr>
 <tr class="memdesc:ae5c9657d9e94756269145b01c05d16f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates new allocation that is in lost state from the beginning.  <a href="vk__mem__alloc_8h.html#ae5c9657d9e94756269145b01c05d16f1">More...</a><br /></td></tr>
 <tr class="separator:ae5c9657d9e94756269145b01c05d16f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a571e87dd38e552249b56b1b0b982fad1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a571e87dd38e552249b56b1b0b982fad1">vmaGetAllocationMemoryProperties</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkMemoryPropertyFlags *pFlags)</td></tr>
+<tr class="memdesc:a571e87dd38e552249b56b1b0b982fad1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given an allocation, returns Property Flags of its memory type.  <a href="vk__mem__alloc_8h.html#a571e87dd38e552249b56b1b0b982fad1">More...</a><br /></td></tr>
+<tr class="separator:a571e87dd38e552249b56b1b0b982fad1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad5bd1243512d099706de88168992f069"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069">vmaMapMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, void **ppData)</td></tr>
 <tr class="memdesc:ad5bd1243512d099706de88168992f069"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maps memory represented by given allocation and returns pointer to it.  <a href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069">More...</a><br /></td></tr>
 <tr class="separator:ad5bd1243512d099706de88168992f069"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3377,6 +3380,43 @@ Functions</h2></td></tr>
 <li>You can retrieve same <a class="el" href="struct_vma_allocation_info.html" title="Parameters of VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().">VmaAllocationInfo</a> structure while creating your resource, from function <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. You can remember it if you are sure parameters don't change (e.g. due to defragmentation or allocation becoming lost).</li>
 <li>If you just want to check if allocation is not lost, <a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a" title="Returns VK_TRUE if allocation is not lost and atomically marks it as used in current frame.">vmaTouchAllocation()</a> will work faster. </li>
 </ul>
+
+</div>
+</div>
+<a id="a571e87dd38e552249b56b1b0b982fad1" name="a571e87dd38e552249b56b1b0b982fad1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a571e87dd38e552249b56b1b0b982fad1">&#9670;&nbsp;</a></span>vmaGetAllocationMemoryProperties()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaGetAllocationMemoryProperties </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkMemoryPropertyFlags *&#160;</td>
+          <td class="paramname"><em>pFlags</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Given an allocation, returns Property Flags of its memory type. </p>
+<p >This is just a convenience function. Same information can be obtained using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> + <a class="el" href="vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>. </p>
 
 </div>
 </div>
