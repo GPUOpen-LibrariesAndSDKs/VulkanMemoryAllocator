@@ -151,6 +151,9 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
 #endif
 
 #if !defined(VK_VERSION_1_2)
+    // This one is tricky. Vulkan specification defines this code as available since
+    // Vulkan 1.0, but doesn't actually define it in Vulkan SDK earlier than 1.2.131.
+    // See pull request #207.
     #define VK_ERROR_UNKNOWN ((VkResult)-13)
 #endif
 
