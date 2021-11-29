@@ -1426,6 +1426,13 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
         outInfo.pAllocationCallbacks = &g_CpuAllocationCallbacks;
     }
 
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+    static VmaVulkanFunctions vulkanFunctions = {};
+    vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    outInfo.pVulkanFunctions = &vulkanFunctions;
+#endif
+
     // Uncomment to enable recording to CSV file.
     /*
     static VmaRecordSettings recordSettings = {};

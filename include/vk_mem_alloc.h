@@ -450,6 +450,10 @@ typedef VkFlags VmaAllocatorCreateFlags;
 Used in VmaAllocatorCreateInfo::pVulkanFunctions.
 */
 typedef struct VmaVulkanFunctions {
+    /// Required when using VMA_DYNAMIC_VULKAN_FUNCTIONS.
+    PFN_vkGetInstanceProcAddr VMA_NULLABLE vkGetInstanceProcAddr;
+    /// Required when using VMA_DYNAMIC_VULKAN_FUNCTIONS.
+    PFN_vkGetDeviceProcAddr VMA_NULLABLE vkGetDeviceProcAddr;
     PFN_vkGetPhysicalDeviceProperties VMA_NULLABLE vkGetPhysicalDeviceProperties;
     PFN_vkGetPhysicalDeviceMemoryProperties VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties;
     PFN_vkAllocateMemory VMA_NULLABLE vkAllocateMemory;
@@ -2435,14 +2439,14 @@ internally, like:
 Define this macro to 1 to make the library fetch pointers to Vulkan functions
 internally, like:
 
-    vulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkGetDeviceProcAddr(m_hDevice, vkAllocateMemory);
+    vulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkGetDeviceProcAddr(device, "vkAllocateMemory");
+
+To use this feature in new versions of VMA you now have to pass
+VmaVulkanFunctions::vkGetInstanceProcAddr and vkGetDeviceProcAddr as
+VmaAllocatorCreateInfo::pVulkanFunctions. Other members can be null.
 */
 #if !defined(VMA_DYNAMIC_VULKAN_FUNCTIONS)
     #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-    #if defined(VK_NO_PROTOTYPES)
-        extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
-        extern PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
-    #endif
 #endif
 
 // Define this macro to 1 to make the library use STL containers instead of its own implementation.
@@ -14872,6 +14876,8 @@ void VmaAllocator_T::ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunc
 void VmaAllocator_T::ImportVulkanFunctions_Static()
 {
     // Vulkan 1.0
+    m_VulkanFunctions.vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)vkGetInstanceProcAddr;
+    m_VulkanFunctions.vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)vkGetDeviceProcAddr;
     m_VulkanFunctions.vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)vkGetPhysicalDeviceProperties;
     m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vkGetPhysicalDeviceMemoryProperties;
     m_VulkanFunctions.vkAllocateMemory = (PFN_vkAllocateMemory)vkAllocateMemory;
@@ -14912,6 +14918,8 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
 #define VMA_COPY_IF_NOT_NULL(funcName) \
     if(pVulkanFunctions->funcName != VMA_NULL) m_VulkanFunctions.funcName = pVulkanFunctions->funcName;
 
+    VMA_COPY_IF_NOT_NULL(vkGetInstanceProcAddr);
+    VMA_COPY_IF_NOT_NULL(vkGetDeviceProcAddr);
     VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceProperties);
     VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties);
     VMA_COPY_IF_NOT_NULL(vkAllocateMemory);
@@ -14951,14 +14959,19 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
 
 void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
 {
+    VMA_ASSERT(m_VulkanFunctions.vkGetInstanceProcAddr && m_VulkanFunctions.vkGetDeviceProcAddr &&
+        "To use VMA_DYNAMIC_VULKAN_FUNCTIONS in new versions of VMA you now have to pass "
+        "VmaVulkanFunctions::vkGetInstanceProcAddr and vkGetDeviceProcAddr as VmaAllocatorCreateInfo::pVulkanFunctions. "
+        "Other members can be null.");
+
 #define VMA_FETCH_INSTANCE_FUNC(memberName, functionPointerType, functionNameString) \
     if(m_VulkanFunctions.memberName == VMA_NULL) \
         m_VulkanFunctions.memberName = \
-            (functionPointerType)vkGetInstanceProcAddr(m_hInstance, functionNameString);
+            (functionPointerType)m_VulkanFunctions.vkGetInstanceProcAddr(m_hInstance, functionNameString);
 #define VMA_FETCH_DEVICE_FUNC(memberName, functionPointerType, functionNameString) \
     if(m_VulkanFunctions.memberName == VMA_NULL) \
         m_VulkanFunctions.memberName = \
-            (functionPointerType)vkGetDeviceProcAddr(m_hDevice, functionNameString);
+            (functionPointerType)m_VulkanFunctions.vkGetDeviceProcAddr(m_hDevice, functionNameString);
 
     VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties, PFN_vkGetPhysicalDeviceProperties, "vkGetPhysicalDeviceProperties");
     VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties, PFN_vkGetPhysicalDeviceMemoryProperties, "vkGetPhysicalDeviceMemoryProperties");
@@ -18591,7 +18604,8 @@ You may need to configure the way you import Vulkan functions.
 
 - By default, VMA assumes you you link statically with Vulkan API. If this is not the case,
   `#define VMA_STATIC_VULKAN_FUNCTIONS 0` before `#include` of the VMA implementation and use another way.
-- You can `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1` and make sure `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` globals are defined.
+- You can `#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1` and pass only pointers to `vkGetInstanceProcAddr` and
+  `vkGetDeviceProcAddr` functions through VmaAllocatorCreateInfo::pVulkanFunctions.
   All the remaining Vulkan functions will be fetched automatically.
 - Finally, you can provide your own pointers to all Vulkan functions needed by VMA using structure member
   VmaAllocatorCreateInfo::pVulkanFunctions, if you fetched them in some custom way e.g. using some loader like [Volk](https://github.com/zeux/volk).
