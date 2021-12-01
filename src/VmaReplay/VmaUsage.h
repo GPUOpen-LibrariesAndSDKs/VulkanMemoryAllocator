@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017-2020 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2017-2021 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-#define VK_USE_PLATFORM_WIN32_KHR
+#if !defined(VK_USE_PLATFORM_WIN32_KHR)
+    #define VK_USE_PLATFORM_WIN32_KHR
+#endif // #if !defined(VK_USE_PLATFORM_WIN32_KHR)
 #include <vulkan/vulkan.h>
 
 //#define VMA_USE_STL_CONTAINERS 1
@@ -45,6 +47,6 @@
 #pragma warning(disable: 4189) // local variable is initialized but not referenced
 #pragma warning(disable: 4324) // structure was padded due to alignment specifier
 
-#include "../vk_mem_alloc.h"
+#include "../../include/vk_mem_alloc.h"
 
 #pragma warning(pop)
