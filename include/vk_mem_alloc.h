@@ -13775,6 +13775,8 @@ void VmaDefragmentationContext_T::AddAllocations(
                 pBlockVectorDefragCtx = m_DefaultPoolContexts[memTypeIndex];
                 if(!pBlockVectorDefragCtx)
                 {
+                    VMA_ASSERT(m_hAllocator->m_pBlockVectors[memTypeIndex] && "Trying to use unsupported memory type!");
+
                     pBlockVectorDefragCtx = vma_new(m_hAllocator, VmaBlockVectorDefragmentationContext)(
                         m_hAllocator,
                         VMA_NULL, // hCustomPool
@@ -14770,24 +14772,27 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
 
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        const VkDeviceSize preferredBlockSize = CalcPreferredBlockSize(memTypeIndex);
-
-        m_pBlockVectors[memTypeIndex] = vma_new(this, VmaBlockVector)(
-            this,
-            VK_NULL_HANDLE, // hParentPool
-            memTypeIndex,
-            preferredBlockSize,
-            0,
-            SIZE_MAX,
-            GetBufferImageGranularity(),
-            pCreateInfo->frameInUseCount,
-            false, // explicitBlockSize
-            false, // linearAlgorithm
-            0.5f, // priority (0.5 is the default per Vulkan spec)
-            GetMemoryTypeMinAlignment(memTypeIndex), // minAllocationAlignment
-            VMA_NULL); // // pMemoryAllocateNext
-        // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
-        // becase minBlockCount is 0.
+        // Create only supported types
+        if((m_GlobalMemoryTypeBits & (1u << memTypeIndex)) != 0)
+        {
+            const VkDeviceSize preferredBlockSize = CalcPreferredBlockSize(memTypeIndex);
+            m_pBlockVectors[memTypeIndex] = vma_new(this, VmaBlockVector)(
+                this,
+                VK_NULL_HANDLE, // hParentPool
+                memTypeIndex,
+                preferredBlockSize,
+                0,
+                SIZE_MAX,
+                GetBufferImageGranularity(),
+                pCreateInfo->frameInUseCount,
+                false, // explicitBlockSize
+                false, // linearAlgorithm
+                0.5f, // priority (0.5 is the default per Vulkan spec)
+                GetMemoryTypeMinAlignment(memTypeIndex), // minAllocationAlignment
+                VMA_NULL); // // pMemoryAllocateNext
+            // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
+            // becase minBlockCount is 0.
+        }
     }
 }
 
@@ -15114,7 +15119,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     }
 
     VmaBlockVector* const blockVector = m_pBlockVectors[memTypeIndex];
-    VMA_ASSERT(blockVector);
+    VMA_ASSERT(blockVector && "Trying to use unsupported memory type!");
 
     const VkDeviceSize preferredBlockSize = blockVector->GetPreferredBlockSize();
     bool preferDedicatedMemory =
@@ -15652,6 +15657,7 @@ void VmaAllocator_T::FreeMemory(
                         {
                             const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
                             pBlockVector = m_pBlockVectors[memTypeIndex];
+                            VMA_ASSERT(pBlockVector && "Trying to free memory of unsupported type!");
                         }
                         pBlockVector->Free(allocation);
                     }
@@ -15685,8 +15691,8 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex];
-        VMA_ASSERT(pBlockVector);
-        pBlockVector->AddStats(pStats);
+        if (pBlockVector != VMA_NULL)
+            pBlockVector->AddStats(pStats);
     }
 
     // Process custom pools.
@@ -16054,10 +16060,9 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
     // Process default pools.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        if(((1u << memTypeIndex) & memoryTypeBits) != 0)
+        VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex];
+        if(pBlockVector != VMA_NULL)
         {
-            VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex];
-            VMA_ASSERT(pBlockVector);
             VkResult localRes = pBlockVector->CheckCorruption();
             switch(localRes)
             {
@@ -16688,20 +16693,24 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
         bool allocationsStarted = false;
         for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
         {
-            if(m_pBlockVectors[memTypeIndex]->IsEmpty() == false)
+            VmaBlockVector* pBlockVector = m_pBlockVectors[memTypeIndex];
+            if(pBlockVector != VMA_NULL)
             {
-                if(allocationsStarted == false)
+                if (pBlockVector->IsEmpty() == false)
                 {
-                    allocationsStarted = true;
-                    json.WriteString("DefaultPools");
-                    json.BeginObject();
+                    if (allocationsStarted == false)
+                    {
+                        allocationsStarted = true;
+                        json.WriteString("DefaultPools");
+                        json.BeginObject();
+                    }
+
+                    json.BeginString("Type ");
+                    json.ContinueString(memTypeIndex);
+                    json.EndString();
+
+                    pBlockVector->PrintDetailedMap(json);
                 }
-
-                json.BeginString("Type ");
-                json.ContinueString(memTypeIndex);
-                json.EndString();
-
-                m_pBlockVectors[memTypeIndex]->PrintDetailedMap(json);
             }
         }
         if(allocationsStarted)
