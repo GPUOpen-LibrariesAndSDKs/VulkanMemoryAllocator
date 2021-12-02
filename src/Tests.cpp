@@ -3144,6 +3144,12 @@ void TestHeapSizeLimit()
     allocatorCreateInfo.device = g_hDevice;
     allocatorCreateInfo.instance = g_hVulkanInstance;
     allocatorCreateInfo.pHeapSizeLimit = heapSizeLimit;
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+    VmaVulkanFunctions vulkanFunctions = {};
+    vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+#endif
 
     VmaAllocator hAllocator;
     VkResult res = vmaCreateAllocator(&allocatorCreateInfo, &hAllocator);
