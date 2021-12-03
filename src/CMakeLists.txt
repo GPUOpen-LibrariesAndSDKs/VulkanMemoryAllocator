@@ -17,7 +17,7 @@ set_target_properties(
     CXX_STANDARD_REQUIRED ON
 )
 
-target_include_directories(VulkanMemoryAllocator PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(VulkanMemoryAllocator PUBLIC "${PROJECT_SOURCE_DIR}/include")
 
 # Only link to Vulkan if static linking is used
 if (NOT ${VMA_DYNAMIC_VULKAN_FUNCTIONS})
@@ -37,8 +37,8 @@ target_compile_definitions(
     VMA_RECORDING_ENABLED=$<BOOL:${VMA_RECORDING_ENABLED}>
 )
 
-install(TARGETS VulkanMemoryAllocator DESTINATION lib)
-install(FILES ../include/vk_mem_alloc.h DESTINATION include)
+install(TARGETS VulkanMemoryAllocator DESTINATION "lib")
+install(FILES "../include/vk_mem_alloc.h" DESTINATION "include")
 
 if (VMA_BUILD_SAMPLE)
     if(WIN32)
@@ -58,7 +58,7 @@ if (VMA_BUILD_SAMPLE)
             add_compile_definitions(UNICODE _UNICODE)
             
             # Set VmaSample as startup project
-            set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaSample")
+            set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT "VmaSample")
             
             # Enable multithreaded compiling
             target_compile_options(VmaSample PRIVATE "/MP")
