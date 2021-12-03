@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.0.0-development</b> (2021-06-21)
+<b>Version 3.0.0-development</b>
 
 Copyright (c) 2017-2021 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -2297,8 +2297,10 @@ typedef struct VmaVirtualAllocationInfo
 /** \struct VmaVirtualBlock
 \brief Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory.
 
-Fill in #VmaVirtualBlockCreateInfo structure and Use vmaCreateVirtualBlock() to create it. Use vmaDestroyVirtualBlock() to destroy it.
+Fill in #VmaVirtualBlockCreateInfo structure and use vmaCreateVirtualBlock() to create it. Use vmaDestroyVirtualBlock() to destroy it.
 For more information, see documentation chapter \ref virtual_allocator.
+
+This object is not thread-safe - should not be used from multiple threads simultaneously, must be synchronized externally.
 */
 VK_DEFINE_HANDLE(VmaVirtualBlock);
 
@@ -20620,6 +20622,7 @@ accompanying this library.
 - By default, all calls to functions that take #VmaAllocator as first parameter
   are safe to call from multiple threads simultaneously because they are
   synchronized internally when needed.
+  This includes allocation and deallocation from default memory pool, as well as custom #VmaPool.
 - When the allocator is created with #VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
   flag, calls to functions that take such #VmaAllocator object must be
   synchronized externally.
@@ -20627,6 +20630,7 @@ accompanying this library.
   you must not call vmaGetAllocationInfo() and vmaMapMemory() from different
   threads at the same time if you pass the same #VmaAllocation object to these
   functions.
+- #VmaVirtualBlock is also not safe to be used from multiple threads simultaneously.
 
 \section general_considerations_validation_layer_warnings Validation layer warnings
 
