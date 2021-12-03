@@ -216,6 +216,8 @@ struct CommandLineParameters
 {
     bool m_Help = false;
     bool m_List = false;
+    bool m_Test = false;
+    bool m_TestSparseBinding = false;
     GPUSelection m_GPUSelection;
 
     bool Parse(int argc, wchar_t** argv)
@@ -239,6 +241,14 @@ struct CommandLineParameters
             {
                 m_GPUSelection.Index = _wtoi(argv[i + 1]);
                 ++i;
+            }
+            else if (_wcsicmp(argv[i], L"-t") == 0 || _wcsicmp(argv[i], L"--Test") == 0)
+            {
+                m_Test = true;
+            }
+            else if (_wcsicmp(argv[i], L"-s") == 0 || _wcsicmp(argv[i], L"--TestSparseBinding") == 0)
+            {
+                m_TestSparseBinding = true;
             }
             else
                 return false;
@@ -2422,17 +2432,6 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
     {
-    case WM_CREATE:
-        // This is intentionally assigned here because we are now inside CreateWindow, before it returns.
-        g_hWnd = hWnd;
-        try
-        {
-            InitializeApplication();
-        }
-        CATCH_PRINT_ERROR(return -1;)
-        //PrintAllocatorStats();
-        return 0;
-
     case WM_DESTROY:
         try
         {
@@ -2481,24 +2480,17 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             CATCH_PRINT_ERROR(;)
             break;
         case 'S':
-            try
+            if (g_SparseBindingEnabled)
             {
-                if(g_SparseBindingEnabled)
+                try
                 {
-                    try
-                    {
-                        TestSparseBinding();
-                    }
-                    CATCH_PRINT_ERROR(;)
+                    TestSparseBinding();
                 }
-                else
-                {
-                    printf("Sparse binding not supported.\n");
-                }
+                CATCH_PRINT_ERROR(;)
             }
-            catch(const std::exception& ex)
+            else
             {
-                printf("ERROR: %s\n", ex.what());
+                printf("Sparse binding not supported.\n");
             }
             break;
         }
@@ -2524,6 +2516,8 @@ static void PrintHelp()
         L"-l, --List   Print list of GPUs\n"
         L"-g S, --GPU S   Select GPU with name containing S\n"
         L"-i N, --GPUIndex N   Select GPU index N\n"
+        L"-t, --Test   Run tests and exit\n"
+        L"-s, --TestSparseBinding   Run sparese binding tests and exit\n"
     );
 }
 
@@ -2547,10 +2541,27 @@ int MainWindow()
     RECT rect = { 0, 0, g_SizeX, g_SizeY };
     AdjustWindowRectEx(&rect, style, FALSE, exStyle);
 
-    CreateWindowEx(
+    g_hWnd = CreateWindowEx(
         exStyle, WINDOW_CLASS_NAME, APP_TITLE_W, style,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, NULL, g_hAppInstance, NULL);
+    assert(g_hWnd);
+
+    InitializeApplication();
+    //PrintAllocatorStats();
+
+    // Run tests and close program
+    if(g_CommandLineParameters.m_Test)
+        Test();
+    if(g_CommandLineParameters.m_TestSparseBinding)
+    {
+        if(g_SparseBindingEnabled)
+            TestSparseBinding();
+        else
+            printf("Sparse binding not supported.\n");
+    }
+    if(g_CommandLineParameters.m_Test || g_CommandLineParameters.m_TestSparseBinding)
+        PostMessage(g_hWnd, WM_CLOSE, 0, 0);
 
     MSG msg;
     for(;;)
@@ -2562,8 +2573,10 @@ int MainWindow()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        if(g_hDevice != VK_NULL_HANDLE)
+        else
+		{
             DrawFrame();
+		}
     }
 
     return (int)msg.wParam;;
