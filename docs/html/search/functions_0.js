@@ -45,7 +45,7 @@ var searchData=
   ['vmagetallocationinfo_42',['vmaGetAllocationInfo',['../vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b',1,'vk_mem_alloc.h']]],
   ['vmagetallocationmemoryproperties_43',['vmaGetAllocationMemoryProperties',['../vk__mem__alloc_8h.html#a571e87dd38e552249b56b1b0b982fad1',1,'vk_mem_alloc.h']]],
   ['vmagetallocatorinfo_44',['vmaGetAllocatorInfo',['../vk__mem__alloc_8h.html#afa02231a791b37255720d566a52683e7',1,'vk_mem_alloc.h']]],
-  ['vmagetbudget_45',['vmaGetBudget',['../vk__mem__alloc_8h.html#aec0ed24ebea2d0099eed5f801daaefba',1,'vk_mem_alloc.h']]],
+  ['vmagetheapbudgets_45',['vmaGetHeapBudgets',['../vk__mem__alloc_8h.html#a9f88db9d46a432c0ad7278cecbc5eaa7',1,'vk_mem_alloc.h']]],
   ['vmagetmemoryproperties_46',['vmaGetMemoryProperties',['../vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19',1,'vk_mem_alloc.h']]],
   ['vmagetmemorytypeproperties_47',['vmaGetMemoryTypeProperties',['../vk__mem__alloc_8h.html#a8701444752eb5de4464adb5a2b514bca',1,'vk_mem_alloc.h']]],
   ['vmagetphysicaldeviceproperties_48',['vmaGetPhysicalDeviceProperties',['../vk__mem__alloc_8h.html#aecabf7b6e91ea87d0316fa0a9e014fe0',1,'vk_mem_alloc.h']]],

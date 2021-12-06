@@ -5473,7 +5473,7 @@ static void TestBudget()
         vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
 
         VmaBudget budgetBeg[VK_MAX_MEMORY_HEAPS] = {};
-        vmaGetBudget(g_hAllocator, budgetBeg);
+        vmaGetHeapBudgets(g_hAllocator, budgetBeg);
 
         for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
         {
@@ -5514,7 +5514,7 @@ static void TestBudget()
         }
 
         VmaBudget budgetWithBufs[VK_MAX_MEMORY_HEAPS] = {};
-        vmaGetBudget(g_hAllocator, budgetWithBufs);
+        vmaGetHeapBudgets(g_hAllocator, budgetWithBufs);
 
         // DESTROY BUFFERS
         for(size_t bufIndex = BUF_COUNT; bufIndex--; )
@@ -5523,7 +5523,7 @@ static void TestBudget()
         }
 
         VmaBudget budgetEnd[VK_MAX_MEMORY_HEAPS] = {};
-        vmaGetBudget(g_hAllocator, budgetEnd);
+        vmaGetHeapBudgets(g_hAllocator, budgetEnd);
 
         // CHECK
         for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)

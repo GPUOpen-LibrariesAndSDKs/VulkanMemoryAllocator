@@ -722,7 +722,7 @@ typedef struct VmaStats
 
 This function is called "calculate" not "get" because it has to traverse all
 internal data structures, so it may be quite slow. For faster but more brief statistics
-suitable to be called every frame or every allocation, use vmaGetBudget().
+suitable to be called every frame or every allocation, use vmaGetHeapBudgets().
 
 Note that when using allocator from multiple threads, returned information may immediately
 become outdated.
@@ -775,7 +775,7 @@ typedef struct VmaBudget
 /** \brief Retrieves information about current memory budget for all memory heaps.
 
 \param allocator
-\param[out] pBudget Must point to array with number of elements at least equal to number of memory heaps in physical device used.
+\param[out] pBudgets Must point to array with number of elements at least equal to number of memory heaps in physical device used.
 
 This function is called "get" not "calculate" because it is very fast, suitable to be called
 every frame or every allocation. For more detailed statistics use vmaCalculateStats().
@@ -783,9 +783,9 @@ every frame or every allocation. For more detailed statistics use vmaCalculateSt
 Note that when using allocator from multiple threads, returned information may immediately
 become outdated.
 */
-VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
+VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
     VmaAllocator VMA_NOT_NULL allocator,
-    VmaBudget* VMA_NOT_NULL pBudget);
+    VmaBudget* VMA_NOT_NULL pBudgets);
 
 #ifndef VMA_STATS_STRING_ENABLED
 #define VMA_STATS_STRING_ENABLED 1
@@ -6911,8 +6911,8 @@ public:
 
     void CalculateStats(VmaStats* pStats);
 
-    void GetBudget(
-        VmaBudget* outBudget, uint32_t firstHeap, uint32_t heapCount);
+    void GetHeapBudgets(
+        VmaBudget* outBudgets, uint32_t firstHeap, uint32_t heapCount);
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json);
@@ -11905,7 +11905,7 @@ VkResult VmaBlockVector::AllocatePage(
     {
         const uint32_t heapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex);
         VmaBudget heapBudget = {};
-        m_hAllocator->GetBudget(&heapBudget, heapIndex, 1);
+        m_hAllocator->GetHeapBudgets(&heapBudget, heapIndex, 1);
         freeMemory = (heapBudget.usage < heapBudget.budget) ? (heapBudget.budget - heapBudget.usage) : 0;
     }
 
@@ -12275,7 +12275,7 @@ void VmaBlockVector::Free(
     {
         const uint32_t heapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex);
         VmaBudget heapBudget = {};
-        m_hAllocator->GetBudget(&heapBudget, heapIndex, 1);
+        m_hAllocator->GetHeapBudgets(&heapBudget, heapIndex, 1);
         budgetExceeded = heapBudget.usage >= heapBudget.budget;
     }
 
@@ -15481,7 +15481,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     {
         const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
         VmaBudget heapBudget = {};
-        GetBudget(&heapBudget, heapIndex, 1);
+        GetHeapBudgets(&heapBudget, heapIndex, 1);
         if(heapBudget.usage + size * allocationCount > heapBudget.budget)
         {
             return VK_ERROR_OUT_OF_DEVICE_MEMORY;
@@ -15975,7 +15975,7 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
         VmaPostprocessCalcStatInfo(pStats->memoryHeap[i]);
 }
 
-void VmaAllocator_T::GetBudget(VmaBudget* outBudget, uint32_t firstHeap, uint32_t heapCount)
+void VmaAllocator_T::GetHeapBudgets(VmaBudget* outBudgets, uint32_t firstHeap, uint32_t heapCount)
 {
 #if VMA_MEMORY_BUDGET
     if(m_UseExtMemoryBudget)
@@ -15983,46 +15983,46 @@ void VmaAllocator_T::GetBudget(VmaBudget* outBudget, uint32_t firstHeap, uint32_
         if(m_Budget.m_OperationsSinceBudgetFetch < 30)
         {
             VmaMutexLockRead lockRead(m_Budget.m_BudgetMutex, m_UseMutex);
-            for(uint32_t i = 0; i < heapCount; ++i, ++outBudget)
+            for(uint32_t i = 0; i < heapCount; ++i, ++outBudgets)
             {
                 const uint32_t heapIndex = firstHeap + i;
 
-                outBudget->blockBytes = m_Budget.m_BlockBytes[heapIndex];
-                outBudget->allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
+                outBudgets->blockBytes = m_Budget.m_BlockBytes[heapIndex];
+                outBudgets->allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
 
-                if(m_Budget.m_VulkanUsage[heapIndex] + outBudget->blockBytes > m_Budget.m_BlockBytesAtBudgetFetch[heapIndex])
+                if(m_Budget.m_VulkanUsage[heapIndex] + outBudgets->blockBytes > m_Budget.m_BlockBytesAtBudgetFetch[heapIndex])
                 {
-                    outBudget->usage = m_Budget.m_VulkanUsage[heapIndex] +
-                        outBudget->blockBytes - m_Budget.m_BlockBytesAtBudgetFetch[heapIndex];
+                    outBudgets->usage = m_Budget.m_VulkanUsage[heapIndex] +
+                        outBudgets->blockBytes - m_Budget.m_BlockBytesAtBudgetFetch[heapIndex];
                 }
                 else
                 {
-                    outBudget->usage = 0;
+                    outBudgets->usage = 0;
                 }
 
                 // Have to take MIN with heap size because explicit HeapSizeLimit is included in it.
-                outBudget->budget = VMA_MIN(
+                outBudgets->budget = VMA_MIN(
                     m_Budget.m_VulkanBudget[heapIndex], m_MemProps.memoryHeaps[heapIndex].size);
             }
         }
         else
         {
             UpdateVulkanBudget(); // Outside of mutex lock
-            GetBudget(outBudget, firstHeap, heapCount); // Recursion
+            GetHeapBudgets(outBudgets, firstHeap, heapCount); // Recursion
         }
     }
     else
 #endif
     {
-        for(uint32_t i = 0; i < heapCount; ++i, ++outBudget)
+        for(uint32_t i = 0; i < heapCount; ++i, ++outBudgets)
         {
             const uint32_t heapIndex = firstHeap + i;
 
-            outBudget->blockBytes = m_Budget.m_BlockBytes[heapIndex];
-            outBudget->allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
+            outBudgets->blockBytes = m_Budget.m_BlockBytes[heapIndex];
+            outBudgets->allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
 
-            outBudget->usage = outBudget->blockBytes;
-            outBudget->budget = m_MemProps.memoryHeaps[heapIndex].size * 8 / 10; // 80% heuristics.
+            outBudgets->usage = outBudgets->blockBytes;
+            outBudgets->budget = m_MemProps.memoryHeaps[heapIndex].size * 8 / 10; // 80% heuristics.
         }
     }
 }
@@ -17156,13 +17156,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStats(
     allocator->CalculateStats(pStats);
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaGetBudget(
+VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
     VmaAllocator allocator,
-    VmaBudget* pBudget)
+    VmaBudget* pBudgets)
 {
-    VMA_ASSERT(allocator && pBudget);
+    VMA_ASSERT(allocator && pBudgets);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-    allocator->GetBudget(pBudget, 0, allocator->GetMemoryHeapCount());
+    allocator->GetHeapBudgets(pBudgets, 0, allocator->GetMemoryHeapCount());
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -17180,8 +17180,8 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
         VmaJsonWriter json(allocator->GetAllocationCallbacks(), sb);
         json.BeginObject();
 
-        VmaBudget budget[VK_MAX_MEMORY_HEAPS];
-        allocator->GetBudget(budget, 0, allocator->GetMemoryHeapCount());
+        VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+        allocator->GetHeapBudgets(budgets, 0, allocator->GetMemoryHeapCount());
 
         VmaStats stats;
         allocator->CalculateStats(&stats);
@@ -17211,13 +17211,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
             json.BeginObject();
             {
                 json.WriteString("BlockBytes");
-                json.WriteNumber(budget[heapIndex].blockBytes);
+                json.WriteNumber(budgets[heapIndex].blockBytes);
                 json.WriteString("AllocationBytes");
-                json.WriteNumber(budget[heapIndex].allocationBytes);
+                json.WriteNumber(budgets[heapIndex].allocationBytes);
                 json.WriteString("Usage");
-                json.WriteNumber(budget[heapIndex].usage);
+                json.WriteNumber(budgets[heapIndex].usage);
                 json.WriteString("Budget");
-                json.WriteNumber(budget[heapIndex].budget);
+                json.WriteNumber(budgets[heapIndex].budget);
             }
             json.EndObject();
 
@@ -19275,11 +19275,11 @@ operating system:
 
 \section staying_within_budget_querying_for_budget Querying for budget
 
-To query for current memory usage and available budget, use function vmaGetBudget().
+To query for current memory usage and available budget, use function vmaGetHeapBudgets().
 Returned structure #VmaBudget contains quantities expressed in bytes, per Vulkan memory heap.
 
 Please note that this function returns different information and works faster than
-vmaCalculateStats(). vmaGetBudget() can be called every frame or even before every
+vmaCalculateStats(). vmaGetHeapBudgets() can be called every frame or even before every
 allocation, while vmaCalculateStats() is intended to be used rarely,
 only to obtain statistical information, e.g. for debugging purposes.
 

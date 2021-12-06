@@ -308,16 +308,17 @@ Enumerations</h2></td></tr>
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea">VMA_ALLOCATION_CREATE_DONT_BIND_BIT</a> = 0x00000080
 , <br />
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ab8b1764f3e9022368e440c057783b92d">VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT</a> = 0x00000100
+, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597afb0ee060cd733aaa5e249704ff589ad6">VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT</a> = 0x00000200
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a839826775c62319466441f86496f036d">VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT</a> = 0x00010000
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ad242a04f802e25fef0b880afe8bb0a62">VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT</a> = 0x00020000
-, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a33eb2052674f3ad92386c714a65fb777">VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT</a> = 0x00040000
 , <br />
-&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a8af1210cf591784afa026d94998f735d">VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a33eb2052674f3ad92386c714a65fb777">VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT</a> = 0x00040000
+, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a8af1210cf591784afa026d94998f735d">VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a0729e932b7ea170e3a128cad96c5cf6d">VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a621b704103eb3360230c860acf36e706">VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT
-, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a8e16845d81ae3d27c47106d4770d5c7e">VMA_ALLOCATION_CREATE_STRATEGY_MASK</a>
 , <br />
-&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882">VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a8e16845d81ae3d27c47106d4770d5c7e">VMA_ALLOCATION_CREATE_STRATEGY_MASK</a>
+, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ae5633ec569f4899cf8f29e7385b2f882">VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
 <tr class="memdesc:ad9889c10c798b040d59c92f257cae597"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum.">VmaAllocationCreateInfo::flags</a>.  <a href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597">More...</a><br /></td></tr>
@@ -382,9 +383,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a333b61c1788cb23559177531e6a93ca3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a333b61c1788cb23559177531e6a93ca3">vmaCalculateStats</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_stats.html">VmaStats</a> *pStats)</td></tr>
 <tr class="memdesc:a333b61c1788cb23559177531e6a93ca3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieves statistics from current state of the Allocator.  <a href="vk__mem__alloc_8h.html#a333b61c1788cb23559177531e6a93ca3">More...</a><br /></td></tr>
 <tr class="separator:a333b61c1788cb23559177531e6a93ca3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aec0ed24ebea2d0099eed5f801daaefba"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aec0ed24ebea2d0099eed5f801daaefba">vmaGetBudget</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_budget.html">VmaBudget</a> *pBudget)</td></tr>
-<tr class="memdesc:aec0ed24ebea2d0099eed5f801daaefba"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieves information about current memory budget for all memory heaps.  <a href="vk__mem__alloc_8h.html#aec0ed24ebea2d0099eed5f801daaefba">More...</a><br /></td></tr>
-<tr class="separator:aec0ed24ebea2d0099eed5f801daaefba"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f88db9d46a432c0ad7278cecbc5eaa7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a9f88db9d46a432c0ad7278cecbc5eaa7">vmaGetHeapBudgets</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_budget.html">VmaBudget</a> *pBudgets)</td></tr>
+<tr class="memdesc:a9f88db9d46a432c0ad7278cecbc5eaa7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieves information about current memory budget for all memory heaps.  <a href="vk__mem__alloc_8h.html#a9f88db9d46a432c0ad7278cecbc5eaa7">More...</a><br /></td></tr>
+<tr class="separator:a9f88db9d46a432c0ad7278cecbc5eaa7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa4fee7eb5253377599ef4fd38c93c2a0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aa4fee7eb5253377599ef4fd38c93c2a0">vmaBuildStatsString</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, char **ppStatsString, VkBool32 detailedMap)</td></tr>
 <tr class="memdesc:aa4fee7eb5253377599ef4fd38c93c2a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds and returns statistics as a null-terminated string in JSON format.  <a href="vk__mem__alloc_8h.html#aa4fee7eb5253377599ef4fd38c93c2a0">More...</a><br /></td></tr>
 <tr class="separator:aa4fee7eb5253377599ef4fd38c93c2a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1278,6 +1279,9 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ab8b1764f3e9022368e440c057783b92d" name="ad9889c10c798b040d59c92f257cae597ab8b1764f3e9022368e440c057783b92d"></a>VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT&#160;</td><td class="fielddoc"><p >Create allocation only if additional device memory required for it, if any, won't exceed memory budget. Otherwise return <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>. </p>
 </td></tr>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597afb0ee060cd733aaa5e249704ff589ad6" name="ad9889c10c798b040d59c92f257cae597afb0ee060cd733aaa5e249704ff589ad6"></a>VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT&#160;</td><td class="fielddoc"><p >Set this flag if the allocated memory will have aliasing resources. </p>
+<p >Usage of this flag prevents supplying <code>VkMemoryDedicatedAllocateInfoKHR</code> when VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is specified. Otherwise created dedicated memory will not be suitable for aliasing resources, resulting in Vulkan Validation Layer errors. </p>
+</td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a839826775c62319466441f86496f036d" name="ad9889c10c798b040d59c92f257cae597a839826775c62319466441f86496f036d"></a>VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT&#160;</td><td class="fielddoc"><p >Allocation strategy that chooses smallest possible free range for the allocation. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ad242a04f802e25fef0b880afe8bb0a62" name="ad9889c10c798b040d59c92f257cae597ad242a04f802e25fef0b880afe8bb0a62"></a>VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT&#160;</td><td class="fielddoc"><p >Allocation strategy that chooses biggest possible free range for the allocation. </p>
@@ -2146,7 +2150,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Retrieves statistics from current state of the Allocator. </p>
-<p >This function is called "calculate" not "get" because it has to traverse all internal data structures, so it may be quite slow. For faster but more brief statistics suitable to be called every frame or every allocation, use <a class="el" href="vk__mem__alloc_8h.html#aec0ed24ebea2d0099eed5f801daaefba" title="Retrieves information about current memory budget for all memory heaps.">vmaGetBudget()</a>.</p>
+<p >This function is called "calculate" not "get" because it has to traverse all internal data structures, so it may be quite slow. For faster but more brief statistics suitable to be called every frame or every allocation, use <a class="el" href="vk__mem__alloc_8h.html#a9f88db9d46a432c0ad7278cecbc5eaa7" title="Retrieves information about current memory budget for all memory heaps.">vmaGetHeapBudgets()</a>.</p>
 <p >Note that when using allocator from multiple threads, returned information may immediately become outdated. </p>
 
 </div>
@@ -3467,14 +3471,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="aec0ed24ebea2d0099eed5f801daaefba" name="aec0ed24ebea2d0099eed5f801daaefba"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aec0ed24ebea2d0099eed5f801daaefba">&#9670;&nbsp;</a></span>vmaGetBudget()</h2>
+<a id="a9f88db9d46a432c0ad7278cecbc5eaa7" name="a9f88db9d46a432c0ad7278cecbc5eaa7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f88db9d46a432c0ad7278cecbc5eaa7">&#9670;&nbsp;</a></span>vmaGetHeapBudgets()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vmaGetBudget </td>
+          <td class="memname">void vmaGetHeapBudgets </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
           <td class="paramname"><em>allocator</em>, </td>
@@ -3483,7 +3487,7 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="struct_vma_budget.html">VmaBudget</a> *&#160;</td>
-          <td class="paramname"><em>pBudget</em>&#160;</td>
+          <td class="paramname"><em>pBudgets</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3497,7 +3501,7 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pBudget</td><td>Must point to array with number of elements at least equal to number of memory heaps in physical device used.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pBudgets</td><td>Must point to array with number of elements at least equal to number of memory heaps in physical device used.</td></tr>
   </table>
   </dd>
 </dl>
