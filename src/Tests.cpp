@@ -5627,6 +5627,77 @@ static void TestAliasing()
     vkDestroyImage(g_hDevice, img1, g_Allocs);
 }
 
+static void TestAllocationAliasing()
+{
+    wprintf(L"Testing allocation aliasing...\n");
+    
+    /*
+    * Test whether using VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT suppress validation layer error
+    * by don't supplying VkMemoryDedicatedAllocateInfoKHR to creation of dedicated memory
+    * that will be used to alias with some other textures.
+    */
+
+    VkImageCreateInfo imageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    VmaAllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    // Bind 2 textures together into same memory without VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT and then with flag set
+    /*
+    {
+        VkImage originalImage;
+        VmaAllocation allocation;
+        imageInfo.extent.width = 640;
+        imageInfo.extent.height = 480;
+        VkResult res = vmaCreateImage(g_hAllocator, &imageInfo, &allocationCreateInfo, &originalImage, &allocation, nullptr);
+        TEST(res == VK_SUCCESS);
+
+        VkImage aliasingImage;
+        imageInfo.extent.width = 480;
+        imageInfo.extent.height = 256;
+        res = vkCreateImage(g_hDevice, &imageInfo, nullptr, &aliasingImage);
+        TEST(res == VK_SUCCESS);
+        // After binding there should be inevitable validation layer error VUID-vkBindImageMemory-memory-01509
+        res = vmaBindImageMemory(g_hAllocator, allocation, aliasingImage);
+        TEST(res == VK_SUCCESS);
+
+        vkDestroyImage(g_hDevice, aliasingImage, nullptr);
+        vmaDestroyImage(g_hAllocator, originalImage, allocation);
+    }
+    */
+    allocationCreateInfo.flags |= VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT;
+    {
+        VkImage originalImage;
+        VmaAllocation allocation;
+        imageInfo.extent.width = 640;
+        imageInfo.extent.height = 480;
+        VkResult res = vmaCreateImage(g_hAllocator, &imageInfo, &allocationCreateInfo, &originalImage, &allocation, nullptr);
+        TEST(res == VK_SUCCESS);
+
+        VkImage aliasingImage;
+        imageInfo.extent.width = 480;
+        imageInfo.extent.height = 256;
+        res = vkCreateImage(g_hDevice, &imageInfo, nullptr, &aliasingImage);
+        TEST(res == VK_SUCCESS);
+        // Now with VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT flag validation error is no more
+        res = vmaBindImageMemory(g_hAllocator, allocation, aliasingImage);
+        TEST(res == VK_SUCCESS);
+
+        vkDestroyImage(g_hDevice, aliasingImage, nullptr);
+        vmaDestroyImage(g_hAllocator, originalImage, allocation);
+    }
+}
+
 static void TestMapping()
 {
     wprintf(L"Testing mapping...\n");
@@ -6885,6 +6956,7 @@ void Test()
     TestDeviceCoherentMemory();
     TestBudget();
     TestAliasing();
+    TestAllocationAliasing();
     TestMapping();
     TestDeviceLocalMapped();
     TestMappingMultithreaded();
@@ -6908,12 +6980,15 @@ void Test()
         fclose(file);
     }
 
-    TestDefragmentationSimple();
-    TestDefragmentationFull();
-    TestDefragmentationWholePool();
-    TestDefragmentationGpu();
-    TestDefragmentationIncrementalBasic();
-    TestDefragmentationIncrementalComplex();
+    if(ConfigType >= CONFIG_TYPE_AVERAGE)
+    {
+        TestDefragmentationSimple();
+        TestDefragmentationFull();
+        TestDefragmentationWholePool();
+        TestDefragmentationGpu();
+        TestDefragmentationIncrementalBasic();
+        TestDefragmentationIncrementalComplex();
+    }
 
     // # Detailed tests
     FILE* file;

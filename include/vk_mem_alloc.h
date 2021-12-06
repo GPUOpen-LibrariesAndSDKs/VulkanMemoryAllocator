@@ -961,6 +961,12 @@ typedef enum VmaAllocationCreateFlagBits {
     memory budget. Otherwise return `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
     */
     VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT = 0x00000100,
+    /** \brief Set this flag if the allocated memory will have aliasing resources.
+    * 
+    Usage of this flag prevents supplying `VkMemoryDedicatedAllocateInfoKHR` when VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is specified.
+    Otherwise created dedicated memory will not be suitable for aliasing resources, resulting in Vulkan Validation Layer errors.
+    */
+    VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT = 0x00000200,
 
     /** Allocation strategy that chooses smallest possible free range for the
     allocation.
@@ -6877,6 +6883,7 @@ private:
         bool withinBudget,
         bool map,
         bool isUserDataString,
+        bool canAliasMemory,
         void* pUserData,
         float priority,
         VkBuffer dedicatedBuffer,
@@ -15152,6 +15159,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT) != 0,
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
                 (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0,
+                (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT) != 0,
                 finalCreateInfo.pUserData,
                 finalCreateInfo.priority,
                 dedicatedBuffer,
@@ -15197,6 +15205,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT) != 0,
             (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
             (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0,
+            (finalCreateInfo.flags & VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT) != 0,
             finalCreateInfo.pUserData,
             finalCreateInfo.priority,
             dedicatedBuffer,
@@ -15226,6 +15235,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     bool withinBudget,
     bool map,
     bool isUserDataString,
+    bool canAliasMemory,
     void* pUserData,
     float priority,
     VkBuffer dedicatedBuffer,
@@ -15252,19 +15262,22 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     allocInfo.allocationSize = size;
 
 #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
-    VkMemoryDedicatedAllocateInfoKHR dedicatedAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR };
-    if(m_UseKhrDedicatedAllocation || m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
+    if(!canAliasMemory)
     {
-        if(dedicatedBuffer != VK_NULL_HANDLE)
+        VkMemoryDedicatedAllocateInfoKHR dedicatedAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR };
+        if(m_UseKhrDedicatedAllocation || m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
         {
-            VMA_ASSERT(dedicatedImage == VK_NULL_HANDLE);
-            dedicatedAllocInfo.buffer = dedicatedBuffer;
-            VmaPnextChainPushFront(&allocInfo, &dedicatedAllocInfo);
-        }
-        else if(dedicatedImage != VK_NULL_HANDLE)
-        {
-            dedicatedAllocInfo.image = dedicatedImage;
-            VmaPnextChainPushFront(&allocInfo, &dedicatedAllocInfo);
+            if(dedicatedBuffer != VK_NULL_HANDLE)
+            {
+                VMA_ASSERT(dedicatedImage == VK_NULL_HANDLE);
+                dedicatedAllocInfo.buffer = dedicatedBuffer;
+                VmaPnextChainPushFront(&allocInfo, &dedicatedAllocInfo);
+            }
+            else if(dedicatedImage != VK_NULL_HANDLE)
+            {
+                dedicatedAllocInfo.image = dedicatedImage;
+                VmaPnextChainPushFront(&allocInfo, &dedicatedAllocInfo);
+            }
         }
     }
 #endif // #if VMA_DEDICATED_ALLOCATION || VMA_VULKAN_VERSION >= 1001000
