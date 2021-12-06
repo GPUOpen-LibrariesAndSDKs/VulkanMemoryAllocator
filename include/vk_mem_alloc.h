@@ -3890,7 +3890,7 @@ private:
 
     const VkAllocationCallbacks* m_pAllocationCallbacks;
     const uint32_t m_FirstBlockCapacity;
-    VmaVector< ItemBlock, VmaStlAllocator<ItemBlock> > m_ItemBlocks;
+    VmaVector<ItemBlock, VmaStlAllocator<ItemBlock>> m_ItemBlocks;
 
     ItemBlock& CreateNewBlock();
 };
@@ -4271,12 +4271,19 @@ class VmaList
 {
     VMA_CLASS_NO_COPY(VmaList)
 public:
+    class reverse_iterator;
     class iterator
     {
     public:
         iterator() :
             m_pList(VMA_NULL),
             m_pItem(VMA_NULL)
+        {
+        }
+
+        iterator(const reverse_iterator& src) :
+            m_pList(src.m_pList),
+            m_pItem(src.m_pItem)
         {
         }
 
@@ -4348,6 +4355,89 @@ public:
         friend class VmaList<T, AllocatorT>;
     };
 
+    class reverse_iterator
+    {
+    public:
+        reverse_iterator() :
+            m_pList(VMA_NULL),
+            m_pItem(VMA_NULL)
+        {
+        }
+
+        reverse_iterator(const iterator& src) :
+            m_pList(src.m_pList),
+            m_pItem(src.m_pItem)
+        {
+        }
+
+        T& operator*() const
+        {
+            VMA_HEAVY_ASSERT(m_pItem != VMA_NULL);
+            return m_pItem->Value;
+        }
+        T* operator->() const
+        {
+            VMA_HEAVY_ASSERT(m_pItem != VMA_NULL);
+            return &m_pItem->Value;
+        }
+
+        reverse_iterator& operator++()
+        {
+            VMA_HEAVY_ASSERT(m_pItem != VMA_NULL);
+            m_pItem = m_pItem->pPrev;
+            return *this;
+        }
+        reverse_iterator& operator--()
+        {
+            if (m_pItem != VMA_NULL)
+            {
+                m_pItem = m_pItem->pNext;
+            }
+            else
+            {
+                VMA_HEAVY_ASSERT(!m_pList->IsEmpty());
+                m_pItem = m_pList->Front();
+            }
+            return *this;
+        }
+
+        reverse_iterator operator++(int)
+        {
+            iterator result = *this;
+            ++*this;
+            return result;
+        }
+        reverse_iterator operator--(int)
+        {
+            iterator result = *this;
+            --*this;
+            return result;
+        }
+
+        bool operator==(const reverse_iterator& rhs) const
+        {
+            VMA_HEAVY_ASSERT(m_pList == rhs.m_pList);
+            return m_pItem == rhs.m_pItem;
+        }
+        bool operator!=(const reverse_iterator& rhs) const
+        {
+            VMA_HEAVY_ASSERT(m_pList == rhs.m_pList);
+            return m_pItem != rhs.m_pItem;
+        }
+
+    private:
+        VmaRawList<T>* m_pList;
+        VmaListItem<T>* m_pItem;
+
+        reverse_iterator(VmaRawList<T>* pList, VmaListItem<T>* pItem) :
+            m_pList(pList),
+            m_pItem(pItem)
+        {
+        }
+
+        friend class VmaList<T, AllocatorT>;
+    };
+
     class const_iterator
     {
     public:
@@ -4358,6 +4448,12 @@ public:
         }
 
         const_iterator(const iterator& src) :
+            m_pList(src.m_pList),
+            m_pItem(src.m_pItem)
+        {
+        }
+
+        const_iterator(const reverse_iterator& src) :
             m_pList(src.m_pList),
             m_pItem(src.m_pItem)
         {
@@ -4431,6 +4527,95 @@ public:
         friend class VmaList<T, AllocatorT>;
     };
 
+    class const_reverse_iterator
+    {
+    public:
+        const_reverse_iterator() :
+            m_pList(VMA_NULL),
+            m_pItem(VMA_NULL)
+        {
+        }
+
+        const_reverse_iterator(const reverse_iterator& src) :
+            m_pList(src.m_pList),
+            m_pItem(src.m_pItem)
+        {
+        }
+
+        const_reverse_iterator(const iterator& src) :
+            m_pList(src.m_pList),
+            m_pItem(src.m_pItem)
+        {
+        }
+
+        const T& operator*() const
+        {
+            VMA_HEAVY_ASSERT(m_pItem != VMA_NULL);
+            return m_pItem->Value;
+        }
+        const T* operator->() const
+        {
+            VMA_HEAVY_ASSERT(m_pItem != VMA_NULL);
+            return &m_pItem->Value;
+        }
+
+        const_reverse_iterator& operator++()
+        {
+            VMA_HEAVY_ASSERT(m_pItem != VMA_NULL);
+            m_pItem = m_pItem->pPrev;
+            return *this;
+        }
+        const_reverse_iterator& operator--()
+        {
+            if (m_pItem != VMA_NULL)
+            {
+                m_pItem = m_pItem->pNext;
+            }
+            else
+            {
+                VMA_HEAVY_ASSERT(!m_pList->IsEmpty());
+                m_pItem = m_pList->Back();
+            }
+            return *this;
+        }
+
+        const_reverse_iterator operator++(int)
+        {
+            const_reverse_iterator result = *this;
+            ++*this;
+            return result;
+        }
+        const_reverse_iterator operator--(int)
+        {
+            const_reverse_iterator result = *this;
+            --*this;
+            return result;
+        }
+
+        bool operator==(const const_reverse_iterator& rhs) const
+        {
+            VMA_HEAVY_ASSERT(m_pList == rhs.m_pList);
+            return m_pItem == rhs.m_pItem;
+        }
+        bool operator!=(const const_reverse_iterator& rhs) const
+        {
+            VMA_HEAVY_ASSERT(m_pList == rhs.m_pList);
+            return m_pItem != rhs.m_pItem;
+        }
+
+    private:
+        const_reverse_iterator(const VmaRawList<T>* pList, const VmaListItem<T>* pItem) :
+            m_pList(pList),
+            m_pItem(pItem)
+        {
+        }
+
+        const VmaRawList<T>* m_pList;
+        const VmaListItem<T>* m_pItem;
+
+        friend class VmaList<T, AllocatorT>;
+    };
+
     VmaList(const AllocatorT& allocator) : m_RawList(allocator.m_pCallbacks) { }
 
     bool empty() const { return m_RawList.IsEmpty(); }
@@ -4444,6 +4629,15 @@ public:
 
     const_iterator begin() const { return cbegin(); }
     const_iterator end() const { return cend(); }
+
+    reverse_iterator rbegin() { return reverse_iterator(&m_RawList, m_RawList.Back()); }
+    reverse_iterator rend() { return reverse_iterator(&m_RawList, VMA_NULL); }
+
+    const_reverse_iterator crbegin() { return const_reverse_iterator(&m_RawList, m_RawList.Back()); }
+    const_reverse_iterator crend() { return const_reverse_iterator(&m_RawList, VMA_NULL); }
+
+    const_reverse_iterator rbegin() const { return crbegin(); }
+    const_reverse_iterator rend() const { return crend(); }
 
     void clear() { m_RawList.Clear(); }
     void push_back(const T& value) { m_RawList.PushBack(value); }
@@ -5059,7 +5253,7 @@ struct VmaSuballocationOffsetGreater
     }
 };
 
-typedef VmaList< VmaSuballocation, VmaStlAllocator<VmaSuballocation> > VmaSuballocationList;
+typedef VmaList<VmaSuballocation, VmaStlAllocator<VmaSuballocation>> VmaSuballocationList;
 
 // Cost of one additional allocation lost, as equivalent in bytes.
 static const VkDeviceSize VMA_LOST_ALLOCATION_COST = 1048576;
@@ -5273,13 +5467,14 @@ private:
     VkDeviceSize m_SumFreeSize;
     VmaSuballocationList m_Suballocations;
     // Suballocations that are free. Sorted by size, ascending.
-    VmaVector< VmaSuballocationList::iterator, VmaStlAllocator< VmaSuballocationList::iterator > > m_FreeSuballocationsBySize;
+    VmaVector<VmaSuballocationList::iterator, VmaStlAllocator<VmaSuballocationList::iterator>> m_FreeSuballocationsBySize;
 
     VkDeviceSize AlignAllocationSize(VkDeviceSize size) const
     {
         return IsVirtual() ? size : VmaAlignUp(size, (VkDeviceSize)16);
     }
 
+    VmaSuballocationList::iterator FindAtOffest(VkDeviceSize offset);
     bool ValidateFreeSuballocationList() const;
 
     // Checks if requested suballocation with given parameters can be placed in given pFreeSuballocItem.
@@ -8383,35 +8578,14 @@ void VmaBlockMetadata_Generic::Alloc(
 
 void VmaBlockMetadata_Generic::FreeAtOffset(VkDeviceSize offset)
 {
-    for(VmaSuballocationList::iterator suballocItem = m_Suballocations.begin();
-        suballocItem != m_Suballocations.end();
-        ++suballocItem)
-    {
-        VmaSuballocation& suballoc = *suballocItem;
-        if(suballoc.offset == offset)
-        {
-            FreeSuballocation(suballocItem);
-            return;
-        }
-    }
-    VMA_ASSERT(0 && "Not found!");
+    FreeSuballocation(FindAtOffest(offset));
 }
 
 void VmaBlockMetadata_Generic::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
 {
-    for (VmaSuballocationList::const_iterator suballocItem = m_Suballocations.begin();
-        suballocItem != m_Suballocations.end();
-        ++suballocItem)
-    {
-        const VmaSuballocation& suballoc = *suballocItem;
-        if (suballoc.offset == offset)
-        {
-            outInfo.size = suballoc.size;
-            outInfo.pUserData = suballoc.userData;
-            return;
-        }
-    }
-    VMA_ASSERT(0 && "Not found!");
+    const VmaSuballocation& suballoc = *FindAtOffest(offset);
+    outInfo.size = suballoc.size;
+    outInfo.pUserData = suballoc.userData;
 }
 
 void VmaBlockMetadata_Generic::Clear()
@@ -8435,18 +8609,41 @@ void VmaBlockMetadata_Generic::Clear()
 
 void VmaBlockMetadata_Generic::SetAllocationUserData(VkDeviceSize offset, void* userData)
 {
-    for (VmaSuballocationList::iterator suballocItem = m_Suballocations.begin();
-        suballocItem != m_Suballocations.end();
-        ++suballocItem)
+    VmaSuballocation& suballoc = *FindAtOffest(offset);
+    suballoc.userData = userData;
+}
+
+VmaSuballocationList::iterator VmaBlockMetadata_Generic::FindAtOffest(VkDeviceSize offset)
+{
+    VMA_HEAVY_ASSERT(!m_Suballocations.empty());
+    const VkDeviceSize last = m_Suballocations.rbegin()->offset;
+    if (last == offset)
+        return m_Suballocations.rbegin();
+    const VkDeviceSize first = m_Suballocations.begin()->offset;
+    if (first == offset)
+        return m_Suballocations.begin();
+
+    const size_t suballocCount = m_Suballocations.size();
+    const VkDeviceSize step = (last - first + m_Suballocations.begin()->size) / suballocCount;
+    auto findSuballocation = [&](auto begin, auto end) -> VmaSuballocationList::iterator
     {
-        VmaSuballocation& suballoc = *suballocItem;
-        if (suballoc.offset == offset)
+        for (auto suballocItem = begin;
+            suballocItem != end;
+            ++suballocItem)
         {
-            suballoc.userData = userData;
-            return;
+            VmaSuballocation& suballoc = *suballocItem;
+            if (suballoc.offset == offset)
+                return suballocItem;
         }
+        VMA_ASSERT(false && "Not found!");
+        return m_Suballocations.end();
+    };
+    // If requested offset is closer to the end of range, search from the end
+    if (offset - first > suballocCount * step / 2)
+    {
+        return findSuballocation(m_Suballocations.rbegin(), m_Suballocations.rend());
     }
-    VMA_ASSERT(0 && "Not found!");
+    return findSuballocation(m_Suballocations.begin(), m_Suballocations.end());
 }
 
 bool VmaBlockMetadata_Generic::ValidateFreeSuballocationList() const
@@ -13572,16 +13769,50 @@ void VmaDefragmentationAlgorithm_Fast::PostprocessMetadata()
 
 void VmaDefragmentationAlgorithm_Fast::InsertSuballoc(VmaBlockMetadata_Generic* pMetadata, const VmaSuballocation& suballoc)
 {
-    // TODO: Optimize somehow. Remember iterator instead of searching for it linearly.
-    VmaSuballocationList::iterator it = pMetadata->m_Suballocations.begin();
-    while(it != pMetadata->m_Suballocations.end())
+    VmaSuballocationList& suballocs = pMetadata->m_Suballocations;
+    VmaSuballocationList::iterator elementAfter;
+    const VkDeviceSize last = suballocs.rbegin()->offset;
+    const VkDeviceSize first = suballocs.begin()->offset;
+
+    if(last <= suballoc.offset)
+        elementAfter = suballocs.end();
+    else if(first >= suballoc.offset)
+        elementAfter = suballocs.begin();
+    else
     {
-        if(it->offset < suballoc.offset)
+        const size_t suballocCount = suballocs.size();
+        const VkDeviceSize step = (last - first + suballocs.begin()->size) / suballocCount;
+        // If offset to be inserted is closer to the end of range, search from the end
+        if ((suballoc.offset - first) / step > suballocCount / 2)
         {
-            ++it;
+            elementAfter = suballocs.begin();
+            for (VmaSuballocationList::reverse_iterator suballocItem = ++suballocs.rbegin();
+                suballocItem != suballocs.rend();
+                ++suballocItem)
+            {
+                if (suballocItem->offset <= suballoc.offset)
+                {
+                    elementAfter = --suballocItem;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            elementAfter = suballocs.end();
+            for (VmaSuballocationList::iterator suballocItem = ++suballocs.begin();
+                suballocItem != suballocs.end();
+                ++suballocItem)
+            {
+                if (suballocItem->offset >= suballoc.offset)
+                {
+                    elementAfter = suballocItem;
+                    break;
+                }
+            }
         }
     }
-    pMetadata->m_Suballocations.insert(it, suballoc);
+    pMetadata->m_Suballocations.insert(elementAfter, suballoc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
