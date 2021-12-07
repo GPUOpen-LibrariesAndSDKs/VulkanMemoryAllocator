@@ -3,12 +3,16 @@
 if (WIN32)
     set(VMA_REPLAY_SOURCE_FILES
         Common.cpp
+        Common.h
         Constants.cpp
-        VmaReplay.cpp
+        Constants.h
         VmaUsage.cpp
+        VmaUsage.h
+        VmaReplay.cpp
     )
 
     add_executable(VmaReplay ${VMA_REPLAY_SOURCE_FILES})
+		add_dependencies(VmaReplay VulkanMemoryAllocator)
 
     # Enable multithreaded compiling
     target_compile_options(VmaReplay PRIVATE "/MP")
