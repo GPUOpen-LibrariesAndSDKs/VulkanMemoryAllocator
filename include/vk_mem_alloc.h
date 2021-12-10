@@ -5225,6 +5225,38 @@ struct VmaDedicatedAllocationListItemTraits
     }
 };
 
+#if VMA_STATS_STRING_ENABLED
+class VmaJsonWriter;
+#endif
+/*
+Stores linked list of VmaAllocation_T objects.
+Thread-safe, synchronized internally.
+*/
+class VmaDedicatedAllocationList
+{
+public:
+    VmaDedicatedAllocationList() {}
+    void Init(bool useMutex);
+    ~VmaDedicatedAllocationList();
+
+    void CalculateStats(VmaStats* stats, uint32_t memTypeIndex, uint32_t memHeapIndex);
+#if VMA_STATS_STRING_ENABLED
+    // Writes JSON array with the list of allocations.
+    void BuildStatsString(VmaJsonWriter& json);
+#endif
+
+    bool IsEmpty();
+    void Register(VmaAllocation alloc);
+    void Unregister(VmaAllocation alloc);
+
+private:
+    bool m_UseMutex = true;
+
+    VMA_RW_MUTEX m_Mutex;
+    typedef VmaIntrusiveLinkedList<VmaDedicatedAllocationListItemTraits> DedicatedAllocationLinkedList;
+    DedicatedAllocationLinkedList m_AllocationList;
+};
+
 /*
 Represents a region of VmaDeviceMemoryBlock that is either assigned and returned as
 allocated memory block or free.
@@ -6123,6 +6155,7 @@ struct VmaPool_T
     VMA_CLASS_NO_COPY(VmaPool_T)
 public:
     VmaBlockVector m_BlockVector;
+    //VmaDedicatedAllocationList m_DedicatedAllocations;
 
     VmaPool_T(
         VmaAllocator hAllocator,
@@ -6818,9 +6851,7 @@ public:
     // Default pools.
     VmaBlockVector* m_pBlockVectors[VK_MAX_MEMORY_TYPES];
 
-    typedef VmaIntrusiveLinkedList<VmaDedicatedAllocationListItemTraits> DedicatedAllocationLinkedList;
-    DedicatedAllocationLinkedList m_DedicatedAllocations[VK_MAX_MEMORY_TYPES];
-    VMA_RW_MUTEX m_DedicatedAllocationsMutex[VK_MAX_MEMORY_TYPES];
+    VmaDedicatedAllocationList m_DedicatedAllocations[VK_MAX_MEMORY_TYPES];
 
     VmaCurrentBudgetData m_Budget;
     VMA_ATOMIC_UINT32 m_DeviceMemoryCount; // Total number of VkDeviceMemory objects.
@@ -7624,6 +7655,69 @@ void VmaJsonWriter::WriteIndent(bool oneLess)
 #endif // #if VMA_STATS_STRING_ENABLED
 
 ////////////////////////////////////////////////////////////////////////////////
+// VmaDedicatedAllocationList
+
+void VmaDedicatedAllocationList::Init(bool useMutex)
+{
+    m_UseMutex = useMutex;
+}
+
+VmaDedicatedAllocationList::~VmaDedicatedAllocationList()
+{
+    if (!m_AllocationList.IsEmpty())
+    {
+        VMA_ASSERT(false && "Unfreed dedicated allocations found!");
+    }
+}
+
+void VmaDedicatedAllocationList::CalculateStats(VmaStats* stats, uint32_t memTypeIndex, uint32_t memHeapIndex)
+{
+    VmaMutexLockWrite(m_Mutex, m_UseMutex);
+    for (VmaAllocation alloc = m_AllocationList.Front();
+        alloc != VMA_NULL; alloc = m_AllocationList.GetNext(alloc))
+    {
+        VmaStatInfo allocationStatInfo;
+        alloc->DedicatedAllocCalcStatsInfo(allocationStatInfo);
+        VmaAddStatInfo(stats->total, allocationStatInfo);
+        VmaAddStatInfo(stats->memoryType[memTypeIndex], allocationStatInfo);
+        VmaAddStatInfo(stats->memoryHeap[memHeapIndex], allocationStatInfo);
+    }
+}
+
+#ifdef VMA_STATS_STRING_ENABLED
+void VmaDedicatedAllocationList::BuildStatsString(VmaJsonWriter& json)
+{
+    VmaMutexLockWrite(m_Mutex, m_UseMutex);
+    json.BeginArray();
+    for (VmaAllocation alloc = m_AllocationList.Front();
+        alloc != VMA_NULL; alloc = m_AllocationList.GetNext(alloc))
+    {
+        json.BeginObject(true);
+        alloc->PrintParameters(json);
+        json.EndObject();
+    }
+    json.EndArray();
+}
+#endif // #if VMA_STATS_STRING_ENABLED
+
+bool VmaDedicatedAllocationList::IsEmpty()
+{
+    VmaMutexLockWrite(m_Mutex, m_UseMutex);
+    return m_AllocationList.IsEmpty();
+}
+
+void VmaDedicatedAllocationList::Register(VmaAllocation alloc)
+{
+    VmaMutexLockWrite(m_Mutex, m_UseMutex);
+    m_AllocationList.PushBack(alloc);
+}
+
+void VmaDedicatedAllocationList::Unregister(VmaAllocation alloc)
+{
+    VmaMutexLockWrite(m_Mutex, m_UseMutex);
+    m_AllocationList.Remove(alloc);
+}
+
 
 void VmaAllocation_T::SetUserData(VmaAllocator hAllocator, void* pUserData)
 {
@@ -15089,11 +15183,6 @@ VmaAllocator_T::~VmaAllocator_T()
 
     for(size_t memTypeIndex = GetMemoryTypeCount(); memTypeIndex--; )
     {
-        if(!m_DedicatedAllocations[memTypeIndex].IsEmpty())
-        {
-            VMA_ASSERT(0 && "Unfreed dedicated allocations found.");
-        }
-
         vma_delete(this, m_pBlockVectors[memTypeIndex]);
     }
 }
@@ -15577,11 +15666,10 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
     {
         // Register them in m_DedicatedAllocations.
         {
-            VmaMutexLockWrite lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
-            DedicatedAllocationLinkedList& dedicatedAllocations = m_DedicatedAllocations[memTypeIndex];
+            VmaDedicatedAllocationList& dedicatedAllocations = m_DedicatedAllocations[memTypeIndex];
             for(allocIndex = 0; allocIndex < allocationCount; ++allocIndex)
             {
-                dedicatedAllocations.PushBack(pAllocations[allocIndex]);
+                dedicatedAllocations.Register(pAllocations[allocIndex]);
             }
         }
 
@@ -15954,17 +16042,8 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         const uint32_t memHeapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-        VmaMutexLockRead dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
-        DedicatedAllocationLinkedList& dedicatedAllocList = m_DedicatedAllocations[memTypeIndex];
-        for(VmaAllocation alloc = dedicatedAllocList.Front();
-            alloc != VMA_NULL; alloc = dedicatedAllocList.GetNext(alloc))
-        {
-            VmaStatInfo allocationStatInfo;
-            alloc->DedicatedAllocCalcStatsInfo(allocationStatInfo);
-            VmaAddStatInfo(pStats->total, allocationStatInfo);
-            VmaAddStatInfo(pStats->memoryType[memTypeIndex], allocationStatInfo);
-            VmaAddStatInfo(pStats->memoryHeap[memHeapIndex], allocationStatInfo);
-        }
+        VmaDedicatedAllocationList& dedicatedAllocList = m_DedicatedAllocations[memTypeIndex];
+        m_DedicatedAllocations->CalculateStats(pStats, memTypeIndex, memHeapIndex);
     }
 
     // Postprocess.
@@ -16689,9 +16768,8 @@ void VmaAllocator_T::FreeDedicatedMemory(const VmaAllocation allocation)
 
     const uint32_t memTypeIndex = allocation->GetMemoryTypeIndex();
     {
-        VmaMutexLockWrite lock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
-        DedicatedAllocationLinkedList& dedicatedAllocations = m_DedicatedAllocations[memTypeIndex];
-        dedicatedAllocations.Remove(allocation);
+        VmaDedicatedAllocationList& dedicatedAllocations = m_DedicatedAllocations[memTypeIndex];
+        dedicatedAllocations.Unregister(allocation);
     }
 
     VkDeviceMemory hMemory = allocation->GetMemory();
@@ -16902,8 +16980,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
     bool dedicatedAllocationsStarted = false;
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        VmaMutexLockRead dedicatedAllocationsLock(m_DedicatedAllocationsMutex[memTypeIndex], m_UseMutex);
-        DedicatedAllocationLinkedList& dedicatedAllocList = m_DedicatedAllocations[memTypeIndex];
+        VmaDedicatedAllocationList& dedicatedAllocList = m_DedicatedAllocations[memTypeIndex];
         if(!dedicatedAllocList.IsEmpty())
         {
             if(dedicatedAllocationsStarted == false)
@@ -16917,17 +16994,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
             json.ContinueString(memTypeIndex);
             json.EndString();
 
-            json.BeginArray();
-
-            for(VmaAllocation alloc = dedicatedAllocList.Front();
-                alloc != VMA_NULL; alloc = dedicatedAllocList.GetNext(alloc))
-            {
-                json.BeginObject(true);
-                alloc->PrintParameters(json);
-                json.EndObject();
-            }
-
-            json.EndArray();
+            dedicatedAllocList.BuildStatsString(json);
         }
     }
     if(dedicatedAllocationsStarted)
