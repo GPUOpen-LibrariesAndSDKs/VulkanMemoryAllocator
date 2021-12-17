@@ -217,6 +217,15 @@ if 'Pools' in jsonSrc:
         typeData['CustomPools'][sFullName] = dstBlockArray
         for sBlockId, objBlock in objBlocks.items():
             ProcessBlock(dstBlockArray, int(sBlockId), objBlock, sAlgorithm)
+        if 'DedicatedAllocations' in objPool:
+            for tType in objPool['DedicatedAllocations'].items():
+                sType = tType[0]
+                assert sType[:5] == 'Type '
+                iType = int(sType[5:])
+                typeData = GetDataForMemoryType(iType)
+                for objAlloc in tType[1]:
+                    typeData['CustomPools'][sFullName].append((objAlloc['Type'], int(objAlloc['Size']), int(objAlloc['Usage']) if ('Usage' in objAlloc) else 0))
+            
 
 if IsDataEmpty():
     print("There is nothing to put on the image. Please make sure you generated the stats string with detailed map enabled.")
@@ -281,6 +290,8 @@ for iMemTypeIndex in sorted(data.keys()):
             draw.text((IMG_MARGIN, y), "Custom pool %s%s block %d" % (sPoolName, sAlgorithm, objBlock['ID']), fill=COLOR_TEXT_H2, font=font)
             y += FONT_SIZE + IMG_MARGIN
             DrawBlock(draw, y, objBlock)
+            y += FONT_SIZE + IMG_MARGIN
+            DrawDedicatedAllocationBlock(draw, y, objBlock['DedicatedAllocations'])
             y += MAP_SIZE + IMG_MARGIN
             index += 1
 del draw
@@ -302,4 +313,5 @@ Main data structure - variable `data` - is a dictionary. Key is integer - memory
     - Fixed key 'Size'. Value is int.
     - Fixed key 'Algorithm'. Optional. Value is string.
     - Fixed key 'Suballocations'. Value is list of tuples as above.
+    - Fixed key 'DedicatedAllocations'. Value is list of tuples as above.
 """
