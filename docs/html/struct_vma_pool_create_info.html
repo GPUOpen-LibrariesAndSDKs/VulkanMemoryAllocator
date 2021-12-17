@@ -121,7 +121,7 @@ Public Attributes</h2></td></tr>
 
 <p>Size of a single <code>VkDeviceMemory</code> block to be allocated as part of this pool, in bytes. Optional. </p>
 <p >Specify nonzero to set explicit, constant size of memory blocks used by this pool.</p>
-<p >Leave 0 to use default and let the library manage block sizes automatically. Sizes of particular blocks may vary. </p>
+<p >Leave 0 to use default and let the library manage block sizes automatically. Sizes of particular blocks may vary. In this case, the pool will also support dedicated allocations. </p>
 
 </div>
 </div>

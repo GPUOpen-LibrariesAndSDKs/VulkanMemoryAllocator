@@ -506,8 +506,6 @@ typedef enum VmaAllocationCreateFlagBits
     /** \brief Set this flag if the allocation should have its own memory block.
 
     Use it for special, big resources, like fullscreen images used as attachments.
-
-    You should not use this flag if VmaAllocationCreateInfo::pool is not null.
     */
     VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT = 0x00000001,
 
@@ -1162,6 +1160,7 @@ typedef struct VmaPoolCreateInfo
 
     Leave 0 to use default and let the library manage block sizes automatically.
     Sizes of particular blocks may vary.
+    In this case, the pool will also support dedicated allocations.
     */
     VkDeviceSize blockSize;
     /** \brief Minimum number of blocks to be always allocated in this pool, even if they stay empty.
@@ -19486,6 +19485,11 @@ You have to free all allocations made from this pool before destroying it.
 vmaDestroyBuffer(allocator, buf, alloc);
 vmaDestroyPool(allocator, pool);
 \endcode
+
+New versions of this library support creating dedicated allocations in custom pools.
+It is supported only when VmaPoolCreateInfo::blockSize = 0.
+To use this feature, set VmaAllocationCreateInfo::pool to the pointer to your custom pool and
+VmaAllocationCreateInfo::flags to #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
 
 \section custom_memory_pools_MemTypeIndex Choosing memory type index
 
