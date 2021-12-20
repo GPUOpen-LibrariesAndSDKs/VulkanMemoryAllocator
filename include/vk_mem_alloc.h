@@ -20439,8 +20439,7 @@ also dedicated allocations or other allocations made from default pools,
 an alternative solution is to fill in VmaAllocatorCreateInfo::pTypeExternalMemoryHandleTypes.
 It should point to an array with `VkExternalMemoryHandleTypeFlagsKHR` to be automatically passed by the library
 through `VkExportMemoryAllocateInfoKHR` on each allocation made from a specific memory type.
-This is currently the only method to use if you need exported dedicated allocations, as they cannot be created out of custom pools.
-This will change in future versions of the library though.
+Please note that new versions of the library also support dedicated allocations created in custom pools.
 
 You should not mix these two methods in a way that allows to apply both to the same memory type.
 Otherwise, `VkExportMemoryAllocateInfoKHR` structure would be attached twice to the `pNext` chain of `VkMemoryAllocateInfo`.
@@ -20460,8 +20459,6 @@ from a function like `vkGetBufferMemoryRequirements`, which is called by VMA aut
 
 If you want to create a buffer with a specific minimum alignment out of default pools,
 use special function vmaCreateBufferWithAlignment(), which takes additional parameter `minAlignment`.
-This is currently the only method to use if you need exported dedicated allocations, as they cannot be created out of custom pools.
-This will change in future versions of the library though.
 
 Note the problem of alignment affects only resources placed inside bigger `VkDeviceMemory` blocks and not dedicated
 allocations, as these, by definition, always have alignment = 0 because the resource is bound to the beginning of its dedicated block.
