@@ -1885,9 +1885,12 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
 
 Maps memory represented by given allocation to make it accessible to CPU code.
 When succeeded, `*ppData` contains pointer to first byte of this memory.
-If the allocation is part of bigger `VkDeviceMemory` block, the pointer is
-correctly offsetted to the beginning of region assigned to this particular
-allocation.
+
+\warning
+If the allocation is part of a bigger `VkDeviceMemory` block, returned pointer is
+correctly offsetted to the beginning of region assigned to this particular allocation.
+Unlike the result of `vkMapMemory`, it points to the allocation, not to the beginning of the whole block.
+You should not add VmaAllocationInfo::offset to it!
 
 Mapping is internally reference-counted and synchronized, so despite raw Vulkan
 function `vkMapMemory()` cannot be used to map same block of `VkDeviceMemory`
