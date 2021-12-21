@@ -5101,30 +5101,58 @@ void VmaStringBuilder::AddPointer(const void* ptr)
 #endif // _VMA_STRING_BUILDER
 
 #if !defined(_VMA_JSON_WRITER) && VMA_STATS_STRING_ENABLED
+/*
+Allows to conveniently build a correct JSON document to be written to the
+VmaStringBuilder passed to the constructor.
+*/
 class VmaJsonWriter
 {
     VMA_CLASS_NO_COPY(VmaJsonWriter)
 public:
+    // sb - string builder to write the document to. Must remain alive for the whole lifetime of this object.
     VmaJsonWriter(const VkAllocationCallbacks* pAllocationCallbacks, VmaStringBuilder& sb);
     ~VmaJsonWriter();
 
+    // Begins object by writing "{".
+    // Inside an object, you must call pairs of WriteString and a value, e.g.:
+    // j.BeginObject(true); j.WriteString("A"); j.WriteNumber(1); j.WriteString("B"); j.WriteNumber(2); j.EndObject();
+    // Will write: { "A": 1, "B": 2 }
     void BeginObject(bool singleLine = false);
+    // Ends object by writing "}".
     void EndObject();
 
+    // Begins array by writing "[".
+    // Inside an array, you can write a sequence of any values.
     void BeginArray(bool singleLine = false);
+    // Ends array by writing "[".
     void EndArray();
 
+    // Writes a string value inside "".
+    // pStr can contain any ANSI characters, including '"', new line etc. - they will be properly escaped.
     void WriteString(const char* pStr);
+    
+    // Begins writing a string value.
+    // Call BeginString, ContinueString, ContinueString, ..., EndString instead of
+    // WriteString to conveniently build the string content incrementally, made of
+    // parts including numbers.
     void BeginString(const char* pStr = VMA_NULL);
+    // Posts next part of an open string.
     void ContinueString(const char* pStr);
+    // Posts next part of an open string. The number is converted to decimal characters.
     void ContinueString(uint32_t n);
     void ContinueString(uint64_t n);
+    // Posts next part of an open string. Pointer value is converted to characters
+    // using "%p" formatting - shown as hexadecimal number, e.g.: 000000081276Ad00
     void ContinueString_Pointer(const void* ptr);
+    // Ends writing a string value by writing '"'.
     void EndString(const char* pStr = VMA_NULL);
 
+    // Writes a number value.
     void WriteNumber(uint32_t n);
     void WriteNumber(uint64_t n);
+    // Writes a boolean value - false or true.
     void WriteBool(bool b);
+    // Writes a null value.
     void WriteNull();
 
 private:
