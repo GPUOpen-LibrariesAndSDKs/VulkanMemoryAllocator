@@ -17077,9 +17077,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                 if (!pool->m_DedicatedAllocations.IsEmpty())
                 {
                     json.WriteString("DedicatedAllocations");
-                    json.BeginObject();
                     pool->m_DedicatedAllocations.BuildStatsString(json);
-                    json.EndObject();
                 }
                 json.EndObject();
             }
