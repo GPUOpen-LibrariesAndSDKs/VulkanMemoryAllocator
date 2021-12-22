@@ -3128,6 +3128,134 @@ static void TestPool_MinAllocationAlignment()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void TestPoolsAndAllocationParameters()
+{
+    wprintf(L"Test pools and allocation parameters\n");
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 1 * MEGABYTE;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+
+    uint32_t memTypeIndex = UINT32_MAX;
+    VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &memTypeIndex);
+    TEST(res == VK_SUCCESS);
+
+    VmaPool pool1 = nullptr, pool2 = nullptr;
+    std::vector<BufferInfo> bufs;
+
+    uint32_t totalNewAllocCount = 0, totalNewBlockCount = 0;
+    VmaStats statsBeg, statsEnd;
+    vmaCalculateStats(g_hAllocator, &statsBeg);
+
+    // poolTypeI:
+    // 0 = default pool
+    // 1 = custom pool, default (flexible) block size and block count
+    // 2 = custom pool, fixed block size and limited block count
+    for(size_t poolTypeI = 0; poolTypeI < 3; ++poolTypeI)
+    {
+        if(poolTypeI == 0)
+        {
+            allocCreateInfo.pool = nullptr;
+        }
+        else if(poolTypeI == 1)
+        {
+            VmaPoolCreateInfo poolCreateInfo = {};
+            poolCreateInfo.memoryTypeIndex = memTypeIndex;
+            res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool1);
+            TEST(res == VK_SUCCESS);
+            allocCreateInfo.pool = pool1;
+        }
+        else if(poolTypeI == 2)
+        {
+            VmaPoolCreateInfo poolCreateInfo = {};
+            poolCreateInfo.memoryTypeIndex = memTypeIndex;
+            poolCreateInfo.maxBlockCount = 1;
+            poolCreateInfo.blockSize = 2 * MEGABYTE + MEGABYTE / 2; // 2.5 MB
+            res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool2);
+            TEST(res == VK_SUCCESS);
+            allocCreateInfo.pool = pool2;
+        }
+
+        uint32_t poolAllocCount = 0, poolBlockCount = 0;
+        BufferInfo bufInfo = {};
+        VmaAllocationInfo allocInfo[4] = {};
+        
+        // Default parameters
+        allocCreateInfo.flags = 0;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, &allocInfo[0]);
+        TEST(res == VK_SUCCESS && bufInfo.Allocation && bufInfo.Buffer);
+        bufs.push_back(std::move(bufInfo));
+        ++poolAllocCount;
+
+        // DEDICATED. Should not try pool2 as it asserts on invalid call.
+        if(poolTypeI != 2)
+        {
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, &allocInfo[1]);
+            TEST(res == VK_SUCCESS && bufInfo.Allocation && bufInfo.Buffer);
+            TEST(allocInfo[1].offset == 0); // Dedicated
+            TEST(allocInfo[1].deviceMemory != allocInfo[0].deviceMemory); // Dedicated
+            bufs.push_back(std::move(bufInfo));
+            ++poolAllocCount;
+        }
+
+        // NEVER_ALLOCATE #1
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, &allocInfo[2]);
+        TEST(res == VK_SUCCESS && bufInfo.Allocation && bufInfo.Buffer);
+        TEST(allocInfo[2].deviceMemory == allocInfo[0].deviceMemory); // Same memory block as default one.
+        TEST(allocInfo[2].offset != allocInfo[0].offset);
+        bufs.push_back(std::move(bufInfo));
+        ++poolAllocCount;
+
+        // NEVER_ALLOCATE #2. Should fail in pool2 as it has no space.
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT;
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, &allocInfo[3]);
+        if(poolTypeI == 2)
+            TEST(res < 0);
+        else
+        {
+            TEST(res == VK_SUCCESS && bufInfo.Allocation && bufInfo.Buffer);
+            bufs.push_back(std::move(bufInfo));
+            ++poolAllocCount;
+        }
+
+        // Pool stats
+        switch(poolTypeI)
+        {
+        case 0: poolBlockCount = 1; break; // At least 1 added for dedicated allocation.
+        case 1: poolBlockCount = 2; break; // 1 for custom pool block and 1 for dedicated allocation.
+        case 2: poolBlockCount = 1; break; // Only custom pool, no dedicated allocation.
+        }
+
+        if(poolTypeI > 0)
+        {
+            VmaPoolStats poolStats = {};
+            vmaGetPoolStats(g_hAllocator, poolTypeI == 2 ? pool2 : pool1, &poolStats);
+            TEST(poolStats.allocationCount == poolAllocCount);
+            const VkDeviceSize usedSize = poolStats.size - poolStats.unusedSize;
+            TEST(usedSize == poolAllocCount * MEGABYTE);
+            TEST(poolStats.blockCount == poolBlockCount);
+        }
+
+        totalNewAllocCount += poolAllocCount;
+        totalNewBlockCount += poolBlockCount;
+    }
+
+    vmaCalculateStats(g_hAllocator, &statsEnd);
+    TEST(statsEnd.total.allocationCount == statsBeg.total.allocationCount + totalNewAllocCount);
+    TEST(statsEnd.total.blockCount >= statsBeg.total.blockCount + totalNewBlockCount);
+    TEST(statsEnd.total.usedBytes == statsBeg.total.usedBytes + totalNewAllocCount * MEGABYTE);
+
+    for(auto& bufInfo : bufs)
+        vmaDestroyBuffer(g_hAllocator, bufInfo.Buffer, bufInfo.Allocation);
+
+    vmaDestroyPool(g_hAllocator, pool2);
+    vmaDestroyPool(g_hAllocator, pool1);
+}
+
 void TestHeapSizeLimit()
 {
     const VkDeviceSize HEAP_SIZE_LIMIT = 100ull * 1024 * 1024; // 100 MB
@@ -6929,8 +7057,6 @@ void Test()
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
-        TestVirtualBlocks();
-        TestVirtualBlocksAlgorithms();
         return;
     }
 
@@ -6947,6 +7073,7 @@ void Test()
     TestPool_SameSize();
     TestPool_MinBlockCount();
     TestPool_MinAllocationAlignment();
+    TestPoolsAndAllocationParameters();
     TestHeapSizeLimit();
 #endif
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS

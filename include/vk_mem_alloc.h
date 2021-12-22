@@ -5709,6 +5709,7 @@ public:
     void Init(bool useMutex) { m_UseMutex = useMutex; }
 
     void AddStats(VmaStats* stats, uint32_t memTypeIndex, uint32_t memHeapIndex);
+    void AddPoolStats(VmaPoolStats* stats);
 #if VMA_STATS_STRING_ENABLED
     // Writes JSON array with the list of allocations.
     void BuildStatsString(VmaJsonWriter& json);
@@ -5747,6 +5748,20 @@ void VmaDedicatedAllocationList::AddStats(VmaStats* stats, uint32_t memTypeIndex
         VmaAddStatInfo(stats->total, allocationStatInfo);
         VmaAddStatInfo(stats->memoryType[memTypeIndex], allocationStatInfo);
         VmaAddStatInfo(stats->memoryHeap[memHeapIndex], allocationStatInfo);
+    }
+}
+
+void VmaDedicatedAllocationList::AddPoolStats(VmaPoolStats* stats)
+{
+    VmaMutexLockRead(m_Mutex, m_UseMutex);
+
+    const size_t allocCount = m_AllocationList.GetCount();
+    stats->allocationCount += allocCount;
+    stats->blockCount += allocCount;
+
+    for(auto* item = m_AllocationList.Front(); item != nullptr; item = DedicatedAllocationLinkedList::GetNext(item))
+    {
+        stats->size += item->GetSize();
     }
 }
 
@@ -9898,7 +9913,7 @@ public:
     void* const GetAllocationNextPtr() const { return m_pMemoryAllocateNext; }
 
     VkResult CreateMinBlocks();
-    void GetPoolStats(VmaPoolStats* pStats);
+    void AddPoolStats(VmaPoolStats* pStats);
     bool IsEmpty();
     bool IsCorruptionDetectionEnabled() const;
 
@@ -11782,18 +11797,12 @@ VkResult VmaBlockVector::CreateMinBlocks()
     return VK_SUCCESS;
 }
 
-void VmaBlockVector::GetPoolStats(VmaPoolStats* pStats)
+void VmaBlockVector::AddPoolStats(VmaPoolStats* pStats)
 {
     VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     const size_t blockCount = m_Blocks.size();
-
-    pStats->size = 0;
-    pStats->unusedSize = 0;
-    pStats->allocationCount = 0;
-    pStats->unusedRangeCount = 0;
-    pStats->unusedRangeSizeMax = 0;
-    pStats->blockCount = blockCount;
+    pStats->blockCount += blockCount;
 
     for (uint32_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
     {
@@ -16397,7 +16406,15 @@ void VmaAllocator_T::DestroyPool(VmaPool pool)
 
 void VmaAllocator_T::GetPoolStats(VmaPool pool, VmaPoolStats* pPoolStats)
 {
-    pool->m_BlockVector.GetPoolStats(pPoolStats);
+    pPoolStats->size = 0;
+    pPoolStats->unusedSize = 0;
+    pPoolStats->allocationCount = 0;
+    pPoolStats->unusedRangeCount = 0;
+    pPoolStats->unusedRangeSizeMax = 0;
+    pPoolStats->blockCount = 0;
+
+    pool->m_BlockVector.AddPoolStats(pPoolStats);
+    pool->m_DedicatedAllocations.AddPoolStats(pPoolStats);
 }
 
 void VmaAllocator_T::SetCurrentFrameIndex(uint32_t frameIndex)
