@@ -2508,21 +2508,6 @@ VmaAllocatorCreateInfo::pVulkanFunctions. Other members can be null.
     #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #endif
 
-// Define this macro to 1 to make the library use STL containers instead of its own implementation.
-//#define VMA_USE_STL_CONTAINERS 1
-
-/* Set this macro to 1 to make the library including and using STL containers:
-std::pair, std::vector, std::list, std::unordered_map.
-
-Set it to 0 or undefined to make the library using its own implementation of
-the containers.
-*/
-#if VMA_USE_STL_CONTAINERS
-   #define VMA_USE_STL_VECTOR 1
-   #define VMA_USE_STL_UNORDERED_MAP 1
-   #define VMA_USE_STL_LIST 1
-#endif
-
 #ifndef VMA_USE_STL_SHARED_MUTEX
     // Compiler conforms to C++17.
     #if __cplusplus >= 201703L
@@ -2534,22 +2519,6 @@ the containers.
     #else
         #define VMA_USE_STL_SHARED_MUTEX 0
     #endif
-#endif
-
-/*
-THESE INCLUDES ARE NOT ENABLED BY DEFAULT.
-Library has its own container implementation.
-*/
-#if VMA_USE_STL_VECTOR
-   #include <vector>
-#endif
-
-#if VMA_USE_STL_UNORDERED_MAP
-   #include <unordered_map>
-#endif
-
-#if VMA_USE_STL_LIST
-   #include <list>
 #endif
 
 /*
@@ -2971,12 +2940,8 @@ struct AtomicTransactionalIncrement;
 template<typename T>
 struct VmaStlAllocator;
 
-#if VMA_USE_STL_VECTOR
-#define VmaVector std::vector
-#else
 template<typename T, typename AllocatorT>
 class VmaVector;
-#endif // VMA_USE_STL_VECTOR
 
 template<typename T, typename AllocatorT, size_t N>
 class VmaSmallVector;
@@ -2984,9 +2949,6 @@ class VmaSmallVector;
 template<typename T>
 class VmaPoolAllocator;
 
-#if VMA_USE_STL_LIST
-#define VmaList std::list
-#else
 template<typename T>
 struct VmaListItem;
 
@@ -2995,10 +2957,20 @@ class VmaRawList;
 
 template<typename T, typename AllocatorT>
 class VmaList;
-#endif // VMA_USE_STL_LIST
 
 template<typename ItemTypeTraits>
 class VmaIntrusiveLinkedList;
+
+// Unused in this version
+#if 0
+template<typename T1, typename T2>
+struct VmaPair;
+template<typename FirstT, typename SecondT>
+struct VmaPairFirstLess;
+
+template<typename KeyT, typename ValueT>
+class VmaMap;
+#endif
 
 #if VMA_STATS_STRING_ENABLED
 class VmaStringBuilder;
@@ -3693,21 +3665,7 @@ struct VmaStlAllocator
 };
 #endif // _VMA_STL_ALLOCATOR
 
-#if VMA_USE_STL_VECTOR
-
-template<typename T, typename allocatorT>
-static void VmaVectorInsert(std::vector<T, allocatorT>& vec, size_t index, const T& item)
-{
-    vec.insert(vec.begin() + index, item);
-}
-
-template<typename T, typename allocatorT>
-static void VmaVectorRemove(std::vector<T, allocatorT>& vec, size_t index)
-{
-    vec.erase(vec.begin() + index);
-}
-
-#else
+#ifndef _VMA_VECTOR
 /* Class with interface compatible with subset of std::vector.
 T must be POD because constructors and destructors are not called and memcpy is
 used for these objects. */
@@ -3918,8 +3876,7 @@ static void VmaVectorRemove(VmaVector<T, allocatorT>& vec, size_t index)
 {
     vec.remove(index);
 }
-
-#endif // VMA_USE_STL_VECTOR
+#endif // _VMA_VECTOR
 
 #ifndef _VMA_SMALL_VECTOR
 /*
@@ -4205,7 +4162,6 @@ typename VmaPoolAllocator<T>::ItemBlock& VmaPoolAllocator<T>::CreateNewBlock()
 #endif // _VMA_POOL_ALLOCATOR_FUNCTIONS
 #endif // _VMA_POOL_ALLOCATOR
 
-#ifndef VMA_USE_STL_LIST
 #ifndef _VMA_RAW_LIST
 template<typename T>
 struct VmaListItem
@@ -4686,7 +4642,6 @@ typename VmaList<T, AllocatorT>::const_reverse_iterator& VmaList<T, AllocatorT>:
 }
 #endif // _VMA_LIST_FUNCTIONS
 #endif // _VMA_LIST
-#endif // VMA_USE_STL_LIST
 
 #ifndef _VMA_INTRUSIVE_LINKED_LIST
 /*
@@ -4939,49 +4894,16 @@ void VmaIntrusiveLinkedList<ItemTypeTraits>::RemoveAll()
 // Unused in this version.
 #if 0
 
-#if VMA_USE_STL_UNORDERED_MAP
-
-#define VmaPair std::pair
-
-#define VMA_MAP_TYPE(KeyT, ValueT) \
-    std::unordered_map< KeyT, ValueT, std::hash<KeyT>, std::equal_to<KeyT>, VmaStlAllocator< std::pair<KeyT, ValueT> > >
-
-#else // #if VMA_USE_STL_UNORDERED_MAP
-
+#ifndef _VMA_PAIR
 template<typename T1, typename T2>
 struct VmaPair
 {
     T1 first;
     T2 second;
 
-    VmaPair() : first(), second() { }
-    VmaPair(const T1& firstSrc, const T2& secondSrc) : first(firstSrc), second(secondSrc) { }
+    VmaPair() : first(), second() {}
+    VmaPair(const T1& firstSrc, const T2& secondSrc) : first(firstSrc), second(secondSrc) {}
 };
-
-/* Class compatible with subset of interface of std::unordered_map.
-KeyT, ValueT must be POD because they will be stored in VmaVector.
-*/
-template<typename KeyT, typename ValueT>
-class VmaMap
-{
-public:
-    typedef VmaPair<KeyT, ValueT> PairType;
-    typedef PairType* iterator;
-
-    VmaMap(const VmaStlAllocator<PairType>& allocator) : m_Vector(allocator) { }
-
-    iterator begin() { return m_Vector.begin(); }
-    iterator end() { return m_Vector.end(); }
-
-    void insert(const PairType& pair);
-    iterator find(const KeyT& key);
-    void erase(iterator it);
-
-private:
-    VmaVector< PairType, VmaStlAllocator<PairType> > m_Vector;
-};
-
-#define VMA_MAP_TYPE(KeyT, ValueT) VmaMap<KeyT, ValueT>
 
 template<typename FirstT, typename SecondT>
 struct VmaPairFirstLess
@@ -4995,7 +4917,33 @@ struct VmaPairFirstLess
         return lhs.first < rhsFirst;
     }
 };
+#endif // _VMA_PAIR
 
+#ifndef _VMA_MAP
+/* Class compatible with subset of interface of std::unordered_map.
+KeyT, ValueT must be POD because they will be stored in VmaVector.
+*/
+template<typename KeyT, typename ValueT>
+class VmaMap
+{
+public:
+    typedef VmaPair<KeyT, ValueT> PairType;
+    typedef PairType* iterator;
+
+    VmaMap(const VmaStlAllocator<PairType>& allocator) : m_Vector(allocator) {}
+
+    iterator begin() { return m_Vector.begin(); }
+    iterator end() { return m_Vector.end(); }
+
+    void insert(const PairType& pair);
+    iterator find(const KeyT& key);
+    void erase(iterator it);
+
+private:
+    VmaVector< PairType, VmaStlAllocator<PairType> > m_Vector;
+};
+
+#ifndef _VMA_MAP_FUNCTIONS
 template<typename KeyT, typename ValueT>
 void VmaMap<KeyT, ValueT>::insert(const PairType& pair)
 {
@@ -5030,8 +4978,8 @@ void VmaMap<KeyT, ValueT>::erase(iterator it)
 {
     VmaVectorRemove(m_Vector, it - m_Vector.begin());
 }
-
-#endif // #if VMA_USE_STL_UNORDERED_MAP
+#endif // _VMA_MAP_FUNCTIONS
+#endif // _VMA_MAP
 
 #endif // #if 0
 

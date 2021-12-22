@@ -31,8 +31,6 @@
 #endif // #if !defined(VK_USE_PLATFORM_WIN32_KHR)
 #include <vulkan/vulkan.h>
 
-//#define VMA_USE_STL_CONTAINERS 1
-
 //#define VMA_HEAVY_ASSERT(expr) assert(expr)
 
 //#define VMA_DEDICATED_ALLOCATION 0
