@@ -6022,7 +6022,7 @@ public:
     virtual size_t GetAllocationCount() const { return m_Suballocations.size() - m_FreeCount; }
     virtual VkDeviceSize GetSumFreeSize() const { return m_SumFreeSize; }
     virtual bool IsEmpty() const { return (m_Suballocations.size() == 1) && (m_FreeCount == 1); }
-    virtual void FreeAtOffset(VkDeviceSize offset) { FreeSuballocation(FindAtOffest(offset)); }
+    virtual void FreeAtOffset(VkDeviceSize offset) { FreeSuballocation(FindAtOffset(offset)); }
 
     virtual void Init(VkDeviceSize size);
     virtual bool Validate() const;
@@ -6078,7 +6078,7 @@ private:
 
     VkDeviceSize AlignAllocationSize(VkDeviceSize size) const { return IsVirtual() ? size : VmaAlignUp(size, (VkDeviceSize)16); }
 
-    VmaSuballocationList::iterator FindAtOffest(VkDeviceSize offset);
+    VmaSuballocationList::iterator FindAtOffset(VkDeviceSize offset);
     bool ValidateFreeSuballocationList() const;
 
     // Checks if requested suballocation with given parameters can be placed in given pFreeSuballocItem.
@@ -6598,7 +6598,7 @@ void VmaBlockMetadata_Generic::Alloc(
 
 void VmaBlockMetadata_Generic::GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo)
 {
-    const VmaSuballocation& suballoc = *FindAtOffest(offset);
+    const VmaSuballocation& suballoc = *FindAtOffset(offset);
     outInfo.size = suballoc.size;
     outInfo.pUserData = suballoc.userData;
 }
@@ -6624,11 +6624,11 @@ void VmaBlockMetadata_Generic::Clear()
 
 void VmaBlockMetadata_Generic::SetAllocationUserData(VkDeviceSize offset, void* userData)
 {
-    VmaSuballocation& suballoc = *FindAtOffest(offset);
+    VmaSuballocation& suballoc = *FindAtOffset(offset);
     suballoc.userData = userData;
 }
 
-VmaSuballocationList::iterator VmaBlockMetadata_Generic::FindAtOffest(VkDeviceSize offset)
+VmaSuballocationList::iterator VmaBlockMetadata_Generic::FindAtOffset(VkDeviceSize offset)
 {
     VMA_HEAVY_ASSERT(!m_Suballocations.empty());
     const VkDeviceSize last = m_Suballocations.rbegin()->offset;
