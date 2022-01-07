@@ -4603,7 +4603,6 @@ static void TestPool_SameSize()
         TEST(poolStats.allocationCount == items.size());
         TEST(poolStats.size = BUF_COUNT * BUF_SIZE);
         TEST(poolStats.unusedRangeCount == 1);
-        TEST(poolStats.unusedRangeSizeMax == BUF_SIZE);
         TEST(poolStats.unusedSize == BUF_SIZE);
     }
 
