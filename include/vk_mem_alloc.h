@@ -1230,13 +1230,6 @@ typedef struct VmaPoolStats
     /** \brief Number of continuous memory ranges in the pool not used by any #VmaAllocation.
     */
     size_t unusedRangeCount;
-    /** \brief Size of the largest continuous free memory region available for new allocation.
-
-    Making a new allocation of that size is not guaranteed to succeed because of
-    possible additional margin required to respect alignment and buffer/image
-    granularity.
-    */
-    VkDeviceSize unusedRangeSizeMax;
     /** \brief Number of `VkDeviceMemory` blocks allocated for this pool.
     */
     size_t blockCount;
@@ -5847,7 +5840,6 @@ public:
     virtual bool Validate() const = 0;
     virtual size_t GetAllocationCount() const = 0;
     virtual VkDeviceSize GetSumFreeSize() const = 0;
-    virtual VkDeviceSize GetUnusedRangeSizeMax() const = 0;
     // Returns true if this block is empty - contains only single free suballocation.
     virtual bool IsEmpty() const = 0;
     virtual void GetAllocationInfo(VkDeviceSize offset, VmaVirtualAllocationInfo& outInfo) = 0;
@@ -6026,7 +6018,6 @@ public:
 
     virtual void Init(VkDeviceSize size);
     virtual bool Validate() const;
-    virtual VkDeviceSize GetUnusedRangeSizeMax() const;
 
     virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const;
     virtual void AddPoolStats(VmaPoolStats& inoutStats) const;
@@ -6219,18 +6210,6 @@ bool VmaBlockMetadata_Generic::Validate() const
     return true;
 }
 
-VkDeviceSize VmaBlockMetadata_Generic::GetUnusedRangeSizeMax() const
-{
-    if (!m_FreeSuballocationsBySize.empty())
-    {
-        return m_FreeSuballocationsBySize.back()->size;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
 void VmaBlockMetadata_Generic::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
     const uint32_t rangeCount = (uint32_t)m_Suballocations.size();
@@ -6258,7 +6237,6 @@ void VmaBlockMetadata_Generic::AddPoolStats(VmaPoolStats& inoutStats) const
     inoutStats.unusedSize += m_SumFreeSize;
     inoutStats.allocationCount += rangeCount - m_FreeCount;
     inoutStats.unusedRangeCount += m_FreeCount;
-    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, GetUnusedRangeSizeMax());
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -7196,7 +7174,6 @@ public:
     virtual void Init(VkDeviceSize size);
     virtual bool Validate() const;
     virtual size_t GetAllocationCount() const;
-    virtual VkDeviceSize GetUnusedRangeSizeMax() const;
 
     virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const;
     virtual void AddPoolStats(VmaPoolStats& inoutStats) const;
@@ -7476,70 +7453,6 @@ size_t VmaBlockMetadata_Linear::GetAllocationCount() const
         AccessSuballocations2nd().size() - m_2ndNullItemsCount;
 }
 
-VkDeviceSize VmaBlockMetadata_Linear::GetUnusedRangeSizeMax() const
-{
-    const VkDeviceSize size = GetSize();
-
-    /*
-    We don't consider gaps inside allocation vectors with freed allocations because
-    they are not suitable for reuse in linear allocator. We consider only space that
-    is available for new allocations.
-    */
-    if (IsEmpty())
-    {
-        return size;
-    }
-
-    const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
-
-    switch (m_2ndVectorMode)
-    {
-    case SECOND_VECTOR_EMPTY:
-        /*
-        Available space is after end of 1st, as well as before beginning of 1st (which
-        would make it a ring buffer).
-        */
-    {
-        const size_t suballocations1stCount = suballocations1st.size();
-        VMA_ASSERT(suballocations1stCount > m_1stNullItemsBeginCount);
-        const VmaSuballocation& firstSuballoc = suballocations1st[m_1stNullItemsBeginCount];
-        const VmaSuballocation& lastSuballoc = suballocations1st[suballocations1stCount - 1];
-        return VMA_MAX(
-            firstSuballoc.offset,
-            size - (lastSuballoc.offset + lastSuballoc.size));
-    }
-    break;
-
-    case SECOND_VECTOR_RING_BUFFER:
-        /*
-        Available space is only between end of 2nd and beginning of 1st.
-        */
-    {
-        const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
-        const VmaSuballocation& lastSuballoc2nd = suballocations2nd.back();
-        const VmaSuballocation& firstSuballoc1st = suballocations1st[m_1stNullItemsBeginCount];
-        return firstSuballoc1st.offset - (lastSuballoc2nd.offset + lastSuballoc2nd.size);
-    }
-    break;
-
-    case SECOND_VECTOR_DOUBLE_STACK:
-        /*
-        Available space is only between end of 1st and top of 2nd.
-        */
-    {
-        const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
-        const VmaSuballocation& topSuballoc2nd = suballocations2nd.back();
-        const VmaSuballocation& lastSuballoc1st = suballocations1st.back();
-        return topSuballoc2nd.offset - (lastSuballoc1st.offset + lastSuballoc1st.size);
-    }
-    break;
-
-    default:
-        VMA_ASSERT(0);
-        return 0;
-    }
-}
-
 void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
     const VkDeviceSize size = GetSize();
@@ -7740,7 +7653,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                     const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
                     inoutStats.unusedSize += unusedRangeSize;
                     ++inoutStats.unusedRangeCount;
-                    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
                 }
 
                 // 2. Process this allocation.
@@ -7760,7 +7672,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                     const VkDeviceSize unusedRangeSize = freeSpace2ndTo1stEnd - lastOffset;
                     inoutStats.unusedSize += unusedRangeSize;
                     ++inoutStats.unusedRangeCount;
-                    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
                 }
 
                 // End of loop.
@@ -7793,7 +7704,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                 const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
                 inoutStats.unusedSize += unusedRangeSize;
                 ++inoutStats.unusedRangeCount;
-                inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
             }
 
             // 2. Process this allocation.
@@ -7813,7 +7723,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                 const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
                 inoutStats.unusedSize += unusedRangeSize;
                 ++inoutStats.unusedRangeCount;
-                inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
             }
 
             // End of loop.
@@ -7845,7 +7754,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                     const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
                     inoutStats.unusedSize += unusedRangeSize;
                     ++inoutStats.unusedRangeCount;
-                    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
                 }
 
                 // 2. Process this allocation.
@@ -7865,7 +7773,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                     const VkDeviceSize unusedRangeSize = size - lastOffset;
                     inoutStats.unusedSize += unusedRangeSize;
                     ++inoutStats.unusedRangeCount;
-                    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, unusedRangeSize);
                 }
 
                 // End of loop.
@@ -9130,7 +9037,6 @@ public:
 
     virtual void Init(VkDeviceSize size);
     virtual bool Validate() const;
-    virtual VkDeviceSize GetUnusedRangeSizeMax() const;
 
     virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const;
     virtual void AddPoolStats(VmaPoolStats& inoutStats) const;
@@ -9343,18 +9249,6 @@ bool VmaBlockMetadata_Buddy::Validate() const
     return true;
 }
 
-VkDeviceSize VmaBlockMetadata_Buddy::GetUnusedRangeSizeMax() const
-{
-    for (uint32_t level = 0; level < m_LevelCount; ++level)
-    {
-        if (m_FreeList[level].front != VMA_NULL)
-        {
-            return LevelToNodeSize(level);
-        }
-    }
-    return 0;
-}
-
 void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
 {
     VmaInitStatInfo(outInfo);
@@ -9377,12 +9271,10 @@ void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
     inoutStats.unusedSize += m_SumFreeSize + unusableSize;
     inoutStats.allocationCount += m_AllocationCount;
     inoutStats.unusedRangeCount += m_FreeCount;
-    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, GetUnusedRangeSizeMax());
 
     if (unusableSize > 0)
     {
         ++inoutStats.unusedRangeCount;
-        // Not updating inoutStats.unusedRangeSizeMax with unusableSize because this space is not available for allocations.
     }
 }
 
@@ -16358,7 +16250,6 @@ void VmaAllocator_T::GetPoolStats(VmaPool pool, VmaPoolStats* pPoolStats)
     pPoolStats->unusedSize = 0;
     pPoolStats->allocationCount = 0;
     pPoolStats->unusedRangeCount = 0;
-    pPoolStats->unusedRangeSizeMax = 0;
     pPoolStats->blockCount = 0;
 
     pool->m_BlockVector.AddPoolStats(pPoolStats);
