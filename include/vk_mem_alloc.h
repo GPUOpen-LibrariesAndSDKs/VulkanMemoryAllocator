@@ -15377,6 +15377,8 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStats(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     allocator->GetPoolStats(pool, pPoolStats);
+}
+
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocator, VmaPool pool)
 {
     VMA_ASSERT(allocator && pool);
@@ -15619,6 +15621,8 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     allocator->GetAllocationInfo(allocation, pAllocationInfo);
+}
+
 VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationUserData(
     VmaAllocator allocator,
     VmaAllocation allocation,
