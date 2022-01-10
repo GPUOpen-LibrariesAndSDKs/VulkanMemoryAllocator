@@ -53,13 +53,11 @@ Additional features:
    - VK_AMD_device_coherent_memory
    - VK_KHR_buffer_device_address
 - Defragmentation of GPU and CPU memory: Let the library move data around to free some memory blocks and make your allocations better compacted.
-- Lost allocations: Allocate memory with appropriate flags and let the library remove allocations that are not used for many frames to make room for new ones.
 - Statistics: Obtain detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.
 - Debug annotations: Associate string with name or opaque pointer to your own data with every allocation.
 - JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations and gaps between them.
 - Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
 - Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number before and after every allocation to detect out-of-bounds memory corruption.
-- Record and replay sequence of calls to library functions to a file to check correctness, measure performance, and gather statistics.
 - Support for interoperability with OpenGL.
 - Virtual allocator: Interface for using core allocation algorithm to allocate any custom data, e.g. pieces of one large buffer.
 

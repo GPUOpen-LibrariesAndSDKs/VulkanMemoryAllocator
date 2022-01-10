@@ -245,7 +245,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pointer to array of allocations that can be defragmented. </p>
-<p >The array should have <code>allocationCount</code> elements. The array should not contain nulls. Elements in the array should be unique - same allocation cannot occur twice. It is safe to pass allocations that are in the lost state - they are ignored. All allocations not present in this array are considered non-moveable during this defragmentation. </p>
+<p >The array should have <code>allocationCount</code> elements. The array should not contain nulls. Elements in the array should be unique - same allocation cannot occur twice. All allocations not present in this array are considered non-moveable during this defragmentation. </p>
 
 </div>
 </div>
@@ -295,7 +295,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Either null or pointer to array of pools to be defragmented. </p>
-<p >All the allocations in the specified pools can be moved during defragmentation and there is no way to check if they were really moved as in <code>pAllocationsChanged</code>, so you must query all the allocations in all these pools for new <code>VkDeviceMemory</code> and offset using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> if you might need to recreate buffers and images bound to them.</p>
+<p >All the allocations in the specified pools can be moved during defragmentation and there is no way to check if they were really moved as in <code>pAllocationsChanged</code>, so you must query all the allocations in all these pools for new <code>VkDeviceMemory</code> and offset using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a> if you might need to recreate buffers and images bound to them.</p>
 <p >The array should have <code>poolCount</code> elements. The array should not contain nulls. Elements in the array should be unique - same pool cannot occur twice.</p>
 <p >Using this array is equivalent to specifying all allocations from the pools in <code>pAllocations</code>. It might be more efficient. </p>
 

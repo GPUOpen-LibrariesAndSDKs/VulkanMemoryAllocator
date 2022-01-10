@@ -85,9 +85,6 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to some Vulkan functions - a subset used by the library.  <a href="struct_vma_vulkan_functions.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording calls to VMA functions. To be used in <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee" title="Parameters for recording of VMA calls. Can be null.">VmaAllocatorCreateInfo::pRecordSettings</a>.  <a href="struct_vma_record_settings.html#details">More...</a><br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="struct_vma_allocator_create_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -112,7 +109,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Describes parameter of existing <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>.  <a href="struct_vma_pool_stats.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.  <a href="struct_vma_allocation_info.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.  <a href="struct_vma_allocation_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for defragmentation.  <a href="struct_vma_defragmentation_info2.html#details">More...</a><br /></td></tr>
@@ -140,8 +137,6 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a1f0c126759fc96ccb6e2d23c101d770c">VMA_RECORDING_ENABLED</a>&#160;&#160;&#160;0</td></tr>
-<tr class="separator:a1f0c126759fc96ccb6e2d23c101d770c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a162894cbe84f7d76632eb9af1e4b3558"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a162894cbe84f7d76632eb9af1e4b3558">VK_ERROR_UNKNOWN</a>&#160;&#160;&#160;((VkResult)-13)</td></tr>
 <tr class="separator:a162894cbe84f7d76632eb9af1e4b3558"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
@@ -162,11 +157,6 @@ Typedefs</h2></td></tr>
 <tr class="separator:afd73b95e737ee7e76f827cb5472f559f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acfe6863e160722c2c1bbcf7573fddc4d"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#acfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a></td></tr>
 <tr class="separator:acfe6863e160722c2c1bbcf7573fddc4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd24d5eb58abff7e1f43cb32a1ba1413"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#acd24d5eb58abff7e1f43cb32a1ba1413">VmaRecordFlagBits</a></td></tr>
-<tr class="memdesc:acd24d5eb58abff7e1f43cb32a1ba1413"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum.">VmaRecordSettings::flags</a>.  <a href="vk__mem__alloc_8h.html#acd24d5eb58abff7e1f43cb32a1ba1413">More...</a><br /></td></tr>
-<tr class="separator:acd24d5eb58abff7e1f43cb32a1ba1413"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af3929a1a4547c592fc0b0e55ef452828"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828">VmaRecordFlags</a></td></tr>
-<tr class="separator:af3929a1a4547c592fc0b0e55ef452828"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a806e8499dde802e59eb72a1dc811c35f"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cc">VmaMemoryUsage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a806e8499dde802e59eb72a1dc811c35f">VmaMemoryUsage</a></td></tr>
 <tr class="separator:a806e8499dde802e59eb72a1dc811c35f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4fceecc301f4064dc808d3cd6c038941"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597">VmaAllocationCreateFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a4fceecc301f4064dc808d3cd6c038941">VmaAllocationCreateFlagBits</a></td></tr>
@@ -209,9 +199,6 @@ Typedefs</h2></td></tr>
 <tr class="memitem:abb0a8e3b5040d847571cca6c7f9a8074"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#abb0a8e3b5040d847571cca6c7f9a8074">VmaVulkanFunctions</a></td></tr>
 <tr class="memdesc:abb0a8e3b5040d847571cca6c7f9a8074"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to some Vulkan functions - a subset used by the library.  <a href="vk__mem__alloc_8h.html#abb0a8e3b5040d847571cca6c7f9a8074">More...</a><br /></td></tr>
 <tr class="separator:abb0a8e3b5040d847571cca6c7f9a8074"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a16e21c877101493fce582664cd8754fc"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a16e21c877101493fce582664cd8754fc">VmaRecordSettings</a></td></tr>
-<tr class="memdesc:a16e21c877101493fce582664cd8754fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording calls to VMA functions. To be used in <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee" title="Parameters for recording of VMA calls. Can be null.">VmaAllocatorCreateInfo::pRecordSettings</a>.  <a href="vk__mem__alloc_8h.html#a16e21c877101493fce582664cd8754fc">More...</a><br /></td></tr>
-<tr class="separator:a16e21c877101493fce582664cd8754fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aad9652301d33759b83e52d4f3605a14a"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aad9652301d33759b83e52d4f3605a14a">VmaAllocatorCreateInfo</a></td></tr>
 <tr class="memdesc:aad9652301d33759b83e52d4f3605a14a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Description of a Allocator to be created.  <a href="vk__mem__alloc_8h.html#aad9652301d33759b83e52d4f3605a14a">More...</a><br /></td></tr>
 <tr class="separator:aad9652301d33759b83e52d4f3605a14a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -236,7 +223,7 @@ Typedefs</h2></td></tr>
 <tr class="memdesc:a4759a2d9f99c19ba7627553c847132f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Describes parameter of existing <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>.  <a href="vk__mem__alloc_8h.html#a4759a2d9f99c19ba7627553c847132f1">More...</a><br /></td></tr>
 <tr class="separator:a4759a2d9f99c19ba7627553c847132f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1cf7774606721026a68aabe3af2e5b50"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a1cf7774606721026a68aabe3af2e5b50">VmaAllocationInfo</a></td></tr>
-<tr class="memdesc:a1cf7774606721026a68aabe3af2e5b50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.  <a href="vk__mem__alloc_8h.html#a1cf7774606721026a68aabe3af2e5b50">More...</a><br /></td></tr>
+<tr class="memdesc:a1cf7774606721026a68aabe3af2e5b50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.  <a href="vk__mem__alloc_8h.html#a1cf7774606721026a68aabe3af2e5b50">More...</a><br /></td></tr>
 <tr class="separator:a1cf7774606721026a68aabe3af2e5b50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad6daeffaa670ce6d11a203a6224c9937"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_defragmentation_info2.html">VmaDefragmentationInfo2</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ad6daeffaa670ce6d11a203a6224c9937">VmaDefragmentationInfo2</a></td></tr>
 <tr class="memdesc:ad6daeffaa670ce6d11a203a6224c9937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for defragmentation.  <a href="vk__mem__alloc_8h.html#ad6daeffaa670ce6d11a203a6224c9937">More...</a><br /></td></tr>
@@ -278,11 +265,6 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a4f87c9100d154a65a4ad495f7763cf7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a>.  <a href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7c">More...</a><br /></td></tr>
 <tr class="separator:a4f87c9100d154a65a4ad495f7763cf7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4dd2c44642312a147a4e93373a6e64d2"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a> { <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7">VMA_RECORD_FLUSH_AFTER_CALL_BIT</a> = 0x00000001
-, <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e">VMA_RECORD_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
- }</td></tr>
-<tr class="memdesc:a4dd2c44642312a147a4e93373a6e64d2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum.">VmaRecordSettings::flags</a>.  <a href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">More...</a><br /></td></tr>
-<tr class="separator:a4dd2c44642312a147a4e93373a6e64d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5846affa1e9da3800e3e78fae2305cc"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305cc">VmaMemoryUsage</a> { <br />
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd">VMA_MEMORY_USAGE_UNKNOWN</a> = 0
 , <a class="el" href="vk__mem__alloc_8h.html#aa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7">VMA_MEMORY_USAGE_GPU_ONLY</a> = 1
@@ -300,9 +282,9 @@ Enumerations</h2></td></tr>
 &#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a> = 0x00000001
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a89759603401014eb325eb22a3839f2ff">VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT</a> = 0x00000002
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> = 0x00000004
-, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> = 0x00000008
+, <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ad7e8035e8edecd8dfa1f32a194bdf103">VMA_ALLOCATION_CREATE_RESERVED_1_BIT</a> = 0x00000008
 , <br />
-&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e">VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</a> = 0x00000010
+&#160;&#160;<a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597ae9290dbcf5817e7616d5802e2aa251e7">VMA_ALLOCATION_CREATE_RESERVED_2_BIT</a> = 0x00000010
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520">VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT</a> = 0x00000020
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df">VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT</a> = 0x00000040
 , <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea">VMA_ALLOCATION_CREATE_DONT_BIND_BIT</a> = 0x00000080
@@ -404,9 +386,6 @@ Functions</h2></td></tr>
 <tr class="memitem:ae8bf76997b234ef68aad922616df4153"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae8bf76997b234ef68aad922616df4153">vmaGetPoolStats</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_pool.html">VmaPool</a> pool, <a class="el" href="struct_vma_pool_stats.html">VmaPoolStats</a> *pPoolStats)</td></tr>
 <tr class="memdesc:ae8bf76997b234ef68aad922616df4153"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieves statistics of existing <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object.  <a href="vk__mem__alloc_8h.html#ae8bf76997b234ef68aad922616df4153">More...</a><br /></td></tr>
 <tr class="separator:ae8bf76997b234ef68aad922616df4153"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a736bd6cbda886f36c891727e73bd4024"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a736bd6cbda886f36c891727e73bd4024">vmaMakePoolAllocationsLost</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_pool.html">VmaPool</a> pool, size_t *pLostAllocationCount)</td></tr>
-<tr class="memdesc:a736bd6cbda886f36c891727e73bd4024"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks all allocations in given pool as lost if they are not used in current frame or <a class="el" href="struct_vma_pool_create_info.html#a9437e43ffbb644dbbf7fc4e50cfad6aa" title="Maximum number of additional frames that are in use at the same time as current frame.">VmaPoolCreateInfo::frameInUseCount</a> back from now.  <a href="vk__mem__alloc_8h.html#a736bd6cbda886f36c891727e73bd4024">More...</a><br /></td></tr>
-<tr class="separator:a736bd6cbda886f36c891727e73bd4024"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad535935619c7a549bf837e1bb0068f89"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ad535935619c7a549bf837e1bb0068f89">vmaCheckPoolCorruption</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_pool.html">VmaPool</a> pool)</td></tr>
 <tr class="memdesc:ad535935619c7a549bf837e1bb0068f89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks magic number in margins around all allocations in given memory pool in search for corruptions.  <a href="vk__mem__alloc_8h.html#ad535935619c7a549bf837e1bb0068f89">More...</a><br /></td></tr>
 <tr class="separator:ad535935619c7a549bf837e1bb0068f89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -434,17 +413,11 @@ Functions</h2></td></tr>
 <tr class="memdesc:a834b1e4aef395c0a1d56a28e69a4a17e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory and destroys multiple allocations.  <a href="vk__mem__alloc_8h.html#a834b1e4aef395c0a1d56a28e69a4a17e">More...</a><br /></td></tr>
 <tr class="separator:a834b1e4aef395c0a1d56a28e69a4a17e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">vmaGetAllocationInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
-<tr class="memdesc:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current information about specified allocation and atomically marks it as used in current frame.  <a href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">More...</a><br /></td></tr>
+<tr class="memdesc:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current information about specified allocation.  <a href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b">More...</a><br /></td></tr>
 <tr class="separator:a86dd08aba8633bfa4ad0df2e76481d8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a43d8ba9673c846f049089a5029d5c73a"><td class="memItemLeft" align="right" valign="top">VkBool32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a">vmaTouchAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
-<tr class="memdesc:a43d8ba9673c846f049089a5029d5c73a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns <code>VK_TRUE</code> if allocation is not lost and atomically marks it as used in current frame.  <a href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a">More...</a><br /></td></tr>
-<tr class="separator:a43d8ba9673c846f049089a5029d5c73a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af9147d31ffc11d62fc187bde283ed14f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f">vmaSetAllocationUserData</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, void *pUserData)</td></tr>
 <tr class="memdesc:af9147d31ffc11d62fc187bde283ed14f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets pUserData in given allocation to new value.  <a href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f">More...</a><br /></td></tr>
 <tr class="separator:af9147d31ffc11d62fc187bde283ed14f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae5c9657d9e94756269145b01c05d16f1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#ae5c9657d9e94756269145b01c05d16f1">vmaCreateLostAllocation</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation)</td></tr>
-<tr class="memdesc:ae5c9657d9e94756269145b01c05d16f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates new allocation that is in lost state from the beginning.  <a href="vk__mem__alloc_8h.html#ae5c9657d9e94756269145b01c05d16f1">More...</a><br /></td></tr>
-<tr class="separator:ae5c9657d9e94756269145b01c05d16f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571e87dd38e552249b56b1b0b982fad1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vk__mem__alloc_8h.html#a571e87dd38e552249b56b1b0b982fad1">vmaGetAllocationMemoryProperties</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkMemoryPropertyFlags *pFlags)</td></tr>
 <tr class="memdesc:a571e87dd38e552249b56b1b0b982fad1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given an allocation, returns Property Flags of its memory type.  <a href="vk__mem__alloc_8h.html#a571e87dd38e552249b56b1b0b982fad1">More...</a><br /></td></tr>
 <tr class="separator:a571e87dd38e552249b56b1b0b982fad1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -618,20 +591,6 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a1f0c126759fc96ccb6e2d23c101d770c" name="a1f0c126759fc96ccb6e2d23c101d770c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1f0c126759fc96ccb6e2d23c101d770c">&#9670;&nbsp;</a></span>VMA_RECORDING_ENABLED</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_RECORDING_ENABLED&#160;&#160;&#160;0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="ae25f0d55fd91cb166f002b63244800e1" name="ae25f0d55fd91cb166f002b63244800e1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae25f0d55fd91cb166f002b63244800e1">&#9670;&nbsp;</a></span>VMA_STATS_STRING_ENABLED</h2>
 
@@ -735,7 +694,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>. </p>
+<p>Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>. </p>
 
 </div>
 </div>
@@ -1024,52 +983,6 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="acd24d5eb58abff7e1f43cb32a1ba1413" name="acd24d5eb58abff7e1f43cb32a1ba1413"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acd24d5eb58abff7e1f43cb32a1ba1413">&#9670;&nbsp;</a></span>VmaRecordFlagBits</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">typedef enum <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a> <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum.">VmaRecordSettings::flags</a>. </p>
-
-</div>
-</div>
-<a id="af3929a1a4547c592fc0b0e55ef452828" name="af3929a1a4547c592fc0b0e55ef452828"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af3929a1a4547c592fc0b0e55ef452828">&#9670;&nbsp;</a></span>VmaRecordFlags</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">typedef VkFlags <a class="el" href="vk__mem__alloc_8h.html#af3929a1a4547c592fc0b0e55ef452828">VmaRecordFlags</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a16e21c877101493fce582664cd8754fc" name="a16e21c877101493fce582664cd8754fc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a16e21c877101493fce582664cd8754fc">&#9670;&nbsp;</a></span>VmaRecordSettings</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">typedef struct <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a> <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Parameters for recording calls to VMA functions. To be used in <a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee" title="Parameters for recording of VMA calls. Can be null.">VmaAllocatorCreateInfo::pRecordSettings</a>. </p>
-
-</div>
-</div>
 <a id="aec5b57e29c97b5d69c6d5654d60df878" name="aec5b57e29c97b5d69c6d5654d60df878"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aec5b57e29c97b5d69c6d5654d60df878">&#9670;&nbsp;</a></span>VmaStatInfo</h2>
 
@@ -1256,16 +1169,11 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" name="ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f"></a>VMA_ALLOCATION_CREATE_MAPPED_BIT&#160;</td><td class="fielddoc"><p >Set this flag to use a memory that will be persistently mapped and retrieve pointer to it. </p>
 <p >Pointer to mapped memory will be returned through <a class="el" href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2" title="Pointer to the beginning of this allocation as mapped data.">VmaAllocationInfo::pMappedData</a>.</p>
-<p >It is valid to use this flag for allocation made from memory type that is not <code>HOST_VISIBLE</code>. This flag is then ignored and memory is not mapped. This is useful if you need an allocation that is efficient to use on GPU (<code>DEVICE_LOCAL</code>) and still want to map it directly if possible on platforms that support it (e.g. Intel GPU).</p>
-<p >You should not use this flag together with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a>. </p>
+<p >It is valid to use this flag for allocation made from memory type that is not <code>HOST_VISIBLE</code>. This flag is then ignored and memory is not mapped. This is useful if you need an allocation that is efficient to use on GPU (<code>DEVICE_LOCAL</code>) and still want to map it directly if possible on platforms that support it (e.g. Intel GPU). </p>
 </td></tr>
-<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2" name="ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2"></a>VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT&#160;</td><td class="fielddoc"><p >Allocation created with this flag can become lost as a result of another allocation with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e">VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</a> flag, so you must check it before use.</p>
-<p >To check if allocation is not lost, call <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> and check if <a class="el" href="struct_vma_allocation_info.html#ae0bfb7dfdf79a76ffefc9a94677a2f67" title="Handle to Vulkan memory object.">VmaAllocationInfo::deviceMemory</a> is not <code>VK_NULL_HANDLE</code>.</p>
-<p >For details about supporting lost allocations, see Lost Allocations chapter of User Guide on Main Page.</p>
-<p >You should not use this flag together with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a>. </p>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ad7e8035e8edecd8dfa1f32a194bdf103" name="ad9889c10c798b040d59c92f257cae597ad7e8035e8edecd8dfa1f32a194bdf103"></a>VMA_ALLOCATION_CREATE_RESERVED_1_BIT&#160;</td><td class="fielddoc"><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000003">Deprecated:</a></b></dt><dd>Removed. Do not use. </dd></dl>
 </td></tr>
-<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e" name="ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e"></a>VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT&#160;</td><td class="fielddoc"><p >While creating allocation using this flag, other allocations that were created with flag <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> can become lost.</p>
-<p >For details about supporting lost allocations, see Lost Allocations chapter of User Guide on Main Page. </p>
+<tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597ae9290dbcf5817e7616d5802e2aa251e7" name="ad9889c10c798b040d59c92f257cae597ae9290dbcf5817e7616d5802e2aa251e7"></a>VMA_ALLOCATION_CREATE_RESERVED_2_BIT&#160;</td><td class="fielddoc"><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000004">Deprecated:</a></b></dt><dd>Removed. Do not use. </dd></dl>
 </td></tr>
 <tr><td class="fieldname"><a id="ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520" name="ad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520"></a>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT&#160;</td><td class="fielddoc"><p >Set this flag to treat <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> as pointer to a null-terminated string. Instead of copying pointer value, a local copy of the string is made and stored in allocation's <code>pUserData</code>. The string is automatically freed together with the allocation. It is also used in <a class="el" href="vk__mem__alloc_8h.html#aa4fee7eb5253377599ef4fd38c93c2a0" title="Builds and returns statistics as a null-terminated string in JSON format.">vmaBuildStatsString()</a>. </p>
 </td></tr>
@@ -1468,28 +1376,6 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4dd2c44642312a147a4e93373a6e64d2" name="a4dd2c44642312a147a4e93373a6e64d2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4dd2c44642312a147a4e93373a6e64d2">&#9670;&nbsp;</a></span>VmaRecordFlagBits</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">enum <a class="el" href="vk__mem__alloc_8h.html#a4dd2c44642312a147a4e93373a6e64d2">VmaRecordFlagBits</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Flags to be used in <a class="el" href="struct_vma_record_settings.html#ad8fdcc92119ae7a8c08c1a564c01d63a" title="Flags for recording. Use VmaRecordFlagBits enum.">VmaRecordSettings::flags</a>. </p>
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7" name="a4dd2c44642312a147a4e93373a6e64d2a8e7ab322e8732654be627c4ea8f36cc7"></a>VMA_RECORD_FLUSH_AFTER_CALL_BIT&#160;</td><td class="fielddoc"><p >Enables flush after recording every function call. </p>
-<p >Enable it if you expect your application to crash, which may leave recording file truncated. It may degrade performance though. </p>
-</td></tr>
-<tr><td class="fieldname"><a id="a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e" name="a4dd2c44642312a147a4e93373a6e64d2a20dd17d69966dbffa054739d6090b85e"></a>VMA_RECORD_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
-</table>
-
-</div>
-</div>
 <a id="a2e9c64d405b14156fea7e10c4ad06cb6" name="a2e9c64d405b14156fea7e10c4ad06cb6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2e9c64d405b14156fea7e10c4ad06cb6">&#9670;&nbsp;</a></span>VmaVirtualAllocationCreateFlagBits</h2>
 
@@ -1601,7 +1487,7 @@ Functions</h2></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
@@ -1659,7 +1545,7 @@ Functions</h2></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">buffer</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
@@ -2355,7 +2241,7 @@ Functions</h2></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pAllocationCreateInfo</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pBuffer</td><td>Buffer that was created. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Allocation that was created. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
@@ -2484,39 +2370,6 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Function similar to <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>. </p>
-
-</div>
-</div>
-<a id="ae5c9657d9e94756269145b01c05d16f1" name="ae5c9657d9e94756269145b01c05d16f1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae5c9657d9e94756269145b01c05d16f1">&#9670;&nbsp;</a></span>vmaCreateLostAllocation()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vmaCreateLostAllocation </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
-          <td class="paramname"><em>allocator</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *&#160;</td>
-          <td class="paramname"><em>pAllocation</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Creates new allocation that is in lost state from the beginning. </p>
-<p >It can be useful if you need a dummy, non-null allocation.</p>
-<p >You still need to destroy created object using <a class="el" href="vk__mem__alloc_8h.html#a5fea5518972ae9094b1526cbcb19b05f" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a>.</p>
-<p >Returned allocation is not tied to any specific memory pool or memory type and not bound to any image or buffer. It has size = 0. It cannot be turned into a real, non-empty allocation. </p>
 
 </div>
 </div>
@@ -2731,7 +2584,7 @@ Functions</h2></td></tr>
 <p>Use this function instead of old, deprecated <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a>.</p>
 <p >Warning! Between the call to <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a> and <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>:</p>
 <ul>
-<li>You should not use any of allocations passed as <code>pInfo-&gt;pAllocations</code> or any allocations that belong to pools passed as <code>pInfo-&gt;pPools</code>, including calling <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a>, <a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a" title="Returns VK_TRUE if allocation is not lost and atomically marks it as used in current frame.">vmaTouchAllocation()</a>, or access their data.</li>
+<li>You should not use any of allocations passed as <code>pInfo-&gt;pAllocations</code> or any allocations that belong to pools passed as <code>pInfo-&gt;pPools</code>, including calling <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>, or access their data.</li>
 <li>Some mutexes protecting internal data structures may be locked, so trying to make or free any allocations, bind buffers or images, map memory, or launch another simultaneous defragmentation in between may cause stall (when done on another thread) or deadlock (when done on the same thread), unless you are 100% sure that defragmented allocations are in different pools.</li>
 <li>Information returned via <code>pStats</code> and <code>pInfo-&gt;pAllocationsChanged</code> are undefined. They become valid after call to <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>.</li>
 <li>If <code>pInfo-&gt;commandBuffer</code> is not null, you must submit that command buffer and make sure it finished execution before calling <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>.</li>
@@ -3371,14 +3224,9 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Returns current information about specified allocation and atomically marks it as used in current frame. </p>
+<p>Returns current information about specified allocation. </p>
 <p >Current paramteres of given allocation are returned in <code>pAllocationInfo</code>.</p>
-<p >This function also atomically "touches" allocation - marks it as used in current frame, just like <a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a" title="Returns VK_TRUE if allocation is not lost and atomically marks it as used in current frame.">vmaTouchAllocation()</a>. If the allocation is in lost state, <code>pAllocationInfo-&gt;deviceMemory == VK_NULL_HANDLE</code>.</p>
-<p >Although this function uses atomics and doesn't lock any mutex, so it should be quite efficient, you can avoid calling it too often.</p>
-<ul>
-<li>You can retrieve same <a class="el" href="struct_vma_allocation_info.html" title="Parameters of VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().">VmaAllocationInfo</a> structure while creating your resource, from function <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. You can remember it if you are sure parameters don't change (e.g. due to defragmentation or allocation becoming lost).</li>
-<li>If you just want to check if allocation is not lost, <a class="el" href="vk__mem__alloc_8h.html#a43d8ba9673c846f049089a5029d5c73a" title="Returns VK_TRUE if allocation is not lost and atomically marks it as used in current frame.">vmaTouchAllocation()</a> will work faster. </li>
-</ul>
+<p >Although this function doesn't lock any mutex, so it should be quite efficient, you should avoid calling it too often. You can retrieve same <a class="el" href="struct_vma_allocation_info.html" title="Parameters of VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().">VmaAllocationInfo</a> structure while creating your resource, from function <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. You can remember it if you are sure parameters don't change (e.g. due to defragmentation). </p>
 
 </div>
 </div>
@@ -3415,7 +3263,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Given an allocation, returns Property Flags of its memory type. </p>
-<p >This is just a convenience function. Same information can be obtained using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> + <a class="el" href="vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>. </p>
+<p >This is just a convenience function. Same information can be obtained using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a> + <a class="el" href="vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>. </p>
 
 </div>
 </div>
@@ -3833,50 +3681,6 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a736bd6cbda886f36c891727e73bd4024" name="a736bd6cbda886f36c891727e73bd4024"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a736bd6cbda886f36c891727e73bd4024">&#9670;&nbsp;</a></span>vmaMakePoolAllocationsLost()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vmaMakePoolAllocationsLost </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
-          <td class="paramname"><em>allocator</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="struct_vma_pool.html">VmaPool</a>&#160;</td>
-          <td class="paramname"><em>pool</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t *&#160;</td>
-          <td class="paramname"><em>pLostAllocationCount</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Marks all allocations in given pool as lost if they are not used in current frame or <a class="el" href="struct_vma_pool_create_info.html#a9437e43ffbb644dbbf7fc4e50cfad6aa" title="Maximum number of additional frames that are in use at the same time as current frame.">VmaPoolCreateInfo::frameInUseCount</a> back from now. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
-    <tr><td class="paramdir"></td><td class="paramname">pool</td><td>Pool. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pLostAllocationCount</td><td>Number of allocations marked as lost. Optional - pass null if you don't need this information. </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
 <a id="ad5bd1243512d099706de88168992f069" name="ad5bd1243512d099706de88168992f069"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad5bd1243512d099706de88168992f069">&#9670;&nbsp;</a></span>vmaMapMemory()</h2>
 
@@ -3910,13 +3714,13 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Maps memory represented by given allocation and returns pointer to it. </p>
-<p >Maps memory represented by given allocation to make it accessible to CPU code. When succeeded, <code>*ppData</code> contains pointer to first byte of this memory. If the allocation is part of bigger <code>VkDeviceMemory</code> block, the pointer is correctly offsetted to the beginning of region assigned to this particular allocation.</p>
-<p >Mapping is internally reference-counted and synchronized, so despite raw Vulkan function <code>vkMapMemory()</code> cannot be used to map same block of <code>VkDeviceMemory</code> multiple times simultaneously, it is safe to call this function on allocations assigned to the same memory block. Actual Vulkan memory will be mapped on first mapping and unmapped on last unmapping.</p>
+<p >Maps memory represented by given allocation to make it accessible to CPU code. When succeeded, <code>*ppData</code> contains pointer to first byte of this memory.</p>
+<dl class="section warning"><dt>Warning</dt><dd>If the allocation is part of a bigger <code>VkDeviceMemory</code> block, returned pointer is correctly offsetted to the beginning of region assigned to this particular allocation. Unlike the result of <code>vkMapMemory</code>, it points to the allocation, not to the beginning of the whole block. You should not add <a class="el" href="struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268" title="Offset in VkDeviceMemory object to the beginning of this allocation, in bytes. (deviceMemory,...">VmaAllocationInfo::offset</a> to it!</dd></dl>
+<p>Mapping is internally reference-counted and synchronized, so despite raw Vulkan function <code>vkMapMemory()</code> cannot be used to map same block of <code>VkDeviceMemory</code> multiple times simultaneously, it is safe to call this function on allocations assigned to the same memory block. Actual Vulkan memory will be mapped on first mapping and unmapped on last unmapping.</p>
 <p >If the function succeeded, you must call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> to unmap the allocation when mapping is no longer needed or before freeing the allocation, at the latest.</p>
 <p >It also safe to call this function multiple times on the same allocation. You must call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> same number of times as you called <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>.</p>
 <p >It is also safe to call this function on allocation created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag. Its memory stays mapped all the time. You must still call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> same number of times as you called <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>. You must not call <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a> additional time to free the "0-th" mapping made automatically due to <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag.</p>
 <p >This function fails when used on allocation made in memory type that is not <code>HOST_VISIBLE</code>.</p>
-<p >This function always fails when called for allocation that was created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag. Such allocations cannot be mapped.</p>
 <p >This function doesn't automatically flush or invalidate caches. If the allocation is made from a memory types that is not <code>HOST_COHERENT</code>, you also need to use <a class="el" href="vk__mem__alloc_8h.html#aaa8412919139ef413a4215ac6a290fae" title="Invalidates memory of given allocation.">vmaInvalidateAllocation()</a> / <a class="el" href="vk__mem__alloc_8h.html#a30c37c1eec6025f397be41644f48490f" title="Flushes memory of given allocation.">vmaFlushAllocation()</a>, as required by Vulkan specification. </p>
 
 </div>
@@ -3986,7 +3790,6 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Sets index of the current frame. </p>
-<p >This function must be used if you make allocations with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> and <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e">VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</a> flags to inform the allocator when a new frame begins. Allocations queried using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> cannot become lost in the current frame. </p>
 
 </div>
 </div>
@@ -4060,39 +3863,6 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Changes custom pointer associated with given virtual allocation. </p>
-
-</div>
-</div>
-<a id="a43d8ba9673c846f049089a5029d5c73a" name="a43d8ba9673c846f049089a5029d5c73a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a43d8ba9673c846f049089a5029d5c73a">&#9670;&nbsp;</a></span>vmaTouchAllocation()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">VkBool32 vmaTouchAllocation </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
-          <td class="paramname"><em>allocator</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
-          <td class="paramname"><em>allocation</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Returns <code>VK_TRUE</code> if allocation is not lost and atomically marks it as used in current frame. </p>
-<p >If the allocation has been created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag, this function returns <code>VK_TRUE</code> if it is not in lost state, so it can still be used. It then also atomically "touches" the allocation - marks it as used in current frame, so that you can be sure it won't become lost in current frame or next <code>frameInUseCount</code> frames.</p>
-<p >If the allocation is in lost state, the function returns <code>VK_FALSE</code>. Memory of such allocation, as well as buffer or image bound to it, should not be used. Lost allocation and the buffer/image still need to be destroyed.</p>
-<p >If the allocation has been created without <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag, this function always returns <code>VK_TRUE</code>. </p>
 
 </div>
 </div>

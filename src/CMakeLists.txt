@@ -104,7 +104,3 @@ endif()
 if(VMA_BUILD_SAMPLE_SHADERS)
     add_subdirectory(Shaders)
 endif()
-
-if(VMA_BUILD_REPLAY)
-    add_subdirectory(VmaReplay)
-endif()

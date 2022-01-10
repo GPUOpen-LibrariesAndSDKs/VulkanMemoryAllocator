@@ -77,7 +77,7 @@ Memory initialization</h1>
 <div class="line"><span class="preprocessor">#include &quot;vk_mem_alloc.h&quot;</span></div>
 </div><!-- fragment --><p >It makes memory of all new allocations initialized to bit pattern <code>0xDCDCDCDC</code>. Before an allocation is destroyed, its memory is filled with bit pattern <code>0xEFEFEFEF</code>. Memory is automatically mapped and unmapped if necessary.</p>
 <p >If you find these values while debugging your program, good chances are that you incorrectly read Vulkan memory that is allocated but not initialized, or already freed, respectively.</p>
-<p >Memory initialization works only with memory types that are <code>HOST_VISIBLE</code>. It works also with dedicated allocations. It doesn't work with allocations created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a5f436af6c8fe8540573a6d22627a6fd2">VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT</a> flag, as they cannot be mapped.</p>
+<p >Memory initialization works only with memory types that are <code>HOST_VISIBLE</code>. It works also with dedicated allocations.</p>
 <h1><a class="anchor" id="debugging_memory_usage_margins"></a>
 Margins</h1>
 <p >By default, allocations are laid out in memory blocks next to each other if possible (considering required alignment, <code>bufferImageGranularity</code>, and <code>nonCoherentAtomSize</code>).</p>

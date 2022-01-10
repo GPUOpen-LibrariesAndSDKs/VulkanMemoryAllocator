@@ -78,7 +78,6 @@ Documentation of all members: vk_mem_alloc.h
     - [Memory initialization](@ref debugging_memory_usage_initialization)
     - [Margins](@ref debugging_memory_usage_margins)
     - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
-  - \subpage record_and_replay
   - \subpage opengl_interop
 - \subpage usage_patterns
   - [Common mistakes](@ref usage_patterns_common_mistakes)
@@ -106,14 +105,6 @@ Documentation of all members: vk_mem_alloc.h
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-/*
-Define this macro to 0/1 to disable/enable support for recording functionality,
-available through VmaAllocatorCreateInfo::pRecordSettings.
-*/
-#ifndef VMA_RECORDING_ENABLED
-    #define VMA_RECORDING_ENABLED 0
 #endif
 
 #if defined(__ANDROID__) && defined(VK_NO_PROTOTYPES) && VMA_STATIC_VULKAN_FUNCTIONS
@@ -417,20 +408,6 @@ typedef enum VmaAllocatorCreateFlagBits
     VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocatorCreateFlagBits;
 typedef VkFlags VmaAllocatorCreateFlags;
-
-/// Flags to be used in VmaRecordSettings::flags.
-typedef enum VmaRecordFlagBits
-{
-    /** \brief Enables flush after recording every function call.
-
-    Enable it if you expect your application to crash, which may leave recording file truncated.
-    It may degrade performance though.
-    */
-    VMA_RECORD_FLUSH_AFTER_CALL_BIT = 0x00000001,
-
-    VMA_RECORD_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
-} VmaRecordFlagBits;
-typedef VkFlags VmaRecordFlags;
 
 typedef enum VmaMemoryUsage
 {
@@ -872,21 +849,6 @@ typedef struct VmaVulkanFunctions
 #endif
 } VmaVulkanFunctions;
 
-/// Parameters for recording calls to VMA functions. To be used in VmaAllocatorCreateInfo::pRecordSettings.
-typedef struct VmaRecordSettings
-{
-    /// Flags for recording. Use #VmaRecordFlagBits enum.
-    VmaRecordFlags flags;
-    /** \brief Path to the file that should be written by the recording.
-
-    Suggested extension: "csv".
-    If the file already exists, it will be overwritten.
-    It will be opened for the whole time #VmaAllocator object is alive.
-    If opening this file fails, creation of the whole allocator object fails.
-    */
-    const char* VMA_NOT_NULL pFilePath;
-} VmaRecordSettings;
-
 /// Description of a Allocator to be created.
 typedef struct VmaAllocatorCreateInfo
 {
@@ -938,13 +900,6 @@ typedef struct VmaAllocatorCreateInfo
     For details see [Pointers to Vulkan functions](@ref config_Vulkan_functions).
     */
     const VmaVulkanFunctions* VMA_NULLABLE pVulkanFunctions;
-    /** \brief Parameters for recording of VMA calls. Can be null.
-
-    If not null, it enables recording of calls to VMA functions to a file.
-    If support for recording is not enabled using `VMA_RECORDING_ENABLED` macro,
-    creation of the allocator object fails with `VK_ERROR_FEATURE_NOT_PRESENT`.
-    */
-    const VmaRecordSettings* VMA_NULLABLE pRecordSettings;
     /** \brief Handle to Vulkan instance object.
 
     Starting from version 3.0.0 this member is no longer optional, it must be set!
@@ -2344,16 +2299,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
 #include <cstring>
 #include <utility>
 
-#if VMA_RECORDING_ENABLED
-    #include <chrono>
-    #if defined(_WIN32)
-        #include <windows.h>
-    #else
-        #include <sstream>
-        #include <thread>
-    #endif
-#endif
-
 /*******************************************************************************
 CONFIGURATION SECTION
 
@@ -2886,9 +2831,6 @@ struct VmaCurrentBudgetData;
 
 class VmaAllocationObjectAllocator;
 
-#if VMA_RECORDING_ENABLED
-class VmaRecorder;
-#endif
 #endif // _VMA_FORWARD_DECLARATIONS
 
 
@@ -9707,133 +9649,6 @@ void VmaVirtualBlock_T::BuildStatsString(bool detailedMap, VmaStringBuilder& sb)
 #endif // _VMA_VIRTUAL_BLOCK_T_FUNCTIONS
 #endif // _VMA_VIRTUAL_BLOCK_T
 
-#if VMA_RECORDING_ENABLED
-class VmaRecorder
-{
-public:
-    VmaRecorder();
-    VkResult Init(const VmaRecordSettings& settings, bool useMutex);
-    void WriteConfiguration(
-        const VkPhysicalDeviceProperties& devProps,
-        const VkPhysicalDeviceMemoryProperties& memProps,
-        uint32_t vulkanApiVersion,
-        bool dedicatedAllocationExtensionEnabled,
-        bool bindMemory2ExtensionEnabled,
-        bool memoryBudgetExtensionEnabled,
-        bool deviceCoherentMemoryExtensionEnabled);
-    ~VmaRecorder();
-
-    void RecordCreateAllocator(uint32_t frameIndex);
-    void RecordDestroyAllocator(uint32_t frameIndex);
-    void RecordCreatePool(uint32_t frameIndex,
-        const VmaPoolCreateInfo& createInfo,
-        VmaPool pool);
-    void RecordDestroyPool(uint32_t frameIndex, VmaPool pool);
-    void RecordAllocateMemory(uint32_t frameIndex,
-        const VkMemoryRequirements& vkMemReq,
-        const VmaAllocationCreateInfo& createInfo,
-        VmaAllocation allocation);
-    void RecordAllocateMemoryPages(uint32_t frameIndex,
-        const VkMemoryRequirements& vkMemReq,
-        const VmaAllocationCreateInfo& createInfo,
-        uint64_t allocationCount,
-        const VmaAllocation* pAllocations);
-    void RecordAllocateMemoryForBuffer(uint32_t frameIndex,
-        const VkMemoryRequirements& vkMemReq,
-        bool requiresDedicatedAllocation,
-        bool prefersDedicatedAllocation,
-        const VmaAllocationCreateInfo& createInfo,
-        VmaAllocation allocation);
-    void RecordAllocateMemoryForImage(uint32_t frameIndex,
-        const VkMemoryRequirements& vkMemReq,
-        bool requiresDedicatedAllocation,
-        bool prefersDedicatedAllocation,
-        const VmaAllocationCreateInfo& createInfo,
-        VmaAllocation allocation);
-    void RecordFreeMemory(uint32_t frameIndex,
-        VmaAllocation allocation);
-    void RecordFreeMemoryPages(uint32_t frameIndex,
-        uint64_t allocationCount,
-        const VmaAllocation* pAllocations);
-    void RecordSetAllocationUserData(uint32_t frameIndex,
-        VmaAllocation allocation,
-        const void* pUserData);
-    void RecordMapMemory(uint32_t frameIndex,
-        VmaAllocation allocation);
-    void RecordUnmapMemory(uint32_t frameIndex,
-        VmaAllocation allocation);
-    void RecordFlushAllocation(uint32_t frameIndex,
-        VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size);
-    void RecordInvalidateAllocation(uint32_t frameIndex,
-        VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size);
-    void RecordCreateBuffer(uint32_t frameIndex,
-        const VkBufferCreateInfo& bufCreateInfo,
-        const VmaAllocationCreateInfo& allocCreateInfo,
-        VmaAllocation allocation);
-    void RecordCreateImage(uint32_t frameIndex,
-        const VkImageCreateInfo& imageCreateInfo,
-        const VmaAllocationCreateInfo& allocCreateInfo,
-        VmaAllocation allocation);
-    void RecordDestroyBuffer(uint32_t frameIndex,
-        VmaAllocation allocation);
-    void RecordDestroyImage(uint32_t frameIndex,
-        VmaAllocation allocation);
-    void RecordGetAllocationInfo(uint32_t frameIndex,
-        VmaAllocation allocation);
-    void RecordDefragmentationBegin(uint32_t frameIndex,
-        const VmaDefragmentationInfo2& info,
-        VmaDefragmentationContext ctx);
-    void RecordDefragmentationEnd(uint32_t frameIndex,
-        VmaDefragmentationContext ctx);
-    void RecordSetPoolName(uint32_t frameIndex,
-        VmaPool pool,
-        const char* name);
-
-private:
-    struct CallParams
-    {
-        uint32_t threadId;
-        double time;
-    };
-    class UserDataString
-    {
-    public:
-        UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData);
-        const char* GetString() const { return m_Str; }
-
-    private:
-        char m_PtrStr[17];
-        const char* m_Str;
-    };
-
-    bool m_UseMutex;
-    VmaRecordFlags m_Flags;
-    FILE* m_File;
-    VMA_MUTEX m_FileMutex;
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_RecordingStartTime;
-
-    void GetBasicParams(CallParams& outParams);
-
-    // T must be a pointer type, e.g. VmaAllocation, VmaPool.
-    template<typename T>
-    void PrintPointerList(uint64_t count, const T* pItems)
-    {
-        if (count)
-        {
-            fprintf(m_File, "%p", pItems[0]);
-            for (uint64_t i = 1; i < count; ++i)
-            {
-                fprintf(m_File, " %p", pItems[i]);
-            }
-        }
-    }
-
-    void PrintPointerList(uint64_t count, const VmaAllocation* pItems);
-    void Flush();
-};
-#endif // VMA_RECORDING_ENABLED
-
-
 // Main allocator object.
 struct VmaAllocator_T
 {
@@ -9917,10 +9732,6 @@ public:
     }
 
     uint32_t GetGlobalMemoryTypeBits() const { return m_GlobalMemoryTypeBits; }
-
-#if VMA_RECORDING_ENABLED
-    VmaRecorder* GetRecorder() const { return m_pRecorder; }
-#endif
 
     void GetBufferMemoryRequirements(
         VkBuffer hBuffer,
@@ -10061,10 +9872,6 @@ private:
 
     // Global bit mask AND-ed with any memoryTypeBits to disallow certain memory types.
     uint32_t m_GlobalMemoryTypeBits;
-
-#if VMA_RECORDING_ENABLED
-    VmaRecorder* m_pRecorder;
-#endif
 
     void ImportVulkanFunctions(const VmaVulkanFunctions* pVulkanFunctions);
 
@@ -13191,565 +12998,6 @@ void VmaPool_T::SetName(const char* pName)
 }
 #endif // _VMA_POOL_T_FUNCTIONS
 
-#if VMA_RECORDING_ENABLED
-VmaRecorder::VmaRecorder()
-    : m_UseMutex(true),
-    m_Flags(0),
-    m_File(VMA_NULL),
-    m_RecordingStartTime(std::chrono::high_resolution_clock::now()) {}
-
-VkResult VmaRecorder::Init(const VmaRecordSettings& settings, bool useMutex)
-{
-    m_UseMutex = useMutex;
-    m_Flags = settings.flags;
-
-#if defined(_WIN32)
-    // Open file for writing.
-    errno_t err = fopen_s(&m_File, settings.pFilePath, "wb");
-
-    if(err != 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-#else
-    // Open file for writing.
-    m_File = fopen(settings.pFilePath, "wb");
-
-    if(m_File == 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-#endif
-
-    // Write header.
-    fprintf(m_File, "%s\n", "Vulkan Memory Allocator,Calls recording");
-    fprintf(m_File, "%s\n", "1,8");
-
-    return VK_SUCCESS;
-}
-
-VmaRecorder::~VmaRecorder()
-{
-    if(m_File != VMA_NULL)
-    {
-        fclose(m_File);
-    }
-}
-
-void VmaRecorder::RecordCreateAllocator(uint32_t frameIndex)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaCreateAllocator\n", callParams.threadId, callParams.time, frameIndex);
-    Flush();
-}
-
-void VmaRecorder::RecordDestroyAllocator(uint32_t frameIndex)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaDestroyAllocator\n", callParams.threadId, callParams.time, frameIndex);
-    Flush();
-}
-
-void VmaRecorder::RecordCreatePool(uint32_t frameIndex, const VmaPoolCreateInfo& createInfo, VmaPool pool)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaCreatePool,%u,%u,%llu,%llu,%llu,%p\n", callParams.threadId, callParams.time, frameIndex,
-        createInfo.memoryTypeIndex,
-        createInfo.flags,
-        createInfo.blockSize,
-        (uint64_t)createInfo.minBlockCount,
-        (uint64_t)createInfo.maxBlockCount,
-        pool);
-    Flush();
-}
-
-void VmaRecorder::RecordDestroyPool(uint32_t frameIndex, VmaPool pool)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaDestroyPool,%p\n", callParams.threadId, callParams.time, frameIndex,
-        pool);
-    Flush();
-}
-
-void VmaRecorder::RecordAllocateMemory(uint32_t frameIndex,
-        const VkMemoryRequirements& vkMemReq,
-        const VmaAllocationCreateInfo& createInfo,
-        VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemory,%llu,%llu,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        vkMemReq.size,
-        vkMemReq.alignment,
-        vkMemReq.memoryTypeBits,
-        createInfo.flags,
-        createInfo.usage,
-        createInfo.requiredFlags,
-        createInfo.preferredFlags,
-        createInfo.memoryTypeBits,
-        createInfo.pool,
-        allocation,
-        userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordAllocateMemoryPages(uint32_t frameIndex,
-    const VkMemoryRequirements& vkMemReq,
-    const VmaAllocationCreateInfo& createInfo,
-    uint64_t allocationCount,
-    const VmaAllocation* pAllocations)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemoryPages,%llu,%llu,%u,%u,%u,%u,%u,%u,%p,", callParams.threadId, callParams.time, frameIndex,
-        vkMemReq.size,
-        vkMemReq.alignment,
-        vkMemReq.memoryTypeBits,
-        createInfo.flags,
-        createInfo.usage,
-        createInfo.requiredFlags,
-        createInfo.preferredFlags,
-        createInfo.memoryTypeBits,
-        createInfo.pool);
-    PrintPointerList(allocationCount, pAllocations);
-    fprintf(m_File, ",%s\n", userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordAllocateMemoryForBuffer(uint32_t frameIndex,
-    const VkMemoryRequirements& vkMemReq,
-    bool requiresDedicatedAllocation,
-    bool prefersDedicatedAllocation,
-    const VmaAllocationCreateInfo& createInfo,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemoryForBuffer,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        vkMemReq.size,
-        vkMemReq.alignment,
-        vkMemReq.memoryTypeBits,
-        requiresDedicatedAllocation ? 1 : 0,
-        prefersDedicatedAllocation ? 1 : 0,
-        createInfo.flags,
-        createInfo.usage,
-        createInfo.requiredFlags,
-        createInfo.preferredFlags,
-        createInfo.memoryTypeBits,
-        createInfo.pool,
-        allocation,
-        userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordAllocateMemoryForImage(uint32_t frameIndex,
-    const VkMemoryRequirements& vkMemReq,
-    bool requiresDedicatedAllocation,
-    bool prefersDedicatedAllocation,
-    const VmaAllocationCreateInfo& createInfo,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(createInfo.flags, createInfo.pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaAllocateMemoryForImage,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        vkMemReq.size,
-        vkMemReq.alignment,
-        vkMemReq.memoryTypeBits,
-        requiresDedicatedAllocation ? 1 : 0,
-        prefersDedicatedAllocation ? 1 : 0,
-        createInfo.flags,
-        createInfo.usage,
-        createInfo.requiredFlags,
-        createInfo.preferredFlags,
-        createInfo.memoryTypeBits,
-        createInfo.pool,
-        allocation,
-        userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordFreeMemory(uint32_t frameIndex,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaFreeMemory,%p\n", callParams.threadId, callParams.time, frameIndex,
-        allocation);
-    Flush();
-}
-
-void VmaRecorder::RecordFreeMemoryPages(uint32_t frameIndex,
-    uint64_t allocationCount,
-    const VmaAllocation* pAllocations)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaFreeMemoryPages,", callParams.threadId, callParams.time, frameIndex);
-    PrintPointerList(allocationCount, pAllocations);
-    fprintf(m_File, "\n");
-    Flush();
-}
-
-void VmaRecorder::RecordSetAllocationUserData(uint32_t frameIndex,
-    VmaAllocation allocation,
-    const void* pUserData)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(
-        allocation->IsUserDataString() ? VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT : 0,
-        pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaSetAllocationUserData,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        allocation,
-        userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordMapMemory(uint32_t frameIndex,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaMapMemory,%p\n", callParams.threadId, callParams.time, frameIndex,
-        allocation);
-    Flush();
-}
-
-void VmaRecorder::RecordUnmapMemory(uint32_t frameIndex,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaUnmapMemory,%p\n", callParams.threadId, callParams.time, frameIndex,
-        allocation);
-    Flush();
-}
-
-void VmaRecorder::RecordFlushAllocation(uint32_t frameIndex,
-    VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaFlushAllocation,%p,%llu,%llu\n", callParams.threadId, callParams.time, frameIndex,
-        allocation,
-        offset,
-        size);
-    Flush();
-}
-
-void VmaRecorder::RecordInvalidateAllocation(uint32_t frameIndex,
-    VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaInvalidateAllocation,%p,%llu,%llu\n", callParams.threadId, callParams.time, frameIndex,
-        allocation,
-        offset,
-        size);
-    Flush();
-}
-
-void VmaRecorder::RecordCreateBuffer(uint32_t frameIndex,
-    const VkBufferCreateInfo& bufCreateInfo,
-    const VmaAllocationCreateInfo& allocCreateInfo,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(allocCreateInfo.flags, allocCreateInfo.pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaCreateBuffer,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        bufCreateInfo.flags,
-        bufCreateInfo.size,
-        bufCreateInfo.usage,
-        bufCreateInfo.sharingMode,
-        allocCreateInfo.flags,
-        allocCreateInfo.usage,
-        allocCreateInfo.requiredFlags,
-        allocCreateInfo.preferredFlags,
-        allocCreateInfo.memoryTypeBits,
-        allocCreateInfo.pool,
-        allocation,
-        userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordCreateImage(uint32_t frameIndex,
-    const VkImageCreateInfo& imageCreateInfo,
-    const VmaAllocationCreateInfo& allocCreateInfo,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    UserDataString userDataStr(allocCreateInfo.flags, allocCreateInfo.pUserData);
-    fprintf(m_File, "%u,%.3f,%u,vmaCreateImage,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%p,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        imageCreateInfo.flags,
-        imageCreateInfo.imageType,
-        imageCreateInfo.format,
-        imageCreateInfo.extent.width,
-        imageCreateInfo.extent.height,
-        imageCreateInfo.extent.depth,
-        imageCreateInfo.mipLevels,
-        imageCreateInfo.arrayLayers,
-        imageCreateInfo.samples,
-        imageCreateInfo.tiling,
-        imageCreateInfo.usage,
-        imageCreateInfo.sharingMode,
-        imageCreateInfo.initialLayout,
-        allocCreateInfo.flags,
-        allocCreateInfo.usage,
-        allocCreateInfo.requiredFlags,
-        allocCreateInfo.preferredFlags,
-        allocCreateInfo.memoryTypeBits,
-        allocCreateInfo.pool,
-        allocation,
-        userDataStr.GetString());
-    Flush();
-}
-
-void VmaRecorder::RecordDestroyBuffer(uint32_t frameIndex,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaDestroyBuffer,%p\n", callParams.threadId, callParams.time, frameIndex,
-        allocation);
-    Flush();
-}
-
-void VmaRecorder::RecordDestroyImage(uint32_t frameIndex,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaDestroyImage,%p\n", callParams.threadId, callParams.time, frameIndex,
-        allocation);
-    Flush();
-}
-
-void VmaRecorder::RecordGetAllocationInfo(uint32_t frameIndex,
-    VmaAllocation allocation)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaGetAllocationInfo,%p\n", callParams.threadId, callParams.time, frameIndex,
-        allocation);
-    Flush();
-}
-
-void VmaRecorder::RecordDefragmentationBegin(uint32_t frameIndex,
-    const VmaDefragmentationInfo2& info,
-    VmaDefragmentationContext ctx)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaDefragmentationBegin,%u,", callParams.threadId, callParams.time, frameIndex,
-        info.flags);
-    PrintPointerList(info.allocationCount, info.pAllocations);
-    fprintf(m_File, ",");
-    PrintPointerList(info.poolCount, info.pPools);
-    fprintf(m_File, ",%llu,%u,%llu,%u,%p,%p\n",
-        info.maxCpuBytesToMove,
-        info.maxCpuAllocationsToMove,
-        info.maxGpuBytesToMove,
-        info.maxGpuAllocationsToMove,
-        info.commandBuffer,
-        ctx);
-    Flush();
-}
-
-void VmaRecorder::RecordDefragmentationEnd(uint32_t frameIndex,
-    VmaDefragmentationContext ctx)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaDefragmentationEnd,%p\n", callParams.threadId, callParams.time, frameIndex,
-        ctx);
-    Flush();
-}
-
-void VmaRecorder::RecordSetPoolName(uint32_t frameIndex,
-    VmaPool pool,
-    const char* name)
-{
-    CallParams callParams;
-    GetBasicParams(callParams);
-
-    VmaMutexLock lock(m_FileMutex, m_UseMutex);
-    fprintf(m_File, "%u,%.3f,%u,vmaSetPoolName,%p,%s\n", callParams.threadId, callParams.time, frameIndex,
-        pool, name != VMA_NULL ? name : "");
-    Flush();
-}
-
-VmaRecorder::UserDataString::UserDataString(VmaAllocationCreateFlags allocFlags, const void* pUserData)
-{
-    if(pUserData != VMA_NULL)
-    {
-        if((allocFlags & VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT) != 0)
-        {
-            m_Str = (const char*)pUserData;
-        }
-        else
-        {
-            // If VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is not specified, convert the string's memory address to a string and store it.
-            snprintf(m_PtrStr, 17, "%p", pUserData);
-            m_Str = m_PtrStr;
-        }
-    }
-    else
-    {
-        m_Str = "";
-    }
-}
-
-void VmaRecorder::WriteConfiguration(
-    const VkPhysicalDeviceProperties& devProps,
-    const VkPhysicalDeviceMemoryProperties& memProps,
-    uint32_t vulkanApiVersion,
-    bool dedicatedAllocationExtensionEnabled,
-    bool bindMemory2ExtensionEnabled,
-    bool memoryBudgetExtensionEnabled,
-    bool deviceCoherentMemoryExtensionEnabled)
-{
-    fprintf(m_File, "Config,Begin\n");
-
-    fprintf(m_File, "VulkanApiVersion,%u,%u\n", VK_VERSION_MAJOR(vulkanApiVersion), VK_VERSION_MINOR(vulkanApiVersion));
-
-    fprintf(m_File, "PhysicalDevice,apiVersion,%u\n", devProps.apiVersion);
-    fprintf(m_File, "PhysicalDevice,driverVersion,%u\n", devProps.driverVersion);
-    fprintf(m_File, "PhysicalDevice,vendorID,%u\n", devProps.vendorID);
-    fprintf(m_File, "PhysicalDevice,deviceID,%u\n", devProps.deviceID);
-    fprintf(m_File, "PhysicalDevice,deviceType,%u\n", devProps.deviceType);
-    fprintf(m_File, "PhysicalDevice,deviceName,%s\n", devProps.deviceName);
-
-    fprintf(m_File, "PhysicalDeviceLimits,maxMemoryAllocationCount,%u\n", devProps.limits.maxMemoryAllocationCount);
-    fprintf(m_File, "PhysicalDeviceLimits,bufferImageGranularity,%llu\n", devProps.limits.bufferImageGranularity);
-    fprintf(m_File, "PhysicalDeviceLimits,nonCoherentAtomSize,%llu\n", devProps.limits.nonCoherentAtomSize);
-
-    fprintf(m_File, "PhysicalDeviceMemory,HeapCount,%u\n", memProps.memoryHeapCount);
-    for(uint32_t i = 0; i < memProps.memoryHeapCount; ++i)
-    {
-        fprintf(m_File, "PhysicalDeviceMemory,Heap,%u,size,%llu\n", i, memProps.memoryHeaps[i].size);
-        fprintf(m_File, "PhysicalDeviceMemory,Heap,%u,flags,%u\n", i, memProps.memoryHeaps[i].flags);
-    }
-    fprintf(m_File, "PhysicalDeviceMemory,TypeCount,%u\n", memProps.memoryTypeCount);
-    for(uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
-    {
-        fprintf(m_File, "PhysicalDeviceMemory,Type,%u,heapIndex,%u\n", i, memProps.memoryTypes[i].heapIndex);
-        fprintf(m_File, "PhysicalDeviceMemory,Type,%u,propertyFlags,%u\n", i, memProps.memoryTypes[i].propertyFlags);
-    }
-
-    fprintf(m_File, "Extension,VK_KHR_dedicated_allocation,%u\n", dedicatedAllocationExtensionEnabled ? 1 : 0);
-    fprintf(m_File, "Extension,VK_KHR_bind_memory2,%u\n", bindMemory2ExtensionEnabled ? 1 : 0);
-    fprintf(m_File, "Extension,VK_EXT_memory_budget,%u\n", memoryBudgetExtensionEnabled ? 1 : 0);
-    fprintf(m_File, "Extension,VK_AMD_device_coherent_memory,%u\n", deviceCoherentMemoryExtensionEnabled ? 1 : 0);
-
-    fprintf(m_File, "Macro,VMA_DEBUG_ALWAYS_DEDICATED_MEMORY,%u\n", VMA_DEBUG_ALWAYS_DEDICATED_MEMORY ? 1 : 0);
-    fprintf(m_File, "Macro,VMA_MIN_ALIGNMENT,%llu\n", (VkDeviceSize)VMA_MIN_ALIGNMENT);
-    fprintf(m_File, "Macro,VMA_DEBUG_MARGIN,%llu\n", (VkDeviceSize)VMA_DEBUG_MARGIN);
-    fprintf(m_File, "Macro,VMA_DEBUG_INITIALIZE_ALLOCATIONS,%u\n", VMA_DEBUG_INITIALIZE_ALLOCATIONS ? 1 : 0);
-    fprintf(m_File, "Macro,VMA_DEBUG_DETECT_CORRUPTION,%u\n", VMA_DEBUG_DETECT_CORRUPTION ? 1 : 0);
-    fprintf(m_File, "Macro,VMA_DEBUG_GLOBAL_MUTEX,%u\n", VMA_DEBUG_GLOBAL_MUTEX ? 1 : 0);
-    fprintf(m_File, "Macro,VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY,%llu\n", (VkDeviceSize)VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY);
-    fprintf(m_File, "Macro,VMA_SMALL_HEAP_MAX_SIZE,%llu\n", (VkDeviceSize)VMA_SMALL_HEAP_MAX_SIZE);
-    fprintf(m_File, "Macro,VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE,%llu\n", (VkDeviceSize)VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE);
-
-    fprintf(m_File, "Config,End\n");
-}
-
-void VmaRecorder::GetBasicParams(CallParams& outParams)
-{
-    #if defined(_WIN32)
-        outParams.threadId = GetCurrentThreadId();
-    #else
-        // Use C++11 features to get thread id and convert it to uint32_t.
-        // There is room for optimization since sstream is quite slow.
-        // Is there a better way to convert std::this_thread::get_id() to uint32_t?
-        std::thread::id thread_id = std::this_thread::get_id();
-        std::stringstream thread_id_to_string_converter;
-        thread_id_to_string_converter << thread_id;
-        std::string thread_id_as_string = thread_id_to_string_converter.str();
-        outParams.threadId = static_cast<uint32_t>(std::stoi(thread_id_as_string.c_str()));
-    #endif
-
-    auto current_time = std::chrono::high_resolution_clock::now();
-
-    outParams.time = std::chrono::duration<double, std::chrono::seconds::period>(current_time - m_RecordingStartTime).count();
-}
-
-void VmaRecorder::PrintPointerList(uint64_t count, const VmaAllocation* pItems)
-{
-    if(count)
-    {
-        fprintf(m_File, "%p", pItems[0]);
-        for(uint64_t i = 1; i < count; ++i)
-        {
-            fprintf(m_File, " %p", pItems[i]);
-        }
-    }
-}
-
-void VmaRecorder::Flush()
-{
-    if((m_Flags & VMA_RECORD_FLUSH_AFTER_CALL_BIT) != 0)
-    {
-        fflush(m_File);
-    }
-}
-
-#endif // VMA_RECORDING_ENABLED
-
 #ifndef _VMA_ALLOCATOR_T_FUNCTIONS
 VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_UseMutex((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT) == 0),
@@ -13773,9 +13021,6 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_GpuDefragmentationMemoryTypeBits(UINT32_MAX),
     m_NextPoolId(0),
     m_GlobalMemoryTypeBits(UINT32_MAX)
-#if VMA_RECORDING_ENABLED
-    ,m_pRecorder(VMA_NULL)
-#endif
 {
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
@@ -13923,31 +13168,6 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
 {
     VkResult res = VK_SUCCESS;
 
-    if(pCreateInfo->pRecordSettings != VMA_NULL &&
-        !VmaStrIsEmpty(pCreateInfo->pRecordSettings->pFilePath))
-    {
-#if VMA_RECORDING_ENABLED
-        m_pRecorder = vma_new(this, VmaRecorder)();
-        res = m_pRecorder->Init(*pCreateInfo->pRecordSettings, m_UseMutex);
-        if(res != VK_SUCCESS)
-        {
-            return res;
-        }
-        m_pRecorder->WriteConfiguration(
-            m_PhysicalDeviceProperties,
-            m_MemProps,
-            m_VulkanApiVersion,
-            m_UseKhrDedicatedAllocation,
-            m_UseKhrBindMemory2,
-            m_UseExtMemoryBudget,
-            m_UseAmdDeviceCoherentMemory);
-        m_pRecorder->RecordCreateAllocator(GetCurrentFrameIndex());
-#else
-        VMA_ASSERT(0 && "VmaAllocatorCreateInfo::pRecordSettings used, but not supported due to VMA_RECORDING_ENABLED not defined to 1.");
-        return VK_ERROR_FEATURE_NOT_PRESENT;
-#endif
-    }
-
 #if VMA_MEMORY_BUDGET
     if(m_UseExtMemoryBudget)
     {
@@ -13960,14 +13180,6 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
 
 VmaAllocator_T::~VmaAllocator_T()
 {
-#if VMA_RECORDING_ENABLED
-    if(m_pRecorder != VMA_NULL)
-    {
-        m_pRecorder->RecordDestroyAllocator(GetCurrentFrameIndex());
-        vma_delete(this, m_pRecorder);
-    }
-#endif
-
     VMA_ASSERT(m_Pools.IsEmpty());
 
     for(size_t memTypeIndex = GetMemoryTypeCount(); memTypeIndex--; )
@@ -16134,16 +15346,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreatePool(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VkResult res = allocator->CreatePool(pCreateInfo, pPool);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordCreatePool(allocator->GetCurrentFrameIndex(), *pCreateInfo, *pPool);
-    }
-#endif
-
-    return res;
+    return allocator->CreatePool(pCreateInfo, pPool);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyPool(
@@ -16161,13 +15364,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyPool(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordDestroyPool(allocator->GetCurrentFrameIndex(), pool);
-    }
-#endif
-
     allocator->DestroyPool(pool);
 }
 
@@ -16181,8 +15377,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStats(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     allocator->GetPoolStats(pool, pPoolStats);
-}
-
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocator, VmaPool pool)
 {
     VMA_ASSERT(allocator && pool);
@@ -16220,13 +15414,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     pool->SetName(pName);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordSetPoolName(allocator->GetCurrentFrameIndex(), pool, pName);
-    }
-#endif
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
@@ -16253,17 +15440,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         1, // allocationCount
         pAllocation);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordAllocateMemory(
-            allocator->GetCurrentFrameIndex(),
-            *pVkMemoryRequirements,
-            *pCreateInfo,
-            *pAllocation);
-    }
-#endif
 
     if(pAllocationInfo != VMA_NULL && result == VK_SUCCESS)
     {
@@ -16303,18 +15479,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         allocationCount,
         pAllocations);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordAllocateMemoryPages(
-            allocator->GetCurrentFrameIndex(),
-            *pVkMemoryRequirements,
-            *pCreateInfo,
-            (uint64_t)allocationCount,
-            pAllocations);
-    }
-#endif
 
     if(pAllocationInfo != VMA_NULL && result == VK_SUCCESS)
     {
@@ -16359,19 +15523,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
         1, // allocationCount
         pAllocation);
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordAllocateMemoryForBuffer(
-            allocator->GetCurrentFrameIndex(),
-            vkMemReq,
-            requiresDedicatedAllocation,
-            prefersDedicatedAllocation,
-            *pCreateInfo,
-            *pAllocation);
-    }
-#endif
-
     if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
@@ -16411,19 +15562,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
         1, // allocationCount
         pAllocation);
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordAllocateMemoryForImage(
-            allocator->GetCurrentFrameIndex(),
-            vkMemReq,
-            requiresDedicatedAllocation,
-            prefersDedicatedAllocation,
-            *pCreateInfo,
-            *pAllocation);
-    }
-#endif
-
     if(pAllocationInfo && result == VK_SUCCESS)
     {
         allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
@@ -16447,15 +15585,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordFreeMemory(
-            allocator->GetCurrentFrameIndex(),
-            allocation);
-    }
-#endif
-
     allocator->FreeMemory(
         1, // allocationCount
         &allocation);
@@ -16477,16 +15606,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemoryPages(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordFreeMemoryPages(
-            allocator->GetCurrentFrameIndex(),
-            (uint64_t)allocationCount,
-            pAllocations);
-    }
-#endif
-
     allocator->FreeMemory(allocationCount, pAllocations);
 }
 
@@ -16499,18 +15618,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordGetAllocationInfo(
-            allocator->GetCurrentFrameIndex(),
-            allocation);
-    }
-#endif
-
     allocator->GetAllocationInfo(allocation, pAllocationInfo);
-}
-
 VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationUserData(
     VmaAllocator allocator,
     VmaAllocation allocation,
@@ -16521,16 +15629,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationUserData(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     allocation->SetUserData(allocator, pUserData);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordSetAllocationUserData(
-            allocator->GetCurrentFrameIndex(),
-            allocation,
-            pUserData);
-    }
-#endif
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
@@ -16552,18 +15650,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapMemory(
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VkResult res = allocator->Map(allocation, ppData);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordMapMemory(
-            allocator->GetCurrentFrameIndex(),
-            allocation);
-    }
-#endif
-
-    return res;
+    return allocator->Map(allocation, ppData);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaUnmapMemory(
@@ -16573,15 +15660,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaUnmapMemory(
     VMA_ASSERT(allocator && allocation);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordUnmapMemory(
-            allocator->GetCurrentFrameIndex(),
-            allocation);
-    }
-#endif
 
     allocator->Unmap(allocation);
 }
@@ -16596,15 +15674,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocation(VmaAllocator allocator, V
 
     const VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_FLUSH);
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordFlushAllocation(
-            allocator->GetCurrentFrameIndex(),
-            allocation, offset, size);
-    }
-#endif
-
     return res;
 }
 
@@ -16617,15 +15686,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(VmaAllocator allocat
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     const VkResult res = allocator->FlushOrInvalidateAllocation(allocation, offset, size, VMA_CACHE_INVALIDATE);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordInvalidateAllocation(
-            allocator->GetCurrentFrameIndex(),
-            allocation, offset, size);
-    }
-#endif
 
     return res;
 }
@@ -16652,13 +15712,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocations(
 
     const VkResult res = allocator->FlushOrInvalidateAllocations(allocationCount, allocations, offsets, sizes, VMA_CACHE_FLUSH);
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        //TODO
-    }
-#endif
-
     return res;
 }
 
@@ -16683,13 +15736,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocations(
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
     const VkResult res = allocator->FlushOrInvalidateAllocations(allocationCount, allocations, offsets, sizes, VMA_CACHE_INVALIDATE);
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        //TODO
-    }
-#endif
 
     return res;
 }
@@ -16765,14 +15811,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationBegin(
 
     VkResult res = allocator->DefragmentationBegin(*pInfo, pStats, pContext);
 
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordDefragmentationBegin(
-            allocator->GetCurrentFrameIndex(), *pInfo, *pContext);
-    }
-#endif
-
     return res;
 }
 
@@ -16787,15 +15825,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaDefragmentationEnd(
     if(context != VK_NULL_HANDLE)
     {
         VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
-#if VMA_RECORDING_ENABLED
-        if(allocator->GetRecorder() != VMA_NULL)
-        {
-            allocator->GetRecorder()->RecordDefragmentationEnd(
-                allocator->GetCurrentFrameIndex(), context);
-        }
-#endif
-
         return allocator->DefragmentationEnd(context);
     }
     else
@@ -16956,17 +15985,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
             1, // allocationCount
             pAllocation);
 
-#if VMA_RECORDING_ENABLED
-        if(allocator->GetRecorder() != VMA_NULL)
-        {
-            allocator->GetRecorder()->RecordCreateBuffer(
-                allocator->GetCurrentFrameIndex(),
-                *pBufferCreateInfo,
-                *pAllocationCreateInfo,
-                *pAllocation);
-        }
-#endif
-
         if(res >= 0)
         {
             // 3. Bind buffer with memory.
@@ -17062,13 +16080,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
             1, // allocationCount
             pAllocation);
 
-#if VMA_RECORDING_ENABLED
-        if(allocator->GetRecorder() != VMA_NULL)
-        {
-            VMA_ASSERT(0 && "Not implemented.");
-        }
-#endif
-
         if(res >= 0)
         {
             // 3. Bind buffer with memory.
@@ -17119,15 +16130,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyBuffer(
     VMA_DEBUG_LOG("vmaDestroyBuffer");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordDestroyBuffer(
-            allocator->GetCurrentFrameIndex(),
-            allocation);
-    }
-#endif
 
     if(buffer != VK_NULL_HANDLE)
     {
@@ -17199,17 +16201,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
             1, // allocationCount
             pAllocation);
 
-#if VMA_RECORDING_ENABLED
-        if(allocator->GetRecorder() != VMA_NULL)
-        {
-            allocator->GetRecorder()->RecordCreateImage(
-                allocator->GetCurrentFrameIndex(),
-                *pImageCreateInfo,
-                *pAllocationCreateInfo,
-                *pAllocation);
-        }
-#endif
-
         if(res >= 0)
         {
             // 3. Bind image with memory.
@@ -17260,15 +16251,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
     VMA_DEBUG_LOG("vmaDestroyImage");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-
-#if VMA_RECORDING_ENABLED
-    if(allocator->GetRecorder() != VMA_NULL)
-    {
-        allocator->GetRecorder()->RecordDestroyImage(
-            allocator->GetCurrentFrameIndex(),
-            allocation);
-    }
-#endif
 
     if(image != VK_NULL_HANDLE)
     {
@@ -18824,58 +17806,6 @@ vmaCheckPoolCorruption().
 
 Margin validation (corruption detection) works only for memory types that are
 `HOST_VISIBLE` and `HOST_COHERENT`.
-
-
-\page record_and_replay Record and replay
-
-\section record_and_replay_introduction Introduction
-
-While using the library, sequence of calls to its functions together with their
-parameters can be recorded to a file and later replayed using standalone player
-application. It can be useful to:
-
-- Test correctness - check if same sequence of calls will not cause crash or
-  failures on a target platform.
-- Gather statistics - see number of allocations, peak memory usage, number of
-  calls etc.
-- Benchmark performance - see how much time it takes to replay the whole
-  sequence.
-
-\section record_and_replay_usage Usage
-
-Recording functionality is disabled by default.
-To enable it, define following macro before every include of this library:
-
-\code
-#define VMA_RECORDING_ENABLED 1
-\endcode
-
-<b>To record sequence of calls to a file:</b> Fill in
-VmaAllocatorCreateInfo::pRecordSettings member while creating #VmaAllocator
-object. File is opened and written during whole lifetime of the allocator.
-
-<b>To replay file:</b> Use VmaReplay - standalone command-line program.
-Precompiled binary can be found in "bin" directory.
-Its source can be found in "src/VmaReplay" directory.
-Its project is generated by Premake.
-Command line syntax is printed when the program is launched without parameters.
-Basic usage:
-
-    VmaReplay.exe MyRecording.csv
-
-<b>Documentation of file format</b> can be found in file: "docs/Recording file format.md".
-It is a human-readable, text file in CSV format (Comma Separated Values).
-
-\section record_and_replay_additional_considerations Additional considerations
-
-- Replaying file that was recorded on a different GPU (with different parameters
-  like `bufferImageGranularity`, `nonCoherentAtomSize`, and especially different
-  set of memory heaps and types) may give different performance and memory usage
-  results, as well as issue some warnings and errors.
-- Current implementation of recording in VMA, as well as VmaReplay application, is
-  coded and tested only on Windows. Inclusion of recording code is driven by
-  `VMA_RECORDING_ENABLED` macro. Support for other platforms should be easy to
-  add. Contributions are welcomed.
 
 
 \page opengl_interop OpenGL Interop

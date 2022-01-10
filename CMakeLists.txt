@@ -5,16 +5,13 @@ project(VulkanMemoryAllocator)
 find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIR})
 
-# VulkanMemoryAllocator contains an sample application and VmaReplay which are not build by default
+# VulkanMemoryAllocator contains an sample application which is not built by default
 option(VMA_BUILD_SAMPLE "Build VulkanMemoryAllocator sample application" OFF)
 option(VMA_BUILD_SAMPLE_SHADERS "Build VulkanMemoryAllocator sample application's shaders" OFF)
-option(VMA_BUILD_REPLAY "Build VulkanMemoryAllocator replay application" OFF)
 
 message(STATUS "VMA_BUILD_SAMPLE = ${VMA_BUILD_SAMPLE}")
 message(STATUS "VMA_BUILD_SAMPLE_SHADERS = ${VMA_BUILD_SAMPLE_SHADERS}")
-message(STATUS "VMA_BUILD_REPLAY = ${VMA_BUILD_REPLAY}")
 
-option(VMA_RECORDING_ENABLED "Enable VMA memory recording for debugging" OFF)
 option(VMA_STATIC_VULKAN_FUNCTIONS "Link statically with Vulkan API" ON)
 option(VMA_DYNAMIC_VULKAN_FUNCTIONS "Fetch pointers to Vulkan functions internally (no static linking)" OFF)
 option(VMA_DEBUG_ALWAYS_DEDICATED_MEMORY "Every allocation will have its own memory block" OFF)
@@ -22,7 +19,6 @@ option(VMA_DEBUG_INITIALIZE_ALLOCATIONS "Automatically fill new allocations and 
 option(VMA_DEBUG_GLOBAL_MUTEX "Enable single mutex protecting all entry calls to the library" OFF)
 option(VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT "Never exceed VkPhysicalDeviceLimits::maxMemoryAllocationCount and return error" OFF)
 
-message(STATUS "VMA_RECORDING_ENABLED = ${VMA_RECORDING_ENABLED}")
 message(STATUS "VMA_STATIC_VULKAN_FUNCTIONS = ${VMA_STATIC_VULKAN_FUNCTIONS}")
 message(STATUS "VMA_DYNAMIC_VULKAN_FUNCTIONS = ${VMA_DYNAMIC_VULKAN_FUNCTIONS}")
 message(STATUS "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY = ${VMA_DEBUG_ALWAYS_DEDICATED_MEMORY}")

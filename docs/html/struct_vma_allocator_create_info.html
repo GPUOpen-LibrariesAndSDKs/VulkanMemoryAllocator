@@ -94,18 +94,12 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:af1380969b5e1ea4c3184a877892d260e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_device_memory_callbacks.html">VmaDeviceMemoryCallbacks</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e">pDeviceMemoryCallbacks</a></td></tr>
 <tr class="memdesc:af1380969b5e1ea4c3184a877892d260e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Informative callbacks for <code>vkAllocateMemory</code>, <code>vkFreeMemory</code>. Optional.  <a href="struct_vma_allocator_create_info.html#af1380969b5e1ea4c3184a877892d260e">More...</a><br /></td></tr>
 <tr class="separator:af1380969b5e1ea4c3184a877892d260e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a21ea188dd212b8171cb9ecbed4a2a3a7"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a21ea188dd212b8171cb9ecbed4a2a3a7">frameInUseCount</a></td></tr>
-<tr class="memdesc:a21ea188dd212b8171cb9ecbed4a2a3a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of additional frames that are in use at the same time as current frame.  <a href="struct_vma_allocator_create_info.html#a21ea188dd212b8171cb9ecbed4a2a3a7">More...</a><br /></td></tr>
-<tr class="separator:a21ea188dd212b8171cb9ecbed4a2a3a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="memItemLeft" align="right" valign="top">const VkDeviceSize *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a31c192aa6cbffa33279f6d9f0c47c44b">pHeapSizeLimit</a></td></tr>
 <tr class="memdesc:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Either null or a pointer to an array of limits on maximum number of bytes that can be allocated out of particular Vulkan memory heap.  <a href="struct_vma_allocator_create_info.html#a31c192aa6cbffa33279f6d9f0c47c44b">More...</a><br /></td></tr>
 <tr class="separator:a31c192aa6cbffa33279f6d9f0c47c44b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3dc197be3227da7338b1643f70db36bd"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd">pVulkanFunctions</a></td></tr>
 <tr class="memdesc:a3dc197be3227da7338b1643f70db36bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointers to Vulkan functions. Can be null.  <a href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd">More...</a><br /></td></tr>
 <tr class="separator:a3dc197be3227da7338b1643f70db36bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ace2aa4877b16a42b0b7673d4e26000ee"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee">pRecordSettings</a></td></tr>
-<tr class="memdesc:ace2aa4877b16a42b0b7673d4e26000ee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for recording of VMA calls. Can be null.  <a href="struct_vma_allocator_create_info.html#ace2aa4877b16a42b0b7673d4e26000ee">More...</a><br /></td></tr>
-<tr class="separator:ace2aa4877b16a42b0b7673d4e26000ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="memItemLeft" align="right" valign="top">VkInstance&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">instance</a></td></tr>
 <tr class="memdesc:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Handle to Vulkan instance object.  <a href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">More...</a><br /></td></tr>
 <tr class="separator:a70dd42e29b1df1d1b9b61532ae0b370b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -149,25 +143,6 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Flags for created allocator. Use <a class="el" href="vk__mem__alloc_8h.html#afd73b95e737ee7e76f827cb5472f559f" title="Flags for created VmaAllocator.">VmaAllocatorCreateFlagBits</a> enum. </p>
-
-</div>
-</div>
-<a id="a21ea188dd212b8171cb9ecbed4a2a3a7" name="a21ea188dd212b8171cb9ecbed4a2a3a7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a21ea188dd212b8171cb9ecbed4a2a3a7">&#9670;&nbsp;</a></span>frameInUseCount</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint32_t VmaAllocatorCreateInfo::frameInUseCount</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Maximum number of additional frames that are in use at the same time as current frame. </p>
-<p >This value is used only when you make allocations with VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT flag. Such allocation cannot become lost if allocation.lastUseFrameIndex &gt;= allocator.currentFrameIndex - frameInUseCount.</p>
-<p >For example, if you double-buffer your command buffers, so resources used for rendering in previous frame may still be in use by the GPU at the moment you allocate resources needed for the current frame, set this value to 1.</p>
-<p >If you want to allow any allocations other than used in the current frame to become lost, set this value to 0. </p>
 
 </div>
 </div>
@@ -260,23 +235,6 @@ Public Attributes</h2></td></tr>
 
 <p>Vulkan physical device. </p>
 <p >It must be valid throughout whole lifetime of created allocator. </p>
-
-</div>
-</div>
-<a id="ace2aa4877b16a42b0b7673d4e26000ee" name="ace2aa4877b16a42b0b7673d4e26000ee"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ace2aa4877b16a42b0b7673d4e26000ee">&#9670;&nbsp;</a></span>pRecordSettings</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">const <a class="el" href="struct_vma_record_settings.html">VmaRecordSettings</a>* VmaAllocatorCreateInfo::pRecordSettings</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Parameters for recording of VMA calls. Can be null. </p>
-<p >If not null, it enables recording of calls to VMA functions to a file. If support for recording is not enabled using <code>VMA_RECORDING_ENABLED</code> macro, creation of the allocator object fails with <code>VK_ERROR_FEATURE_NOT_PRESENT</code>. </p>
 
 </div>
 </div>

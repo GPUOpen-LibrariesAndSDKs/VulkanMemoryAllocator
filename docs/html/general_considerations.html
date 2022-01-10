@@ -75,7 +75,7 @@ Thread safety</h1>
 <li>The library has no global state, so separate <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> objects can be used independently. There should be no need to create multiple such objects though - one per <code>VkDevice</code> is enough.</li>
 <li>By default, all calls to functions that take <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> as first parameter are safe to call from multiple threads simultaneously because they are synchronized internally when needed. This includes allocation and deallocation from default memory pool, as well as custom <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>.</li>
 <li>When the allocator is created with <a class="el" href="vk__mem__alloc_8h.html#a4f87c9100d154a65a4ad495f7763cf7ca4816ddaed324ba110172ca608a20f29d" title="Allocator and all objects created from it will not be synchronized internally, so you must guarantee ...">VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT</a> flag, calls to functions that take such <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object must be synchronized externally.</li>
-<li>Access to a <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> object must be externally synchronized. For example, you must not call <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation and atomically marks it as used in current fra...">vmaGetAllocationInfo()</a> and <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> from different threads at the same time if you pass the same <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> object to these functions.</li>
+<li>Access to a <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> object must be externally synchronized. For example, you must not call <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a> and <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> from different threads at the same time if you pass the same <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> object to these functions.</li>
 <li><a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a> is also not safe to be used from multiple threads simultaneously.</li>
 </ul>
 <h1><a class="anchor" id="general_considerations_validation_layer_warnings"></a>
@@ -91,8 +91,7 @@ Validation layer warnings</h1>
 </ul>
 </li>
 <li><em>Non-linear image 0xebc91 is aliased with linear buffer 0xeb8e4 which may indicate a bug.</em><ul>
-<li>It happens when you use lost allocations, and a new image or buffer is created in place of an existing object that became lost.</li>
-<li>It may happen also when you use <a class="el" href="defragmentation.html">defragmentation</a>.</li>
+<li>It may happen when you use <a class="el" href="defragmentation.html">defragmentation</a>.</li>
 </ul>
 </li>
 </ul>
@@ -103,7 +102,6 @@ Allocation algorithm</h1>
 <li>Try to find free range of memory in existing blocks.</li>
 <li>If failed, try to create a new block of <code>VkDeviceMemory</code>, with preferred block size.</li>
 <li>If failed, try to create such block with size/2, size/4, size/8.</li>
-<li>If failed and <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a68686d0ce9beb0d4d1b9f2b8b1389a7e">VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT</a> flag was specified, try to find space in existing blocks, possilby making some other allocations lost.</li>
 <li>If failed, try to allocate separate <code>VkDeviceMemory</code> for this allocation, just like when you use <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a>.</li>
 <li>If failed, choose other memory type that meets the requirements specified in <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> and go to point 1.</li>
 <li>If failed, return <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>.</li>
