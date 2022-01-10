@@ -170,7 +170,6 @@ struct PoolTestResult
     duration TotalTime;
     duration AllocationTimeMin, AllocationTimeAvg, AllocationTimeMax;
     duration DeallocationTimeMin, DeallocationTimeAvg, DeallocationTimeMax;
-    size_t LostAllocationCount, LostAllocationTotalSize;
     size_t FailedAllocationCount, FailedAllocationTotalSize;
 };
 
@@ -263,7 +262,6 @@ struct PoolTestThreadResult
     duration AllocationTimeMin, AllocationTimeSum, AllocationTimeMax;
     duration DeallocationTimeMin, DeallocationTimeSum, DeallocationTimeMax;
     size_t AllocationCount, DeallocationCount;
-    size_t LostAllocationCount, LostAllocationTotalSize;
     size_t FailedAllocationCount, FailedAllocationTotalSize;
 };
 
@@ -2643,20 +2641,6 @@ static void TestBasics()
 
     TestMemoryRequirements();
 
-    // Lost allocation
-    {
-        VmaAllocation alloc = VK_NULL_HANDLE;
-        vmaCreateLostAllocation(g_hAllocator, &alloc);
-        TEST(alloc != VK_NULL_HANDLE);
-
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(g_hAllocator, alloc, &allocInfo);
-        TEST(allocInfo.deviceMemory == VK_NULL_HANDLE);
-        TEST(allocInfo.size == 0);
-
-        vmaFreeMemory(g_hAllocator, alloc);
-    }
-    
     // Allocation that is MAPPED and not necessarily HOST_VISIBLE.
     {
         VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -3740,127 +3724,6 @@ static void TestLinearAllocator()
         }
     }
 
-    // Test ring buffer with lost allocations.
-    {
-        // Allocate number of buffers until pool is full.
-        // Notice CAN_BECOME_LOST flag and call to vmaSetCurrentFrameIndex.
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT;
-        res = VK_SUCCESS;
-        for(size_t i = 0; res == VK_SUCCESS; ++i)
-        {
-            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
-
-            BufferInfo newBufInfo;
-            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
-                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
-            if(res == VK_SUCCESS)
-                bufInfo.push_back(newBufInfo);
-        }
-
-        // Free first half of it.
-        {
-            const size_t buffersToDelete = bufInfo.size() / 2;
-            for(size_t i = 0; i < buffersToDelete; ++i)
-            {
-                vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
-            }
-            bufInfo.erase(bufInfo.begin(), bufInfo.begin() + buffersToDelete);
-        }
-
-        // Allocate number of buffers until pool is full again.
-        // This way we make sure ring buffers wraps around, front in in the middle.
-        res = VK_SUCCESS;
-        for(size_t i = 0; res == VK_SUCCESS; ++i)
-        {
-            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
-
-            BufferInfo newBufInfo;
-            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
-                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
-            if(res == VK_SUCCESS)
-                bufInfo.push_back(newBufInfo);
-        }
-
-        VkDeviceSize firstNewOffset;
-        {
-            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-            // Allocate a large buffer with CAN_MAKE_OTHER_LOST.
-            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
-            bufCreateInfo.size = bufSizeMax;
-
-            BufferInfo newBufInfo;
-            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
-                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
-            TEST(res == VK_SUCCESS);
-            bufInfo.push_back(newBufInfo);
-            firstNewOffset = allocInfo.offset;
-
-            // Make sure at least one buffer from the beginning became lost.
-            vmaGetAllocationInfo(g_hAllocator, bufInfo[0].Allocation, &allocInfo);
-            TEST(allocInfo.deviceMemory == VK_NULL_HANDLE);
-        }
-
-#if 0 // TODO Fix and uncomment. Failing on Intel.
-        // Allocate more buffers that CAN_MAKE_OTHER_LOST until we wrap-around with this.
-        size_t newCount = 1;
-        for(;;)
-        {
-            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
-
-            BufferInfo newBufInfo;
-            res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
-                &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
-
-            TEST(res == VK_SUCCESS);
-            bufInfo.push_back(newBufInfo);
-            ++newCount;
-            if(allocInfo.offset < firstNewOffset)
-                break;
-        }
-#endif
-
-        // Delete buffers that are lost.
-        for(size_t i = bufInfo.size(); i--; )
-        {
-            vmaGetAllocationInfo(g_hAllocator, bufInfo[i].Allocation, &allocInfo);
-            if(allocInfo.deviceMemory == VK_NULL_HANDLE)
-            {
-                vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
-                bufInfo.erase(bufInfo.begin() + i);
-            }
-        }
-
-        // Test vmaMakePoolAllocationsLost
-        {
-            vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
-
-            size_t lostAllocCount = 0;
-            vmaMakePoolAllocationsLost(g_hAllocator, pool, &lostAllocCount);
-            TEST(lostAllocCount > 0);
-
-            size_t realLostAllocCount = 0;
-            for(size_t i = 0; i < bufInfo.size(); ++i)
-            {
-                vmaGetAllocationInfo(g_hAllocator, bufInfo[i].Allocation, &allocInfo);
-                if(allocInfo.deviceMemory == VK_NULL_HANDLE)
-                    ++realLostAllocCount;
-            }
-            TEST(realLostAllocCount == lostAllocCount);
-        }
-
-        // Destroy all the buffers in forward order.
-        for(size_t i = 0; i < bufInfo.size(); ++i)
-            vmaDestroyBuffer(g_hAllocator, bufInfo[i].Buffer, bufInfo[i].Allocation);
-        bufInfo.clear();
-    }
-
     vmaDestroyPool(g_hAllocator, pool);
 }
 
@@ -4138,6 +4001,7 @@ static void BenchmarkAlgorithmsCase(FILE* file,
     TEST(res == VK_SUCCESS);
 
     poolCreateInfo.blockSize = bufSizeMax * maxBufCapacity;
+    poolCreateInfo.flags = VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT;//TODO remove this
     poolCreateInfo.flags |= algorithm;
     poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
 
@@ -4448,7 +4312,6 @@ static void TestPool_SameSize()
     poolCreateInfo.blockSize = BUF_SIZE * BUF_COUNT / 4;
     poolCreateInfo.minBlockCount = 1;
     poolCreateInfo.maxBlockCount = 4;
-    poolCreateInfo.frameInUseCount = 0;
 
     VmaPool pool;
     res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
@@ -4470,8 +4333,6 @@ static void TestPool_SameSize()
 
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.pool = pool;
-    allocInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
-        VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
 
     struct BufItem
     {
@@ -4496,7 +4357,7 @@ static void TestPool_SameSize()
         TEST(res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
     }
 
-    // Validate that no buffer is lost. Also check that they are not mapped.
+    // Validate allocations.
     for(size_t i = 0; i < items.size(); ++i)
     {
         VmaAllocationInfo allocInfo;
@@ -4529,8 +4390,8 @@ static void TestPool_SameSize()
                 {
                     BufItem item;
                     res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &allocInfo, &item.Buf, &item.Alloc, nullptr);
-                    TEST(res == VK_SUCCESS);
-                    items.push_back(item);
+                    if(res == VK_SUCCESS)
+                        items.push_back(item);
                }
             }
             else // Free
@@ -4552,44 +4413,6 @@ static void TestPool_SameSize()
         res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &allocInfo, &item.Buf, &item.Alloc, nullptr);
         TEST(res == VK_SUCCESS);
         items.push_back(item);
-    }
-
-    // Validate that no buffer is lost.
-    for(size_t i = 0; i < items.size(); ++i)
-    {
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(g_hAllocator, items[i].Alloc, &allocInfo);
-        TEST(allocInfo.deviceMemory != VK_NULL_HANDLE);
-    }
-    
-    // Next frame.
-    vmaSetCurrentFrameIndex(g_hAllocator, 2);
-
-    // Allocate another BUF_COUNT buffers.
-    for(size_t i = 0; i < BUF_COUNT; ++i)
-    {
-        BufItem item;
-        res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &allocInfo, &item.Buf, &item.Alloc, nullptr);
-        TEST(res == VK_SUCCESS);
-        items.push_back(item);
-    }
-
-    // Make sure the first BUF_COUNT is lost. Delete them.
-    for(size_t i = 0; i < BUF_COUNT; ++i)
-    {
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(g_hAllocator, items[i].Alloc, &allocInfo);
-        TEST(allocInfo.deviceMemory == VK_NULL_HANDLE);
-        vmaDestroyBuffer(g_hAllocator, items[i].Buf, items[i].Alloc);
-    }
-    items.erase(items.begin(), items.begin() + BUF_COUNT);
-
-    // Validate that no buffer is lost.
-    for(size_t i = 0; i < items.size(); ++i)
-    {
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(g_hAllocator, items[i].Alloc, &allocInfo);
-        TEST(allocInfo.deviceMemory != VK_NULL_HANDLE);
     }
 
     // Free one item.
@@ -4642,45 +4465,6 @@ static void TestPool_SameSize()
     // Free all remaining items.
     for(size_t i = items.size(); i--; )
         vmaDestroyBuffer(g_hAllocator, items[i].Buf, items[i].Alloc);
-    items.clear();
-
-    ////////////////////////////////////////////////////////////////////////////////
-    // Test for vmaMakePoolAllocationsLost
-
-    // Allocate 4 buffers on frame 10.
-    vmaSetCurrentFrameIndex(g_hAllocator, 10);
-    for(size_t i = 0; i < 4; ++i)
-    {
-        BufItem item;
-        res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &allocInfo, &item.Buf, &item.Alloc, nullptr);
-        TEST(res == VK_SUCCESS);
-        items.push_back(item);
-    }
-
-    // Touch first 2 of them on frame 11.
-    vmaSetCurrentFrameIndex(g_hAllocator, 11);
-    for(size_t i = 0; i < 2; ++i)
-    {
-        VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(g_hAllocator, items[i].Alloc, &allocInfo);
-    }
-
-    // vmaMakePoolAllocationsLost. Only remaining 2 should be lost.
-    size_t lostCount = 0xDEADC0DE;
-    vmaMakePoolAllocationsLost(g_hAllocator, pool, &lostCount);
-    TEST(lostCount == 2);
-
-    // Make another call. Now 0 should be lost.
-    vmaMakePoolAllocationsLost(g_hAllocator, pool, &lostCount);
-    TEST(lostCount == 0);
-
-    // Make another call, with null count. Should not crash.
-    vmaMakePoolAllocationsLost(g_hAllocator, pool, nullptr);
-
-    // END: Free all remaining items.
-    for(size_t i = items.size(); i--; )
-        vmaDestroyBuffer(g_hAllocator, items[i].Buf, items[i].Alloc);
-
     items.clear();
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -4875,7 +4659,6 @@ static void TestPool_Benchmark(
     poolCreateInfo.minBlockCount = 1;
     poolCreateInfo.maxBlockCount = 1;
     poolCreateInfo.blockSize = config.PoolSize;
-    poolCreateInfo.frameInUseCount = 1;
 
     const VkPhysicalDeviceMemoryProperties* memProps = nullptr;
     vmaGetMemoryProperties(g_hAllocator, &memProps);
@@ -4942,8 +4725,6 @@ static void TestPool_Benchmark(
         outThreadResult->DeallocationTimeMax = duration::min();
         outThreadResult->AllocationCount = 0;
         outThreadResult->DeallocationCount = 0;
-        outThreadResult->LostAllocationCount = 0;
-        outThreadResult->LostAllocationTotalSize = 0;
         outThreadResult->FailedAllocationCount = 0;
         outThreadResult->FailedAllocationTotalSize = 0;
 
@@ -5055,8 +4836,6 @@ static void TestPool_Benchmark(
 
             VmaAllocationCreateInfo allocCreateInfo = {};
             allocCreateInfo.pool = pool;
-            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_BECOME_LOST_BIT |
-                VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
 
             if(item.BufferSize)
             {
@@ -5153,47 +4932,17 @@ static void TestPool_Benchmark(
                 }
                 else
                 {
-                    // Touch.
+                    // Touch. TODO remove, refactor, there is no allocation touching any more.
                     VmaAllocationInfo allocInfo;
                     vmaGetAllocationInfo(g_hAllocator, item.Alloc, &allocInfo);
-                    // Lost.
-                    if(allocInfo.deviceMemory == VK_NULL_HANDLE)
-                    {
-                        ++touchLostCount;
-
-                        // Destroy.
-                        {
-                            PoolDeallocationTimeRegisterObj timeRegisterObj(*outThreadResult);
-                            item.DestroyResources();
-                            ++outThreadResult->DeallocationCount;
-                        }
-
-                        ++outThreadResult->LostAllocationCount;
-                        outThreadResult->LostAllocationTotalSize += item.CalcSizeBytes();
-
-                        // Recreate.
-                        res = Allocate(item);
-                        ++outThreadResult->AllocationCount;
-                        // Creation failed.
-                        if(res != VK_SUCCESS)
-                        {
-                            TEST(item.Alloc == VK_NULL_HANDLE && item.Buf == VK_NULL_HANDLE && item.Image == VK_NULL_HANDLE);
-                            ++outThreadResult->FailedAllocationCount;
-                            outThreadResult->FailedAllocationTotalSize += item.CalcSizeBytes();
-                            ++createFailedCount;
-                        }
-                        else
-                            ++createSucceededCount;
-                    }
-                    else
-                        ++touchExistingCount;
+                    ++touchExistingCount;
                 }
             }
  
             /*
-            printf("Thread %u frame %u: Touch existing %u lost %u, create succeeded %u failed %u\n",
+            printf("Thread %u frame %u: Touch existing %u, create succeeded %u failed %u\n",
                 randSeed, frameIndex,
-                touchExistingCount, touchLostCount,
+                touchExistingCount,
                 createSucceededCount, createFailedCount);
             */
 
@@ -5263,8 +5012,6 @@ static void TestPool_Benchmark(
     outResult.DeallocationTimeMin = duration::max();
     outResult.DeallocationTimeAvg = duration::zero();
     outResult.DeallocationTimeMax = duration::min();
-    outResult.LostAllocationCount = 0;
-    outResult.LostAllocationTotalSize = 0;
     outResult.FailedAllocationCount = 0;
     outResult.FailedAllocationTotalSize = 0;
     size_t allocationCount = 0;
@@ -5282,8 +5029,6 @@ static void TestPool_Benchmark(
         deallocationCount += threadResult.DeallocationCount;
         outResult.FailedAllocationCount += threadResult.FailedAllocationCount;
         outResult.FailedAllocationTotalSize += threadResult.FailedAllocationTotalSize;
-        outResult.LostAllocationCount += threadResult.LostAllocationCount;
-        outResult.LostAllocationTotalSize += threadResult.LostAllocationTotalSize;
     }
     if(allocationCount)
         outResult.AllocationTimeAvg /= allocationCount;
@@ -5935,7 +5680,7 @@ static void TestDeviceLocalMapped()
 {
     VkResult res;
 
-    for(uint32_t testIndex = 0; testIndex < 3; ++testIndex)
+    for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
     {
         VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -5945,7 +5690,7 @@ static void TestDeviceLocalMapped()
         VmaAllocationCreateInfo allocCreateInfo = {};
         allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        if(testIndex == 2)
+        if(testIndex == 1)
         {
             VmaPoolCreateInfo poolCreateInfo = {};
             res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex);
@@ -5953,10 +5698,6 @@ static void TestDeviceLocalMapped()
             res = vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool);
             TEST(res == VK_SUCCESS);
             allocCreateInfo.pool = pool;
-        }
-        else if(testIndex == 1)
-        {
-            allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_CAN_MAKE_OTHER_LOST_BIT;
         }
 
         VkBuffer buf = VK_NULL_HANDLE;
@@ -6202,8 +5943,6 @@ static void WritePoolTestResultHeader(FILE* file)
         "Deallocation Time Min (us),"
         "Deallocation Time Avg (us),"
         "Deallocation Time Max (us),"
-        "Lost Allocation Count,"
-        "Lost Allocation Total Size (B),"
         "Failed Allocation Count,"
         "Failed Allocation Total Size (B)\n");
 }
@@ -6229,7 +5968,7 @@ static void WritePoolTestResult(
     fprintf(file,
         "%s,%s,%s,"
         "ThreadCount=%u PoolSize=%llu FrameCount=%u TotalItemCount=%u UsedItemCount=%u...%u ItemsToMakeUnusedPercent=%u,"
-        "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%I64u,%I64u,%I64u,%I64u\n",
+        "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%I64u,%I64u\n",
         // General
         codeDescription,
         testDescription,
@@ -6250,8 +5989,6 @@ static void WritePoolTestResult(
         deallocationTimeMinSeconds * 1e6f,
         deallocationTimeAvgSeconds * 1e6f,
         deallocationTimeMaxSeconds * 1e6f,
-        result.LostAllocationCount,
-        result.LostAllocationTotalSize,
         result.FailedAllocationCount,
         result.FailedAllocationTotalSize);
 }
