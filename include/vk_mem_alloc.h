@@ -1613,7 +1613,7 @@ become outdated.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
     VmaAllocator VMA_NOT_NULL allocator,
-    VmaBudget* VMA_NOT_NULL pBudgets);
+    VmaBudget* VMA_NOT_NULL VMA_LEN_IF_NOT_NULL("VkPhysicalDeviceMemoryProperties::memoryHeapCount") pBudgets);
 
 /** @} */
 
@@ -3551,6 +3551,7 @@ static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char
     return VMA_NULL;
 }
 
+#if VMA_STATS_STRING_ENABLED
 static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char* srcStr, size_t strLen)
 {
     if (srcStr != VMA_NULL)
@@ -3562,6 +3563,7 @@ static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char
     }
     return VMA_NULL;
 }
+#endif // VMA_STATS_STRING_ENABLED
 
 static void VmaFreeString(const VkAllocationCallbacks* allocs, char* str)
 {
