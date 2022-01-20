@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.2"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Vulkan Memory Allocator: VmaVirtualBlock Struct Reference</title>
+<title>Vulkan Memory Allocator: VmaVirtualAllocation Struct Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,18 +62,17 @@ $(function() {
 
 </div><!-- top -->
 <div class="header">
-  <div class="headertitle"><div class="title">VmaVirtualBlock Struct Reference<div class="ingroups"><a class="el" href="group__group__virtual.html">Virtual allocator</a></div></div></div>
+  <div class="headertitle"><div class="title">VmaVirtualAllocation Struct Reference<div class="ingroups"><a class="el" href="group__group__virtual.html">Virtual allocator</a></div></div></div>
 </div><!--header-->
 <div class="contents">
 
-<p>Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory.  
- <a href="struct_vma_virtual_block.html#details">More...</a></p>
+<p>Represents single memory allocation done inside <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  
+ <a href="struct_vma_virtual_allocation.html#details">More...</a></p>
 
 <p><code>#include &lt;vk_mem_alloc.h&gt;</code></p>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p >Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory. </p>
-<p >Fill in <a class="el" href="struct_vma_virtual_block_create_info.html" title="Parameters of created VmaVirtualBlock object to be passed to vmaCreateVirtualBlock().">VmaVirtualBlockCreateInfo</a> structure and use <a class="el" href="group__group__virtual.html#gab585754076877265fdae33e5c40ef13b" title="Creates new VmaVirtualBlock object.">vmaCreateVirtualBlock()</a> to create it. Use <a class="el" href="group__group__virtual.html#ga3795f7783ae2c182cede067d656f66a5" title="Destroys VmaVirtualBlock object.">vmaDestroyVirtualBlock()</a> to destroy it. For more information, see documentation chapter <a class="el" href="virtual_allocator.html">Virtual allocator</a>.</p>
-<p >This object is not thread-safe - should not be used from multiple threads simultaneously, must be synchronized externally. </p>
+<div class="textblock"><p >Represents single memory allocation done inside <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
+<p >Use it as a unique identifier to virtual allocation within the single block. </p>
 </div><hr/>The documentation for this struct was generated from the following file:<ul>
 <li>D:/PROJECTS/Vulkan Memory Allocator/REPO/include/<a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a></li>
 </ul>

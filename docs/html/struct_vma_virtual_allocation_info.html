@@ -65,17 +65,20 @@ $(function() {
   <div class="summary">
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="struct_vma_virtual_allocation_info-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">VmaVirtualAllocationInfo Struct Reference</div></div>
+  <div class="headertitle"><div class="title">VmaVirtualAllocationInfo Struct Reference<div class="ingroups"><a class="el" href="group__group__virtual.html">Virtual allocator</a></div></div></div>
 </div><!--header-->
 <div class="contents">
 
-<p>Parameters of an existing virtual allocation, returned by <a class="el" href="vk__mem__alloc_8h.html#ab5fcb961ffea69023e7e0ea100bdad8e" title="Returns information about a specific virtual allocation within a virtual block, like its size and pUs...">vmaGetVirtualAllocationInfo()</a>.  
+<p>Parameters of an existing virtual allocation, returned by <a class="el" href="group__group__virtual.html#ga8ee14ceb1fe033ec84d8aa29e1f75afa" title="Returns information about a specific virtual allocation within a virtual block, like its size and pUs...">vmaGetVirtualAllocationInfo()</a>.  
  <a href="struct_vma_virtual_allocation_info.html#details">More...</a></p>
 
 <p><code>#include &lt;vk_mem_alloc.h&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:accb40a8205f49ccca3de975da7d1a2b5"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_virtual_allocation_info.html#accb40a8205f49ccca3de975da7d1a2b5">offset</a></td></tr>
+<tr class="memdesc:accb40a8205f49ccca3de975da7d1a2b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Offset of the allocation.  <a href="struct_vma_virtual_allocation_info.html#accb40a8205f49ccca3de975da7d1a2b5">More...</a><br /></td></tr>
+<tr class="separator:accb40a8205f49ccca3de975da7d1a2b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb6d6bd0a6813869ea0842048d40aa2b"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_virtual_allocation_info.html#afb6d6bd0a6813869ea0842048d40aa2b">size</a></td></tr>
 <tr class="memdesc:afb6d6bd0a6813869ea0842048d40aa2b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of the allocation.  <a href="struct_vma_virtual_allocation_info.html#afb6d6bd0a6813869ea0842048d40aa2b">More...</a><br /></td></tr>
 <tr class="separator:afb6d6bd0a6813869ea0842048d40aa2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -84,8 +87,25 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a41d5cb09357656411653d82fee436f45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p >Parameters of an existing virtual allocation, returned by <a class="el" href="vk__mem__alloc_8h.html#ab5fcb961ffea69023e7e0ea100bdad8e" title="Returns information about a specific virtual allocation within a virtual block, like its size and pUs...">vmaGetVirtualAllocationInfo()</a>. </p>
+<div class="textblock"><p >Parameters of an existing virtual allocation, returned by <a class="el" href="group__group__virtual.html#ga8ee14ceb1fe033ec84d8aa29e1f75afa" title="Returns information about a specific virtual allocation within a virtual block, like its size and pUs...">vmaGetVirtualAllocationInfo()</a>. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
+<a id="accb40a8205f49ccca3de975da7d1a2b5" name="accb40a8205f49ccca3de975da7d1a2b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#accb40a8205f49ccca3de975da7d1a2b5">&#9670;&nbsp;</a></span>offset</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkDeviceSize VmaVirtualAllocationInfo::offset</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Offset of the allocation. </p>
+<p >Offset at which the allocation was made. </p>
+
+</div>
+</div>
 <a id="a41d5cb09357656411653d82fee436f45" name="a41d5cb09357656411653d82fee436f45"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a41d5cb09357656411653d82fee436f45">&#9670;&nbsp;</a></span>pUserData</h2>
 
@@ -99,7 +119,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Custom pointer associated with the allocation. </p>
-<p >Same value as passed in <a class="el" href="struct_vma_virtual_allocation_create_info.html#a015f8544ca51a7350f7434d42d0587bb" title="Custom pointer to be associated with the allocation. Optional.">VmaVirtualAllocationCreateInfo::pUserData</a> or to <a class="el" href="vk__mem__alloc_8h.html#a4b96f835d38686df937e097a0c7db5e9" title="Changes custom pointer associated with given virtual allocation.">vmaSetVirtualAllocationUserData()</a>. </p>
+<p >Same value as passed in <a class="el" href="struct_vma_virtual_allocation_create_info.html#a015f8544ca51a7350f7434d42d0587bb" title="Custom pointer to be associated with the allocation. Optional.">VmaVirtualAllocationCreateInfo::pUserData</a> or to <a class="el" href="group__group__virtual.html#ga001ea1850458a4062b829e09c303fca2" title="Changes custom pointer associated with given virtual allocation.">vmaSetVirtualAllocationUserData()</a>. </p>
 
 </div>
 </div>

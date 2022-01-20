@@ -75,6 +75,8 @@ static const char* AlgorithmToStr(uint32_t algorithm)
         return "Linear";
     case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
         return "Buddy";
+    case VMA_POOL_CREATE_TLSF_ALGORITHM_BIT:
+        return "TLSF";
     case 0:
         return "Default";
     default:
@@ -2677,6 +2679,7 @@ static void TestVirtualBlocks()
 
     const VkDeviceSize blockSize = 16 * MEGABYTE;
     const VkDeviceSize alignment = 256;
+    VkDeviceSize offset;
 
     // # Create block 16 MB
 
@@ -2686,50 +2689,55 @@ static void TestVirtualBlocks()
     VmaVirtualBlock block;
     TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS && block);
 
-    // # Allocate 8 MB
+    // # Allocate 8 MB (also fetch offset from the allocation)
 
     VmaVirtualAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.alignment = alignment;
     allocCreateInfo.pUserData = (void*)(uintptr_t)1;
     allocCreateInfo.size = 8 * MEGABYTE;
-    VkDeviceSize alloc0Offset;
-    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc0Offset) == VK_SUCCESS);
-    TEST(alloc0Offset < blockSize);
+    VmaVirtualAllocation allocation0;
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation0, &offset) == VK_SUCCESS);
 
     // # Validate the allocation
   
-    VmaVirtualAllocationInfo allocInfo = {};
-    vmaGetVirtualAllocationInfo(block, alloc0Offset, &allocInfo);
-    TEST(allocInfo.size == allocCreateInfo.size);
-    TEST(allocInfo.pUserData = allocCreateInfo.pUserData);
+    VmaVirtualAllocationInfo allocInfo0 = {};
+    vmaGetVirtualAllocationInfo(block, allocation0, &allocInfo0);
+    TEST(allocInfo0.offset < blockSize);
+    TEST(allocInfo0.offset == offset);
+    TEST(allocInfo0.size == allocCreateInfo.size);
+    TEST(allocInfo0.pUserData = allocCreateInfo.pUserData);
 
     // # Check SetUserData
 
-    vmaSetVirtualAllocationUserData(block, alloc0Offset, (void*)(uintptr_t)2);
-    vmaGetVirtualAllocationInfo(block, alloc0Offset, &allocInfo);
-    TEST(allocInfo.pUserData = (void*)(uintptr_t)2);
+    vmaSetVirtualAllocationUserData(block, allocation0, (void*)(uintptr_t)2);
+    vmaGetVirtualAllocationInfo(block, allocation0, &allocInfo0);
+    TEST(allocInfo0.pUserData = (void*)(uintptr_t)2);
 
-    // # Allocate 4 MB
+    // # Allocate 4 MB (also test passing null as pOffset during allocation)
 
     allocCreateInfo.size = 4 * MEGABYTE;
-    UINT64 alloc1Offset;
-    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc1Offset) == VK_SUCCESS);
-    TEST(alloc1Offset < blockSize);
-    TEST(alloc1Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc1Offset); // Check if they don't overlap.
+    VmaVirtualAllocation allocation1;
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation1, nullptr) == VK_SUCCESS);
+    VmaVirtualAllocationInfo allocInfo1 = {};
+    vmaGetVirtualAllocationInfo(block, allocation1, &allocInfo1);
+    TEST(allocInfo1.offset < blockSize);
+    TEST(allocInfo1.offset + 4 * MEGABYTE <= allocInfo0.offset || allocInfo0.offset + 8 * MEGABYTE <= allocInfo1.offset); // Check if they don't overlap.
 
     // # Allocate another 8 MB - it should fail
 
     allocCreateInfo.size = 8 * MEGABYTE;
-    UINT64 alloc2Offset;
-    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc2Offset) < 0);
-    TEST(alloc2Offset == VK_WHOLE_SIZE);
+    VmaVirtualAllocation allocation2;
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, nullptr) < 0);
+    TEST(allocation2 == (VmaVirtualAllocation)VK_WHOLE_SIZE);
 
     // # Free the 4 MB block. Now allocation of 8 MB should succeed.
 
-    vmaVirtualFree(block, alloc1Offset);
-    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc2Offset) == VK_SUCCESS);
-    TEST(alloc2Offset < blockSize);
-    TEST(alloc2Offset + 4 * MEGABYTE <= alloc0Offset || alloc0Offset + 8 * MEGABYTE <= alloc2Offset); // Check if they don't overlap.
+    vmaVirtualFree(block, allocation1);
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, nullptr) == VK_SUCCESS);
+    VmaVirtualAllocationInfo allocInfo2 = {};
+    vmaGetVirtualAllocationInfo(block, allocation2, &allocInfo2);
+    TEST(allocInfo2.offset < blockSize);
+    TEST(allocInfo2.offset + 4 * MEGABYTE <= allocInfo0.offset || allocInfo0.offset + 8 * MEGABYTE <= allocInfo2.offset); // Check if they don't overlap.
 
     // # Calculate statistics
 
@@ -2753,34 +2761,36 @@ static void TestVirtualBlocks()
 
     // # Free alloc0, leave alloc2 unfreed.
 
-    vmaVirtualFree(block, alloc0Offset);
+    vmaVirtualFree(block, allocation0);
 
     // # Test alignment
 
     {
         constexpr size_t allocCount = 10;
-        VkDeviceSize allocOffset[allocCount] = {};
+        VmaVirtualAllocation allocations[allocCount] = {};
         for(size_t i = 0; i < allocCount; ++i)
         {
             const bool alignment0 = i == allocCount - 1;
             allocCreateInfo.size = i * 3 + 15;
             allocCreateInfo.alignment = alignment0 ? 0 : 8;
-            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocOffset[i]) == VK_SUCCESS);
+            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocations[i], nullptr) == VK_SUCCESS);
             if(!alignment0)
             {
-                TEST(allocOffset[i] % allocCreateInfo.alignment == 0);
+                VmaVirtualAllocationInfo info;
+                vmaGetVirtualAllocationInfo(block, allocations[i], &info);
+                TEST(info.offset % allocCreateInfo.alignment == 0);
             }
         }
 
         for(size_t i = allocCount; i--; )
         {
-            vmaVirtualFree(block, allocOffset[i]);
+            vmaVirtualFree(block, allocations[i]);
         }
     }
 
     // # Final cleanup
 
-    vmaVirtualFree(block, alloc2Offset);
+    vmaVirtualFree(block, allocation2);
     vmaDestroyVirtualBlock(block);
 
     {
@@ -2792,8 +2802,8 @@ static void TestVirtualBlocks()
 
         for(size_t i = 0; i < 8; ++i)
         {
-            VkDeviceSize offset = 0;
-            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &offset) == VK_SUCCESS);
+            VmaVirtualAllocation allocation;
+            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation, nullptr) == VK_SUCCESS);
         }
 
         vmaClearVirtualBlock(block);
@@ -2808,7 +2818,7 @@ static void TestVirtualBlocksAlgorithms()
     RandomNumberGenerator rand{3454335};
     auto calcRandomAllocSize = [&rand]() -> VkDeviceSize { return rand.Generate() % 20 + 5; };
 
-    for(size_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
+    for(size_t algorithmIndex = 0; algorithmIndex < 4; ++algorithmIndex)
     {
         // Create the block
         VmaVirtualBlockCreateInfo blockCreateInfo = {};
@@ -2818,6 +2828,7 @@ static void TestVirtualBlocksAlgorithms()
         {
         case 1: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT; break;
         case 2: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT; break;
+        case 3: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT; break;
         }
         VmaVirtualBlock block = nullptr;
         VkResult res = vmaCreateVirtualBlock(&blockCreateInfo, &block);
@@ -2825,7 +2836,8 @@ static void TestVirtualBlocksAlgorithms()
 
         struct AllocData
         {
-            VkDeviceSize offset, requestedSize, allocationSize;
+            VmaVirtualAllocation allocation;
+            VkDeviceSize allocOffset, requestedSize, allocationSize;
         };
         std::vector<AllocData> allocations;
         
@@ -2843,12 +2855,13 @@ static void TestVirtualBlocksAlgorithms()
 
             AllocData alloc = {};
             alloc.requestedSize = allocCreateInfo.size;
-            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
+            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.allocation, nullptr);
             TEST(res == VK_SUCCESS);
             
             VmaVirtualAllocationInfo allocInfo;
-            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            vmaGetVirtualAllocationInfo(block, alloc.allocation, &allocInfo);
             TEST(allocInfo.size >= allocCreateInfo.size);
+            alloc.allocOffset = allocInfo.offset;
             alloc.allocationSize = allocInfo.size;
 
             allocations.push_back(alloc);
@@ -2858,7 +2871,7 @@ static void TestVirtualBlocksAlgorithms()
         for(size_t i = 0; i < 5; ++i)
         {
             const size_t index = rand.Generate() % allocations.size();
-            vmaVirtualFree(block, allocations[index].offset);
+            vmaVirtualFree(block, allocations[index].allocation);
             allocations.erase(allocations.begin() + index);
         }
 
@@ -2871,12 +2884,13 @@ static void TestVirtualBlocksAlgorithms()
 
             AllocData alloc = {};
             alloc.requestedSize = allocCreateInfo.size;
-            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
+            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.allocation, nullptr);
             TEST(res == VK_SUCCESS);
 
             VmaVirtualAllocationInfo allocInfo;
-            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            vmaGetVirtualAllocationInfo(block, alloc.allocation, &allocInfo);
             TEST(allocInfo.size >= allocCreateInfo.size);
+            alloc.allocOffset = allocInfo.offset;
             alloc.allocationSize = allocInfo.size;
 
             allocations.push_back(alloc);
@@ -2892,13 +2906,14 @@ static void TestVirtualBlocksAlgorithms()
 
             AllocData alloc = {};
             alloc.requestedSize = allocCreateInfo.size;
-            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.offset);
+            res = vmaVirtualAllocate(block, &allocCreateInfo, &alloc.allocation, nullptr);
             TEST(res == VK_SUCCESS);
-            TEST(alloc.offset % 16 == 0);
 
             VmaVirtualAllocationInfo allocInfo;
-            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            vmaGetVirtualAllocationInfo(block, alloc.allocation, &allocInfo);
+            TEST(allocInfo.offset % 16 == 0);
             TEST(allocInfo.size >= allocCreateInfo.size);
+            alloc.allocOffset = allocInfo.offset;
             alloc.allocationSize = allocInfo.size;
 
             allocations.push_back(alloc);
@@ -2906,21 +2921,21 @@ static void TestVirtualBlocksAlgorithms()
 
         // Check if the allocations don't overlap
         std::sort(allocations.begin(), allocations.end(), [](const AllocData& lhs, const AllocData& rhs) {
-            return lhs.offset < rhs.offset; });
+            return lhs.allocOffset < rhs.allocOffset; });
         for(size_t i = 0; i < allocations.size() - 1; ++i)
         {
-            TEST(allocations[i+1].offset >= allocations[i].offset + allocations[i].allocationSize);
+            TEST(allocations[i+1].allocOffset >= allocations[i].allocOffset + allocations[i].allocationSize);
         }
 
         // Check pUserData
         {
             const AllocData& alloc = allocations.back();
             VmaVirtualAllocationInfo allocInfo = {};
-            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            vmaGetVirtualAllocationInfo(block, alloc.allocation, &allocInfo);
             TEST((uintptr_t)allocInfo.pUserData == alloc.requestedSize * 10);
 
-            vmaSetVirtualAllocationUserData(block, alloc.offset, (void*)(uintptr_t)666);
-            vmaGetVirtualAllocationInfo(block, alloc.offset, &allocInfo);
+            vmaSetVirtualAllocationUserData(block, alloc.allocation, (void*)(uintptr_t)666);
+            vmaGetVirtualAllocationInfo(block, alloc.allocation, &allocInfo);
             TEST((uintptr_t)allocInfo.pUserData == 666);
         }
 
@@ -4229,7 +4244,7 @@ static void BenchmarkAlgorithms(FILE* file)
 
         for(uint32_t emptyIndex = 0; emptyIndex < emptyCount; ++emptyIndex)
         {
-            for(uint32_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
+            for(uint32_t algorithmIndex = 0; algorithmIndex < 4; ++algorithmIndex)
             {
                 uint32_t algorithm = 0;
                 switch(algorithmIndex)
@@ -4241,6 +4256,9 @@ static void BenchmarkAlgorithms(FILE* file)
                     break;
                 case 2:
                     algorithm = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+                    break;
+                case 3:
+                    algorithm = VMA_POOL_CREATE_TLSF_ALGORITHM_BIT;
                     break;
                 default:
                     assert(0);

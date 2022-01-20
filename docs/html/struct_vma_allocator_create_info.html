@@ -65,7 +65,7 @@ $(function() {
   <div class="summary">
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="struct_vma_allocator_create_info-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">VmaAllocatorCreateInfo Struct Reference</div></div>
+  <div class="headertitle"><div class="title">VmaAllocatorCreateInfo Struct Reference<div class="ingroups"><a class="el" href="group__group__init.html">Library initialization</a></div></div></div>
 </div><!--header-->
 <div class="contents">
 
@@ -76,8 +76,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a392ea2ecbaff93f91a7c49f735ad4346"><td class="memItemLeft" align="right" valign="top"><a class="el" href="vk__mem__alloc_8h.html#acfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">flags</a></td></tr>
-<tr class="memdesc:a392ea2ecbaff93f91a7c49f735ad4346"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created allocator. Use <a class="el" href="vk__mem__alloc_8h.html#afd73b95e737ee7e76f827cb5472f559f" title="Flags for created VmaAllocator.">VmaAllocatorCreateFlagBits</a> enum.  <a href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">More...</a><br /></td></tr>
+<tr class="memitem:a392ea2ecbaff93f91a7c49f735ad4346"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__group__init.html#gacfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">flags</a></td></tr>
+<tr class="memdesc:a392ea2ecbaff93f91a7c49f735ad4346"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created allocator. Use <a class="el" href="group__group__init.html#gafd73b95e737ee7e76f827cb5472f559f" title="Flags for created VmaAllocator.">VmaAllocatorCreateFlagBits</a> enum.  <a href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">More...</a><br /></td></tr>
 <tr class="separator:a392ea2ecbaff93f91a7c49f735ad4346"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08230f04ae6ccf8a78150a9e829a7156"><td class="memItemLeft" align="right" valign="top">VkPhysicalDevice&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">physicalDevice</a></td></tr>
 <tr class="memdesc:a08230f04ae6ccf8a78150a9e829a7156"><td class="mdescLeft">&#160;</td><td class="mdescRight">Vulkan physical device.  <a href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">More...</a><br /></td></tr>
@@ -137,12 +137,12 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="vk__mem__alloc_8h.html#acfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a> VmaAllocatorCreateInfo::flags</td>
+          <td class="memname"><a class="el" href="group__group__init.html#gacfe6863e160722c2c1bbcf7573fddc4d">VmaAllocatorCreateFlags</a> VmaAllocatorCreateInfo::flags</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Flags for created allocator. Use <a class="el" href="vk__mem__alloc_8h.html#afd73b95e737ee7e76f827cb5472f559f" title="Flags for created VmaAllocator.">VmaAllocatorCreateFlagBits</a> enum. </p>
+<p>Flags for created allocator. Use <a class="el" href="group__group__init.html#gafd73b95e737ee7e76f827cb5472f559f" title="Flags for created VmaAllocator.">VmaAllocatorCreateFlagBits</a> enum. </p>
 
 </div>
 </div>
@@ -215,7 +215,7 @@ Public Attributes</h2></td></tr>
 <p >If there is a limit defined for a heap:</p>
 <ul>
 <li>If user tries to allocate more memory from that heap using this allocator, the allocation fails with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>.</li>
-<li>If the limit is smaller than heap size reported in <code>VkMemoryHeap::size</code>, the value of this limit will be reported instead when using <a class="el" href="vk__mem__alloc_8h.html#ab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>.</li>
+<li>If the limit is smaller than heap size reported in <code>VkMemoryHeap::size</code>, the value of this limit will be reported instead when using <a class="el" href="group__group__init.html#gab88db292a17974f911182543fda52d19">vmaGetMemoryProperties()</a>.</li>
 </ul>
 <p >Warning! Using this feature may not be equivalent to installing a GPU with smaller amount of memory, because graphics driver doesn't necessary fail new allocations with <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> result when memory capacity is exceeded. It may return success and just silently migrate some device memory blocks to system RAM. This driver behavior can also be controlled using VK_AMD_memory_overallocation_behavior extension. </p>
 

@@ -65,7 +65,7 @@ $(function() {
   <div class="summary">
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="struct_vma_defragmentation_info2-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">VmaDefragmentationInfo2 Struct Reference</div></div>
+  <div class="headertitle"><div class="title">VmaDefragmentationInfo2 Struct Reference<div class="ingroups"><a class="el" href="group__group__alloc.html">Memory allocation</a></div></div></div>
 </div><!--header-->
 <div class="contents">
 
@@ -76,7 +76,7 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a53e844ee5633e229cf6daf14b2d9fff9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="vk__mem__alloc_8h.html#a88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info2.html#a53e844ee5633e229cf6daf14b2d9fff9">flags</a></td></tr>
+<tr class="memitem:a53e844ee5633e229cf6daf14b2d9fff9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__group__alloc.html#ga88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info2.html#a53e844ee5633e229cf6daf14b2d9fff9">flags</a></td></tr>
 <tr class="memdesc:a53e844ee5633e229cf6daf14b2d9fff9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reserved for future use. Should be 0.  <a href="struct_vma_defragmentation_info2.html#a53e844ee5633e229cf6daf14b2d9fff9">More...</a><br /></td></tr>
 <tr class="separator:a53e844ee5633e229cf6daf14b2d9fff9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3cf86ab32c1da779b4923d301a3056ba"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_info2.html#a3cf86ab32c1da779b4923d301a3056ba">allocationCount</a></td></tr>
@@ -112,7 +112,7 @@ Public Attributes</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p >Parameters for defragmentation. </p>
-<p >To be used with function <a class="el" href="vk__mem__alloc_8h.html#a36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a>. </p>
+<p >To be used with function <a class="el" href="group__group__alloc.html#ga36ba776fd7fd5cb1e9359fdc0d8e6e8a" title="Begins defragmentation process.">vmaDefragmentationBegin()</a>. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
 <a id="a3cf86ab32c1da779b4923d301a3056ba" name="a3cf86ab32c1da779b4923d301a3056ba"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3cf86ab32c1da779b4923d301a3056ba">&#9670;&nbsp;</a></span>allocationCount</h2>
@@ -143,7 +143,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Optional. Command buffer where GPU copy commands will be posted. </p>
-<p >If not null, it must be a valid command buffer handle that supports Transfer queue type. It must be in the recording state and outside of a render pass instance. You need to submit it and make sure it finished execution before calling <a class="el" href="vk__mem__alloc_8h.html#a8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>.</p>
+<p >If not null, it must be a valid command buffer handle that supports Transfer queue type. It must be in the recording state and outside of a render pass instance. You need to submit it and make sure it finished execution before calling <a class="el" href="group__group__alloc.html#ga8774e20e91e245aae959ba63efa15dd2" title="Ends defragmentation process.">vmaDefragmentationEnd()</a>.</p>
 <p >Passing null means that only CPU defragmentation will be performed. </p>
 
 </div>
@@ -155,7 +155,7 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="vk__mem__alloc_8h.html#a88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a> VmaDefragmentationInfo2::flags</td>
+          <td class="memname"><a class="el" href="group__group__alloc.html#ga88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a> VmaDefragmentationInfo2::flags</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -295,7 +295,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Either null or pointer to array of pools to be defragmented. </p>
-<p >All the allocations in the specified pools can be moved during defragmentation and there is no way to check if they were really moved as in <code>pAllocationsChanged</code>, so you must query all the allocations in all these pools for new <code>VkDeviceMemory</code> and offset using <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a> if you might need to recreate buffers and images bound to them.</p>
+<p >All the allocations in the specified pools can be moved during defragmentation and there is no way to check if they were really moved as in <code>pAllocationsChanged</code>, so you must query all the allocations in all these pools for new <code>VkDeviceMemory</code> and offset using <a class="el" href="group__group__alloc.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a> if you might need to recreate buffers and images bound to them.</p>
 <p >The array should have <code>poolCount</code> elements. The array should not contain nulls. Elements in the array should be unique - same pool cannot occur twice.</p>
 <p >Using this array is equivalent to specifying all allocations from the pools in <code>pAllocations</code>. It might be more efficient. </p>
 

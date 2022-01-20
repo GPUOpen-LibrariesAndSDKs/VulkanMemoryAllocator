@@ -65,11 +65,11 @@ $(function() {
   <div class="summary">
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="struct_vma_allocation_info-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">VmaAllocationInfo Struct Reference</div></div>
+  <div class="headertitle"><div class="title">VmaAllocationInfo Struct Reference<div class="ingroups"><a class="el" href="group__group__alloc.html">Memory allocation</a></div></div></div>
 </div><!--header-->
 <div class="contents">
 
-<p>Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.  
+<p>Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="group__group__alloc.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.  
  <a href="struct_vma_allocation_info.html#details">More...</a></p>
 
 <p><code>#include &lt;vk_mem_alloc.h&gt;</code></p>
@@ -92,11 +92,11 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a5eeffbe2d2f30f53370ff14aefbadbe2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to the beginning of this allocation as mapped data.  <a href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2">More...</a><br /></td></tr>
 <tr class="separator:a5eeffbe2d2f30f53370ff14aefbadbe2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc507656149c04de7ed95d0042ba2a13"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13">pUserData</a></td></tr>
-<tr class="memdesc:adc507656149c04de7ed95d0042ba2a13"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a>.  <a href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13">More...</a><br /></td></tr>
+<tr class="memdesc:adc507656149c04de7ed95d0042ba2a13"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a>.  <a href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13">More...</a><br /></td></tr>
 <tr class="separator:adc507656149c04de7ed95d0042ba2a13"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p >Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="vk__mem__alloc_8h.html#a86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>. </p>
+<div class="textblock"><p >Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="group__group__alloc.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
 <a id="ae0bfb7dfdf79a76ffefc9a94677a2f67" name="ae0bfb7dfdf79a76ffefc9a94677a2f67"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae0bfb7dfdf79a76ffefc9a94677a2f67">&#9670;&nbsp;</a></span>deviceMemory</h2>
@@ -112,7 +112,7 @@ Public Attributes</h2></td></tr>
 
 <p>Handle to Vulkan memory object. </p>
 <p >Same memory object can be shared by multiple allocations.</p>
-<p >It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p >It can change after call to <a class="el" href="group__group__alloc.html#ga9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
 
 </div>
 </div>
@@ -146,8 +146,8 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Offset in <code>VkDeviceMemory</code> object to the beginning of this allocation, in bytes. <code>(deviceMemory, offset)</code> pair is unique to this allocation. </p>
-<p >You usually don't need to use this offset. If you create a buffer or an image together with the allocation using e.g. function <a class="el" href="vk__mem__alloc_8h.html#ac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="vk__mem__alloc_8h.html#a02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, functions that operate on these resources refer to the beginning of the buffer or image, not entire device memory block. Functions like <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a> also refer to the beginning of the allocation and apply this offset automatically.</p>
-<p >It can change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p >You usually don't need to use this offset. If you create a buffer or an image together with the allocation using e.g. function <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, functions that operate on these resources refer to the beginning of the buffer or image, not entire device memory block. Functions like <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="group__group__alloc.html#ga6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a> also refer to the beginning of the allocation and apply this offset automatically.</p>
+<p >It can change after call to <a class="el" href="group__group__alloc.html#ga9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
 
 </div>
 </div>
@@ -164,8 +164,8 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pointer to the beginning of this allocation as mapped data. </p>
-<p >If the allocation hasn't been mapped using <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> and hasn't been created with <a class="el" href="vk__mem__alloc_8h.html#ad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag, this value is null.</p>
-<p >It can change after call to <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="vk__mem__alloc_8h.html#a9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a>. It can also change after call to <a class="el" href="vk__mem__alloc_8h.html#a9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
+<p >If the allocation hasn't been mapped using <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> and hasn't been created with <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag, this value is null.</p>
+<p >It can change after call to <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="group__group__alloc.html#ga9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a>. It can also change after call to <a class="el" href="group__group__alloc.html#ga9f0f8f56db5f7f57fe4454f465142dac" title="Deprecated. Compacts memory by moving allocations.">vmaDefragment()</a> if this allocation is passed to the function. </p>
 
 </div>
 </div>
@@ -181,8 +181,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a>. </p>
-<p >It can change after call to <a class="el" href="vk__mem__alloc_8h.html#af9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a> for this allocation. </p>
+<p>Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a>. </p>
+<p >It can change after call to <a class="el" href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a> for this allocation. </p>
 
 </div>
 </div>
@@ -200,7 +200,7 @@ Public Attributes</h2></td></tr>
 
 <p>Size of this allocation, in bytes. </p>
 <p >It never changes.</p>
-<dl class="section note"><dt>Note</dt><dd>Allocation size returned in this variable may be greater than the size requested for the resource e.g. as <code>VkBufferCreateInfo::size</code>. Whole size of the allocation is accessible for operations on memory e.g. using a pointer after mapping with <a class="el" href="vk__mem__alloc_8h.html#ad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, but operations on the resource e.g. using <code>vkCmdCopyBuffer</code> must be limited to the size of the resource. </dd></dl>
+<dl class="section note"><dt>Note</dt><dd>Allocation size returned in this variable may be greater than the size requested for the resource e.g. as <code>VkBufferCreateInfo::size</code>. Whole size of the allocation is accessible for operations on memory e.g. using a pointer after mapping with <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, but operations on the resource e.g. using <code>vkCmdCopyBuffer</code> must be limited to the size of the resource. </dd></dl>
 
 </div>
 </div>
