@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017-2021 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2017-2022 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@
 
 <b>Version 3.0.0-development</b>
 
-Copyright (c) 2017-2021 Advanced Micro Devices, Inc. All rights reserved. \n
+Copyright (c) 2017-2022 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
 
 <b>API documentation divided into groups:</b> [Modules](modules.html)
@@ -1622,6 +1622,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
 @{
 */
 
+/** @} */
+
+/**
+\addtogroup group_alloc
+@{
+*/
+
 /**
 \brief Helps to find memoryTypeIndex, given memoryTypeBits and VmaAllocationCreateInfo.
 
@@ -2433,6 +2440,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(
 
 /** @} */
 
+#if VMA_STATS_STRING_ENABLED
 /**
 \addtogroup group_stats
 @{
@@ -2455,7 +2463,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     char* VMA_NULLABLE pStatsString);
 
-#if VMA_STATS_STRING_ENABLED
 /** \brief Builds and returns statistics as a null-terminated string in JSON format.
 \param allocator
 \param[out] ppStatsString Must be freed using vmaFreeStatsString() function.
@@ -2469,9 +2476,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
     VmaAllocator VMA_NOT_NULL allocator,
     char* VMA_NULLABLE pStatsString);
-#endif // VMA_STATS_STRING_ENABLED
 
 /** @} */
+
+#endif // VMA_STATS_STRING_ENABLED
 
 #endif // _VMA_FUNCTION_HEADERS
 
@@ -17197,6 +17205,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
 
     return allocator->DefragmentationPassBegin(pInfo, context);
 }
+
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
     VmaAllocator allocator,
     VmaDefragmentationContext context)
@@ -17713,8 +17722,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildVirtualBlockStatsString(VmaVirtualBlock 
     *ppStatsString = VmaCreateStringCopy(allocationCallbacks, sb.GetData(), sb.GetLength());
 }
 
-#endif // VMA_STATS_STRING_ENABLED
-
 VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     char* VMA_NULLABLE pStatsString)
 {
@@ -17725,6 +17732,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock V
         VmaFreeString(virtualBlock->GetAllocationCallbacks(), pStatsString);
     }
 }
+#endif // VMA_STATS_STRING_ENABLED
 #endif // _VMA_PUBLIC_INTERFACE
 #endif // VMA_IMPLEMENTATION
 
