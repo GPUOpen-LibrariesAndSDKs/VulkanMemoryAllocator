@@ -3109,7 +3109,7 @@ static inline uint8_t VmaBitScanLSB(uint32_t mask)
 static inline uint8_t VmaBitScanMSB(uint64_t mask)
 {
 #ifdef _MSC_VER
-    DWORD pos;
+    unsigned long pos;
     if (_BitScanReverse64(&pos, mask))
         return static_cast<uint8_t>(pos);
 #else
@@ -3126,7 +3126,7 @@ static inline uint8_t VmaBitScanMSB(uint64_t mask)
 static inline uint8_t VmaBitScanMSB(uint32_t mask)
 {
 #ifdef _MSC_VER
-    DWORD pos;
+    unsigned long pos;
     if (_BitScanReverse(&pos, mask))
         return static_cast<uint8_t>(pos);
 #else
