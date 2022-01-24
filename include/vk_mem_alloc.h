@@ -2387,7 +2387,7 @@ VMA_CALL_PRE VkBool32 VMA_CALL_POST vmaIsVirtualBlockEmpty(
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualAllocationInfo(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaVirtualAllocation VMA_NOT_NULL allocation, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo);
+    VmaVirtualAllocation allocation, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo);
 
 /** \brief Allocates new virtual allocation inside given #VmaVirtualBlock.
 
@@ -2412,7 +2412,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaVirtualAllocation VMA_NULLABLE allocation);
+    VmaVirtualAllocation allocation);
 
 /** \brief Frees all virtual allocations inside given #VmaVirtualBlock.
 
@@ -2429,7 +2429,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaClearVirtualBlock(
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaVirtualAllocation VMA_NOT_NULL allocation,
+    VmaVirtualAllocation allocation,
     void* VMA_NULLABLE pUserData);
 
 /** \brief Calculates and returns statistics about virtual allocations and memory usage in given #VmaVirtualBlock.
@@ -5997,12 +5997,14 @@ public:
     virtual void Clear() = 0;
 
     virtual void SetAllocationUserData(VmaAllocHandle allocHandle, void* userData) = 0;
+    virtual void DebugLogAllAllocations() const = 0;
 
 protected:
     const VkAllocationCallbacks* GetAllocationCallbacks() const { return m_pAllocationCallbacks; }
     VkDeviceSize GetBufferImageGranularity() const { return m_BufferImageGranularity; }
     VkDeviceSize GetDebugMargin() const { return IsVirtual() ? 0 : VMA_DEBUG_MARGIN; }
 
+    void DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size, void* userData) const;
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap_Begin(class VmaJsonWriter& json,
         VkDeviceSize unusedBytes,
@@ -6030,6 +6032,36 @@ VmaBlockMetadata::VmaBlockMetadata(const VkAllocationCallbacks* pAllocationCallb
     m_pAllocationCallbacks(pAllocationCallbacks),
     m_BufferImageGranularity(bufferImageGranularity),
     m_IsVirtual(isVirtual) {}
+
+void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size, void* userData) const
+{
+    if (IsVirtual())
+    {
+        VMA_DEBUG_LOG("UNFREED VIRTUAL ALLOCATION; Offset: %llu; Size: %llu; UserData: %p", offset, size, userData);
+    }
+    else
+    {
+        VMA_ASSERT(userData != VMA_NULL);
+        VmaAllocation allocation = reinterpret_cast<VmaAllocation>(userData);
+
+        userData = allocation->GetUserData();
+        if (userData != VMA_NULL && allocation->IsUserDataString())
+        {
+            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %s; Type: %s; Usage: %u",
+                offset, size, reinterpret_cast<const char*>(userData),
+                VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()],
+                allocation->GetBufferImageUsage());
+        }
+        else
+        {
+            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Type: %s; Usage: %u",
+                offset, size, userData,
+                VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()],
+                allocation->GetBufferImageUsage());
+        }
+    }
+    
+}
 
 #if VMA_STATS_STRING_ENABLED
 void VmaBlockMetadata::PrintDetailedMap_Begin(class VmaJsonWriter& json,
@@ -6391,6 +6423,7 @@ public:
     void GetAllocationInfo(VmaAllocHandle allocHandle, VmaVirtualAllocationInfo& outInfo) override;
     void Clear() override;
     void SetAllocationUserData(VmaAllocHandle allocHandle, void* userData) override;
+    void DebugLogAllAllocations() const override;
 
     // For defragmentation
     bool IsBufferImageGranularityConflictPossible(
@@ -6806,6 +6839,15 @@ void VmaBlockMetadata_Generic::SetAllocationUserData(VmaAllocHandle allocHandle,
 {
     VmaSuballocation& suballoc = *FindAtOffset((VkDeviceSize)allocHandle);
     suballoc.userData = userData;
+}
+
+void VmaBlockMetadata_Generic::DebugLogAllAllocations() const
+{
+    for (const auto& suballoc : m_Suballocations)
+    {
+        if (suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
+            DebugLogAllocation(suballoc.offset, suballoc.size, suballoc.userData);
+    }
 }
 
 VmaSuballocationList::iterator VmaBlockMetadata_Generic::FindAtOffset(VkDeviceSize offset)
@@ -7231,6 +7273,7 @@ public:
     void GetAllocationInfo(VmaAllocHandle allocHandle, VmaVirtualAllocationInfo& outInfo) override;
     void Clear() override;
     void SetAllocationUserData(VmaAllocHandle allocHandle, void* userData) override;
+    void DebugLogAllAllocations() const override;
 
 private:
     /*
@@ -8357,6 +8400,19 @@ void VmaBlockMetadata_Linear::SetAllocationUserData(VmaAllocHandle allocHandle, 
     suballoc.userData = userData;
 }
 
+void VmaBlockMetadata_Linear::DebugLogAllAllocations() const
+{
+    const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+    for (auto it = suballocations1st.begin() + m_1stNullItemsBeginCount; it != suballocations1st.end(); ++it)
+        if (it->type != VMA_SUBALLOCATION_TYPE_FREE)
+            DebugLogAllocation(it->offset, it->size, it->userData);
+
+    const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
+    for (auto it = suballocations2nd.begin(); it != suballocations2nd.end(); ++it)
+        if (it->type != VMA_SUBALLOCATION_TYPE_FREE)
+            DebugLogAllocation(it->offset, it->size, it->userData);
+}
+
 VmaSuballocation& VmaBlockMetadata_Linear::FindSuballocation(VkDeviceSize offset)
 {
     SuballocationVectorType& suballocations1st = AccessSuballocations1st();
@@ -8840,6 +8896,7 @@ public:
     bool IsEmpty() const override { return m_Root->type == Node::TYPE_FREE; }
     VkResult CheckCorruption(const void* pBlockData) override { return VK_ERROR_FEATURE_NOT_PRESENT; }
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle; };
+    void DebugLogAllAllocations() const override { DebugLogAllAllocationNode(m_Root, 0); }
 
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
@@ -8952,6 +9009,7 @@ private:
     // node->type must be FREE.
     // node->free.prev, next stay untouched.
     void RemoveFromFreeList(uint32_t level, Node* node);
+    void DebugLogAllAllocationNode(Node* node, uint32_t level) const;
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMapNode(class VmaJsonWriter& json, const Node* node, VkDeviceSize levelNodeSize) const;
@@ -9453,6 +9511,25 @@ void VmaBlockMetadata_Buddy::RemoveFromFreeList(uint32_t level, Node* node)
     }
 }
 
+void VmaBlockMetadata_Buddy::DebugLogAllAllocationNode(Node* node, uint32_t level) const
+{
+    switch (node->type)
+    {
+    case Node::TYPE_ALLOCATION:
+        DebugLogAllocation(node->offset, LevelToNodeSize(level), node->allocation.userData);
+        break;
+    case Node::TYPE_SPLIT:
+    {
+        ++level;
+        DebugLogAllAllocationNode(node->split.leftChild, level);
+        DebugLogAllAllocationNode(node->split.leftChild->buddy, level);
+    }
+    break;
+    default:
+        VMA_ASSERT(0);
+    }
+}
+
 #if VMA_STATS_STRING_ENABLED
 void VmaBlockMetadata_Buddy::PrintDetailedMapNode(class VmaJsonWriter& json, const Node* node, VkDeviceSize levelNodeSize) const
 {
@@ -9525,6 +9602,7 @@ public:
     void GetAllocationInfo(VmaAllocHandle allocHandle, VmaVirtualAllocationInfo& outInfo) override;
     void Clear() override;
     void SetAllocationUserData(VmaAllocHandle allocHandle, void* userData) override;
+    void DebugLogAllAllocations() const override;
 
 private:
     // According to original paper it should be preferable 4 or 5:
@@ -10084,6 +10162,13 @@ void VmaBlockMetadata_TLSF::SetAllocationUserData(VmaAllocHandle allocHandle, vo
     Block* block = (Block*)allocHandle;
     VMA_ASSERT(!block->IsFree() && "Trying to set user data for not allocated block!");
     block->UserData() = userData;
+}
+
+void VmaBlockMetadata_TLSF::DebugLogAllAllocations() const
+{
+    for (Block* block = m_NullBlock->prevPhysical; block != VMA_NULL; block = block->prevPhysical)
+        if (!block->IsFree())
+            DebugLogAllocation(block->offset, block->size, block->UserData());
 }
 
 uint8_t VmaBlockMetadata_TLSF::SizeToMemoryClass(VkDeviceSize size) const
@@ -10891,7 +10976,10 @@ VmaVirtualBlock_T::VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo
 
 VmaVirtualBlock_T::~VmaVirtualBlock_T()
 {
-    // This is an important assert!!!
+    // Define macro VMA_DEBUG_LOG to receive the list of the unfreed allocations
+    if (!m_Metadata->IsEmpty())
+        m_Metadata->DebugLogAllAllocations();
+    // This is the most important assert in the entire library.
     // Hitting it means you have some memory leak - unreleased virtual allocations.
     VMA_ASSERT(m_Metadata->IsEmpty() && "Some virtual allocations were not freed before destruction of this virtual block!");
 
@@ -11382,6 +11470,9 @@ void VmaDeviceMemoryBlock::Init(
 
 void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
 {
+    // Define macro VMA_DEBUG_LOG to receive the list of the unfreed allocations
+    if (!m_pMetadata->IsEmpty())
+        m_pMetadata->DebugLogAllAllocations();
     // This is the most important assert in the entire library.
     // Hitting it means you have some memory leak - unreleased VmaAllocation objects.
     VMA_ASSERT(m_pMetadata->IsEmpty() && "Some allocations were not freed before destruction of this memory block!");
@@ -11681,10 +11772,10 @@ VmaAllocHandle VmaAllocation_T::GetAllocHandle() const
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_AllocHandle;
     case ALLOCATION_TYPE_DEDICATED:
-        return VMA_NULL;
+        return VK_NULL_HANDLE;
     default:
         VMA_ASSERT(0);
-        return VMA_NULL;
+        return VK_NULL_HANDLE;
     }
 }
 
@@ -17654,7 +17745,7 @@ VMA_CALL_PRE VkBool32 VMA_CALL_POST vmaIsVirtualBlockEmpty(VmaVirtualBlock VMA_N
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualAllocationInfo(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaVirtualAllocation VMA_NOT_NULL allocation, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo)
+    VmaVirtualAllocation allocation, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pVirtualAllocInfo != VMA_NULL);
     VMA_DEBUG_LOG("vmaGetVirtualAllocationInfo");
@@ -17672,7 +17763,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(VmaVirtualBlock VMA_NOT_N
     return virtualBlock->Allocate(*pCreateInfo, *pAllocation, pOffset);
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virtualBlock, VmaVirtualAllocation VMA_NULLABLE allocation)
+VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virtualBlock, VmaVirtualAllocation allocation)
 {
     if(virtualBlock != VMA_NULL)
     {
@@ -17692,7 +17783,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaClearVirtualBlock(VmaVirtualBlock VMA_NOT_NUL
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaVirtualAllocation VMA_NOT_NULL allocation, void* VMA_NULLABLE pUserData)
+    VmaVirtualAllocation allocation, void* VMA_NULLABLE pUserData)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
     VMA_DEBUG_LOG("vmaSetVirtualAllocationUserData");
