@@ -3086,7 +3086,7 @@ static inline uint8_t VmaBitScanLSB(uint64_t mask)
         return static_cast<uint8_t>(pos);
     return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
-    return static_cast<uint8_t>__builtin_ffsll(mask)) - 1U;
+    return static_cast<uint8_t>(__builtin_ffsll(mask)) - 1U;
 #else
     uint8_t pos = 0;
     uint64_t bit = 1;
@@ -3108,7 +3108,7 @@ static inline uint8_t VmaBitScanLSB(uint32_t mask)
         return static_cast<uint8_t>(pos);
     return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
-    return static_cast<uint8_t>__builtin_ffsl(mask)) - 1U;
+    return static_cast<uint8_t>(__builtin_ffsl(mask)) - 1U;
 #else
     uint8_t pos = 0;
     uint32_t bit = 1;
