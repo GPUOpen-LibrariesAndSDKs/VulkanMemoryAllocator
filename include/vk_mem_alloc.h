@@ -3064,12 +3064,18 @@ class VmaAllocationObjectAllocator;
 // Returns number of bits set to 1 in (v).
 static inline uint32_t VmaCountBitsSet(uint32_t v)
 {
+#ifdef _MSC_VER
+    return __popcnt(v);
+#elif defined __GNUC__ || defined __clang__
+    return static_cast<uint32_t>(__builtin_popcount(v));
+#else
     uint32_t c = v - ((v >> 1) & 0x55555555);
     c = ((c >> 2) & 0x33333333) + (c & 0x33333333);
     c = ((c >> 4) + c) & 0x0F0F0F0F;
     c = ((c >> 8) + c) & 0x00FF00FF;
     c = ((c >> 16) + c) & 0x0000FFFF;
     return c;
+#endif
 }
 
 static inline uint8_t VmaBitScanLSB(uint64_t mask)
@@ -3078,15 +3084,20 @@ static inline uint8_t VmaBitScanLSB(uint64_t mask)
     unsigned long pos;
     if (_BitScanForward64(&pos, mask))
         return static_cast<uint8_t>(pos);
+    return UINT8_MAX;
+#elif defined __GNUC__ || defined __clang__
+    return static_cast<uint8_t>__builtin_ffsll(mask)) - 1U;
 #else
     uint8_t pos = 0;
+    uint64_t bit = 1;
     do
     {
-        if (mask & (1ULL << pos))
+        if (mask & bit)
             return pos;
+        bit <<= 1;
     } while (pos++ < 63);
-#endif
     return UINT8_MAX;
+#endif
 }
 
 static inline uint8_t VmaBitScanLSB(uint32_t mask)
@@ -3095,15 +3106,20 @@ static inline uint8_t VmaBitScanLSB(uint32_t mask)
     unsigned long pos;
     if (_BitScanForward(&pos, mask))
         return static_cast<uint8_t>(pos);
+    return UINT8_MAX;
+#elif defined __GNUC__ || defined __clang__
+    return static_cast<uint8_t>__builtin_ffsl(mask)) - 1U;
 #else
     uint8_t pos = 0;
+    uint32_t bit = 1;
     do
     {
-        if (mask & (1UL << pos))
+        if (mask & bit)
             return pos;
+        bit <<= 1;
     } while (pos++ < 31);
-#endif
     return UINT8_MAX;
+#endif
 }
 
 static inline uint8_t VmaBitScanMSB(uint64_t mask)
@@ -3112,12 +3128,17 @@ static inline uint8_t VmaBitScanMSB(uint64_t mask)
     unsigned long pos;
     if (_BitScanReverse64(&pos, mask))
         return static_cast<uint8_t>(pos);
+#elif defined __GNUC__ || defined __clang__
+    if (mask)
+        return static_cast<uint8_t>(__builtin_clzll(mask));
 #else
     uint8_t pos = 63;
+    uint64_t bit = 1 << 63;
     do
     {
-        if (mask & (1ULL << pos))
+        if (mask & bit)
             return pos;
+        bit >>= 1;
     } while (pos-- > 0);
 #endif
     return UINT8_MAX;
@@ -3129,12 +3150,17 @@ static inline uint8_t VmaBitScanMSB(uint32_t mask)
     unsigned long pos;
     if (_BitScanReverse(&pos, mask))
         return static_cast<uint8_t>(pos);
+#elif defined __GNUC__ || defined __clang__
+    if (mask)
+        return static_cast<uint8_t>(__builtin_clzl(mask));
 #else
     uint8_t pos = 31;
+    uint32_t bit = 1 << 31;
     do
     {
-        if (mask & (1UL << pos))
+        if (mask & bit)
             return pos;
+        bit >>= 1;
     } while (pos-- > 0);
 #endif
     return UINT8_MAX;
