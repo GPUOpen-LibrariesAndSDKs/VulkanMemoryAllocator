@@ -3133,7 +3133,7 @@ static inline uint8_t VmaBitScanMSB(uint64_t mask)
         return static_cast<uint8_t>(__builtin_clzll(mask));
 #else
     uint8_t pos = 63;
-    uint64_t bit = 1 << 63;
+    uint64_t bit = 1u << 63;
     do
     {
         if (mask & bit)
