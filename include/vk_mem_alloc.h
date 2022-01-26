@@ -9639,11 +9639,6 @@ private:
     static const uint32_t INITIAL_BLOCK_ALLOC_COUNT = 16;
     static const uint8_t MEMORY_CLASS_SHIFT = 7;
 
-    struct RegionInfo
-    {
-        uint8_t allocType;
-        uint16_t allocCount;
-    };
     class Block
     {
     public:
@@ -9717,7 +9712,7 @@ VmaBlockMetadata_TLSF::VmaBlockMetadata_TLSF(const VkAllocationCallbacks* pAlloc
     m_InnerIsFree(VMA_NULL),
     m_ListsCount(0),
     m_FreeList(VMA_NULL),
-    m_BlockAllocator(pAllocationCallbacks, INITIAL_BLOCK_ALLOC_COUNT * sizeof(Block)),
+    m_BlockAllocator(pAllocationCallbacks, INITIAL_BLOCK_ALLOC_COUNT),
     m_NullBlock(VMA_NULL),
     m_GranularityHandler(bufferImageGranularity) {}
 
@@ -9909,7 +9904,7 @@ void VmaBlockMetadata_TLSF::PrintDetailedMap(class VmaJsonWriter& json) const
         if (block->IsFree())
             PrintDetailedMap_UnusedRange(json, block->offset, block->size);
         else
-            PrintDetailedMap_Allocation(json, block->offset, block->size, block->PrevFree());
+            PrintDetailedMap_Allocation(json, block->offset, block->size, block->UserData());
     }
     if (m_NullBlock->size > 0)
         PrintDetailedMap_UnusedRange(json, m_NullBlock->offset, m_NullBlock->size);
@@ -9942,7 +9937,7 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
         return CheckBlock(*m_NullBlock, m_ListsCount, allocSize, allocAlignment, allocType, pAllocationRequest);
 
     VkDeviceSize roundedSize = allocSize;
-    if (allocSize >= (1 << SECOND_LEVEL_INDEX))
+    if (allocSize >= (1ULL << SECOND_LEVEL_INDEX))
     {
         // Round up to the next block
         roundedSize += (1ULL << (VMA_BITSCAN_MSB(allocSize) - SECOND_LEVEL_INDEX)) - 1;
@@ -9986,7 +9981,7 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
             return true;
     }
 
-    // If all searches failed and first bucket still have some free regions then check it fully
+    // If all searches failed and first bucket still has some free regions then check it fully
     while (block)
     {
         if (CheckBlock(*block, listIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
@@ -11042,7 +11037,7 @@ VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& creat
             *outOffset = m_Metadata->GetAllocationOffset(request.allocHandle);
         return VK_SUCCESS;
     }
-    outAllocation = (VmaVirtualAllocation)VK_WHOLE_SIZE;
+    outAllocation = (VmaVirtualAllocation)VK_NULL_HANDLE;
     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 

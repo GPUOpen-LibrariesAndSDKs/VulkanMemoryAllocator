@@ -2695,7 +2695,7 @@ static void TestVirtualBlocks()
     allocCreateInfo.alignment = alignment;
     allocCreateInfo.pUserData = (void*)(uintptr_t)1;
     allocCreateInfo.size = 8 * MEGABYTE;
-    VmaVirtualAllocation allocation0;
+    VmaVirtualAllocation allocation0 = VK_NULL_HANDLE;
     TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation0, &offset) == VK_SUCCESS);
 
     // # Validate the allocation
@@ -2716,7 +2716,7 @@ static void TestVirtualBlocks()
     // # Allocate 4 MB (also test passing null as pOffset during allocation)
 
     allocCreateInfo.size = 4 * MEGABYTE;
-    VmaVirtualAllocation allocation1;
+    VmaVirtualAllocation allocation1 = VK_NULL_HANDLE;
     TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation1, nullptr) == VK_SUCCESS);
     VmaVirtualAllocationInfo allocInfo1 = {};
     vmaGetVirtualAllocationInfo(block, allocation1, &allocInfo1);
@@ -2726,9 +2726,9 @@ static void TestVirtualBlocks()
     // # Allocate another 8 MB - it should fail
 
     allocCreateInfo.size = 8 * MEGABYTE;
-    VmaVirtualAllocation allocation2;
+    VmaVirtualAllocation allocation2 = VK_NULL_HANDLE;
     TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, nullptr) < 0);
-    TEST(allocation2 == (VmaVirtualAllocation)VK_WHOLE_SIZE);
+    TEST(allocation2 == VK_NULL_HANDLE);
 
     // # Free the 4 MB block. Now allocation of 8 MB should succeed.
 
