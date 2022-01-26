@@ -565,43 +565,31 @@ typedef enum VmaAllocationCreateFlagBits
     VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT = 0x00000100,
     /** \brief Set this flag if the allocated memory will have aliasing resources.
     *
-    Usage of this flag prevents supplying `VkMemoryDedicatedAllocateInfoKHR` when VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is specified.
+    Usage of this flag prevents supplying `VkMemoryDedicatedAllocateInfoKHR` when #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is specified.
     Otherwise created dedicated memory will not be suitable for aliasing resources, resulting in Vulkan Validation Layer errors.
     */
     VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT = 0x00000200,
-
-    /** Allocation strategy that chooses smallest possible free range for the
-    allocation.
+    /** Allocation strategy that chooses smallest possible free range for the allocation
+    to minimize memory usage and fragmentation, possibly at the expense of allocation time.
     */
-    VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT = 0x00010000,
-    /** Allocation strategy that chooses biggest possible free range for the
-    allocation.
+    VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT = 0x00010000,
+    /** Allocation strategy that chooses first suitable free range for the allocation -
+    not necessarily in terms of the smallest offset but the one that is easiest and fastest to find
+    to minimize allocation time, possibly at the expense of allocation quality.
     */
-    VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT = 0x00020000,
-    /** Allocation strategy that chooses first suitable free range for the
-    allocation.
-
-    "First" doesn't necessarily means the one with smallest offset in memory,
-    but rather the one that is easiest and fastest to find.
+    VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = 0x00040000,
+    /** Alias to #VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT.
     */
-    VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT = 0x00040000,
-
-    /** Allocation strategy that tries to minimize memory usage.
+    VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT,
+    /** Alias to #VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT.
     */
-    VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT,
-    /** Allocation strategy that tries to minimize allocation time.
-    */
-    VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT,
-    /** Allocation strategy that tries to minimize memory fragmentation.
-    */
-    VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT,
-
+    VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT,
     /** A bit mask to extract only `STRATEGY` bits from entire set of flags.
     */
     VMA_ALLOCATION_CREATE_STRATEGY_MASK =
-        VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT |
-        VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT |
-        VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT,
+        VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT |
+        0x00020000 | // Removed
+        VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT,
 
     VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocationCreateFlagBits;
@@ -757,9 +745,6 @@ typedef enum VmaVirtualAllocationCreateFlagBits
     /** \brief Allocation strategy that tries to minimize allocation time.
     */
     VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT,
-    /** \brief Allocation strategy that tries to minimize memory fragmentation.
-    */
-    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT,
     /** \brief A bit mask to extract only `STRATEGY` bits from entire set of flags.
 
     These strategy flags are binary compatible with equivalent flags in #VmaAllocationCreateFlagBits.
@@ -6684,7 +6669,8 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     const size_t freeSuballocCount = m_FreeSuballocationsBySize.size();
     if (freeSuballocCount > 0)
     {
-        if (strategy == VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
+        if (strategy == 0 ||
+            strategy == VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT)
         {
             // Find first free suballocation with size not less than allocSize + 2 * debugMargin.
             VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
@@ -6725,8 +6711,9 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
                 }
             }
         }
-        else // WORST_FIT, FIRST_FIT
+        else
         {
+            VMA_ASSERT(strategy == VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT);
             // Search staring from biggest suballocations.
             for (size_t index = freeSuballocCount; index--; )
             {
@@ -12181,20 +12168,6 @@ VkResult VmaBlockVector::AllocatePage(
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
 
-    // Validate strategy.
-    switch (strategy)
-    {
-    case 0:
-        strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
-        break;
-    case VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT:
-    case VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT:
-    case VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT:
-        break;
-    default:
-        return VK_ERROR_FEATURE_NOT_PRESENT;
-    }
-
     // Early reject: requested allocation size is larger that maximum block size for this block vector.
     if (size + 2 * VMA_DEBUG_MARGIN > m_PreferredBlockSize)
     {
@@ -12227,7 +12200,7 @@ VkResult VmaBlockVector::AllocatePage(
     }
     else
     {
-        if (strategy == VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
+        if (strategy != VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT) // MIN_MEMORY or default
         {
             // Forward order in m_Blocks - prefer blocks with smallest amount of free space.
             for (size_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
@@ -12250,7 +12223,7 @@ VkResult VmaBlockVector::AllocatePage(
                 }
             }
         }
-        else // WORST_FIT, FIRST_FIT
+        else // VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT
         {
             // Backward order in m_Blocks - prefer blocks with largest amount of free space.
             for (size_t blockIndex = m_Blocks.size(); blockIndex--; )

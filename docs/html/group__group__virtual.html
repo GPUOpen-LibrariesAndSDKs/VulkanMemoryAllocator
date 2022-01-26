@@ -133,10 +133,9 @@ Enumerations</h2></td></tr>
 &#160;&#160;<a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6a9524a329a55b5ec390d57d90b67ad78e">VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT</a> = VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT
 , <a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6ae2a9591a62b5e3b1bdcbc81c6188a1bf">VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT
 , <a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6a562d10a46012719d33167d3dc5dbbf9b">VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT
-, <a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6a9aa0c32667ba2deaa9cdeac6149ec47a">VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT</a> = VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT
+, <a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6ac5b5e45c335368d18df59c9f27df17e3">VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK</a> = VMA_ALLOCATION_CREATE_STRATEGY_MASK
 , <br />
-&#160;&#160;<a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6ac5b5e45c335368d18df59c9f27df17e3">VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK</a> = VMA_ALLOCATION_CREATE_STRATEGY_MASK
-, <a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6ac1163c03ea837fa663462dc286d6a1a9">VMA_VIRTUAL_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+&#160;&#160;<a class="el" href="group__group__virtual.html#gga2e9c64d405b14156fea7e10c4ad06cb6ac1163c03ea837fa663462dc286d6a1a9">VMA_VIRTUAL_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
 <tr class="memdesc:ga2e9c64d405b14156fea7e10c4ad06cb6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_virtual_allocation_create_info.html#ab10e16956cc4bf20ced9de77d1129ea4" title="Use combination of VmaVirtualAllocationCreateFlagBits.">VmaVirtualAllocationCreateInfo::flags</a>.  <a href="group__group__virtual.html#ga2e9c64d405b14156fea7e10c4ad06cb6">More...</a><br /></td></tr>
@@ -310,8 +309,6 @@ Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="gga2e9c64d405b14156fea7e10c4ad06cb6ae2a9591a62b5e3b1bdcbc81c6188a1bf" name="gga2e9c64d405b14156fea7e10c4ad06cb6ae2a9591a62b5e3b1bdcbc81c6188a1bf"></a>VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT&#160;</td><td class="fielddoc"><p >Allocation strategy that tries to minimize memory usage. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="gga2e9c64d405b14156fea7e10c4ad06cb6a562d10a46012719d33167d3dc5dbbf9b" name="gga2e9c64d405b14156fea7e10c4ad06cb6a562d10a46012719d33167d3dc5dbbf9b"></a>VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT&#160;</td><td class="fielddoc"><p >Allocation strategy that tries to minimize allocation time. </p>
-</td></tr>
-<tr><td class="fieldname"><a id="gga2e9c64d405b14156fea7e10c4ad06cb6a9aa0c32667ba2deaa9cdeac6149ec47a" name="gga2e9c64d405b14156fea7e10c4ad06cb6a9aa0c32667ba2deaa9cdeac6149ec47a"></a>VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT&#160;</td><td class="fielddoc"><p >Allocation strategy that tries to minimize memory fragmentation. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="gga2e9c64d405b14156fea7e10c4ad06cb6ac5b5e45c335368d18df59c9f27df17e3" name="gga2e9c64d405b14156fea7e10c4ad06cb6ac5b5e45c335368d18df59c9f27df17e3"></a>VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK&#160;</td><td class="fielddoc"><p >A bit mask to extract only <code>STRATEGY</code> bits from entire set of flags. </p>
 <p >These strategy flags are binary compatible with equivalent flags in <a class="el" href="group__group__alloc.html#gad9889c10c798b040d59c92f257cae597" title="Flags to be passed as VmaAllocationCreateInfo::flags.">VmaAllocationCreateFlagBits</a>. </p>

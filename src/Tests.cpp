@@ -201,7 +201,7 @@ static uint32_t GetAllocationStrategyCount()
     case CONFIG_TYPE_SMALL:   strategyCount = 1; break;
     case CONFIG_TYPE_AVERAGE: strategyCount = 2; break;
     case CONFIG_TYPE_LARGE:   strategyCount = 2; break;
-    case CONFIG_TYPE_MAXIMUM: strategyCount = 3; break;
+    case CONFIG_TYPE_MAXIMUM: strategyCount = 2; break;
     default: assert(0);
     }
     return strategyCount;
@@ -212,7 +212,6 @@ static const char* GetAllocationStrategyName(VmaAllocationCreateFlags allocStrat
     switch(allocStrategy)
     {
     case VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT: return "BEST_FIT"; break;
-    case VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT: return "WORST_FIT"; break;
     case VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT: return "FIRST_FIT"; break;
     case 0: return "Default"; break;
     default: assert(0); return "";   
@@ -2850,7 +2849,7 @@ static void TestVirtualBlocksAlgorithms()
             if(i < 10) { }
             else if(i < 12) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT;
             else if(i < 14) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
-            else if(i < 16) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT;
+            else if(i < 16) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT;
             else if(i < 18 && algorithmIndex == 1) allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
 
             AllocData alloc = {};
@@ -4273,8 +4272,7 @@ static void BenchmarkAlgorithms(FILE* file)
                         switch(allocStrategyIndex)
                         {
                         case 0: strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT; break;
-                        case 1: strategy = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT; break;
-                        case 2: strategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT; break;
+                        case 1: strategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT; break;
                         default: assert(0);
                         }
                     }
@@ -6304,10 +6302,6 @@ static void PerformMainTests(FILE* file)
                                 config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
                                 break;
                             case 1:
-                                desc6 += ",WorstFit";
-                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT;
-                                break;
-                            case 2:
                                 desc6 += ",FirstFit";
                                 config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT;
                                 break;
