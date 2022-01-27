@@ -2,7 +2,7 @@
 
 Easy to integrate Vulkan memory allocation library.
 
-**Documentation:** See [Vulkan Memory Allocator](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/) (generated from Doxygen-style comments in [include/vk_mem_alloc.h](include/vk_mem_alloc.h))
+**Documentation:** Browse online: [Vulkan Memory Allocator](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/) (generated from Doxygen-style comments in [include/vk_mem_alloc.h](include/vk_mem_alloc.h))
 
 **License:** MIT. See [LICENSE.txt](LICENSE.txt)
 
@@ -14,6 +14,8 @@ Easy to integrate Vulkan memory allocation library.
 
 - Windows: [![Build status](https://ci.appveyor.com/api/projects/status/4vlcrb0emkaio2pn/branch/master?svg=true)](https://ci.appveyor.com/project/adam-sawicki-amd/vulkanmemoryallocator/branch/master)  
 - Linux: [![Build Status](https://app.travis-ci.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.svg?branch=master)](https://app.travis-ci.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+
+[![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.svg)](http://isitmaintained.com/project/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator "Average time to resolve an issue")
 
 # Problem
 
