@@ -1607,13 +1607,6 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
 @{
 */
 
-/** @} */
-
-/**
-\addtogroup group_alloc
-@{
-*/
-
 /**
 \brief Helps to find memoryTypeIndex, given memoryTypeBits and VmaAllocationCreateInfo.
 
