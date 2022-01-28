@@ -85,6 +85,24 @@ static const char* AlgorithmToStr(uint32_t algorithm)
     }
 }
 
+static const char* VirtualAlgorithmToStr(uint32_t algorithm)
+{
+    switch (algorithm)
+    {
+    case VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT:
+        return "Linear";
+    case VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT:
+        return "Buddy";
+    case VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT:
+        return "TLSF";
+    case 0:
+        return "Default";
+    default:
+        assert(0);
+        return "";
+    }
+}
+
 struct AllocationSize
 {
     uint32_t Probability;
@@ -194,27 +212,38 @@ static uint32_t MemoryTypeToHeap(uint32_t memoryTypeIndex)
 
 static uint32_t GetAllocationStrategyCount()
 {
-    uint32_t strategyCount = 0;
     switch(ConfigType)
     {
-    case CONFIG_TYPE_MINIMUM: strategyCount = 1; break;
-    case CONFIG_TYPE_SMALL:   strategyCount = 1; break;
-    case CONFIG_TYPE_AVERAGE: strategyCount = 2; break;
-    case CONFIG_TYPE_LARGE:   strategyCount = 2; break;
-    case CONFIG_TYPE_MAXIMUM: strategyCount = 2; break;
+    case CONFIG_TYPE_MINIMUM:
+    case CONFIG_TYPE_SMALL:
+        return 1;
     default: assert(0);
+    case CONFIG_TYPE_AVERAGE:
+    case CONFIG_TYPE_LARGE:
+    case CONFIG_TYPE_MAXIMUM:
+        return 2;
     }
-    return strategyCount;
 }
 
 static const char* GetAllocationStrategyName(VmaAllocationCreateFlags allocStrategy)
 {
     switch(allocStrategy)
     {
-    case VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT: return "BEST_FIT"; break;
-    case VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT: return "FIRST_FIT"; break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT: return "MIN_MEMORY"; break;
+    case VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT: return "MIN_TIME"; break;
     case 0: return "Default"; break;
-    default: assert(0); return "";   
+    default: assert(0); return "";
+    }
+}
+
+static const char* GetVirtualAllocationStrategyName(VmaVirtualAllocationCreateFlags allocStrategy)
+{
+    switch (allocStrategy)
+    {
+    case VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT: return "MIN_MEMORY"; break;
+    case VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT: return "MIN_TIME"; break;
+    case 0: return "Default"; break;
+    default: assert(0); return "";
     }
 }
 
@@ -3385,8 +3414,6 @@ static void TestDebugMargin()
 
         VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[i].Buffer, &buffers[i].Allocation, &allocInfo[i]);
         TEST(res == VK_SUCCESS);
-        // Margin is preserved also at the beginning of a block.
-        TEST(allocInfo[i].offset >= VMA_DEBUG_MARGIN);
 
         if(i == BUF_COUNT - 1)
         {
@@ -4271,8 +4298,8 @@ static void BenchmarkAlgorithms(FILE* file)
                     {
                         switch(allocStrategyIndex)
                         {
-                        case 0: strategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT; break;
-                        case 1: strategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT; break;
+                        case 0: strategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT; break;
+                        case 1: strategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT; break;
                         default: assert(0);
                         }
                     }
@@ -6298,12 +6325,12 @@ static void PerformMainTests(FILE* file)
                             switch(strategyIndex)
                             {
                             case 0:
-                                desc6 += ",BestFit";
-                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
+                                desc6 += ",MinMemory";
+                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT;
                                 break;
                             case 1:
-                                desc6 += ",FirstFit";
-                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT;
+                                desc6 += ",MinTime";
+                                config.AllocationStrategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
                                 break;
                             default:
                                 assert(0);
@@ -6797,6 +6824,108 @@ static void TestGpuData()
     DestroyAllAllocations(allocInfo);
 }
 
+static void TestVirtualBlocksAlgorithmsBenchmark()
+{
+    wprintf(L"Benchmark virtual blocks algorithms\n");
+
+    const size_t ALLOCATION_COUNT = 7200;
+    const uint32_t MAX_ALLOC_SIZE = 2056;
+
+    VmaVirtualBlockCreateInfo blockCreateInfo = {};
+    blockCreateInfo.pAllocationCallbacks = g_Allocs;
+    blockCreateInfo.size = 0;
+
+    RandomNumberGenerator rand{ 20092010 };
+
+    uint32_t allocSizes[ALLOCATION_COUNT];
+    for (size_t i = 0; i < ALLOCATION_COUNT; ++i)
+    {
+        allocSizes[i] = rand.Generate() % MAX_ALLOC_SIZE + 1;
+        blockCreateInfo.size += allocSizes[i];
+    }
+    blockCreateInfo.size = static_cast<VkDeviceSize>(blockCreateInfo.size * 2.5); // 150% size margin in case of buddy fragmentation
+
+    for (uint8_t alignmentIndex = 0; alignmentIndex < 4; ++alignmentIndex)
+    {
+        VkDeviceSize alignment;
+        switch (alignmentIndex)
+        {
+        case 0: alignment = 1; break;
+        case 1: alignment = 16; break;
+        case 2: alignment = 64; break;
+        case 3: alignment = 256; break;
+        default: assert(0); break;
+        }
+        printf("    Alignment=%llu\n", alignment);
+
+        for (uint8_t allocStrategyIndex = 0; allocStrategyIndex < 3; ++allocStrategyIndex)
+        {
+            VmaVirtualAllocationCreateFlags allocFlags;
+            switch (allocStrategyIndex)
+            {
+            case 0: allocFlags = 0; break;
+            case 1: allocFlags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT; break;
+            case 2: allocFlags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT; break;
+            default: assert(0);
+            }
+
+            for (uint8_t algorithmIndex = 0; algorithmIndex < 4; ++algorithmIndex)
+            {
+                switch (algorithmIndex)
+                {
+                case 0:
+                    blockCreateInfo.flags = (VmaVirtualBlockCreateFlagBits)0;
+                    break;
+                case 1:
+                    blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT;
+                    break;
+                case 2:
+                    blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT;
+                    break;
+                case 3:
+                    blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT;
+                    break;
+                default:
+                    assert(0);
+                }
+
+                VmaVirtualAllocation allocs[ALLOCATION_COUNT];
+                VmaVirtualBlock block;
+                TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS && block);
+                duration allocDuration = duration::zero();
+                duration freeDuration = duration::zero();
+
+                // Alloc
+                time_point timeBegin = std::chrono::high_resolution_clock::now();
+                for (size_t i = 0; i < ALLOCATION_COUNT; ++i)
+                {
+                    VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+                    allocCreateInfo.size = allocSizes[i];
+                    allocCreateInfo.alignment = alignment;
+                    allocCreateInfo.flags = allocFlags;
+
+                    TEST(vmaVirtualAllocate(block, &allocCreateInfo, allocs + i, nullptr) == VK_SUCCESS);
+                }
+                allocDuration += std::chrono::high_resolution_clock::now() - timeBegin;
+
+                // Free
+                timeBegin = std::chrono::high_resolution_clock::now();
+                for (size_t i = ALLOCATION_COUNT; i;)
+                    vmaVirtualFree(block, allocs[--i]);
+                freeDuration += std::chrono::high_resolution_clock::now() - timeBegin;
+                vmaDestroyVirtualBlock(block);
+
+                printf("        Algorithm=%s  \tAllocation=%s\tallocations %g s,   \tfree %g s\n",
+                    VirtualAlgorithmToStr(blockCreateInfo.flags),
+                    GetVirtualAllocationStrategyName(allocFlags),
+                    ToFloatSeconds(allocDuration),
+                    ToFloatSeconds(freeDuration));
+            }
+            printf("\n");
+        }
+    }
+}
+
 void Test()
 {
     wprintf(L"TESTING:\n");
@@ -6813,6 +6942,7 @@ void Test()
     TestBasics();
     TestVirtualBlocks();
     TestVirtualBlocksAlgorithms();
+    TestVirtualBlocksAlgorithmsBenchmark();
     TestAllocationVersusResourceSize();
     //TestGpuData(); // Not calling this because it's just testing the testing environment.
 #if VMA_DEBUG_MARGIN

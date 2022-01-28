@@ -577,7 +577,7 @@ typedef enum VmaAllocationCreateFlagBits
     not necessarily in terms of the smallest offset but the one that is easiest and fastest to find
     to minimize allocation time, possibly at the expense of allocation quality.
     */
-    VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = 0x00040000,
+    VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = 0x00020000,
     /** Alias to #VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT.
     */
     VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT,
@@ -588,7 +588,6 @@ typedef enum VmaAllocationCreateFlagBits
     */
     VMA_ALLOCATION_CREATE_STRATEGY_MASK =
         VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT |
-        0x00020000 | // Removed
         VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT,
 
     VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
@@ -5577,8 +5576,8 @@ public:
     VkResult Map(VmaAllocator hAllocator, uint32_t count, void** ppData);
     void Unmap(VmaAllocator hAllocator, uint32_t count);
 
-    VkResult WriteMagicValueAroundAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize);
-    VkResult ValidateMagicValueAroundAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize);
+    VkResult WriteMagicValueAfterAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize);
+    VkResult ValidateMagicValueAfterAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize);
 
     VkResult BindBufferMemory(
         const VmaAllocator hAllocator,
@@ -6161,7 +6160,7 @@ public:
     VmaBlockBufferImageGranularity(VkDeviceSize bufferImageGranularity);
     ~VmaBlockBufferImageGranularity();
 
-    bool IsEnabled() const { return m_BufferImageGranularity > MAX_LOW_IMAGE_BUFFER_GRANULARITY; }
+    bool IsEnabled() const { return m_BufferImageGranularity > MAX_LOW_BUFFER_IMAGE_GRANULARITY; }
 
     void Init(const VkAllocationCallbacks* pAllocationCallbacks, VkDeviceSize size);
     // Before destroying object you must call free it's memory
@@ -6171,10 +6170,10 @@ public:
         VkDeviceSize& inOutAllocSize,
         VkDeviceSize& inOutAllocAlignment) const;
 
-    bool IsConflict(VkDeviceSize allocSize,
-        VkDeviceSize allocOffset,
-        VkDeviceSize blockSize,
+    bool CheckConflictAndAlignUp(VkDeviceSize& inOutAllocOffset,
+        VkDeviceSize allocSize,
         VkDeviceSize blockOffset,
+        VkDeviceSize blockSize,
         VmaSuballocationType allocType) const;
 
     void AllocPages(uint8_t allocType, VkDeviceSize offset, VkDeviceSize size);
@@ -6187,7 +6186,7 @@ public:
     bool FinishValidation(ValidationContext& ctx) const;
 
 private:
-    static const uint16_t MAX_LOW_IMAGE_BUFFER_GRANULARITY = 256;
+    static const uint16_t MAX_LOW_BUFFER_IMAGE_GRANULARITY = 256;
 
     struct RegionInfo
     {
@@ -6199,10 +6198,10 @@ private:
     uint32_t m_RegionCount;
     RegionInfo* m_RegionInfo;
 
-    uint32_t GetStartPage(VkDeviceSize offset) const { return PageToIndex(offset & ~(m_BufferImageGranularity - 1)); }
-    uint32_t GetEndPage(VkDeviceSize offset, VkDeviceSize size) const { return PageToIndex((offset + size - 1) & ~(m_BufferImageGranularity - 1)); }
+    uint32_t GetStartPage(VkDeviceSize offset) const { return OffsetToPageIndex(offset & ~(m_BufferImageGranularity - 1)); }
+    uint32_t GetEndPage(VkDeviceSize offset, VkDeviceSize size) const { return OffsetToPageIndex((offset + size - 1) & ~(m_BufferImageGranularity - 1)); }
 
-    uint32_t PageToIndex(VkDeviceSize offset) const;
+    uint32_t OffsetToPageIndex(VkDeviceSize offset) const;
     void AllocPage(RegionInfo& page, uint8_t allocType);
 };
 
@@ -6241,7 +6240,7 @@ void VmaBlockBufferImageGranularity::RoundupAllocRequest(VmaSuballocationType al
     VkDeviceSize& inOutAllocAlignment) const
 {
     if (m_BufferImageGranularity > 1 &&
-        m_BufferImageGranularity <= MAX_LOW_IMAGE_BUFFER_GRANULARITY)
+        m_BufferImageGranularity <= MAX_LOW_BUFFER_IMAGE_GRANULARITY)
     {
         if (allocType == VMA_SUBALLOCATION_TYPE_UNKNOWN ||
             allocType == VMA_SUBALLOCATION_TYPE_IMAGE_UNKNOWN ||
@@ -6253,24 +6252,24 @@ void VmaBlockBufferImageGranularity::RoundupAllocRequest(VmaSuballocationType al
     }
 }
 
-bool VmaBlockBufferImageGranularity::IsConflict(VkDeviceSize allocSize,
-    VkDeviceSize allocOffset,
-    VkDeviceSize blockSize,
+bool VmaBlockBufferImageGranularity::CheckConflictAndAlignUp(VkDeviceSize& inOutAllocOffset,
+    VkDeviceSize allocSize,
     VkDeviceSize blockOffset,
+    VkDeviceSize blockSize,
     VmaSuballocationType allocType) const
 {
     if (IsEnabled())
     {
-        uint32_t startPage = GetStartPage(allocOffset);
+        uint32_t startPage = GetStartPage(inOutAllocOffset);
         if (m_RegionInfo[startPage].allocCount > 0 &&
             VmaIsBufferImageGranularityConflict(static_cast<VmaSuballocationType>(m_RegionInfo[startPage].allocType), allocType))
         {
-            allocOffset = VmaAlignUp(allocOffset, m_BufferImageGranularity);
-            if (blockSize < allocSize + allocOffset - blockOffset)
+            inOutAllocOffset = VmaAlignUp(inOutAllocOffset, m_BufferImageGranularity);
+            if (blockSize < allocSize + inOutAllocOffset - blockOffset)
                 return true;
             ++startPage;
         }
-        uint32_t endPage = GetEndPage(allocOffset, allocSize);
+        uint32_t endPage = GetEndPage(inOutAllocOffset, allocSize);
         if (endPage != startPage &&
             m_RegionInfo[endPage].allocCount > 0 &&
             VmaIsBufferImageGranularityConflict(static_cast<VmaSuballocationType>(m_RegionInfo[endPage].allocType), allocType))
@@ -6366,7 +6365,7 @@ bool VmaBlockBufferImageGranularity::FinishValidation(ValidationContext& ctx) co
     return true;
 }
 
-uint32_t VmaBlockBufferImageGranularity::PageToIndex(VkDeviceSize offset) const
+uint32_t VmaBlockBufferImageGranularity::OffsetToPageIndex(VkDeviceSize offset) const
 {
     return static_cast<uint32_t>(offset >> VMA_BITSCAN_MSB(m_BufferImageGranularity));
 }
@@ -6653,7 +6652,7 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
     const VkDeviceSize debugMargin = GetDebugMargin();
 
     // There is not enough total free space in this block to fulfill the request: Early return.
-    if (m_SumFreeSize < allocSize + 2 * debugMargin)
+    if (m_SumFreeSize < allocSize + debugMargin)
     {
         return false;
     }
@@ -6665,11 +6664,11 @@ bool VmaBlockMetadata_Generic::CreateAllocationRequest(
         if (strategy == 0 ||
             strategy == VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT)
         {
-            // Find first free suballocation with size not less than allocSize + 2 * debugMargin.
+            // Find first free suballocation with size not less than allocSize + debugMargin.
             VmaSuballocationList::iterator* const it = VmaBinaryFindFirstNotLess(
                 m_FreeSuballocationsBySize.data(),
                 m_FreeSuballocationsBySize.data() + freeSuballocCount,
-                allocSize + 2 * debugMargin,
+                allocSize + debugMargin,
                 VmaSuballocationItemSizeLess());
             size_t index = it - m_FreeSuballocationsBySize.data();
             for (; index < freeSuballocCount; ++index)
@@ -6733,11 +6732,6 @@ VkResult VmaBlockMetadata_Generic::CheckCorruption(const void* pBlockData)
     {
         if (suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if (!VmaValidateMagicValue(pBlockData, suballoc.offset - GetDebugMargin()))
-            {
-                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
-                return VK_ERROR_UNKNOWN;
-            }
             if (!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
@@ -6930,7 +6924,7 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
     // Start from offset equal to beginning of this suballocation.
     VkDeviceSize offset = suballoc.offset;
 
-    // Apply debugMargin at the beginning.
+    // Apply debugMargin from the end of previous alloc.
     if (debugMargin > 0)
     {
         offset += debugMargin;
@@ -6970,11 +6964,8 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
     // Calculate padding at the beginning based on current offset.
     const VkDeviceSize paddingBegin = offset - suballoc.offset;
 
-    // Calculate required margin at the end.
-    const VkDeviceSize requiredEndMargin = debugMargin;
-
-    // Fail if requested size plus margin before and after is bigger than size of this suballocation.
-    if (paddingBegin + allocSize + requiredEndMargin > suballoc.size)
+    // Fail if requested size plus margin after is bigger than size of this suballocation.
+    if (paddingBegin + allocSize + debugMargin > suballoc.size)
     {
         return false;
     }
@@ -7389,7 +7380,7 @@ bool VmaBlockMetadata_Linear::Validate() const
     VkDeviceSize sumUsedSize = 0;
     const size_t suballoc1stCount = suballocations1st.size();
     const VkDeviceSize debugMargin = GetDebugMargin();
-    VkDeviceSize offset = debugMargin;
+    VkDeviceSize offset = 0;
 
     if (m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
     {
@@ -8190,11 +8181,6 @@ VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
         const VmaSuballocation& suballoc = suballocations1st[i];
         if (suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if (!VmaValidateMagicValue(pBlockData, suballoc.offset - GetDebugMargin()))
-            {
-                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
-                return VK_ERROR_UNKNOWN;
-            }
             if (!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
@@ -8209,11 +8195,6 @@ VkResult VmaBlockMetadata_Linear::CheckCorruption(const void* pBlockData)
         const VmaSuballocation& suballoc = suballocations2nd[i];
         if (suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
         {
-            if (!VmaValidateMagicValue(pBlockData, suballoc.offset - GetDebugMargin()))
-            {
-                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE VALIDATED ALLOCATION!");
-                return VK_ERROR_UNKNOWN;
-            }
             if (!VmaValidateMagicValue(pBlockData, suballoc.offset + suballoc.size))
             {
                 VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
@@ -8590,17 +8571,11 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
         if (!suballocations1st.empty())
         {
             const VmaSuballocation& lastSuballoc = suballocations1st.back();
-            resultBaseOffset = lastSuballoc.offset + lastSuballoc.size;
+            resultBaseOffset = lastSuballoc.offset + lastSuballoc.size + debugMargin;
         }
 
         // Start from offset equal to beginning of free space.
         VkDeviceSize resultOffset = resultBaseOffset;
-
-        // Apply debugMargin at the beginning.
-        if (debugMargin > 0)
-        {
-            resultOffset += debugMargin;
-        }
 
         // Apply alignment.
         resultOffset = VmaAlignUp(resultOffset, allocAlignment);
@@ -8677,17 +8652,11 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
         if (!suballocations2nd.empty())
         {
             const VmaSuballocation& lastSuballoc = suballocations2nd.back();
-            resultBaseOffset = lastSuballoc.offset + lastSuballoc.size;
+            resultBaseOffset = lastSuballoc.offset + lastSuballoc.size + debugMargin;
         }
 
         // Start from offset equal to beginning of free space.
         VkDeviceSize resultOffset = resultBaseOffset;
-
-        // Apply debugMargin at the beginning.
-        if (debugMargin > 0)
-        {
-            resultOffset += debugMargin;
-        }
 
         // Apply alignment.
         resultOffset = VmaAlignUp(resultOffset, allocAlignment);
@@ -9566,7 +9535,9 @@ void VmaBlockMetadata_Buddy::PrintDetailedMapNode(class VmaJsonWriter& json, con
 
 #ifndef _VMA_BLOCK_METADATA_TLSF
 // To not search current larger region if first allocation won't succeed and skip to smaller range
-// use with VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT as strategy in CreateAllocationRequest()
+// use with VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT as strategy in CreateAllocationRequest().
+// When fragmentation and reusal of previous blocks doesn't matter then use with
+// VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT for fastest alloc time possible.
 class VmaBlockMetadata_TLSF : public VmaBlockMetadata
 {
     VMA_CLASS_NO_COPY(VmaBlockMetadata_TLSF)
@@ -9578,7 +9549,6 @@ public:
     size_t GetAllocationCount() const override { return m_AllocCount; }
     VkDeviceSize GetSumFreeSize() const override { return m_BlocksFreeSize + m_NullBlock->size; }
     bool IsEmpty() const override { return m_NullBlock->offset == 0; }
-    VkResult CheckCorruption(const void* pBlockData) override { return VK_ERROR_FEATURE_NOT_PRESENT; }
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return ((Block*)allocHandle)->offset; };
 
     void Init(VkDeviceSize size) override;
@@ -9599,6 +9569,7 @@ public:
         uint32_t strategy,
         VmaAllocationRequest* pAllocationRequest) override;
 
+    VkResult CheckCorruption(const void* pBlockData) override;
     void Alloc(
         const VmaAllocationRequest& request,
         VmaSuballocationType type,
@@ -9618,6 +9589,7 @@ private:
     static const uint16_t SMALL_BUFFER_SIZE = 256;
     static const uint32_t INITIAL_BLOCK_ALLOC_COUNT = 16;
     static const uint8_t MEMORY_CLASS_SHIFT = 7;
+    static const uint8_t MAX_MEMORY_CLASSES = 65 - MEMORY_CLASS_SHIFT;
 
     class Block
     {
@@ -9648,9 +9620,9 @@ private:
     size_t m_BlocksFreeCount;
     // Total size of free blocks excluding null block
     VkDeviceSize m_BlocksFreeSize;
-    uint32_t m_IsFree;
+    uint32_t m_IsFreeBitmap;
     uint8_t m_MemoryClasses;
-    uint16_t* m_InnerIsFree;
+    uint32_t m_InnerIsFreeBitmap[MAX_MEMORY_CLASSES];
     uint32_t m_ListsCount;
     /*
     * 0: 0-3 lists for small buffers
@@ -9687,9 +9659,8 @@ VmaBlockMetadata_TLSF::VmaBlockMetadata_TLSF(const VkAllocationCallbacks* pAlloc
     m_AllocCount(0),
     m_BlocksFreeCount(0),
     m_BlocksFreeSize(0),
-    m_IsFree(0),
+    m_IsFreeBitmap(0),
     m_MemoryClasses(0),
-    m_InnerIsFree(VMA_NULL),
     m_ListsCount(0),
     m_FreeList(VMA_NULL),
     m_BlockAllocator(pAllocationCallbacks, INITIAL_BLOCK_ALLOC_COUNT),
@@ -9698,8 +9669,6 @@ VmaBlockMetadata_TLSF::VmaBlockMetadata_TLSF(const VkAllocationCallbacks* pAlloc
 
 VmaBlockMetadata_TLSF::~VmaBlockMetadata_TLSF()
 {
-    if (m_InnerIsFree)
-        vma_delete_array(GetAllocationCallbacks(), m_InnerIsFree, m_MemoryClasses);
     if (m_FreeList)
         vma_delete_array(GetAllocationCallbacks(), m_FreeList, m_ListsCount);
     m_GranularityHandler.Destroy(GetAllocationCallbacks());
@@ -9722,11 +9691,14 @@ void VmaBlockMetadata_TLSF::Init(VkDeviceSize size)
     m_NullBlock->PrevFree() = VMA_NULL;
     uint8_t memoryClass = SizeToMemoryClass(size);
     uint16_t sli = SizeToSecondIndex(size, memoryClass);
-    m_ListsCount = (memoryClass == 0 ? 0 : (memoryClass - 1) * (1UL << SECOND_LEVEL_INDEX) + sli) + 5;
+    m_ListsCount = (memoryClass == 0 ? 0 : (memoryClass - 1) * (1UL << SECOND_LEVEL_INDEX) + sli) + 1;
+    if (IsVirtual())
+        m_ListsCount += 1UL << SECOND_LEVEL_INDEX;
+    else
+        m_ListsCount += 4;
 
     m_MemoryClasses = memoryClass + 2;
-    m_InnerIsFree = vma_new_array(GetAllocationCallbacks(), uint16_t, m_MemoryClasses);
-    memset(m_InnerIsFree, 0, m_MemoryClasses * sizeof(uint16_t));
+    memset(m_InnerIsFreeBitmap, 0, MAX_MEMORY_CLASSES * sizeof(uint32_t));
 
     m_FreeList = vma_new_array(GetAllocationCallbacks(), Block*, m_ListsCount);
     memset(m_FreeList, 0, m_ListsCount * sizeof(Block*));
@@ -9908,6 +9880,7 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
     if (!IsVirtual())
         m_GranularityHandler.RoundupAllocRequest(allocType, allocSize, allocAlignment);
 
+    allocSize += GetDebugMargin();
     // Quick check for too small pool
     if (allocSize > GetSumFreeSize())
         return false;
@@ -9916,78 +9889,129 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
     if (m_BlocksFreeCount == 0)
         return CheckBlock(*m_NullBlock, m_ListsCount, allocSize, allocAlignment, allocType, pAllocationRequest);
 
-    VkDeviceSize roundedSize = allocSize;
-    if (allocSize >= (1ULL << SECOND_LEVEL_INDEX))
+    // Round up to the next block
+    VkDeviceSize sizeForNextList = allocSize;
+    if (allocSize >= (1 << SECOND_LEVEL_INDEX))
     {
-        // Round up to the next block
-        roundedSize += (1ULL << (VMA_BITSCAN_MSB(allocSize) - SECOND_LEVEL_INDEX)) - 1;
+        sizeForNextList += (1ULL << (VMA_BITSCAN_MSB(allocSize) - SECOND_LEVEL_INDEX)) - 1;
     }
+    else
+        sizeForNextList += 1 << SECOND_LEVEL_INDEX;
 
-    uint32_t listIndex = 0;
-    Block* block = FindFreeBlock(roundedSize, listIndex);
-    while (block)
-    {
-        if (CheckBlock(*block, listIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
-            return true;
-
-        block = block->NextFree();
-        // Region does not meet requirements
-        if (strategy & VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
-            break;
-    }
-
-    if ((strategy & VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT) == 0)
-    {
-        // No region in previous bucket, check null block
-        if (CheckBlock(*m_NullBlock, m_ListsCount, allocSize, allocAlignment, allocType, pAllocationRequest))
-            return true;
-    }
-
-    // No other region found, check previous bucket
+    uint32_t nextListIndex = 0;
     uint32_t prevListIndex = 0;
-    Block* prevListBlock = FindFreeBlock(allocSize, prevListIndex);
-    while (prevListBlock)
+    Block* nextListBlock = VMA_NULL;
+    Block* prevListBlock = VMA_NULL;
+
+    // Check blocks according to strategies
+    if (strategy & VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT)
     {
-        if (CheckBlock(*prevListBlock, prevListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+        // Quick check for larger block first
+        nextListBlock = FindFreeBlock(sizeForNextList, nextListIndex);
+        if (nextListBlock != VMA_NULL && CheckBlock(*nextListBlock, nextListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
             return true;
 
-        prevListBlock = prevListBlock->NextFree();
-    }
-
-    if (strategy & VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT)
-    {
-        // No region in previous bucket, check null block
+        // If not fitted then null block
         if (CheckBlock(*m_NullBlock, m_ListsCount, allocSize, allocAlignment, allocType, pAllocationRequest))
             return true;
-    }
 
-    // If all searches failed and first bucket still has some free regions then check it fully
-    while (block)
+        // Null block failed, search larger bucket
+        while (nextListBlock)
+        {
+            if (CheckBlock(*nextListBlock, nextListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            nextListBlock = nextListBlock->NextFree();
+        }
+
+        // Failed again, check best fit bucket
+        prevListBlock = FindFreeBlock(allocSize, prevListIndex);
+        while (prevListBlock)
+        {
+            if (CheckBlock(*prevListBlock, prevListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            prevListBlock = prevListBlock->NextFree();
+        }
+    }
+    else if (strategy & VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT)
     {
-        if (CheckBlock(*block, listIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+        // Check best fit bucket
+        prevListBlock = FindFreeBlock(allocSize, prevListIndex);
+        while (prevListBlock)
+        {
+            if (CheckBlock(*prevListBlock, prevListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            prevListBlock = prevListBlock->NextFree();
+        }
+
+        // If failed check null block
+        if (CheckBlock(*m_NullBlock, m_ListsCount, allocSize, allocAlignment, allocType, pAllocationRequest))
             return true;
 
-        block = block->NextFree();
+        // Check larger bucket
+        nextListBlock = FindFreeBlock(sizeForNextList, nextListIndex);
+        while (nextListBlock)
+        {
+            if (CheckBlock(*nextListBlock, nextListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            nextListBlock = nextListBlock->NextFree();
+        }
+    }
+    else
+    {
+        // Check larger bucket
+        nextListBlock = FindFreeBlock(sizeForNextList, nextListIndex);
+        while (nextListBlock)
+        {
+            if (CheckBlock(*nextListBlock, nextListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            nextListBlock = nextListBlock->NextFree();
+        }
+
+        // If failed check null block
+        if (CheckBlock(*m_NullBlock, m_ListsCount, allocSize, allocAlignment, allocType, pAllocationRequest))
+            return true;
+
+        // Check best fit bucket
+        prevListBlock = FindFreeBlock(allocSize, prevListIndex);
+        while (prevListBlock)
+        {
+            if (CheckBlock(*prevListBlock, prevListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            prevListBlock = prevListBlock->NextFree();
+        }
     }
 
-    // Worst case, if bufferImageGranularity is causing free blocks to become not suitable then full search has to be done
-    if (!IsVirtual() && m_GranularityHandler.IsEnabled())
+    // Worst case, full search has to be done
+    while (++nextListIndex < m_ListsCount)
     {
-        while (++listIndex < m_ListsCount)
+        nextListBlock = m_FreeList[nextListIndex];
+        while (nextListBlock)
         {
-            block = m_FreeList[listIndex];
-            while (block)
-            {
-                if (CheckBlock(*block, listIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
-                    return true;
-
-                block = block->NextFree();
-            }
+            if (CheckBlock(*nextListBlock, nextListIndex, allocSize, allocAlignment, allocType, pAllocationRequest))
+                return true;
+            nextListBlock = nextListBlock->NextFree();
         }
     }
 
     // No more memory sadly
     return false;
+}
+
+VkResult VmaBlockMetadata_TLSF::CheckCorruption(const void* pBlockData)
+{
+    for (Block* block = m_NullBlock->prevPhysical; block != VMA_NULL; block = block->prevPhysical)
+    {
+        if (!block->IsFree())
+        {
+            if (!VmaValidateMagicValue(pBlockData, block->offset + block->size))
+            {
+                VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER VALIDATED ALLOCATION!");
+                return VK_ERROR_UNKNOWN;
+            }
+        }
+    }
+
+    return VK_SUCCESS;
 }
 
 void VmaBlockMetadata_TLSF::Alloc(
@@ -9999,20 +10023,23 @@ void VmaBlockMetadata_TLSF::Alloc(
 
     // Get block and pop it from the free list
     Block* currentBlock = (Block*)request.allocHandle;
+    VkDeviceSize offset = request.algorithmData;
     VMA_ASSERT(currentBlock != VMA_NULL);
+    VMA_ASSERT(currentBlock->offset <= offset);
 
     if (currentBlock != m_NullBlock)
         RemoveFreeBlock(currentBlock);
 
+    VkDeviceSize debugMargin = GetDebugMargin();
+    VkDeviceSize misssingAlignment = offset - currentBlock->offset;
+
     // Append missing alignment to prev block or create new one
-    VMA_ASSERT(currentBlock->offset <= request.algorithmData);
-    VkDeviceSize misssingAlignment = request.algorithmData - currentBlock->offset;
     if (misssingAlignment)
     {
         Block* prevBlock = currentBlock->prevPhysical;
         VMA_ASSERT(prevBlock != VMA_NULL && "There should be no missing alignment at offset 0!");
 
-        if (prevBlock->IsFree())
+        if (prevBlock->IsFree() && prevBlock->size != debugMargin)
         {
             uint32_t oldList = GetListIndex(prevBlock->size);
             prevBlock->size += misssingAlignment;
@@ -10045,14 +10072,15 @@ void VmaBlockMetadata_TLSF::Alloc(
         currentBlock->offset += misssingAlignment;
     }
 
-    if (currentBlock->size == request.size)
+    VkDeviceSize size = request.size + debugMargin;
+    if (currentBlock->size == size)
     {
         if (currentBlock == m_NullBlock)
         {
             // Setup new null block
             m_NullBlock = m_BlockAllocator.Alloc();
             m_NullBlock->size = 0;
-            m_NullBlock->offset = currentBlock->offset + request.size;
+            m_NullBlock->offset = currentBlock->offset + size;
             m_NullBlock->prevPhysical = currentBlock;
             m_NullBlock->nextPhysical = VMA_NULL;
             m_NullBlock->MarkFree();
@@ -10064,16 +10092,16 @@ void VmaBlockMetadata_TLSF::Alloc(
     }
     else
     {
-        VMA_ASSERT(currentBlock->size > request.size && "Proper block already found, shouldn't find smaller one!");
+        VMA_ASSERT(currentBlock->size > size && "Proper block already found, shouldn't find smaller one!");
 
         // Create new free block
         Block* newBlock = m_BlockAllocator.Alloc();
-        newBlock->size = currentBlock->size - request.size;
-        newBlock->offset = currentBlock->offset + request.size;
+        newBlock->size = currentBlock->size - size;
+        newBlock->offset = currentBlock->offset + size;
         newBlock->prevPhysical = currentBlock;
         newBlock->nextPhysical = currentBlock->nextPhysical;
         currentBlock->nextPhysical = newBlock;
-        currentBlock->size = request.size;
+        currentBlock->size = size;
 
         if (currentBlock == m_NullBlock)
         {
@@ -10092,6 +10120,20 @@ void VmaBlockMetadata_TLSF::Alloc(
     }
     currentBlock->UserData() = userData;
 
+    if (debugMargin > 0)
+    {
+        currentBlock->size -= debugMargin;
+        Block* newBlock = m_BlockAllocator.Alloc();
+        newBlock->size = debugMargin;
+        newBlock->offset = currentBlock->offset + currentBlock->size;
+        newBlock->prevPhysical = currentBlock;
+        newBlock->nextPhysical = currentBlock->nextPhysical;
+        newBlock->MarkTaken();
+        currentBlock->nextPhysical->prevPhysical = newBlock;
+        currentBlock->nextPhysical = newBlock;
+        InsertFreeBlock(newBlock);
+    }
+
     if (!IsVirtual())
         m_GranularityHandler.AllocPages((uint8_t)(uintptr_t)request.customData,
             currentBlock->offset, currentBlock->size);
@@ -10108,9 +10150,18 @@ void VmaBlockMetadata_TLSF::Free(VmaAllocHandle allocHandle)
         m_GranularityHandler.FreePages(block->offset, block->size);
     --m_AllocCount;
 
+    VkDeviceSize debugMargin = GetDebugMargin();
+    if (debugMargin > 0)
+    {
+        RemoveFreeBlock(next);
+        MergeBlock(next, block);
+        block = next;
+        next = next->nextPhysical;
+    }
+
     // Try merging
     Block* prev = block->prevPhysical;
-    if (prev != VMA_NULL && prev->IsFree())
+    if (prev != VMA_NULL && prev->IsFree() && prev->size != debugMargin)
     {
         RemoveFreeBlock(prev);
         MergeBlock(block, prev);
@@ -10142,7 +10193,7 @@ void VmaBlockMetadata_TLSF::Clear()
     m_AllocCount = 0;
     m_BlocksFreeCount = 0;
     m_BlocksFreeSize = 0;
-    m_IsFree = 0;
+    m_IsFreeBitmap = 0;
     m_NullBlock->offset = 0;
     m_NullBlock->size = GetSize();
     Block* block = m_NullBlock->prevPhysical;
@@ -10154,7 +10205,7 @@ void VmaBlockMetadata_TLSF::Clear()
         block = prev;
     }
     memset(m_FreeList, 0, m_ListsCount * sizeof(Block*));
-    memset(m_InnerIsFree, 0, m_MemoryClasses * sizeof(uint16_t));
+    memset(m_InnerIsFreeBitmap, 0, m_MemoryClasses * sizeof(uint32_t));
     m_GranularityHandler.Clear();
 }
 
@@ -10182,7 +10233,12 @@ uint8_t VmaBlockMetadata_TLSF::SizeToMemoryClass(VkDeviceSize size) const
 uint16_t VmaBlockMetadata_TLSF::SizeToSecondIndex(VkDeviceSize size, uint8_t memoryClass) const
 {
     if (memoryClass == 0)
-        return static_cast<uint16_t>((size - 1) / 64);
+    {
+        if (IsVirtual())
+            return static_cast<uint16_t>((size - 1) / 8);
+        else
+            return static_cast<uint16_t>((size - 1) / 64);
+    }
     return static_cast<uint16_t>((size >> (memoryClass + MEMORY_CLASS_SHIFT - SECOND_LEVEL_INDEX)) ^ (1U << SECOND_LEVEL_INDEX));
 }
 
@@ -10216,9 +10272,9 @@ void VmaBlockMetadata_TLSF::RemoveFreeBlock(Block* block)
         m_FreeList[index] = block->NextFree();
         if (block->NextFree() == VMA_NULL)
         {
-            m_InnerIsFree[memClass] &= ~(1U << secondIndex);
-            if (m_InnerIsFree[memClass] == 0)
-                m_IsFree &= ~(1UL << memClass);
+            m_InnerIsFreeBitmap[memClass] &= ~(1U << secondIndex);
+            if (m_InnerIsFreeBitmap[memClass] == 0)
+                m_IsFreeBitmap &= ~(1UL << memClass);
         }
     }
     block->MarkTaken();
@@ -10242,8 +10298,8 @@ void VmaBlockMetadata_TLSF::InsertFreeBlock(Block* block)
         block->NextFree()->PrevFree() = block;
     else
     {
-        m_InnerIsFree[memClass] |= 1U << secondIndex;
-        m_IsFree |= 1UL << memClass;
+        m_InnerIsFreeBitmap[memClass] |= 1U << secondIndex;
+        m_IsFreeBitmap |= 1UL << memClass;
     }
     ++m_BlocksFreeCount;
     m_BlocksFreeSize += block->size;
@@ -10265,19 +10321,22 @@ void VmaBlockMetadata_TLSF::MergeBlock(Block* block, Block* prev)
 VmaBlockMetadata_TLSF::Block* VmaBlockMetadata_TLSF::FindFreeBlock(VkDeviceSize size, uint32_t& listIndex) const
 {
     uint8_t memoryClass = SizeToMemoryClass(size);
-    uint16_t innerFreeMap = m_InnerIsFree[memoryClass] & (~0U << SizeToSecondIndex(size, memoryClass));
+    uint32_t innerFreeMap = m_InnerIsFreeBitmap[memoryClass] & (~0U << SizeToSecondIndex(size, memoryClass));
     if (!innerFreeMap)
     {
         // Check higher levels for avaiable blocks
-        uint32_t freeMap = m_IsFree & (~0UL << (memoryClass + 1));
+        uint32_t freeMap = m_IsFreeBitmap & (~0UL << (memoryClass + 1));
         if (!freeMap)
             return VMA_NULL; // No more memory avaible
 
         // Find lowest free region
-        innerFreeMap = m_InnerIsFree[VMA_BITSCAN_LSB(freeMap)];
+        memoryClass = VMA_BITSCAN_LSB(freeMap);
+        innerFreeMap = m_InnerIsFreeBitmap[memoryClass];
+        VMA_ASSERT(innerFreeMap != 0);
     }
     // Find lowest free subregion
-    listIndex = GetListIndex(memoryClass, VMA_BITSCAN_LSB(static_cast<uint32_t>(innerFreeMap)));
+    listIndex = GetListIndex(memoryClass, VMA_BITSCAN_LSB(innerFreeMap));
+    VMA_ASSERT(m_FreeList[listIndex]);
     return m_FreeList[listIndex];
 }
 
@@ -10297,13 +10356,13 @@ bool VmaBlockMetadata_TLSF::CheckBlock(
 
     // Check for granularity conflicts
     if (!IsVirtual() &&
-        m_GranularityHandler.IsConflict(allocSize, alignedOffset, block.size, block.offset, allocType))
+        m_GranularityHandler.CheckConflictAndAlignUp(alignedOffset, allocSize, block.offset, block.size, allocType))
         return false;
 
     // Alloc successful
     pAllocationRequest->type = VmaAllocationRequestType::TLSF;
     pAllocationRequest->allocHandle = (VmaAllocHandle)&block;
-    pAllocationRequest->size = allocSize;
+    pAllocationRequest->size = allocSize - GetDebugMargin();
     pAllocationRequest->customData = (void*)allocType;
     pAllocationRequest->algorithmData = alignedOffset;
 
@@ -11572,10 +11631,9 @@ void VmaDeviceMemoryBlock::Unmap(VmaAllocator hAllocator, uint32_t count)
     }
 }
 
-VkResult VmaDeviceMemoryBlock::WriteMagicValueAroundAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize)
+VkResult VmaDeviceMemoryBlock::WriteMagicValueAfterAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize)
 {
     VMA_ASSERT(VMA_DEBUG_MARGIN > 0 && VMA_DEBUG_MARGIN % 4 == 0 && VMA_DEBUG_DETECT_CORRUPTION);
-    VMA_ASSERT(allocOffset >= VMA_DEBUG_MARGIN);
 
     void* pData;
     VkResult res = Map(hAllocator, 1, &pData);
@@ -11584,17 +11642,15 @@ VkResult VmaDeviceMemoryBlock::WriteMagicValueAroundAllocation(VmaAllocator hAll
         return res;
     }
 
-    VmaWriteMagicValue(pData, allocOffset - VMA_DEBUG_MARGIN);
     VmaWriteMagicValue(pData, allocOffset + allocSize);
 
     Unmap(hAllocator, 1);
     return VK_SUCCESS;
 }
 
-VkResult VmaDeviceMemoryBlock::ValidateMagicValueAroundAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize)
+VkResult VmaDeviceMemoryBlock::ValidateMagicValueAfterAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize)
 {
     VMA_ASSERT(VMA_DEBUG_MARGIN > 0 && VMA_DEBUG_MARGIN % 4 == 0 && VMA_DEBUG_DETECT_CORRUPTION);
-    VMA_ASSERT(allocOffset >= VMA_DEBUG_MARGIN);
 
     void* pData;
     VkResult res = Map(hAllocator, 1, &pData);
@@ -11603,11 +11659,7 @@ VkResult VmaDeviceMemoryBlock::ValidateMagicValueAroundAllocation(VmaAllocator h
         return res;
     }
 
-    if (!VmaValidateMagicValue(pData, allocOffset - VMA_DEBUG_MARGIN))
-    {
-        VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED BEFORE FREED ALLOCATION!");
-    }
-    else if (!VmaValidateMagicValue(pData, allocOffset + allocSize))
+    if (!VmaValidateMagicValue(pData, allocOffset + allocSize))
     {
         VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER FREED ALLOCATION!");
     }
@@ -12162,7 +12214,7 @@ VkResult VmaBlockVector::AllocatePage(
     }
 
     // Early reject: requested allocation size is larger that maximum block size for this block vector.
-    if (size + 2 * VMA_DEBUG_MARGIN > m_PreferredBlockSize)
+    if (size + VMA_DEBUG_MARGIN > m_PreferredBlockSize)
     {
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
@@ -12342,7 +12394,7 @@ void VmaBlockVector::Free(
 
         if (IsCorruptionDetectionEnabled())
         {
-            VkResult res = pBlock->ValidateMagicValueAroundAllocation(m_hAllocator, hAllocation->GetOffset(), hAllocation->GetSize());
+            VkResult res = pBlock->ValidateMagicValueAfterAllocation(m_hAllocator, hAllocation->GetOffset(), hAllocation->GetSize());
             VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to validate magic value.");
         }
 
@@ -12490,7 +12542,7 @@ VkResult VmaBlockVector::AllocateFromBlock(
         }
         if (IsCorruptionDetectionEnabled())
         {
-            VkResult res = pBlock->WriteMagicValueAroundAllocation(m_hAllocator, (*pAllocation)->GetOffset(), currRequest.size);
+            VkResult res = pBlock->WriteMagicValueAfterAllocation(m_hAllocator, (*pAllocation)->GetOffset(), currRequest.size);
             VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
         }
         return VK_SUCCESS;
@@ -12652,7 +12704,6 @@ void VmaBlockVector::ApplyDefragmentationMovesCpu(
 
             if (IsCorruptionDetectionEnabled())
             {
-                VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset - VMA_DEBUG_MARGIN);
                 VmaWriteMagicValue(dstBlockInfo.pMappedData, move.dstOffset + move.size);
             }
 
@@ -13195,8 +13246,6 @@ VkResult VmaDefragmentationAlgorithm_Generic::DefragmentRound(
     uint32_t strategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
     // Option 2:
     //uint32_t strategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT;
-    // Option 3:
-    //uint32_t strategy = VMA_ALLOCATION_CREATE_STRATEGY_MIN_FRAGMENTATION_BIT;
 
     size_t srcBlockMinIndex = 0;
     // When FAST_ALGORITHM, move allocations from only last out of blocks that contain non-movable allocations.
