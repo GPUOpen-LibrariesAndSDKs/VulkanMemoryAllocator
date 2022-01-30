@@ -2533,12 +2533,33 @@ VmaAllocatorCreateInfo::pVulkanFunctions. Other members can be null.
 #endif
 
 /*
-Following headers are used in this CONFIGURATION section only, so feel free to
+Define this macro to include custom header files without having to edit this file directly, e.g.:
+
+    // Inside of "my_vma_configuration_user_includes.h":
+
+    #include "my_custom_assert.h" // for MY_CUSTOM_ASSERT
+    #include "my_custom_min.h" // for my_custom_min
+    #include <algorithm>
+    #include <mutex>
+
+    // Inside a different file, which includes "vk_mem_alloc.h":
+
+    #define VMA_CONFIGURATION_USER_INCLUDES_H "my_vma_configuration_user_includes.h"
+    #define VMA_ASSERT(expr) MY_CUSTOM_ASSERT(expr)
+    #define VMA_MIN(v1, v2)  (my_custom_min(v1, v2))
+    #include "vk_mem_alloc.h"
+    ...
+
+The following headers are used in this CONFIGURATION section only, so feel free to
 remove them if not needed.
 */
-#include <cassert> // for assert
-#include <algorithm> // for min, max
-#include <mutex>
+#if !defined(VMA_CONFIGURATION_USER_INCLUDES_H)
+    #include <cassert> // for assert
+    #include <algorithm> // for min, max
+    #include <mutex>
+#else
+    #include VMA_CONFIGURATION_USER_INCLUDES_H
+#endif
 
 #ifndef VMA_NULL
    // Value used as null pointer. Define it to e.g.: nullptr, NULL, 0, (void*)0.
