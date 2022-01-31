@@ -709,11 +709,13 @@ VkResult MainTest(Result& outResult, const Config& config)
 
 void SaveAllocatorStatsToFile(const wchar_t* filePath)
 {
+#if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
     wprintf(L"Saving JSON dump to file \"%s\"\n", filePath);
     char* stats;
     vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
     SaveFile(filePath, stats, strlen(stats));
     vmaFreeStatsString(g_hAllocator, stats);
+#endif
 }
 
 struct AllocInfo
@@ -2778,6 +2780,7 @@ static void TestVirtualBlocks()
 
     // # Generate JSON dump
 
+#if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
     char* json = nullptr;
     vmaBuildVirtualBlockStatsString(block, &json, VK_TRUE);
     {
@@ -2786,6 +2789,7 @@ static void TestVirtualBlocks()
         TEST( str.find("\"UserData\": \"0000000000000002\"") != std::string::npos );
     }
     vmaFreeVirtualBlockStatsString(block, json);
+#endif
 
     // # Free alloc0, leave alloc2 unfreed.
 
@@ -2986,6 +2990,7 @@ static void TestVirtualBlocksAlgorithms()
             TEST(statInfo.usedBytes >= actualAllocSizeSum);
         }
 
+#if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
         // Build JSON dump string
         {
             char* json = nullptr;
@@ -2993,6 +2998,7 @@ static void TestVirtualBlocksAlgorithms()
             int I = 0; // put a breakpoint here to debug
             vmaFreeVirtualBlockStatsString(block, json);
         }
+#endif
 
         // Final cleanup
         vmaClearVirtualBlock(block);
@@ -3996,6 +4002,7 @@ static void ManuallyTestLinearAllocator()
         VmaPoolStats poolStats;
         vmaGetPoolStats(g_hAllocator, pool, &poolStats);
 
+#if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
         char* statsStr = nullptr;
         vmaBuildStatsString(g_hAllocator, &statsStr, VK_TRUE);
 
@@ -4004,6 +4011,7 @@ static void ManuallyTestLinearAllocator()
         int I = 0;
 
         vmaFreeStatsString(g_hAllocator, statsStr);
+#endif
 
         // Destroy the buffers in reverse order.
         while(!bufInfo.empty())

@@ -6067,13 +6067,15 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
 #else
         if (userData != VMA_NULL && allocation->IsUserDataString())
         {
-            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %s",
-                offset, size, reinterpret_cast<const char*>(userData));
+            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %s; Type: %u",
+                offset, size, reinterpret_cast<const char*>(userData),
+                (uint32_t)allocation->GetSuballocationType());
         }
         else
         {
-            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p",
-                offset, size, userData);
+            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Type: %u",
+                offset, size, userData,
+                (uint32_t)allocation->GetSuballocationType());
         }
 #endif // VMA_STATS_STRING_ENABLED
     }
