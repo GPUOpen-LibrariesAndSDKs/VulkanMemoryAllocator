@@ -6048,6 +6048,8 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
         VmaAllocation allocation = reinterpret_cast<VmaAllocation>(userData);
 
         userData = allocation->GetUserData();
+
+#if VMA_STATS_STRING_ENABLED
         if (userData != VMA_NULL && allocation->IsUserDataString())
         {
             VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %s; Type: %s; Usage: %u",
@@ -6062,6 +6064,18 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
                 VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()],
                 allocation->GetBufferImageUsage());
         }
+#else
+        if (userData != VMA_NULL && allocation->IsUserDataString())
+        {
+            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %s",
+                offset, size, reinterpret_cast<const char*>(userData));
+        }
+        else
+        {
+            VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p",
+                offset, size, userData);
+        }
+#endif // VMA_STATS_STRING_ENABLED
     }
     
 }
