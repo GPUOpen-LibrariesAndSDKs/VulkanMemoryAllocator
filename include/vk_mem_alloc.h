@@ -9896,7 +9896,7 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
         sizeForNextList += (1ULL << (VMA_BITSCAN_MSB(allocSize) - SECOND_LEVEL_INDEX)) - 1;
     }
     else
-        sizeForNextList += 1 << SECOND_LEVEL_INDEX;
+        sizeForNextList += (1 << SECOND_LEVEL_INDEX) - 1;
 
     uint32_t nextListIndex = 0;
     uint32_t prevListIndex = 0;
@@ -10246,7 +10246,12 @@ uint32_t VmaBlockMetadata_TLSF::GetListIndex(uint8_t memoryClass, uint16_t secon
 {
     if (memoryClass == 0)
         return secondIndex;
-    return static_cast<uint32_t>(memoryClass - 1) * (1 << SECOND_LEVEL_INDEX) + secondIndex + 4;
+
+    const uint32_t index = static_cast<uint32_t>(memoryClass - 1) * (1 << SECOND_LEVEL_INDEX) + secondIndex;
+    if (IsVirtual())
+        return index + (1 << SECOND_LEVEL_INDEX);
+    else
+        return index + 4;
 }
 
 uint32_t VmaBlockMetadata_TLSF::GetListIndex(VkDeviceSize size) const
