@@ -2254,8 +2254,8 @@ separately, using `vkDestroyBuffer()` and vmaFreeMemory().
 If #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag was used,
 VK_KHR_dedicated_allocation extension is used internally to query driver whether
 it requires or prefers the new buffer to have dedicated allocation. If yes,
-and if dedicated allocation is possible (VmaAllocationCreateInfo::pool is null
-and #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT is not used), it creates dedicated
+and if dedicated allocation is possible
+(#VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT is not used), it creates dedicated
 allocation for this buffer, just like when using
 #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
 
