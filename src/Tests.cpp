@@ -3291,6 +3291,8 @@ static void TestPoolsAndAllocationParameters()
 
 void TestHeapSizeLimit()
 {
+    wprintf(L"Test heap size limit\n");
+
     const VkDeviceSize HEAP_SIZE_LIMIT = 100ull * 1024 * 1024; // 100 MB
     const VkDeviceSize BLOCK_SIZE      =  10ull * 1024 * 1024; // 10 MB
 
@@ -3402,58 +3404,109 @@ static void TestDebugMargin()
         return;
     }
 
+    wprintf(L"Test VMA_DEBUG_MARGIN = %u\n", (uint32_t)VMA_DEBUG_MARGIN);
+
     VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    
+    bufInfo.size = 256; // Doesn't matter
+
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
-    // Create few buffers of different size.
-    const size_t BUF_COUNT = 10;
-    BufferInfo buffers[BUF_COUNT];
-    VmaAllocationInfo allocInfo[BUF_COUNT];
-    for(size_t i = 0; i < 10; ++i)
+    VmaPoolCreateInfo poolCreateInfo = {};
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(
+        g_hAllocator, &bufInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex) == VK_SUCCESS);
+    
+    for(size_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
     {
-        bufInfo.size = (VkDeviceSize)(i + 1) * 64;
-        // Last one will be mapped.
-        allocCreateInfo.flags = (i == BUF_COUNT - 1) ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
+        poolCreateInfo.flags = (algorithmIndex == 1 ? VMA_POOL_CREATE_TLSF_ALGORITHM_BIT : 0);
+        VmaPool pool = VK_NULL_HANDLE;
+        TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS && pool);
+        
+        allocCreateInfo.pool = pool;
 
-        VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[i].Buffer, &buffers[i].Allocation, &allocInfo[i]);
+        // Create few buffers of different size.
+        const size_t BUF_COUNT = 10;
+        BufferInfo buffers[BUF_COUNT];
+        VmaAllocationInfo allocInfo[BUF_COUNT];
+        for(size_t allocIndex = 0; allocIndex < 10; ++allocIndex)
+        {
+            const bool isLast = allocIndex == BUF_COUNT - 1;
+            bufInfo.size = (VkDeviceSize)(allocIndex + 1) * 256;
+            // Last one will be mapped.
+            allocCreateInfo.flags = isLast ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
+
+            VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[allocIndex].Buffer, &buffers[allocIndex].Allocation, &allocInfo[allocIndex]);
+            TEST(res == VK_SUCCESS);
+
+            if(isLast)
+            {
+                // Fill with data.
+                TEST(allocInfo[allocIndex].pMappedData != nullptr);
+                // Uncomment this "+ 1" to overwrite past end of allocation and check corruption detection.
+                memset(allocInfo[allocIndex].pMappedData, 0xFF, bufInfo.size /* + 1 */);
+            }
+        }
+
+        // Check if their offsets preserve margin between them.
+        std::sort(allocInfo, allocInfo + BUF_COUNT, [](const VmaAllocationInfo& lhs, const VmaAllocationInfo& rhs) -> bool
+        {
+            if(lhs.deviceMemory != rhs.deviceMemory)
+            {
+                return lhs.deviceMemory < rhs.deviceMemory;
+            }
+            return lhs.offset < rhs.offset;
+        });
+        for(size_t i = 1; i < BUF_COUNT; ++i)
+        {
+            if(allocInfo[i].deviceMemory == allocInfo[i - 1].deviceMemory)
+            {
+                TEST(allocInfo[i].offset >= allocInfo[i - 1].offset + VMA_DEBUG_MARGIN);
+            }
+        }
+
+        VkResult res = vmaCheckCorruption(g_hAllocator, UINT32_MAX);
         TEST(res == VK_SUCCESS);
 
-        if(i == BUF_COUNT - 1)
+        // JSON dump
+        char* json = nullptr;
+        vmaBuildStatsString(g_hAllocator, &json, VK_TRUE);
+        int I = 1; // Put breakpoint here to manually inspect json in a debugger.
+        vmaFreeStatsString(g_hAllocator, json);
+
+        // Destroy all buffers.
+        for(size_t i = BUF_COUNT; i--; )
         {
-            // Fill with data.
-            TEST(allocInfo[i].pMappedData != nullptr);
-            // Uncomment this "+ 1" to overwrite past end of allocation and check corruption detection.
-            memset(allocInfo[i].pMappedData, 0xFF, bufInfo.size /* + 1 */);
+            vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
         }
+
+        vmaDestroyPool(g_hAllocator, pool);
     }
+}
 
-    // Check if their offsets preserve margin between them.
-    std::sort(allocInfo, allocInfo + BUF_COUNT, [](const VmaAllocationInfo& lhs, const VmaAllocationInfo& rhs) -> bool
+static void TestDebugMarginNotInVirtualAllocator()
+{
+    constexpr size_t ALLOCATION_COUNT = 10;
+    for(size_t algorithm = 0; algorithm < 2; ++algorithm)
     {
-        if(lhs.deviceMemory != rhs.deviceMemory)
+        VmaVirtualBlockCreateInfo blockCreateInfo = {};
+        blockCreateInfo.size = ALLOCATION_COUNT * MEGABYTE;
+        blockCreateInfo.flags = (algorithm == 1 ? VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT : 0);
+
+        VmaVirtualBlock block = VK_NULL_HANDLE;
+        TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS);
+
+        // Fill the entire block
+        VmaVirtualAllocation allocs[ALLOCATION_COUNT];
+        for(size_t i = 0; i < ALLOCATION_COUNT; ++i)
         {
-            return lhs.deviceMemory < rhs.deviceMemory;
+            VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.size = 1 * MEGABYTE;
+            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocs[i], nullptr) == VK_SUCCESS);
         }
-        return lhs.offset < rhs.offset;
-    });
-    for(size_t i = 1; i < BUF_COUNT; ++i)
-    {
-        if(allocInfo[i].deviceMemory == allocInfo[i - 1].deviceMemory)
-        {
-            TEST(allocInfo[i].offset >= allocInfo[i - 1].offset + VMA_DEBUG_MARGIN);
-        }
-    }
 
-    VkResult res = vmaCheckCorruption(g_hAllocator, UINT32_MAX);
-    TEST(res == VK_SUCCESS);
-
-    // Destroy all buffers.
-    for(size_t i = BUF_COUNT; i--; )
-    {
-        vmaDestroyBuffer(g_hAllocator, buffers[i].Buffer, buffers[i].Allocation);
+        vmaClearVirtualBlock(block);
+        vmaDestroyVirtualBlock(block);
     }
 }
 #endif
@@ -6947,21 +7000,21 @@ void Test()
 
     // # Simple tests
 
+#if VMA_DEBUG_MARGIN
+    TestDebugMargin();
+    TestDebugMarginNotInVirtualAllocator();
+#else
     TestBasics();
     TestVirtualBlocks();
     TestVirtualBlocksAlgorithms();
     TestVirtualBlocksAlgorithmsBenchmark();
     TestAllocationVersusResourceSize();
     //TestGpuData(); // Not calling this because it's just testing the testing environment.
-#if VMA_DEBUG_MARGIN
-    TestDebugMargin();
-#else
     TestPool_SameSize();
     TestPool_MinBlockCount();
     TestPool_MinAllocationAlignment();
     TestPoolsAndAllocationParameters();
     TestHeapSizeLimit();
-#endif
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
     TestAllocationsInitialization();
 #endif
@@ -7017,6 +7070,7 @@ void Test()
     //PerformCustomPoolTest(file);
     
     fclose(file);
+#endif // #if defined(VMA_DEBUG_MARGIN) && VMA_DEBUG_MARGIN > 0
     
     wprintf(L"Done, all PASSED.\n");
 }

@@ -1450,7 +1450,7 @@ typedef struct VmaVirtualBlockCreateInfo
 
     /** \brief Use combination of #VmaVirtualBlockCreateFlagBits.
     */
-    VmaVirtualBlockCreateFlagBits flags;
+    VmaVirtualBlockCreateFlags flags;
 
     /** \brief Custom CPU memory allocation callbacks. Optional.
 
@@ -2831,7 +2831,7 @@ If providing your own implementation, you need to implement a subset of std::ato
 
 #ifndef VMA_DEBUG_MARGIN
     /**
-    Minimum margin before and after every allocation, in bytes.
+    Minimum margin after every allocation, in bytes.
     Set nonzero for debugging purposes only.
     */
     #define VMA_DEBUG_MARGIN (0)
@@ -2848,7 +2848,7 @@ If providing your own implementation, you need to implement a subset of std::ato
 #ifndef VMA_DEBUG_DETECT_CORRUPTION
     /**
     Define this macro to 1 together with non-zero value of VMA_DEBUG_MARGIN to
-    enable writing magic value to the margin before and after every allocation and
+    enable writing magic value to the margin after every allocation and
     validating it, so that memory corruptions (out-of-bounds writes) are detected.
     */
     #define VMA_DEBUG_DETECT_CORRUPTION (0)
@@ -19276,7 +19276,7 @@ By default, allocations are laid out in memory blocks next to each other if poss
 ![Allocations without margin](../gfx/Margins_1.png)
 
 Define macro `VMA_DEBUG_MARGIN` to some non-zero value (e.g. 16) to enforce specified
-number of bytes as a margin before and after every allocation.
+number of bytes as a margin after every allocation.
 
 \code
 #define VMA_DEBUG_MARGIN 16
@@ -19289,9 +19289,6 @@ If your bug goes away after enabling margins, it means it may be caused by memor
 being overwritten outside of allocation boundaries. It is not 100% certain though.
 Change in application behavior may also be caused by different order and distribution
 of allocations across memory blocks after margins are applied.
-
-The margin is applied also before first and after last allocation in a block.
-It may occur only once between two adjacent allocations.
 
 Margins work with all types of memory.
 
@@ -19306,6 +19303,8 @@ Margins appear in [JSON dump](@ref statistics_json_dump) as part of free space.
 
 Note that enabling margins increases memory usage and fragmentation.
 
+Margins do not apply to \ref virtual_allocator.
+
 \section debugging_memory_usage_corruption_detection Corruption detection
 
 You can additionally define macro `VMA_DEBUG_DETECT_CORRUPTION` to 1 to enable validation
@@ -19318,7 +19317,7 @@ of contents of the margins.
 \endcode
 
 When this feature is enabled, number of bytes specified as `VMA_DEBUG_MARGIN`
-(it must be multiply of 4) before and after every allocation is filled with a magic number.
+(it must be multiply of 4) after every allocation is filled with a magic number.
 This idea is also know as "canary".
 Memory is automatically mapped and unmapped if necessary.
 
