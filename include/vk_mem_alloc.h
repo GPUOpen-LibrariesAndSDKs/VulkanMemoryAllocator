@@ -626,8 +626,6 @@ typedef enum VmaPoolCreateFlagBits
     By using this flag, you can achieve behavior of free-at-once, stack,
     ring buffer, and double stack.
     For details, see documentation chapter \ref linear_algorithm.
-
-    When using this flag, you must specify VmaPoolCreateInfo::maxBlockCount == 1 (or 0 for default).
     */
     VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT = 0x00000004,
 
