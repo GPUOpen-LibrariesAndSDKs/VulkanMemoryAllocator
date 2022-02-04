@@ -2799,6 +2799,9 @@ static void TestVirtualBlocks()
 
     vmaVirtualFree(block, allocation0);
 
+    // # Test free of null allocation.
+    vmaVirtualFree(block, VK_NULL_HANDLE);
+
     // # Test alignment
 
     {

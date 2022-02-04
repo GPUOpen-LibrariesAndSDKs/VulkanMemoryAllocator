@@ -833,6 +833,8 @@ VK_DEFINE_HANDLE(VmaDefragmentationContext)
 \brief Represents single memory allocation done inside VmaVirtualBlock.
 
 Use it as a unique identifier to virtual allocation within the single block.
+
+Use value `VK_NULL_HANDLE` to represent a null/invalid allocation.
 */
 VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation);
 
@@ -2382,6 +2384,8 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(
     VkDeviceSize* VMA_NULLABLE pOffset);
 
 /** \brief Frees virtual allocation inside given #VmaVirtualBlock.
+
+It is correct to call this function with `allocation == VK_NULL_HANDLE` - it does nothing.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
@@ -6572,7 +6576,7 @@ bool VmaBlockMetadata_Generic::Validate() const
         {
             if (!IsVirtual())
             {
-                VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == subAlloc.offset);
+                VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == subAlloc.offset + 1);
                 VMA_VALIDATE(alloc->GetSize() == subAlloc.size);
             }
 
@@ -7435,7 +7439,7 @@ bool VmaBlockMetadata_Linear::Validate() const
             {
                 if (!IsVirtual())
                 {
-                    VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == suballoc.offset);
+                    VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == suballoc.offset + 1);
                     VMA_VALIDATE(alloc->GetSize() == suballoc.size);
                 }
                 sumUsedSize += suballoc.size;
@@ -7477,7 +7481,7 @@ bool VmaBlockMetadata_Linear::Validate() const
         {
             if (!IsVirtual())
             {
-                VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == suballoc.offset);
+                VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == suballoc.offset + 1);
                 VMA_VALIDATE(alloc->GetSize() == suballoc.size);
             }
             sumUsedSize += suballoc.size;
@@ -7511,7 +7515,7 @@ bool VmaBlockMetadata_Linear::Validate() const
             {
                 if (!IsVirtual())
                 {
-                    VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == suballoc.offset);
+                    VMA_VALIDATE((VkDeviceSize)alloc->GetAllocHandle() == suballoc.offset + 1);
                     VMA_VALIDATE(alloc->GetSize() == suballoc.size);
                 }
                 sumUsedSize += suballoc.size;
@@ -17847,7 +17851,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(VmaVirtualBlock VMA_NOT_N
 
 VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virtualBlock, VmaVirtualAllocation allocation)
 {
-    if(virtualBlock != VMA_NULL)
+    if(allocation != VK_NULL_HANDLE)
     {
         VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
         VMA_DEBUG_LOG("vmaVirtualFree");
