@@ -46,7 +46,8 @@ void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const char* nam
     #define VMA_DEBUG_MARGIN 0
 #endif
 
-enum CONFIG_TYPE {
+enum CONFIG_TYPE
+{
     CONFIG_TYPE_MINIMUM,
     CONFIG_TYPE_SMALL,
     CONFIG_TYPE_AVERAGE,
@@ -60,7 +61,8 @@ static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
 
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
 
-static const char* FREE_ORDER_NAMES[] = {
+static const char* FREE_ORDER_NAMES[] =
+{
     "FORWARD",
     "BACKWARD",
     "RANDOM",
@@ -2069,7 +2071,6 @@ static void ProcessDefragmentationStepInfo(VmaDefragmentationPassInfo &stepInfo)
     }
 }
 
-
 static void TestDefragmentationIncrementalBasic()
 {
     wprintf(L"Test defragmentation incremental basic\n");
@@ -2466,7 +2467,6 @@ void TestDefragmentationIncrementalComplex()
     }
 }
 
-
 static void TestUserData()
 {
     VkResult res;
@@ -2727,6 +2727,7 @@ static void TestVirtualBlocks()
     allocCreateInfo.size = 8 * MEGABYTE;
     VmaVirtualAllocation allocation0 = VK_NULL_HANDLE;
     TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation0, &offset) == VK_SUCCESS);
+    TEST(allocation0 != VK_NULL_HANDLE);
 
     // # Validate the allocation
   
@@ -2748,6 +2749,7 @@ static void TestVirtualBlocks()
     allocCreateInfo.size = 4 * MEGABYTE;
     VmaVirtualAllocation allocation1 = VK_NULL_HANDLE;
     TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation1, nullptr) == VK_SUCCESS);
+    TEST(allocation1 != VK_NULL_HANDLE);
     VmaVirtualAllocationInfo allocInfo1 = {};
     vmaGetVirtualAllocationInfo(block, allocation1, &allocInfo1);
     TEST(allocInfo1.offset < blockSize);
@@ -2757,13 +2759,15 @@ static void TestVirtualBlocks()
 
     allocCreateInfo.size = 8 * MEGABYTE;
     VmaVirtualAllocation allocation2 = VK_NULL_HANDLE;
-    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, nullptr) < 0);
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, &offset) < 0);
     TEST(allocation2 == VK_NULL_HANDLE);
+    TEST(offset == UINT64_MAX);
 
     // # Free the 4 MB block. Now allocation of 8 MB should succeed.
 
     vmaVirtualFree(block, allocation1);
     TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, nullptr) == VK_SUCCESS);
+    TEST(allocation2 != VK_NULL_HANDLE);
     VmaVirtualAllocationInfo allocInfo2 = {};
     vmaGetVirtualAllocationInfo(block, allocation2, &allocInfo2);
     TEST(allocInfo2.offset < blockSize);
@@ -2806,6 +2810,7 @@ static void TestVirtualBlocks()
             allocCreateInfo.size = i * 3 + 15;
             allocCreateInfo.alignment = alignment0 ? 0 : 8;
             TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocations[i], nullptr) == VK_SUCCESS);
+            TEST(allocations[i] != VK_NULL_HANDLE);
             if(!alignment0)
             {
                 VmaVirtualAllocationInfo info;
@@ -3396,7 +3401,10 @@ void TestHeapSizeLimit()
     vmaDestroyAllocator(hAllocator);
 }
 
-#if VMA_DEBUG_MARGIN
+#ifndef VMA_DEBUG_MARGIN
+    #define VMA_DEBUG_MARGIN (0)
+#endif
+
 static void TestDebugMargin()
 {
     if(VMA_DEBUG_MARGIN == 0)
@@ -3417,9 +3425,15 @@ static void TestDebugMargin()
     TEST(vmaFindMemoryTypeIndexForBufferInfo(
         g_hAllocator, &bufInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex) == VK_SUCCESS);
     
-    for(size_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
+    for(size_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
     {
-        poolCreateInfo.flags = (algorithmIndex == 1 ? VMA_POOL_CREATE_TLSF_ALGORITHM_BIT : 0);
+        switch(algorithmIndex)
+        {
+        case 0: poolCreateInfo.flags = 0; break;
+        case 1: poolCreateInfo.flags = VMA_POOL_CREATE_TLSF_ALGORITHM_BIT; break;
+        case 2: poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT; break;
+        default: assert(0);
+        }
         VmaPool pool = VK_NULL_HANDLE;
         TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS && pool);
         
@@ -3461,12 +3475,13 @@ static void TestDebugMargin()
         {
             if(allocInfo[i].deviceMemory == allocInfo[i - 1].deviceMemory)
             {
-                TEST(allocInfo[i].offset >= allocInfo[i - 1].offset + VMA_DEBUG_MARGIN);
+                TEST(allocInfo[i].offset >=
+                    allocInfo[i - 1].offset + allocInfo[i - 1].size + VMA_DEBUG_MARGIN);
             }
         }
 
         VkResult res = vmaCheckCorruption(g_hAllocator, UINT32_MAX);
-        TEST(res == VK_SUCCESS);
+        TEST(res == VK_SUCCESS || res == VK_ERROR_FEATURE_NOT_PRESENT);
 
         // JSON dump
         char* json = nullptr;
@@ -3486,6 +3501,8 @@ static void TestDebugMargin()
 
 static void TestDebugMarginNotInVirtualAllocator()
 {
+    wprintf(L"Test VMA_DEBUG_MARGIN not applied to virtual allocator\n");
+
     constexpr size_t ALLOCATION_COUNT = 10;
     for(size_t algorithm = 0; algorithm < 2; ++algorithm)
     {
@@ -3509,7 +3526,6 @@ static void TestDebugMarginNotInVirtualAllocator()
         vmaDestroyVirtualBlock(block);
     }
 }
-#endif
 
 static void TestLinearAllocator()
 {
@@ -6966,6 +6982,7 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
                     allocCreateInfo.flags = allocFlags;
 
                     TEST(vmaVirtualAllocate(block, &allocCreateInfo, allocs + i, nullptr) == VK_SUCCESS);
+                    TEST(allocs[i] != VK_NULL_HANDLE);
                 }
                 allocDuration += std::chrono::high_resolution_clock::now() - timeBegin;
 

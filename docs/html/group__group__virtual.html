@@ -610,8 +610,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Allocates new virtual allocation inside given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
-<p >There is no handle type for a virtual allocation. Virtual allocations within a specific virtual block are uniquely identified by their offsets.</p>
-<p >If the allocation fails due to not enough free space available, <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> is returned (despite the function doesn't ever allocate actual GPU memory).</p>
+<p >If the allocation fails due to not enough free space available, <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> is returned (despite the function doesn't ever allocate actual GPU memory). <code>pAllocation</code> is then set to <code>VK_NULL_HANDLE</code> AND <code>pOffset</code>, if not null, it set to <code>UINT64_MAX</code>.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">virtualBlock</td><td>Virtual block </td></tr>
