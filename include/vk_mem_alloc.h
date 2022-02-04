@@ -126,6 +126,21 @@ for user-defined purpose without allocating any real GPU memory.
 extern "C" {
 #endif
 
+// Define this macro to declare maximum supported Vulkan version in format AAABBBCCC,
+// where AAA = major, BBB = minor, CCC = patch.
+// If you want to use version > 1.0, it still needs to be enabled via VmaAllocatorCreateInfo::vulkanApiVersion.
+#if !defined(VMA_VULKAN_VERSION)
+    #if defined(VK_VERSION_1_3)
+        #define VMA_VULKAN_VERSION 1003000
+    #elif defined(VK_VERSION_1_2)
+        #define VMA_VULKAN_VERSION 1002000
+    #elif defined(VK_VERSION_1_1)
+        #define VMA_VULKAN_VERSION 1001000
+    #else
+        #define VMA_VULKAN_VERSION 1000000
+    #endif
+#endif
+
 #if defined(__ANDROID__) && defined(VK_NO_PROTOTYPES) && VMA_STATIC_VULKAN_FUNCTIONS
     extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
     extern PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
@@ -164,19 +179,6 @@ extern "C" {
     // Vulkan 1.0, but doesn't actually define it in Vulkan SDK earlier than 1.2.131.
     // See pull request #207.
     #define VK_ERROR_UNKNOWN ((VkResult)-13)
-#endif
-
-// Define this macro to declare maximum supported Vulkan version in format AAABBBCCC,
-// where AAA = major, BBB = minor, CCC = patch.
-// If you want to use version > 1.0, it still needs to be enabled via VmaAllocatorCreateInfo::vulkanApiVersion.
-#if !defined(VMA_VULKAN_VERSION)
-    #if defined(VK_VERSION_1_2)
-        #define VMA_VULKAN_VERSION 1002000
-    #elif defined(VK_VERSION_1_1)
-        #define VMA_VULKAN_VERSION 1001000
-    #else
-        #define VMA_VULKAN_VERSION 1000000
-    #endif
 #endif
 
 #if !defined(VMA_DEDICATED_ALLOCATION)
@@ -1000,7 +1002,7 @@ typedef struct VmaAllocatorCreateInfo
     It must be a value in the format as created by macro `VK_MAKE_VERSION` or a constant like: `VK_API_VERSION_1_1`, `VK_API_VERSION_1_0`.
     The patch version number specified is ignored. Only the major and minor versions are considered.
     It must be less or equal (preferably equal) to value as passed to `vkCreateInstance` as `VkApplicationInfo::apiVersion`.
-    Only versions 1.0, 1.1, 1.2 are supported by the current implementation.
+    Only versions 1.0, 1.1, 1.2, 1.3 are supported by the current implementation.
     Leaving it initialized to zero is equivalent to `VK_API_VERSION_1_0`.
     */
     uint32_t vulkanApiVersion;
@@ -16446,7 +16448,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
 {
     VMA_ASSERT(pCreateInfo && pAllocator);
     VMA_ASSERT(pCreateInfo->vulkanApiVersion == 0 ||
-        (VK_VERSION_MAJOR(pCreateInfo->vulkanApiVersion) == 1 && VK_VERSION_MINOR(pCreateInfo->vulkanApiVersion) <= 2));
+        (VK_VERSION_MAJOR(pCreateInfo->vulkanApiVersion) == 1 && VK_VERSION_MINOR(pCreateInfo->vulkanApiVersion) <= 3));
     VMA_DEBUG_LOG("vmaCreateAllocator");
     *pAllocator = vma_new(pCreateInfo->pAllocationCallbacks, VmaAllocator_T)(pCreateInfo);
     VkResult result = (*pAllocator)->Init(pCreateInfo);
