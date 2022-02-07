@@ -126,6 +126,10 @@ for user-defined purpose without allocating any real GPU memory.
 extern "C" {
 #endif
 
+#ifndef VULKAN_H_
+    #include <vulkan/vulkan.h>
+#endif
+
 // Define this macro to declare maximum supported Vulkan version in format AAABBBCCC,
 // where AAA = major, BBB = minor, CCC = patch.
 // If you want to use version > 1.0, it still needs to be enabled via VmaAllocatorCreateInfo::vulkanApiVersion.
@@ -169,10 +173,6 @@ extern "C" {
         extern PFN_vkGetPhysicalDeviceMemoryProperties2 vkGetPhysicalDeviceMemoryProperties2;
     #endif // #if VMA_VULKAN_VERSION >= 1001000
 #endif // #if defined(__ANDROID__) && VMA_STATIC_VULKAN_FUNCTIONS && VK_NO_PROTOTYPES
-
-#ifndef VULKAN_H_
-    #include <vulkan/vulkan.h>
-#endif
 
 #if !defined(VK_VERSION_1_2)
     // This one is tricky. Vulkan specification defines this code as available since
