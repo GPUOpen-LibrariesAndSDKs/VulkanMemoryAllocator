@@ -7124,9 +7124,11 @@ static void TestGpuData()
 static void TestVirtualBlocksAlgorithmsBenchmark()
 {
     wprintf(L"Benchmark virtual blocks algorithms\n");
+    wprintf(L"Alignment,Algorithm,Strategy,Alloc time ms,Random operation time ms,Free time ms\n");
 
     const size_t ALLOCATION_COUNT = 7200;
     const uint32_t MAX_ALLOC_SIZE = 2056;
+    const size_t RANDOM_OPERATION_COUNT = ALLOCATION_COUNT * 2;
 
     VmaVirtualBlockCreateInfo blockCreateInfo = {};
     blockCreateInfo.pAllocationCallbacks = g_Allocs;
@@ -7153,7 +7155,6 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
         case 3: alignment = 256; break;
         default: assert(0); break;
         }
-        printf("    Alignment=%llu\n", alignment);
 
         for (uint8_t allocStrategyIndex = 0; allocStrategyIndex < 3; ++allocStrategyIndex)
         {
@@ -7166,7 +7167,7 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
             default: assert(0);
             }
 
-            for (uint8_t algorithmIndex = 0; algorithmIndex < 4; ++algorithmIndex)
+            for (uint8_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
             {
                 switch (algorithmIndex)
                 {
@@ -7174,23 +7175,20 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
                     blockCreateInfo.flags = (VmaVirtualBlockCreateFlagBits)0;
                     break;
                 case 1:
-                    blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT;
-                    break;
-                case 2:
                     blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT;
                     break;
-                case 3:
+                case 2:
                     blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT;
                     break;
                 default:
                     assert(0);
                 }
 
-                VmaVirtualAllocation allocs[ALLOCATION_COUNT];
+                std::vector<VmaVirtualAllocation> allocs;
+                allocs.reserve(ALLOCATION_COUNT + RANDOM_OPERATION_COUNT);
+                allocs.resize(ALLOCATION_COUNT);
                 VmaVirtualBlock block;
                 TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS && block);
-                duration allocDuration = duration::zero();
-                duration freeDuration = duration::zero();
 
                 // Alloc
                 time_point timeBegin = std::chrono::high_resolution_clock::now();
@@ -7201,25 +7199,54 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
                     allocCreateInfo.alignment = alignment;
                     allocCreateInfo.flags = allocFlags;
 
-                    TEST(vmaVirtualAllocate(block, &allocCreateInfo, allocs + i, nullptr) == VK_SUCCESS);
+                    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocs[i], nullptr) == VK_SUCCESS);
                     TEST(allocs[i] != VK_NULL_HANDLE);
                 }
-                allocDuration += std::chrono::high_resolution_clock::now() - timeBegin;
+                duration allocDuration = std::chrono::high_resolution_clock::now() - timeBegin;
+
+                // Random operations
+                timeBegin = std::chrono::high_resolution_clock::now();
+                for (size_t opIndex = 0; opIndex < RANDOM_OPERATION_COUNT; ++opIndex)
+                {
+                    if(rand.Generate() % 2)
+                    {
+                        VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+                        allocCreateInfo.size = rand.Generate() % MAX_ALLOC_SIZE + 1;
+                        allocCreateInfo.alignment = alignment;
+                        allocCreateInfo.flags = allocFlags;
+
+                        VmaVirtualAllocation alloc;
+                        TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc, nullptr) == VK_SUCCESS);
+                        TEST(alloc != VK_NULL_HANDLE);
+                        allocs.push_back(alloc);
+                    }
+                    else
+                    {
+                        size_t index = rand.Generate() % allocs.size();
+                        vmaVirtualFree(block, allocs[index]);
+                        if(index < allocs.size())
+                            allocs[index] = allocs.back();
+                        allocs.pop_back();
+                    }
+                }
+                duration randomDuration = std::chrono::high_resolution_clock::now() - timeBegin;
 
                 // Free
                 timeBegin = std::chrono::high_resolution_clock::now();
                 for (size_t i = ALLOCATION_COUNT; i;)
                     vmaVirtualFree(block, allocs[--i]);
-                freeDuration += std::chrono::high_resolution_clock::now() - timeBegin;
+                duration freeDuration = std::chrono::high_resolution_clock::now() - timeBegin;
+                
                 vmaDestroyVirtualBlock(block);
 
-                printf("        Algorithm=%s  \tAllocation=%s\tallocations %g s,   \tfree %g s\n",
+                printf("%llu,%s,%s,%g,%g,%g\n",
+                    alignment,
                     VirtualAlgorithmToStr(blockCreateInfo.flags),
                     GetVirtualAllocationStrategyName(allocFlags),
-                    ToFloatSeconds(allocDuration),
-                    ToFloatSeconds(freeDuration));
+                    ToFloatSeconds(allocDuration) * 1000.f,
+                    ToFloatSeconds(randomDuration) * 1000.f,
+                    ToFloatSeconds(freeDuration) * 1000.f);
             }
-            printf("\n");
         }
     }
 }
