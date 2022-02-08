@@ -3108,7 +3108,7 @@ static inline uint8_t VmaBitScanLSB(uint32_t mask)
         return static_cast<uint8_t>(pos);
     return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
-    return static_cast<uint8_t>(__builtin_ffsl(mask)) - 1U;
+    return static_cast<uint8_t>(__builtin_ffs(mask)) - 1U;
 #else
     uint8_t pos = 0;
     uint32_t bit = 1;
@@ -3130,10 +3130,10 @@ static inline uint8_t VmaBitScanMSB(uint64_t mask)
         return static_cast<uint8_t>(pos);
 #elif defined __GNUC__ || defined __clang__
     if (mask)
-        return static_cast<uint8_t>(__builtin_clzll(mask));
+        return 63 - static_cast<uint8_t>(__builtin_clzll(mask));
 #else
     uint8_t pos = 63;
-    uint64_t bit = 1u << 63;
+    uint64_t bit = 1ULL << 63;
     do
     {
         if (mask & bit)
@@ -3152,10 +3152,10 @@ static inline uint8_t VmaBitScanMSB(uint32_t mask)
         return static_cast<uint8_t>(pos);
 #elif defined __GNUC__ || defined __clang__
     if (mask)
-        return static_cast<uint8_t>(__builtin_clzl(mask));
+        return 31 - static_cast<uint8_t>(__builtin_clz(mask));
 #else
     uint8_t pos = 31;
-    uint32_t bit = 1 << 31;
+    uint32_t bit = 1UL << 31;
     do
     {
         if (mask & bit)
@@ -6961,7 +6961,7 @@ bool VmaBlockMetadata_Generic::CheckAllocation(
     }
 
     // Start from offset equal to beginning of this suballocation.
-    VkDeviceSize offset = suballoc.offset;
+    VkDeviceSize offset = suballoc.offset + (suballocItem == m_Suballocations.cbegin() ? 0 : GetDebugMargin());
 
     // Apply debugMargin from the end of previous alloc.
     if (debugMargin > 0)
@@ -10341,6 +10341,7 @@ void VmaBlockMetadata_TLSF::InsertFreeBlock(Block* block)
     uint8_t memClass = SizeToMemoryClass(block->size);
     uint16_t secondIndex = SizeToSecondIndex(block->size, memClass);
     uint32_t index = GetListIndex(memClass, secondIndex);
+    VMA_ASSERT(index < m_ListsCount);
     block->PrevFree() = VMA_NULL;
     block->NextFree() = m_FreeList[index];
     m_FreeList[index] = block;

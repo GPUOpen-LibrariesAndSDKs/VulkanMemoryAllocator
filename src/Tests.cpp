@@ -6667,6 +6667,38 @@ static void PerformPoolTests(FILE* file)
     }
 }
 
+static void BasicTestTLSF()
+{
+    wprintf(L"Basic test TLSF\n");
+
+    VmaVirtualBlock block;
+
+    VmaVirtualBlockCreateInfo blockInfo = {};
+    blockInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT;
+    blockInfo.size = 50331648;
+    vmaCreateVirtualBlock(&blockInfo, &block);
+
+    VmaVirtualAllocationCreateInfo info = {};
+    info.alignment = 2;
+
+    VmaVirtualAllocation allocation[3] = {};
+
+    info.size = 576;
+    vmaVirtualAllocate(block, &info, allocation + 0, nullptr);
+
+    info.size = 648;
+    vmaVirtualAllocate(block, &info, allocation + 1, nullptr);
+
+    vmaVirtualFree(block, allocation[0]);
+
+    info.size = 720;
+    vmaVirtualAllocate(block, &info, allocation + 2, nullptr);
+
+    vmaVirtualFree(block, allocation[1]);
+    vmaVirtualFree(block, allocation[2]);
+    vmaDestroyVirtualBlock(block);
+}
+
 static void BasicTestBuddyAllocator()
 {
     wprintf(L"Basic test buddy allocator\n");
@@ -7050,6 +7082,7 @@ void Test()
     ManuallyTestLinearAllocator();
     TestLinearAllocatorMultiBlock();
 
+    BasicTestTLSF();
     BasicTestBuddyAllocator();
     BasicTestAllocatePages();
 
