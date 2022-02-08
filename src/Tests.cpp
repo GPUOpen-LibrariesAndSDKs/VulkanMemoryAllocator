@@ -3981,6 +3981,191 @@ static void TestLinearAllocatorMultiBlock()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void TestAllocationAlgorithmsCorrectness()
+{
+    wprintf(L"Test allocation algorithm correctness\n");
+
+    constexpr uint32_t LEVEL_COUNT = 12;
+    RandomNumberGenerator rand{2342435};
+
+    for(uint32_t isVirtual = 0; isVirtual < 3; ++isVirtual)
+    {
+        // isVirtual == 0: Use VmaPool, unit is 64 KB.
+        // isVirtual == 1: Use VmaVirtualBlock, unit is 64 KB.
+        // isVirtual == 2: Use VmaVirtualBlock, unit is 1 B.
+        const VkDeviceSize sizeUnit = isVirtual == 2 ? 1 : 0x10000;
+        const VkDeviceSize blockSize = (1llu << (LEVEL_COUNT - 1)) * sizeUnit;
+
+        for(uint32_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
+        {
+            VmaPool pool = VK_NULL_HANDLE;
+            VmaVirtualBlock virtualBlock = VK_NULL_HANDLE;
+
+            if(isVirtual)
+            {
+                VmaVirtualBlockCreateInfo blockCreateInfo = {};
+                blockCreateInfo.pAllocationCallbacks = g_Allocs;
+                blockCreateInfo.flags = algorithmIndex ? VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT : 0;
+                blockCreateInfo.size = blockSize;
+                TEST(vmaCreateVirtualBlock(&blockCreateInfo, &virtualBlock) == VK_SUCCESS);
+            }
+            else
+            {
+                VmaPoolCreateInfo poolCreateInfo = {};
+                poolCreateInfo.blockSize = blockSize;
+                poolCreateInfo.flags = algorithmIndex ? VMA_POOL_CREATE_TLSF_ALGORITHM_BIT : 0;
+                poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+
+                VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+                bufCreateInfo.size = 0x10000; // Doesn't matter.
+                bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                VmaAllocationCreateInfo allocCreateInfo = {};
+                TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex) == VK_SUCCESS);
+
+                TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+            }
+
+            for(uint32_t strategyIndex = 0; strategyIndex < 3; ++strategyIndex)
+            {
+                struct AllocData
+                {
+                    VmaAllocation alloc = VK_NULL_HANDLE;
+                    VkBuffer buf = VK_NULL_HANDLE;
+                    VmaVirtualAllocation virtualAlloc = VK_NULL_HANDLE;
+                };
+                std::vector<AllocData> allocationsPerLevel[LEVEL_COUNT];
+
+                auto createAllocation = [&](uint32_t level) -> void
+                {
+                    AllocData allocData;
+                    const VkDeviceSize allocSize = (1llu << level) * sizeUnit;
+                    if(isVirtual)
+                    {
+                        VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+                        allocCreateInfo.size = allocSize;
+                        switch(strategyIndex)
+                        {
+                        case 1: allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT; break;
+                        case 2: allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT; break;
+                        }
+                        TEST(vmaVirtualAllocate(virtualBlock, &allocCreateInfo, &allocData.virtualAlloc, nullptr) == VK_SUCCESS);
+                    }
+                    else
+                    {
+                        VmaAllocationCreateInfo allocCreateInfo = {};
+                        allocCreateInfo.pool = pool;
+                        switch(strategyIndex)
+                        {
+                        case 1: allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT; break;
+                        case 2: allocCreateInfo.flags = VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT; break;
+                        }
+                        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+                        bufCreateInfo.size = allocSize;
+                        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                        TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &allocData.buf, &allocData.alloc, nullptr) == VK_SUCCESS);
+                    }
+                    allocationsPerLevel[level].push_back(allocData);
+                };
+
+                auto destroyAllocation = [&](uint32_t level, size_t index) -> void
+                {
+                    const AllocData& allocData = allocationsPerLevel[level][index];
+                    if(isVirtual)
+                        vmaVirtualFree(virtualBlock, allocData.virtualAlloc);
+                    else
+                        vmaDestroyBuffer(g_hAllocator, allocData.buf, allocData.alloc);
+                    allocationsPerLevel[level].erase(allocationsPerLevel[level].begin() + index);
+                };
+
+                // Fill entire block with one big allocation.
+                createAllocation(LEVEL_COUNT - 1);
+
+                // For each level, remove one allocation and refill it with 2 allocations at lower level.
+                for(uint32_t level = LEVEL_COUNT; level-- > 1; )
+                {
+                    size_t indexToDestroy = rand.Generate() % allocationsPerLevel[level].size();
+                    destroyAllocation(level, indexToDestroy);
+                    createAllocation(level - 1);
+                    createAllocation(level - 1);
+                }
+
+                // Test statistics.
+                {
+                    uint32_t actualAllocCount = 0, statAllocCount = 0;
+                    VkDeviceSize actualAllocSize = 0, statAllocSize = 0;
+                    // Calculate actual statistics.
+                    for(uint32_t level = 0; level < LEVEL_COUNT; ++level)
+                    {
+                        for(size_t index = allocationsPerLevel[level].size(); index--; )
+                        {
+                            if(isVirtual)
+                            {
+                                VmaVirtualAllocationInfo allocInfo = {};
+                                vmaGetVirtualAllocationInfo(virtualBlock, allocationsPerLevel[level][index].virtualAlloc, &allocInfo);
+                                actualAllocSize += allocInfo.size;
+                            }
+                            else
+                            {
+                                VmaAllocationInfo allocInfo = {};
+                                vmaGetAllocationInfo(g_hAllocator, allocationsPerLevel[level][index].alloc, &allocInfo);
+                                actualAllocSize += allocInfo.size;
+                            }
+                        }
+                        actualAllocCount += (uint32_t)allocationsPerLevel[level].size();
+                    }
+                    // Fetch reported statistics.
+                    if(isVirtual)
+                    {
+                        VmaStatInfo info = {};
+                        vmaCalculateVirtualBlockStats(virtualBlock, &info);
+                        statAllocCount = info.allocationCount;
+                        statAllocSize = info.usedBytes;
+                        TEST(info.blockCount == 1);
+                        TEST(info.usedBytes + info.unusedBytes == blockSize);
+                    }
+                    else
+                    {
+                        VmaPoolStats stats = {};
+                        vmaGetPoolStats(g_hAllocator, pool, &stats);
+                        statAllocCount = (uint32_t)stats.allocationCount;
+                        statAllocSize = stats.size - stats.unusedSize;
+                        TEST(stats.blockCount == 1);
+                        TEST(stats.size == blockSize);
+                    }
+                    // Compare them.
+                    TEST(actualAllocCount == statAllocCount);
+                    TEST(actualAllocSize == statAllocSize);
+                }
+
+                // Test JSON dump - for manual inspection.
+                {
+                    char* json = nullptr;
+                    if(isVirtual)
+                    {
+                        vmaBuildVirtualBlockStatsString(virtualBlock, &json, VK_TRUE);
+                        int I = 1; // Put breakpoint here to inspect `json`.
+                        vmaFreeVirtualBlockStatsString(virtualBlock, json);
+                    }
+                    else
+                    {
+                        vmaBuildStatsString(g_hAllocator, &json, VK_TRUE);
+                        int I = 1; // Put breakpoint here to inspect `json`.
+                        vmaFreeStatsString(g_hAllocator, json);
+                    }
+                }
+
+                // Free all remaining allocations
+                for(uint32_t level = 0; level < LEVEL_COUNT; ++level)
+                    for(size_t index = allocationsPerLevel[level].size(); index--; )
+                        destroyAllocation(level, index);
+            }
+
+            vmaDestroyVirtualBlock(virtualBlock);
+            vmaDestroyPool(g_hAllocator, pool);
+        }
+    }
+}
+
 static void ManuallyTestLinearAllocator()
 {
     VmaStats origStats;
@@ -7081,6 +7266,7 @@ void Test()
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
     TestLinearAllocatorMultiBlock();
+    TestAllocationAlgorithmsCorrectness();
 
     BasicTestTLSF();
     BasicTestBuddyAllocator();
