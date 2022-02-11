@@ -2492,7 +2492,7 @@ static void TestUserData()
             VkBuffer buf; VmaAllocation alloc; VmaAllocationInfo allocInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
             TEST(res == VK_SUCCESS);
-            TEST(allocInfo.pUserData = numberAsPointer);
+            TEST(allocInfo.pUserData == numberAsPointer);
 
             vmaGetAllocationInfo(g_hAllocator, alloc, &allocInfo);
             TEST(allocInfo.pUserData == numberAsPointer);
@@ -2736,13 +2736,13 @@ static void TestVirtualBlocks()
     TEST(allocInfo0.offset < blockSize);
     TEST(allocInfo0.offset == offset);
     TEST(allocInfo0.size == allocCreateInfo.size);
-    TEST(allocInfo0.pUserData = allocCreateInfo.pUserData);
+    TEST(allocInfo0.pUserData == allocCreateInfo.pUserData);
 
     // # Check SetUserData
 
     vmaSetVirtualAllocationUserData(block, allocation0, (void*)(uintptr_t)2);
     vmaGetVirtualAllocationInfo(block, allocation0, &allocInfo0);
-    TEST(allocInfo0.pUserData = (void*)(uintptr_t)2);
+    TEST(allocInfo0.pUserData == (void*)(uintptr_t)2);
 
     // # Allocate 4 MB (also test passing null as pOffset during allocation)
 
@@ -3590,7 +3590,7 @@ static void TestLinearAllocator()
         VmaPoolStats stats;
         vmaGetPoolStats(g_hAllocator, pool, &stats);
         TEST(stats.size == poolCreateInfo.blockSize);
-        TEST(stats.unusedSize = poolCreateInfo.blockSize - bufSumSize);
+        TEST(stats.unusedSize == poolCreateInfo.blockSize - bufSumSize);
         TEST(stats.allocationCount == bufInfo.size());
 
         // Destroy the buffers in random order.
@@ -4732,7 +4732,7 @@ static void TestPool_SameSize()
         VmaPoolStats poolStats = {};
         vmaGetPoolStats(g_hAllocator, pool, &poolStats);
         TEST(poolStats.allocationCount == items.size());
-        TEST(poolStats.size = BUF_COUNT * BUF_SIZE);
+        TEST(poolStats.size == BUF_COUNT * BUF_SIZE);
         TEST(poolStats.unusedRangeCount == 1);
         TEST(poolStats.unusedSize == BUF_SIZE);
     }
