@@ -13239,11 +13239,11 @@ VmaDefragmentationAlgorithm_Generic::VmaDefragmentationAlgorithm_Generic(
     VmaBlockVector* pBlockVector,
     bool overlappingMoveSupported)
     : VmaDefragmentationAlgorithm(hAllocator, pBlockVector),
+    m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks())),
     m_AllocationCount(0),
     m_AllAllocations(false),
     m_BytesMoved(0),
-    m_AllocationsMoved(0),
-    m_Blocks(VmaStlAllocator<BlockInfo*>(hAllocator->GetAllocationCallbacks()))
+    m_AllocationsMoved(0)
 {
     // Create block info for each block.
     const size_t blockCount = m_pBlockVector->m_Blocks.size();
