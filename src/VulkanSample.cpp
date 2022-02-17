@@ -486,9 +486,15 @@ void VulkanUsage::Init()
     switch(appInfo.apiVersion)
     {
     case VK_API_VERSION_1_0: wprintf(L"1.0\n"); break;
+#ifdef VK_VERSION_1_1
     case VK_API_VERSION_1_1: wprintf(L"1.1\n"); break;
+#endif
+#ifdef VK_VERSION_1_2
     case VK_API_VERSION_1_2: wprintf(L"1.2\n"); break;
+#endif
+#ifdef VK_VERSION_1_3
     case VK_API_VERSION_1_3: wprintf(L"1.3\n"); break;
+#endif
     default: assert(0);
     }
 
