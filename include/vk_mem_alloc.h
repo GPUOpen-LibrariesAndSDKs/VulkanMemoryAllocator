@@ -987,6 +987,12 @@ typedef struct VmaVulkanFunctions
 #if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
     PFN_vkGetPhysicalDeviceMemoryProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties2KHR;
 #endif
+#if VMA_VULKAN_VERSION >= 1003000
+    /// Fetch from "vkGetDeviceBufferMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceBufferMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
+    PFN_vkGetDeviceBufferMemoryRequirements VMA_NULLABLE vkGetDeviceBufferMemoryRequirements;
+    /// Fetch from "vkGetDeviceImageMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceImageMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
+    PFN_vkGetDeviceImageMemoryRequirements VMA_NULLABLE vkGetDeviceImageMemoryRequirements;
+#endif
 } VmaVulkanFunctions;
 
 /// Description of a Allocator to be created.
@@ -2968,6 +2974,8 @@ static const uint32_t VMA_CORRUPTION_DETECTION_MAGIC_VALUE = 0x7F84E666;
 static const uint32_t VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD_COPY = 0x00000040;
 static const uint32_t VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD_COPY = 0x00000080;
 static const uint32_t VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY = 0x00020000;
+static const uint32_t VK_IMAGE_CREATE_DISJOINT_BIT_COPY = 0x00000200;
+static const int32_t VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT_COPY = 1000158000;
 static const uint32_t VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET = 0x10000000u;
 static const uint32_t VMA_ALLOCATION_TRY_COUNT = 32;
 static const uint32_t VMA_VENDOR_ID_AMD = 4098;
@@ -15127,6 +15135,14 @@ void VmaAllocator_T::ImportVulkanFunctions_Static()
         m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = (PFN_vkGetPhysicalDeviceMemoryProperties2)vkGetPhysicalDeviceMemoryProperties2;
     }
 #endif
+
+#if VMA_VULKAN_VERSION >= 1003000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 3, 0))
+    {
+        m_VulkanFunctions.vkGetDeviceBufferMemoryRequirements = (PFN_vkGetDeviceBufferMemoryRequirements)vkGetDeviceBufferMemoryRequirements;
+        m_VulkanFunctions.vkGetDeviceImageMemoryRequirements = (PFN_vkGetDeviceImageMemoryRequirements)vkGetDeviceImageMemoryRequirements;
+    }
+#endif
 }
 
 #endif // VMA_STATIC_VULKAN_FUNCTIONS == 1
@@ -15170,6 +15186,11 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
 
 #if VMA_MEMORY_BUDGET
     VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties2KHR);
+#endif
+
+#if VMA_VULKAN_VERSION >= 1003000
+    VMA_COPY_IF_NOT_NULL(vkGetDeviceBufferMemoryRequirements);
+    VMA_COPY_IF_NOT_NULL(vkGetDeviceImageMemoryRequirements);
 #endif
 
 #undef VMA_COPY_IF_NOT_NULL
@@ -15245,6 +15266,14 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
     }
 #endif // #if VMA_MEMORY_BUDGET
 
+#if VMA_VULKAN_VERSION >= 1003000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 3, 0))
+    {
+        VMA_FETCH_DEVICE_FUNC(vkGetDeviceBufferMemoryRequirements, PFN_vkGetDeviceBufferMemoryRequirements, "vkGetDeviceBufferMemoryRequirements");
+        VMA_FETCH_DEVICE_FUNC(vkGetDeviceImageMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirements, "vkGetDeviceImageMemoryRequirements");
+    }
+#endif
+
 #undef VMA_FETCH_DEVICE_FUNC
 #undef VMA_FETCH_INSTANCE_FUNC
 }
@@ -15291,6 +15320,14 @@ void VmaAllocator_T::ValidateVulkanFunctions()
     if(m_UseExtMemoryBudget || m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
         VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR != VMA_NULL);
+    }
+#endif
+
+#if VMA_VULKAN_VERSION >= 1003000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 3, 0))
+    {
+        VMA_ASSERT(m_VulkanFunctions.vkGetDeviceBufferMemoryRequirements != VMA_NULL);
+        VMA_ASSERT(m_VulkanFunctions.vkGetDeviceImageMemoryRequirements != VMA_NULL);
     }
 #endif
 }
@@ -17176,24 +17213,40 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
     VMA_ASSERT(pMemoryTypeIndex != VMA_NULL);
 
     const VkDevice hDev = allocator->m_hDevice;
-    VkBuffer hBuffer = VK_NULL_HANDLE;
     const VmaVulkanFunctions* funcs = &allocator->GetVulkanFunctions();
-    VkResult res = funcs->vkCreateBuffer(
-        hDev, pBufferCreateInfo, allocator->GetAllocationCallbacks(), &hBuffer);
-    if(res == VK_SUCCESS)
+    VkResult res;
+
+#if VMA_VULKAN_VERSION >= 1003000
+    if(funcs->vkGetDeviceBufferMemoryRequirements)
     {
-        VkMemoryRequirements memReq = {};
-        funcs->vkGetBufferMemoryRequirements(
-            hDev, hBuffer, &memReq);
+        // Can query straight from VkBufferCreateInfo :)
+        VkDeviceBufferMemoryRequirements devBufMemReq = {VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS};
+        devBufMemReq.pCreateInfo = pBufferCreateInfo;
+
+        VkMemoryRequirements2 memReq = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2};
+        (*funcs->vkGetDeviceBufferMemoryRequirements)(hDev, &devBufMemReq, &memReq);
 
         res = allocator->FindMemoryTypeIndex(
-            memReq.memoryTypeBits,
-            pAllocationCreateInfo,
-            pBufferCreateInfo->usage,
-            pMemoryTypeIndex);
+            memReq.memoryRequirements.memoryTypeBits, pAllocationCreateInfo, pBufferCreateInfo->usage, pMemoryTypeIndex);
+    }
+    else
+#endif // #if VMA_VULKAN_VERSION >= 1003000
+    {
+        // Must create a dummy buffer to query :(
+        VkBuffer hBuffer = VK_NULL_HANDLE;
+        res = funcs->vkCreateBuffer(
+            hDev, pBufferCreateInfo, allocator->GetAllocationCallbacks(), &hBuffer);
+        if(res == VK_SUCCESS)
+        {
+            VkMemoryRequirements memReq = {};
+            funcs->vkGetBufferMemoryRequirements(hDev, hBuffer, &memReq);
 
-        funcs->vkDestroyBuffer(
-            hDev, hBuffer, allocator->GetAllocationCallbacks());
+            res = allocator->FindMemoryTypeIndex(
+                memReq.memoryTypeBits, pAllocationCreateInfo, pBufferCreateInfo->usage, pMemoryTypeIndex);
+
+            funcs->vkDestroyBuffer(
+                hDev, hBuffer, allocator->GetAllocationCallbacks());
+        }
     }
     return res;
 }
@@ -17210,24 +17263,42 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
     VMA_ASSERT(pMemoryTypeIndex != VMA_NULL);
 
     const VkDevice hDev = allocator->m_hDevice;
-    VkImage hImage = VK_NULL_HANDLE;
     const VmaVulkanFunctions* funcs = &allocator->GetVulkanFunctions();
-    VkResult res = funcs->vkCreateImage(
-        hDev, pImageCreateInfo, allocator->GetAllocationCallbacks(), &hImage);
-    if(res == VK_SUCCESS)
+    VkResult res;
+
+#if VMA_VULKAN_VERSION >= 1003000
+    if(funcs->vkGetDeviceImageMemoryRequirements)
     {
-        VkMemoryRequirements memReq = {};
-        funcs->vkGetImageMemoryRequirements(
-            hDev, hImage, &memReq);
+        // Can query straight from VkImageCreateInfo :)
+        VkDeviceImageMemoryRequirements devImgMemReq = {VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS};
+        devImgMemReq.pCreateInfo = pImageCreateInfo;
+        VMA_ASSERT(pImageCreateInfo->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT_COPY && (pImageCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT_COPY) == 0 &&
+            "Cannot use this VkImageCreateInfo with vmaFindMemoryTypeIndexForImageInfo as I don't know what to pass as VkDeviceImageMemoryRequirements::planeAspect.");
+
+        VkMemoryRequirements2 memReq = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2};
+        (*funcs->vkGetDeviceImageMemoryRequirements)(hDev, &devImgMemReq, &memReq);
 
         res = allocator->FindMemoryTypeIndex(
-            memReq.memoryTypeBits,
-            pAllocationCreateInfo,
-            pImageCreateInfo->usage,
-            pMemoryTypeIndex);
+            memReq.memoryRequirements.memoryTypeBits, pAllocationCreateInfo, pImageCreateInfo->usage, pMemoryTypeIndex);
+    }
+    else
+#endif // #if VMA_VULKAN_VERSION >= 1003000
+    {
+        // Must create a dummy image to query :(
+        VkImage hImage = VK_NULL_HANDLE;
+        res = funcs->vkCreateImage(
+            hDev, pImageCreateInfo, allocator->GetAllocationCallbacks(), &hImage);
+        if(res == VK_SUCCESS)
+        {
+            VkMemoryRequirements memReq = {};
+            funcs->vkGetImageMemoryRequirements(hDev, hImage, &memReq);
 
-        funcs->vkDestroyImage(
-            hDev, hImage, allocator->GetAllocationCallbacks());
+            res = allocator->FindMemoryTypeIndex(
+                memReq.memoryTypeBits, pAllocationCreateInfo, pImageCreateInfo->usage, pMemoryTypeIndex);
+
+            funcs->vkDestroyImage(
+                hDev, hImage, allocator->GetAllocationCallbacks());
+        }
     }
     return res;
 }

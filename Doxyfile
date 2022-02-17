@@ -2281,7 +2281,7 @@ PREDEFINED             = VMA_CALL_PRE= \
                          VMA_LEN_IF_NOT_NULL(len)= \
                          VMA_NOT_NULL_NON_DISPATCHABLE= \
                          VMA_NULLABLE_NON_DISPATCHABLE= \
-                         VMA_VULKAN_VERSION=1002000 \
+                         VMA_VULKAN_VERSION=1003000 \
                          VMA_EXTERNAL_MEMORY=1 \
                          VMA_MEMORY_PRIORITY=1
 
