@@ -855,8 +855,8 @@ bool StagingBufferCollection::AcquireBuffer(VkDeviceSize size, VkBuffer& outBuff
         bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
         VmaAllocationInfo allocInfo;
         VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufInfo.Buffer, &bufInfo.Allocation, &allocInfo);
@@ -1406,7 +1406,8 @@ void TestDefragmentationSimple()
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo exampleAllocCreateInfo = {};
-    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    exampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
     uint32_t memTypeIndex = UINT32_MAX;
     vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
@@ -1595,7 +1596,8 @@ void TestDefragmentationWholePool()
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo exampleAllocCreateInfo = {};
-    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    exampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
     uint32_t memTypeIndex = UINT32_MAX;
     vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
@@ -1770,7 +1772,7 @@ static void TestDefragmentationGpu()
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     allocCreateInfo.flags = 0;
 
     // Create all intended buffers.
@@ -2099,7 +2101,7 @@ static void TestDefragmentationIncrementalBasic()
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     allocCreateInfo.flags = 0;
 
     // Create all intended images.
@@ -2283,7 +2285,7 @@ void TestDefragmentationIncrementalComplex()
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     allocCreateInfo.flags = 0;
 
     // Create all intended images.
@@ -2484,7 +2486,7 @@ static void TestUserData()
             void* pointerToSomething = &res;
 
             VmaAllocationCreateInfo allocCreateInfo = {};
-            allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+            allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
             allocCreateInfo.pUserData = numberAsPointer;
             if(testIndex == 1)
                 allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -2514,7 +2516,7 @@ static void TestUserData()
             strcpy_s(name1Buf, name1Len + 1, name1);
 
             VmaAllocationCreateInfo allocCreateInfo = {};
-            allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+            allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
             allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
             allocCreateInfo.pUserData = name1Buf;
             if(testIndex == 1)
@@ -2549,7 +2551,6 @@ static void TestInvalidAllocations()
     VkResult res;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
     // Try to allocate 0 bytes.
     {
@@ -2615,8 +2616,9 @@ static void TestMemoryRequirements()
     TEST(res == VK_SUCCESS);
     vmaDestroyBuffer(g_hAllocator, buf, alloc);
 
-    // Usage.
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    // Usage = auto + host access.
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
     allocCreateInfo.requiredFlags = 0;
     allocCreateInfo.preferredFlags = 0;
     allocCreateInfo.memoryTypeBits = UINT32_MAX;
@@ -2628,6 +2630,7 @@ static void TestMemoryRequirements()
 
     // Required flags, preferred flags.
     allocCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
+    allocCreateInfo.flags = 0;
     allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     allocCreateInfo.memoryTypeBits = 0;
@@ -2640,7 +2643,8 @@ static void TestMemoryRequirements()
 
     // memoryTypeBits.
     const uint32_t memType = allocInfo.memoryType;
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
+    allocCreateInfo.flags = 0;
     allocCreateInfo.requiredFlags = 0;
     allocCreateInfo.preferredFlags = 0;
     allocCreateInfo.memoryTypeBits = 1u << memType;
@@ -2680,8 +2684,8 @@ static void TestBasics()
         bufCreateInfo.size = 128;
 
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
         VkBuffer buf; VmaAllocation alloc; VmaAllocationInfo allocInfo;
         res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
@@ -2689,7 +2693,7 @@ static void TestBasics()
 
         vmaDestroyBuffer(g_hAllocator, buf, alloc);
 
-        // Same with OWN_MEMORY.
+        // Same with DEDICATED_MEMORY.
         allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
         res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
@@ -3023,11 +3027,15 @@ static void TestAllocationVersusResourceSize()
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
     for(uint32_t i = 0; i < 2; ++i)
     {
-        allocCreateInfo.flags = (i == 1) ? VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT : 0;
+        if(i == 1)
+            allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+        else
+            allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
         AllocInfo info;
         info.CreateBuffer(bufCreateInfo, allocCreateInfo);
@@ -3062,7 +3070,7 @@ static void TestPool_MinBlockCount()
     static const VkDeviceSize BLOCK_SIZE = ALLOC_SIZE * 2; // Each block can fit 2 allocations.
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -3133,7 +3141,7 @@ static void TestPool_MinAllocationAlignment()
     static const VkDeviceSize MIN_ALLOCATION_ALIGNMENT = 64 * 1024;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -3340,7 +3348,7 @@ void TestHeapSizeLimit()
     VmaAllocationInfo dedicatedAllocInfo;
     {
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
         bufCreateInfo.size = BLOCK_SIZE / 2;
@@ -3422,7 +3430,8 @@ static void TestDebugMargin()
     bufInfo.size = 256; // Doesn't matter
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     TEST(vmaFindMemoryTypeIndexForBufferInfo(
@@ -3541,7 +3550,7 @@ static void TestLinearAllocator()
     sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
@@ -3857,7 +3866,7 @@ static void TestLinearAllocatorMultiBlock()
     sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
@@ -4180,7 +4189,7 @@ static void ManuallyTestLinearAllocator()
     sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
@@ -4300,7 +4309,7 @@ static void BenchmarkAlgorithmsCase(FILE* file,
     sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
@@ -4447,7 +4456,7 @@ static void TestBufferDeviceAddress()
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT; // !!!
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
     for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
     {
@@ -4481,7 +4490,7 @@ static void TestMemoryPriority()
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     allocCreateInfo.priority = 1.f;
 
     for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
@@ -4607,7 +4616,7 @@ static void TestPool_SameSize()
     }
 
     VmaAllocationCreateInfo poolAllocInfo = {};
-    poolAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    poolAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     uint32_t memTypeIndex;
     res = vmaFindMemoryTypeIndex(
         g_hAllocator,
@@ -4821,7 +4830,8 @@ static void TestAllocationsInitialization()
     bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo dummyBufAllocCreateInfo = {};
-    dummyBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    dummyBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    dummyBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.blockSize = BUF_SIZE * 10;
@@ -4978,7 +4988,7 @@ static void TestPool_Benchmark(
     while(memoryTypeBits)
     {
         VmaAllocationCreateInfo dummyAllocCreateInfo = {};
-        dummyAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        dummyAllocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         vmaFindMemoryTypeIndex(g_hAllocator, memoryTypeBits, &dummyAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
 
         const uint32_t heapIndex = memProps->memoryTypes[poolCreateInfo.memoryTypeIndex].heapIndex;
@@ -5667,7 +5677,7 @@ static void TestBudget()
         bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         if(testIndex == 0)
         {
             allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -5786,7 +5796,7 @@ static void TestAliasing()
             img1MemReq.memoryTypeBits, img2MemReq.memoryTypeBits, finalMemReq.memoryTypeBits);
 
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
         VmaAllocation alloc = VK_NULL_HANDLE;
         ERR_GUARD_VULKAN(vmaAllocateMemory(g_hAllocator, &finalMemReq, &allocCreateInfo, &alloc, nullptr));
@@ -5830,7 +5840,7 @@ static void TestAllocationAliasing()
 
     VmaAllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
     // Bind 2 textures together into same memory without VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT and then with flag set
     /*
@@ -5909,7 +5919,8 @@ static void TestMapping()
         bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
         allocCreateInfo.pool = pool;
         if(testIndex == TEST_DEDICATED)
             allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -6059,7 +6070,8 @@ static void TestMappingMultithreaded()
         bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
         allocCreateInfo.pool = pool;
         if(testIndex == TEST_DEDICATED)
             allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -6895,7 +6907,6 @@ static void BasicTestBuddyAllocator()
     sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
@@ -7000,7 +7011,8 @@ static void BasicTestAllocatePages()
     sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    sampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
     VmaPoolCreateInfo poolCreateInfo = {};
     VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &poolCreateInfo.memoryTypeIndex);
@@ -7062,7 +7074,7 @@ static void BasicTestAllocatePages()
     memReq.size = 4 * 1024;
 
     VmaAllocationCreateInfo dedicatedAllocCreateInfo = {};
-    dedicatedAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    dedicatedAllocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     dedicatedAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     res = vmaAllocateMemoryPages(g_hAllocator, &memReq, &dedicatedAllocCreateInfo, allocCount, alloc.data(), allocInfo.data());
     TEST(res == VK_SUCCESS);
@@ -7104,7 +7116,7 @@ static void TestGpuData()
         info.m_BufferInfo.size = 1024 * 1024 * (rand.Generate() % 9 + 1);
 
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
         VkResult res = vmaCreateBuffer(g_hAllocator, &info.m_BufferInfo, &allocCreateInfo, &info.m_Buffer, &info.m_Allocation, nullptr);
         TEST(res == VK_SUCCESS);
@@ -7251,6 +7263,142 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
     }
 }
 
+static void TestMappingHysteresis()
+{
+    /*
+    We have no way to check here if hysteresis worked as expected,
+    but at least we provoke some cases and make sure it doesn't crash or assert.
+    You can always check details with the debugger.
+    */
+
+    wprintf(L"Test mapping hysteresis\n");
+
+    VkBufferCreateInfo bufCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufCreateInfo.size = 0x10000;
+
+    VmaAllocationCreateInfo templateAllocCreateInfo = {};
+    templateAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    templateAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.blockSize = 10 * MEGABYTE;
+    poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator,
+        &bufCreateInfo, &templateAllocCreateInfo, &poolCreateInfo.memoryTypeIndex) == VK_SUCCESS);
+
+    constexpr uint32_t BUF_COUNT = 30;
+    bool endOfScenarios = false;
+    for(uint32_t scenarioIndex = 0; !endOfScenarios; ++scenarioIndex)
+    {
+        VmaPool pool;
+        TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+
+        BufferInfo buf;
+        VmaAllocationInfo allocInfo;
+
+        std::vector<BufferInfo> bufs;
+
+        // Scenario: Create + destroy buffers without mapping. Hysteresis should not launch.
+        if(scenarioIndex == 0)
+        {
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.pool = pool;
+
+            for(uint32_t bufIndex = 0; bufIndex < BUF_COUNT; ++bufIndex)
+            {
+                TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf.Buffer, &buf.Allocation, &allocInfo) == VK_SUCCESS);
+                TEST(allocInfo.pMappedData == nullptr);
+                vmaDestroyBuffer(g_hAllocator, buf.Buffer, buf.Allocation);
+            }
+        }
+        // Scenario:
+        // - Create one buffer mapped that stays there.
+        // - Create + destroy mapped buffers back and forth. Hysteresis should launch.
+        else if(scenarioIndex == 1)
+        {
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.pool = pool;
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+            TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf.Buffer, &buf.Allocation, &allocInfo) == VK_SUCCESS);
+            TEST(allocInfo.pMappedData != nullptr);
+            bufs.push_back(buf);
+
+            for(uint32_t bufIndex = 0; bufIndex < BUF_COUNT; ++bufIndex)
+            {
+                TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf.Buffer, &buf.Allocation, &allocInfo) == VK_SUCCESS);
+                TEST(allocInfo.pMappedData != nullptr);
+                vmaDestroyBuffer(g_hAllocator, buf.Buffer, buf.Allocation);
+            }
+        }
+        // Scenario: Create + destroy mapped buffers.
+        // Hysteresis should launch as it maps and unmaps back and forth.
+        else if(scenarioIndex == 2)
+        {
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.pool = pool;
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+            for(uint32_t bufIndex = 0; bufIndex < BUF_COUNT; ++bufIndex)
+            {
+                TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf.Buffer, &buf.Allocation, &allocInfo) == VK_SUCCESS);
+                TEST(allocInfo.pMappedData != nullptr);
+                vmaDestroyBuffer(g_hAllocator, buf.Buffer, buf.Allocation);
+            }
+        }
+        // Scenario: Create one buffer and map it back and forth. Hysteresis should launch.
+        else if(scenarioIndex == 3)
+        {
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.pool = pool;
+
+            TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf.Buffer, &buf.Allocation, &allocInfo) == VK_SUCCESS);
+
+            for(uint32_t i = 0; i < BUF_COUNT; ++i)
+            {
+                void* mappedData = nullptr;
+                TEST(vmaMapMemory(g_hAllocator, buf.Allocation, &mappedData) == VK_SUCCESS);
+                TEST(mappedData != nullptr);
+                vmaUnmapMemory(g_hAllocator, buf.Allocation);
+            }
+
+            vmaDestroyBuffer(g_hAllocator, buf.Buffer, buf.Allocation);
+        }
+        // Scenario:
+        // - Create many buffers
+        // - Map + unmap one of them many times. Hysteresis should launch.
+        // - Hysteresis should unmap during freeing the buffers.
+        else if(scenarioIndex == 4)
+        {
+            VmaAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.pool = pool;
+
+            for(uint32_t bufIndex = 0; bufIndex < BUF_COUNT; ++bufIndex)
+            {
+                TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf.Buffer, &buf.Allocation, &allocInfo) == VK_SUCCESS);
+                TEST(allocInfo.pMappedData == nullptr);
+                bufs.push_back(buf);
+            }
+
+            for(uint32_t i = 0; i < BUF_COUNT; ++i)
+            {
+                void* mappedData = nullptr;
+                TEST(vmaMapMemory(g_hAllocator, buf.Allocation, &mappedData) == VK_SUCCESS);
+                TEST(mappedData != nullptr);
+                vmaUnmapMemory(g_hAllocator, buf.Allocation);
+            }
+        }
+        else
+            endOfScenarios = true;
+
+        for(size_t i = bufs.size(); i--; )
+            vmaDestroyBuffer(g_hAllocator, bufs[i].Buffer, bufs[i].Allocation);
+
+        vmaDestroyPool(g_hAllocator, pool);
+    }
+}
+
 void Test()
 {
     wprintf(L"TESTING:\n");
@@ -7288,6 +7436,7 @@ void Test()
     TestAliasing();
     TestAllocationAliasing();
     TestMapping();
+    TestMappingHysteresis();
     TestDeviceLocalMapped();
     TestMappingMultithreaded();
     TestLinearAllocator();

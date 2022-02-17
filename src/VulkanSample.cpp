@@ -393,7 +393,9 @@ static VkExtent2D ChooseSwapExtent()
 
 static constexpr uint32_t GetVulkanApiVersion()
 {
-#if VMA_VULKAN_VERSION == 1002000
+#if VMA_VULKAN_VERSION == 1003000
+    return VK_API_VERSION_1_3;
+#elif VMA_VULKAN_VERSION == 1002000
     return VK_API_VERSION_1_2;
 #elif VMA_VULKAN_VERSION == 1001000
     return VK_API_VERSION_1_1;
@@ -486,6 +488,7 @@ void VulkanUsage::Init()
     case VK_API_VERSION_1_0: wprintf(L"1.0\n"); break;
     case VK_API_VERSION_1_1: wprintf(L"1.1\n"); break;
     case VK_API_VERSION_1_2: wprintf(L"1.2\n"); break;
+    case VK_API_VERSION_1_3: wprintf(L"1.3\n"); break;
     default: assert(0);
     }
 
@@ -672,8 +675,8 @@ static void CreateMesh()
     vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo vbAllocCreateInfo = {};
-    vbAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    vbAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    vbAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    vbAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkBuffer stagingVertexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingVertexBufferAlloc = VK_NULL_HANDLE;
@@ -685,7 +688,6 @@ static void CreateMesh()
     // No need to flush stagingVertexBuffer memory because CPU_ONLY memory is always HOST_COHERENT.
 
     vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    vbAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     vbAllocCreateInfo.flags = 0;
     ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &vbInfo, &vbAllocCreateInfo, &g_hVertexBuffer, &g_hVertexBufferAlloc, nullptr) );
 
@@ -697,8 +699,8 @@ static void CreateMesh()
     ibInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
     VmaAllocationCreateInfo ibAllocCreateInfo = {};
-    ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    ibAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    ibAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
     
     VkBuffer stagingIndexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingIndexBufferAlloc = VK_NULL_HANDLE;
@@ -710,7 +712,6 @@ static void CreateMesh()
     // No need to flush stagingIndexBuffer memory because CPU_ONLY memory is always HOST_COHERENT.
 
     ibInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     ibAllocCreateInfo.flags = 0;
     ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &ibInfo, &ibAllocCreateInfo, &g_hIndexBuffer, &g_hIndexBufferAlloc, nullptr) );
 
@@ -747,8 +748,8 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     stagingBufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo stagingBufAllocCreateInfo = {};
-    stagingBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    stagingBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    stagingBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    stagingBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
     
     VkBuffer stagingBuf = VK_NULL_HANDLE;
     VmaAllocation stagingBufAlloc = VK_NULL_HANDLE;
@@ -792,7 +793,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     imageInfo.flags = 0;
 
     VmaAllocationCreateInfo imageAllocCreateInfo = {};
-    imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     
     ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageAllocCreateInfo, &g_hTextureImage, &g_hTextureImageAlloc, nullptr) );
 
@@ -1021,7 +1022,7 @@ static void CreateSwapchain()
     depthImageInfo.flags = 0;
 
     VmaAllocationCreateInfo depthImageAllocCreateInfo = {};
-    depthImageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    depthImageAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
     ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &depthImageInfo, &depthImageAllocCreateInfo, &g_hDepthImage, &g_hDepthImageAlloc, nullptr) );
 

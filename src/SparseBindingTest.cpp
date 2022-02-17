@@ -146,8 +146,8 @@ void BaseImage::UploadContent()
     srcBufCreateInfo.size = 4 * m_CreateInfo.extent.width * m_CreateInfo.extent.height;
 
     VmaAllocationCreateInfo srcBufAllocCreateInfo = {};
-    srcBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-    srcBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    srcBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    srcBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkBuffer srcBuf = nullptr;
     VmaAllocation srcBufAlloc = nullptr;
@@ -261,8 +261,8 @@ void BaseImage::ValidateContent(RandomNumberGenerator& rand)
     dstBufCreateInfo.size = valueCount * sizeof(uint32_t) * 3;
 
     VmaAllocationCreateInfo dstBufAllocCreateInfo = {};
-    dstBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    dstBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+    dstBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    dstBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
     VkBuffer dstBuf = nullptr;
     VmaAllocation dstBufAlloc = nullptr;
@@ -438,7 +438,7 @@ void TraditionalImage::Init(RandomNumberGenerator& rand)
     FillImageCreateInfo(rand);
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     // Default BEST_FIT is clearly better.
     //allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_STRATEGY_WORST_FIT_BIT;
     
@@ -484,7 +484,7 @@ void SparseBindingImage::Init(RandomNumberGenerator& rand)
     const uint32_t pageCount = (uint32_t)ceil_div<VkDeviceSize>(imageMemReq.size, pageSize);
 
     VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     VkMemoryRequirements pageMemReq = imageMemReq;
     pageMemReq.size = pageSize;
