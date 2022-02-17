@@ -3563,7 +3563,7 @@ static void TestLinearAllocator()
     constexpr size_t maxBufCount = 100;
     std::vector<BufferInfo> bufInfo;
 
-    constexpr VkDeviceSize bufSizeMin = 16;
+    constexpr VkDeviceSize bufSizeMin = 32;
     constexpr VkDeviceSize bufSizeMax = 1024;
     VmaAllocationInfo allocInfo;
     VkDeviceSize prevOffset = 0;
@@ -3575,7 +3575,7 @@ static void TestLinearAllocator()
         VkDeviceSize bufSumSize = 0;
         for(size_t i = 0; i < maxBufCount; ++i)
         {
-			bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+			bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 32);
             BufferInfo newBufInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
                 &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
@@ -3608,7 +3608,7 @@ static void TestLinearAllocator()
         // Allocate number of buffers of varying size that surely fit into this block.
         for(size_t i = 0; i < maxBufCount; ++i)
         {
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 32);
             BufferInfo newBufInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
                 &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
@@ -3629,7 +3629,7 @@ static void TestLinearAllocator()
         // Create some more
         for(size_t i = 0; i < maxBufCount / 5; ++i)
         {
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 32);
             BufferInfo newBufInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
                 &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
@@ -3724,7 +3724,7 @@ static void TestLinearAllocator()
                 allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
             else
                 allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 32);
             BufferInfo newBufInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
                 &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
@@ -3759,7 +3759,7 @@ static void TestLinearAllocator()
                 allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
             else
                 allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 32);
             BufferInfo newBufInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
                 &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
@@ -3786,7 +3786,7 @@ static void TestLinearAllocator()
                 allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
             else
                 allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT;
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 32);
             BufferInfo newBufInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
                 &newBufInfo.Buffer, &newBufInfo.Allocation, &allocInfo);
