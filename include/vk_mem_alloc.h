@@ -120,6 +120,7 @@ for user-defined purpose without allocating any real GPU memory.
 \defgroup group_stats Statistics
 
 \brief API elements that query current status of the allocator, from memory usage, budget, to full dump of the internal state in JSON format.
+See documentation chapter: \ref statistics.
 */
 
 
@@ -1101,59 +1102,102 @@ typedef struct VmaAllocatorInfo
 @{
 */
 
-/// Calculated statistics of memory usage in entire allocator.
-typedef struct VmaStatInfo
+/** \brief Calculated statistics of memory usage e.g. in a specific memory type, heap, custom pool, or total.
+
+These are fast to calculate.
+See functions: vmaGetHeapBudgets(), vmaGetPoolStatistics().
+*/
+typedef struct VmaStatistics
 {
-    /// Number of `VkDeviceMemory` Vulkan memory blocks allocated.
+    /** \brief Number of `VkDeviceMemory` objects - Vulkan memory blocks allocated.
+    */
     uint32_t blockCount;
-    /// Number of #VmaAllocation allocation objects allocated.
+    /** \brief Number of #VmaAllocation objects allocated.
+    
+    Dedicated allocations have their own blocks, so each one adds 1 to `allocationCount` as well as `blockCount`.
+    */
     uint32_t allocationCount;
-    /// Number of free ranges of memory between allocations.
-    uint32_t unusedRangeCount;
-    /// Total number of bytes occupied by all allocations.
-    VkDeviceSize usedBytes;
-    /// Total number of bytes occupied by unused ranges.
-    VkDeviceSize unusedBytes;
-    VkDeviceSize allocationSizeMin, allocationSizeAvg, allocationSizeMax;
-    VkDeviceSize unusedRangeSizeMin, unusedRangeSizeAvg, unusedRangeSizeMax;
-} VmaStatInfo;
-
-/// General statistics from current state of Allocator.
-typedef struct VmaStats
-{
-    VmaStatInfo memoryType[VK_MAX_MEMORY_TYPES];
-    VmaStatInfo memoryHeap[VK_MAX_MEMORY_HEAPS];
-    VmaStatInfo total;
-} VmaStats;
-
-/// Statistics of current memory usage and available budget, in bytes, for specific memory heap.
-typedef struct VmaBudget
-{
-    /** \brief Sum size of all `VkDeviceMemory` blocks allocated from particular heap, in bytes.
+    /** \brief Number of bytes allocated in `VkDeviceMemory` blocks.
+    
+    \note To avoid confusion, please be aware that what Vulkan calls an "allocation" - a whole `VkDeviceMemory` object
+    (e.g. as in `VkPhysicalDeviceLimits::maxMemoryAllocationCount`) is called a "block" in VMA, while VMA calls
+    "allocation" a #VmaAllocation object that represents a memory region sub-allocated from such block, usually for a single buffer or image.
     */
     VkDeviceSize blockBytes;
-
-    /** \brief Sum size of all allocations created in particular heap, in bytes.
-
-    Usually less or equal than `blockBytes`.
-    Difference `blockBytes - allocationBytes` is the amount of memory allocated but unused -
-    available for new allocations or wasted due to fragmentation.
+    /** \brief Total number of bytes occupied by all #VmaAllocation objects.
+    
+    Always less or equal than `blockBytes`.
+    Difference `(blockBytes - allocationBytes)` is the amount of memory allocated from Vulkan
+    but unused by any #VmaAllocation.
     */
     VkDeviceSize allocationBytes;
+} VmaStatistics;
 
+/** \brief More detailed statistics than #VmaStatistics.
+
+These are slower to calculate. Use for debugging purposes.
+See functions: vmaCalculateStatistics(), vmaCalculatePoolStatistics().
+
+Previous version of the statistics API provided averages, but they have been removed
+because they can be easily calculated as:
+
+\code
+VkDeviceSize allocationSizeAvg = detailedStats.statistics.allocationBytes / detailedStats.statistics.allocationCount;
+VkDeviceSize unusedBytes = detailedStats.statistics.blockBytes - detailedStats.statistics.allocationBytes;
+VkDeviceSize unusedRangeSizeAvg = unusedBytes / detailedStats.unusedRangeCount;
+\endcode
+*/
+typedef struct VmaDetailedStatistics
+{
+    /// Basic statistics.
+    VmaStatistics statistics;
+    /// Number of free ranges of memory between allocations.
+    uint32_t unusedRangeCount;
+    /// Smallest allocation size. `VK_WHOLE_SIZE` if there are 0 allocations.
+    VkDeviceSize allocationSizeMin;
+    /// Largest allocation size. 0 if there are 0 allocations.
+    VkDeviceSize allocationSizeMax;
+    /// Smallest empty range size. `VK_WHOLE_SIZE` if there are 0 empty ranges.
+    VkDeviceSize unusedRangeSizeMin;
+    /// Largest empty range size. 0 if there are 0 empty ranges.
+    VkDeviceSize unusedRangeSizeMax;
+} VmaDetailedStatistics;
+
+/** \brief  General statistics from current state of the Allocator -
+total memory usage across all memory heaps and types.
+
+These are slower to calculate. Use for debugging purposes.
+See function vmaCalculateStatistics().
+*/
+typedef struct VmaTotalStatistics
+{
+    VmaDetailedStatistics memoryType[VK_MAX_MEMORY_TYPES];
+    VmaDetailedStatistics memoryHeap[VK_MAX_MEMORY_HEAPS];
+    VmaDetailedStatistics total;
+} VmaTotalStatistics;
+
+/** \brief Statistics of current memory usage and available budget for a specific memory heap.
+
+These are fast to calculate.
+See function vmaGetHeapBudgets().
+*/
+typedef struct VmaBudget
+{
+    /** \brief Statistics fetched from the library.
+    */
+    VmaStatistics statistics;
     /** \brief Estimated current memory usage of the program, in bytes.
 
-    Fetched from system using `VK_EXT_memory_budget` extension if enabled.
+    Fetched from system using VK_EXT_memory_budget extension if enabled.
 
-    It might be different than `blockBytes` (usually higher) due to additional implicit objects
+    It might be different than `statistics.blockBytes` (usually higher) due to additional implicit objects
     also occupying the memory, like swapchain, pipelines, descriptor heaps, command buffers, or
     `VkDeviceMemory` blocks allocated outside of this library, if any.
     */
     VkDeviceSize usage;
-
     /** \brief Estimated amount of memory available to the program, in bytes.
 
-    Fetched from system using `VK_EXT_memory_budget` extension if enabled.
+    Fetched from system using VK_EXT_memory_budget extension if enabled.
 
     It might be different (most probably smaller) than `VkMemoryHeap::size[heapIndex]` due to factors
     external to the program, like other programs also consuming system resources.
@@ -1276,33 +1320,6 @@ typedef struct VmaPoolCreateInfo
     */
     void* VMA_NULLABLE pMemoryAllocateNext;
 } VmaPoolCreateInfo;
-
-/** @} */
-
-/**
-\addtogroup group_stats
-@{
-*/
-
-/// Describes parameter of existing #VmaPool.
-typedef struct VmaPoolStats
-{
-    /** \brief Total amount of `VkDeviceMemory` allocated from Vulkan for this pool, in bytes.
-    */
-    VkDeviceSize size;
-    /** \brief Total number of bytes in the pool not used by any #VmaAllocation.
-    */
-    VkDeviceSize unusedSize;
-    /** \brief Number of #VmaAllocation objects created from this pool that were not destroyed.
-    */
-    size_t allocationCount;
-    /** \brief Number of continuous memory ranges in the pool not used by any #VmaAllocation.
-    */
-    size_t unusedRangeCount;
-    /** \brief Number of `VkDeviceMemory` blocks allocated for this pool.
-    */
-    size_t blockCount;
-} VmaPoolStats;
 
 /** @} */
 
@@ -1630,23 +1647,24 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetCurrentFrameIndex(
 /** \brief Retrieves statistics from current state of the Allocator.
 
 This function is called "calculate" not "get" because it has to traverse all
-internal data structures, so it may be quite slow. For faster but more brief statistics
-suitable to be called every frame or every allocation, use vmaGetHeapBudgets().
+internal data structures, so it may be quite slow. Use it for debugging purposes.
+For faster but more brief statistics suitable to be called every frame or every allocation,
+use vmaGetHeapBudgets().
 
 Note that when using allocator from multiple threads, returned information may immediately
 become outdated.
 */
-VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStats(
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStatistics(
     VmaAllocator VMA_NOT_NULL allocator,
-    VmaStats* VMA_NOT_NULL pStats);
+    VmaTotalStatistics* VMA_NOT_NULL pStats);
 
-/** \brief Retrieves information about current memory budget for all memory heaps.
+/** \brief Retrieves information about current memory usage and budget for all memory heaps.
 
 \param allocator
 \param[out] pBudgets Must point to array with number of elements at least equal to number of memory heaps in physical device used.
 
 This function is called "get" not "calculate" because it is very fast, suitable to be called
-every frame or every allocation. For more detailed statistics use vmaCalculateStats().
+every frame or every allocation. For more detailed statistics use vmaCalculateStatistics().
 
 Note that when using allocator from multiple threads, returned information may immediately
 become outdated.
@@ -1738,10 +1756,21 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyPool(
 \param pool Pool object.
 \param[out] pPoolStats Statistics of specified pool.
 */
-VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStats(
+VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStatistics(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaPool VMA_NOT_NULL pool,
-    VmaPoolStats* VMA_NOT_NULL pPoolStats);
+    VmaStatistics* VMA_NOT_NULL pPoolStats);
+
+/** \brief Retrieves detailed statistics of existing #VmaPool object.
+
+\param allocator Allocator object.
+\param pool Pool object.
+\param[out] pPoolStats Statistics of specified pool.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculatePoolStatistics(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaPool VMA_NOT_NULL pool,
+    VmaDetailedStatistics* VMA_NOT_NULL pPoolStats);
 
 /** @} */
 
@@ -2454,10 +2483,21 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(
     void* VMA_NULLABLE pUserData);
 
 /** \brief Calculates and returns statistics about virtual allocations and memory usage in given #VmaVirtualBlock.
+
+This function is fast to call. For more detailed statistics, see vmaCalculateVirtualBlockStatistics().
 */
-VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(
+VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualBlockStatistics(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaStatInfo* VMA_NOT_NULL pStatInfo);
+    VmaStatistics* VMA_NOT_NULL pStats);
+
+/** \brief Calculates and returns detailed statistics about virtual allocations and memory usage in given #VmaVirtualBlock.
+
+This function is slow to call. Use for debugging purposes.
+For less detailed statistics, see vmaGetVirtualBlockStatistics().
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStatistics(
+    VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VmaDetailedStatistics* VMA_NOT_NULL pStats);
 
 /** @} */
 
@@ -2470,7 +2510,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(
 /** \brief Builds and returns a null-terminated string in JSON format with information about given #VmaVirtualBlock.
 \param virtualBlock Virtual block.
 \param[out] ppStatsString Returned string.
-\param detailedMap Pass `VK_FALSE` to only obtain statistics as returned by vmaCalculateVirtualBlockStats(). Pass `VK_TRUE` to also obtain full list of allocations and free spaces.
+\param detailedMap Pass `VK_FALSE` to only obtain statistics as returned by vmaCalculateVirtualBlockStatistics(). Pass `VK_TRUE` to also obtain full list of allocations and free spaces.
 
 Returned string must be freed using vmaFreeVirtualBlockStatsString().
 */
@@ -3847,65 +3887,60 @@ bool VmaVectorRemoveSorted(VectorT& vector, const typename VectorT::value_type& 
 }
 #endif // _VMA_FUNCTIONS
 
-#ifndef _VMA_STAT_INFO_FUNCTIONS
-static void VmaInitStatInfo(VmaStatInfo& outInfo)
+#ifndef _VMA_STATISTICS_FUNCTIONS
+
+static void VmaClearStatistics(VmaStatistics& outStats)
 {
-    memset(&outInfo, 0, sizeof(outInfo));
-    outInfo.allocationSizeMin = UINT64_MAX;
-    outInfo.unusedRangeSizeMin = UINT64_MAX;
+    outStats.blockCount = 0;
+    outStats.allocationCount = 0;
+    outStats.blockBytes = 0;
+    outStats.allocationBytes = 0;
 }
 
-// Adds statistics srcInfo into inoutInfo, like: inoutInfo += srcInfo.
-static void VmaAddStatInfo(VmaStatInfo& inoutInfo, const VmaStatInfo& srcInfo)
+static void VmaAddStatistics(VmaStatistics& inoutStats, const VmaStatistics& src)
 {
-    inoutInfo.blockCount += srcInfo.blockCount;
-    inoutInfo.allocationCount += srcInfo.allocationCount;
-    inoutInfo.unusedRangeCount += srcInfo.unusedRangeCount;
-    inoutInfo.usedBytes += srcInfo.usedBytes;
-    inoutInfo.unusedBytes += srcInfo.unusedBytes;
-    inoutInfo.allocationSizeMin = VMA_MIN(inoutInfo.allocationSizeMin, srcInfo.allocationSizeMin);
-    inoutInfo.allocationSizeMax = VMA_MAX(inoutInfo.allocationSizeMax, srcInfo.allocationSizeMax);
-    inoutInfo.unusedRangeSizeMin = VMA_MIN(inoutInfo.unusedRangeSizeMin, srcInfo.unusedRangeSizeMin);
-    inoutInfo.unusedRangeSizeMax = VMA_MAX(inoutInfo.unusedRangeSizeMax, srcInfo.unusedRangeSizeMax);
+    inoutStats.blockCount += src.blockCount;
+    inoutStats.allocationCount += src.allocationCount;
+    inoutStats.blockBytes += src.blockBytes;
+    inoutStats.allocationBytes += src.allocationBytes;
 }
 
-static void VmaAddStatInfoAllocation(VmaStatInfo& inoutInfo, VkDeviceSize size)
+static void VmaClearDetailedStatistics(VmaDetailedStatistics& outStats)
 {
-    ++inoutInfo.allocationCount;
-    inoutInfo.usedBytes += size;
-    if (size < inoutInfo.allocationSizeMin)
-    {
-        inoutInfo.allocationSizeMin = size;
-    }
-    if (size > inoutInfo.allocationSizeMax)
-    {
-        inoutInfo.allocationSizeMax = size;
-    }
+    VmaClearStatistics(outStats.statistics);
+    outStats.unusedRangeCount = 0;
+    outStats.allocationSizeMin = VK_WHOLE_SIZE;
+    outStats.allocationSizeMax = 0;
+    outStats.unusedRangeSizeMin = VK_WHOLE_SIZE;
+    outStats.unusedRangeSizeMax = 0;
 }
 
-static void VmaAddStatInfoUnusedRange(VmaStatInfo& inoutInfo, VkDeviceSize size)
+static void VmaAddDetailedStatisticsAllocation(VmaDetailedStatistics& inoutStats, VkDeviceSize size)
 {
-    ++inoutInfo.unusedRangeCount;
-    inoutInfo.unusedBytes += size;
-    if (size < inoutInfo.unusedRangeSizeMin)
-    {
-        inoutInfo.unusedRangeSizeMin = size;
-    }
-    if (size > inoutInfo.unusedRangeSizeMax)
-    {
-        inoutInfo.unusedRangeSizeMax = size;
-    }
+    inoutStats.statistics.allocationCount++;
+    inoutStats.statistics.allocationBytes += size;
+    inoutStats.allocationSizeMin = VMA_MIN(inoutStats.allocationSizeMin, size);
+    inoutStats.allocationSizeMax = VMA_MAX(inoutStats.allocationSizeMax, size);
 }
 
-static void VmaPostprocessCalcStatInfo(VmaStatInfo& inoutInfo)
+static void VmaAddDetailedStatisticsUnusedRange(VmaDetailedStatistics& inoutStats, VkDeviceSize size)
 {
-    inoutInfo.allocationSizeAvg = (inoutInfo.allocationCount > 0) ?
-        VmaRoundDiv<VkDeviceSize>(inoutInfo.usedBytes, inoutInfo.allocationCount) : 0;
-    inoutInfo.unusedRangeSizeAvg = (inoutInfo.unusedRangeCount > 0) ?
-        VmaRoundDiv<VkDeviceSize>(inoutInfo.unusedBytes, inoutInfo.unusedRangeCount) : 0;
+    inoutStats.unusedRangeCount++;
+    inoutStats.unusedRangeSizeMin = VMA_MIN(inoutStats.unusedRangeSizeMin, size);
+    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, size);
 }
-#endif // _VMA_STAT_INFO_FUNCTIONS
 
+static void VmaAddDetailedStatistics(VmaDetailedStatistics& inoutStats, const VmaDetailedStatistics& src)
+{
+    VmaAddStatistics(inoutStats.statistics, src.statistics);
+    inoutStats.unusedRangeCount += src.unusedRangeCount;
+    inoutStats.allocationSizeMin = VMA_MIN(inoutStats.allocationSizeMin, src.allocationSizeMin);
+    inoutStats.allocationSizeMax = VMA_MAX(inoutStats.allocationSizeMax, src.allocationSizeMax);
+    inoutStats.unusedRangeSizeMin = VMA_MIN(inoutStats.unusedRangeSizeMin, src.unusedRangeSizeMin);
+    inoutStats.unusedRangeSizeMax = VMA_MAX(inoutStats.unusedRangeSizeMax, src.unusedRangeSizeMax);
+}
+
+#endif // _VMA_STATISTICS_FUNCTIONS
 
 #ifndef _VMA_MUTEX_LOCK
 // Helper RAII class to lock a mutex in constructor and unlock it in destructor (at the end of scope).
@@ -5715,33 +5750,31 @@ void VmaJsonWriter::WriteIndent(bool oneLess)
 }
 #endif // _VMA_JSON_WRITER_FUNCTIONS
 
-static void VmaPrintStatInfo(VmaJsonWriter& json, const VmaStatInfo& stat)
+static void VmaPrintDetailedStatistics(VmaJsonWriter& json, const VmaDetailedStatistics& stat)
 {
     json.BeginObject();
 
-    json.WriteString("Blocks");
-    json.WriteNumber(stat.blockCount);
+    json.WriteString("BlockCount");
+    json.WriteNumber(stat.statistics.blockCount);
 
-    json.WriteString("Allocations");
-    json.WriteNumber(stat.allocationCount);
+    json.WriteString("AllocationCount");
+    json.WriteNumber(stat.statistics.allocationCount);
 
-    json.WriteString("UnusedRanges");
+    json.WriteString("UnusedRangeCount");
     json.WriteNumber(stat.unusedRangeCount);
 
-    json.WriteString("UsedBytes");
-    json.WriteNumber(stat.usedBytes);
+    json.WriteString("BlockBytes");
+    json.WriteNumber(stat.statistics.blockBytes);
 
-    json.WriteString("UnusedBytes");
-    json.WriteNumber(stat.unusedBytes);
+    json.WriteString("AllocationBytes");
+    json.WriteNumber(stat.statistics.allocationBytes);
 
-    if (stat.allocationCount > 1)
+    if (stat.statistics.allocationCount > 1)
     {
         json.WriteString("AllocationSize");
         json.BeginObject(true);
         json.WriteString("Min");
         json.WriteNumber(stat.allocationSizeMin);
-        json.WriteString("Avg");
-        json.WriteNumber(stat.allocationSizeAvg);
         json.WriteString("Max");
         json.WriteNumber(stat.allocationSizeMax);
         json.EndObject();
@@ -5753,8 +5786,6 @@ static void VmaPrintStatInfo(VmaJsonWriter& json, const VmaStatInfo& stat)
         json.BeginObject(true);
         json.WriteString("Min");
         json.WriteNumber(stat.unusedRangeSizeMin);
-        json.WriteString("Avg");
-        json.WriteNumber(stat.unusedRangeSizeAvg);
         json.WriteString("Max");
         json.WriteNumber(stat.unusedRangeSizeMax);
         json.EndObject();
@@ -6006,8 +6037,6 @@ public:
     VkDeviceMemory GetMemory() const;
     void* GetMappedData() const;
 
-    void DedicatedAllocCalcStatsInfo(VmaStatInfo& outInfo);
-
     void BlockAllocMap();
     void BlockAllocUnmap();
     VkResult DedicatedAllocMap(VmaAllocator hAllocator, void** ppData);
@@ -6103,8 +6132,8 @@ public:
     void Init(bool useMutex) { m_UseMutex = useMutex; }
     bool Validate();
 
-    void AddStats(VmaStats* stats, uint32_t memTypeIndex, uint32_t memHeapIndex);
-    void AddPoolStats(VmaPoolStats* stats);
+    void AddDetailedStatistics(VmaDetailedStatistics& inoutStats);
+    void AddStatistics(VmaStatistics& inoutStats);
 #if VMA_STATS_STRING_ENABLED
     // Writes JSON array with the list of allocations.
     void BuildStatsString(VmaJsonWriter& json);
@@ -6149,31 +6178,30 @@ bool VmaDedicatedAllocationList::Validate()
     return true;
 }
 
-void VmaDedicatedAllocationList::AddStats(VmaStats* stats, uint32_t memTypeIndex, uint32_t memHeapIndex)
+void VmaDedicatedAllocationList::AddDetailedStatistics(VmaDetailedStatistics& inoutStats)
 {
-    VmaMutexLockRead lock(m_Mutex, m_UseMutex);
-    for (VmaAllocation alloc = m_AllocationList.Front();
-        alloc != VMA_NULL; alloc = m_AllocationList.GetNext(alloc))
+    for(auto* item = m_AllocationList.Front(); item != nullptr; item = DedicatedAllocationLinkedList::GetNext(item))
     {
-        VmaStatInfo allocationStatInfo;
-        alloc->DedicatedAllocCalcStatsInfo(allocationStatInfo);
-        VmaAddStatInfo(stats->total, allocationStatInfo);
-        VmaAddStatInfo(stats->memoryType[memTypeIndex], allocationStatInfo);
-        VmaAddStatInfo(stats->memoryHeap[memHeapIndex], allocationStatInfo);
+        const VkDeviceSize size = item->GetSize();
+        inoutStats.statistics.blockCount++;
+        inoutStats.statistics.blockBytes += size;
+        VmaAddDetailedStatisticsAllocation(inoutStats, item->GetSize());
     }
 }
 
-void VmaDedicatedAllocationList::AddPoolStats(VmaPoolStats* stats)
+void VmaDedicatedAllocationList::AddStatistics(VmaStatistics& inoutStats)
 {
     VmaMutexLockRead lock(m_Mutex, m_UseMutex);
 
-    const size_t allocCount = m_AllocationList.GetCount();
-    stats->allocationCount += allocCount;
-    stats->blockCount += allocCount;
+    const uint32_t allocCount = (uint32_t)m_AllocationList.GetCount();
+    inoutStats.blockCount += allocCount;
+    inoutStats.allocationCount += allocCount;
 
     for(auto* item = m_AllocationList.Front(); item != nullptr; item = DedicatedAllocationLinkedList::GetNext(item))
     {
-        stats->size += item->GetSize();
+        const VkDeviceSize size = item->GetSize();
+        inoutStats.blockBytes += size;
+        inoutStats.allocationBytes += size;
     }
 }
 
@@ -6301,10 +6329,9 @@ public:
     virtual void GetAllocationInfo(VmaAllocHandle allocHandle, VmaVirtualAllocationInfo& outInfo) = 0;
     virtual VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const = 0;
 
-    // Must set blockCount to 1.
-    virtual void CalcAllocationStatInfo(VmaStatInfo& outInfo) const = 0;
     // Shouldn't modify blockCount.
-    virtual void AddPoolStats(VmaPoolStats& inoutStats) const = 0;
+    virtual void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const = 0;
+    virtual void AddStatistics(VmaStatistics& inoutStats) const = 0;
 
 #if VMA_STATS_STRING_ENABLED
     // mapRefCount == UINT32_MAX means unspecified.
@@ -6764,8 +6791,8 @@ public:
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
 
-    void CalcAllocationStatInfo(VmaStatInfo& outInfo) const override;
-    void AddPoolStats(VmaPoolStats& inoutStats) const override;
+    void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
+    void AddStatistics(VmaStatistics& inoutStats) const override;
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json, uint32_t mapRefCount) const override;
@@ -6940,33 +6967,27 @@ bool VmaBlockMetadata_Generic::Validate() const
     return true;
 }
 
-void VmaBlockMetadata_Generic::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
+void VmaBlockMetadata_Generic::AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const
 {
     const uint32_t rangeCount = (uint32_t)m_Suballocations.size();
-    VmaInitStatInfo(outInfo);
-    outInfo.blockCount = 1;
+    inoutStats.statistics.blockCount++;
+    inoutStats.statistics.blockBytes += GetSize();
 
     for (const auto& suballoc : m_Suballocations)
     {
         if (suballoc.type != VMA_SUBALLOCATION_TYPE_FREE)
-        {
-            VmaAddStatInfoAllocation(outInfo, suballoc.size);
-        }
+            VmaAddDetailedStatisticsAllocation(inoutStats, suballoc.size);
         else
-        {
-            VmaAddStatInfoUnusedRange(outInfo, suballoc.size);
-        }
+            VmaAddDetailedStatisticsUnusedRange(inoutStats, suballoc.size);
     }
 }
 
-void VmaBlockMetadata_Generic::AddPoolStats(VmaPoolStats& inoutStats) const
+void VmaBlockMetadata_Generic::AddStatistics(VmaStatistics& inoutStats) const
 {
-    const uint32_t rangeCount = (uint32_t)m_Suballocations.size();
-
-    inoutStats.size += GetSize();
-    inoutStats.unusedSize += m_SumFreeSize;
-    inoutStats.allocationCount += rangeCount - m_FreeCount;
-    inoutStats.unusedRangeCount += m_FreeCount;
+    inoutStats.blockCount++;
+    inoutStats.allocationCount += (uint32_t)m_Suballocations.size() - m_FreeCount;
+    inoutStats.blockBytes += GetSize();
+    inoutStats.allocationBytes += GetSize() - m_SumFreeSize;
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -7608,8 +7629,8 @@ public:
     bool Validate() const override;
     size_t GetAllocationCount() const override;
 
-    void CalcAllocationStatInfo(VmaStatInfo& outInfo) const override;
-    void AddPoolStats(VmaPoolStats& inoutStats) const override;
+    void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
+    void AddStatistics(VmaStatistics& inoutStats) const override;
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json, uint32_t mapRefCount) const override;
@@ -7870,7 +7891,7 @@ size_t VmaBlockMetadata_Linear::GetAllocationCount() const
         AccessSuballocations2nd().size() - m_2ndNullItemsCount;
 }
 
-void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
+void VmaBlockMetadata_Linear::AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const
 {
     const VkDeviceSize size = GetSize();
     const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
@@ -7878,8 +7899,8 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
     const size_t suballoc1stCount = suballocations1st.size();
     const size_t suballoc2ndCount = suballocations2nd.size();
 
-    VmaInitStatInfo(outInfo);
-    outInfo.blockCount = 1;
+    inoutStats.statistics.blockCount++;
+    inoutStats.statistics.blockBytes += size;
 
     VkDeviceSize lastOffset = 0;
 
@@ -7906,12 +7927,12 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                 {
                     // There is free space from lastOffset to suballoc.offset.
                     const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                    VmaAddStatInfoUnusedRange(outInfo, unusedRangeSize);
+                    VmaAddDetailedStatisticsUnusedRange(inoutStats, unusedRangeSize);
                 }
 
                 // 2. Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
-                VmaAddStatInfoAllocation(outInfo, suballoc.size);
+                VmaAddDetailedStatisticsAllocation(inoutStats, suballoc.size);
 
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
@@ -7924,7 +7945,7 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                 if (lastOffset < freeSpace2ndTo1stEnd)
                 {
                     const VkDeviceSize unusedRangeSize = freeSpace2ndTo1stEnd - lastOffset;
-                    VmaAddStatInfoUnusedRange(outInfo, unusedRangeSize);
+                    VmaAddDetailedStatisticsUnusedRange(inoutStats, unusedRangeSize);
                 }
 
                 // End of loop.
@@ -7955,12 +7976,12 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
             {
                 // There is free space from lastOffset to suballoc.offset.
                 const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                VmaAddStatInfoUnusedRange(outInfo, unusedRangeSize);
+                VmaAddDetailedStatisticsUnusedRange(inoutStats, unusedRangeSize);
             }
 
             // 2. Process this allocation.
             // There is allocation with suballoc.offset, suballoc.size.
-            VmaAddStatInfoAllocation(outInfo, suballoc.size);
+            VmaAddDetailedStatisticsAllocation(inoutStats, suballoc.size);
 
             // 3. Prepare for next iteration.
             lastOffset = suballoc.offset + suballoc.size;
@@ -7973,7 +7994,7 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
             if (lastOffset < freeSpace1stTo2ndEnd)
             {
                 const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
-                VmaAddStatInfoUnusedRange(outInfo, unusedRangeSize);
+                VmaAddDetailedStatisticsUnusedRange(inoutStats, unusedRangeSize);
             }
 
             // End of loop.
@@ -8003,12 +8024,12 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                 {
                     // There is free space from lastOffset to suballoc.offset.
                     const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                    VmaAddStatInfoUnusedRange(outInfo, unusedRangeSize);
+                    VmaAddDetailedStatisticsUnusedRange(inoutStats, unusedRangeSize);
                 }
 
                 // 2. Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
-                VmaAddStatInfoAllocation(outInfo, suballoc.size);
+                VmaAddDetailedStatisticsAllocation(inoutStats, suballoc.size);
 
                 // 3. Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
@@ -8021,7 +8042,7 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
                 if (lastOffset < size)
                 {
                     const VkDeviceSize unusedRangeSize = size - lastOffset;
-                    VmaAddStatInfoUnusedRange(outInfo, unusedRangeSize);
+                    VmaAddDetailedStatisticsUnusedRange(inoutStats, unusedRangeSize);
                 }
 
                 // End of loop.
@@ -8029,11 +8050,9 @@ void VmaBlockMetadata_Linear::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
             }
         }
     }
-
-    outInfo.unusedBytes = size - outInfo.usedBytes;
 }
 
-void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
+void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
 {
     const SuballocationVectorType& suballocations1st = AccessSuballocations1st();
     const SuballocationVectorType& suballocations2nd = AccessSuballocations2nd();
@@ -8041,7 +8060,9 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
     const size_t suballoc1stCount = suballocations1st.size();
     const size_t suballoc2ndCount = suballocations2nd.size();
 
-    inoutStats.size += size;
+    inoutStats.blockCount++;
+    inoutStats.blockBytes += size;
+    inoutStats.allocationBytes += size - m_SumFreeSize;
 
     VkDeviceSize lastOffset = 0;
 
@@ -8068,8 +8089,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                 {
                     // There is free space from lastOffset to suballoc.offset.
                     const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                    inoutStats.unusedSize += unusedRangeSize;
-                    ++inoutStats.unusedRangeCount;
                 }
 
                 // 2. Process this allocation.
@@ -8087,8 +8106,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                 {
                     // There is free space from lastOffset to freeSpace2ndTo1stEnd.
                     const VkDeviceSize unusedRangeSize = freeSpace2ndTo1stEnd - lastOffset;
-                    inoutStats.unusedSize += unusedRangeSize;
-                    ++inoutStats.unusedRangeCount;
                 }
 
                 // End of loop.
@@ -8119,8 +8136,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
             {
                 // There is free space from lastOffset to suballoc.offset.
                 const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                inoutStats.unusedSize += unusedRangeSize;
-                ++inoutStats.unusedRangeCount;
             }
 
             // 2. Process this allocation.
@@ -8138,8 +8153,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
             {
                 // There is free space from lastOffset to freeSpace1stTo2ndEnd.
                 const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
-                inoutStats.unusedSize += unusedRangeSize;
-                ++inoutStats.unusedRangeCount;
             }
 
             // End of loop.
@@ -8169,8 +8182,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                 {
                     // There is free space from lastOffset to suballoc.offset.
                     const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                    inoutStats.unusedSize += unusedRangeSize;
-                    ++inoutStats.unusedRangeCount;
                 }
 
                 // 2. Process this allocation.
@@ -8188,8 +8199,6 @@ void VmaBlockMetadata_Linear::AddPoolStats(VmaPoolStats& inoutStats) const
                 {
                     // There is free space from lastOffset to size.
                     const VkDeviceSize unusedRangeSize = size - lastOffset;
-                    inoutStats.unusedSize += unusedRangeSize;
-                    ++inoutStats.unusedRangeCount;
                 }
 
                 // End of loop.
@@ -9241,8 +9250,8 @@ public:
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
 
-    void CalcAllocationStatInfo(VmaStatInfo& outInfo) const override;
-    void AddPoolStats(VmaPoolStats& inoutStats) const override;
+    void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
+    void AddStatistics(VmaStatistics& inoutStats) const override;
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json, uint32_t mapRefCount) const override;
@@ -9340,7 +9349,7 @@ private:
     void DeleteNodeChildren(Node* node);
     bool ValidateNode(ValidationContext& ctx, const Node* parent, const Node* curr, uint32_t level, VkDeviceSize levelNodeSize) const;
     uint32_t AllocSizeToLevel(VkDeviceSize allocSize) const;
-    void CalcAllocationStatInfoNode(VmaStatInfo& inoutInfo, const Node* node, VkDeviceSize levelNodeSize) const;
+    void AddNodeToDetailedStatistics(VmaDetailedStatistics& inoutStats, const Node* node, VkDeviceSize levelNodeSize) const;
     // Adds node to the front of FreeList at given level.
     // node->type must be FREE.
     // node->free.prev, next can be undefined.
@@ -9444,46 +9453,38 @@ bool VmaBlockMetadata_Buddy::Validate() const
     return true;
 }
 
-void VmaBlockMetadata_Buddy::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
+void VmaBlockMetadata_Buddy::AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const
 {
-    VmaInitStatInfo(outInfo);
-    outInfo.blockCount = 1;
+    inoutStats.statistics.blockCount++;
+    inoutStats.statistics.blockBytes += GetSize();
 
-    CalcAllocationStatInfoNode(outInfo, m_Root, LevelToNodeSize(0));
+    AddNodeToDetailedStatistics(inoutStats, m_Root, LevelToNodeSize(0));
 
     const VkDeviceSize unusableSize = GetUnusableSize();
     if (unusableSize > 0)
-    {
-        VmaAddStatInfoUnusedRange(outInfo, unusableSize);
-    }
+        VmaAddDetailedStatisticsUnusedRange(inoutStats, unusableSize);
 }
 
-void VmaBlockMetadata_Buddy::AddPoolStats(VmaPoolStats& inoutStats) const
+void VmaBlockMetadata_Buddy::AddStatistics(VmaStatistics& inoutStats) const
 {
-    const VkDeviceSize unusableSize = GetUnusableSize();
-
-    inoutStats.size += GetSize();
-    inoutStats.unusedSize += m_SumFreeSize + unusableSize;
-    inoutStats.allocationCount += m_AllocationCount;
-    inoutStats.unusedRangeCount += m_FreeCount;
-
-    if (unusableSize > 0)
-    {
-        ++inoutStats.unusedRangeCount;
-    }
+    inoutStats.blockCount++;
+    inoutStats.allocationCount += (uint32_t)m_AllocationCount;
+    inoutStats.blockBytes += GetSize();
+    inoutStats.allocationBytes += GetSize() - m_SumFreeSize;
 }
 
 #if VMA_STATS_STRING_ENABLED
 void VmaBlockMetadata_Buddy::PrintDetailedMap(class VmaJsonWriter& json, uint32_t mapRefCount) const
 {
-    VmaStatInfo stat;
-    CalcAllocationStatInfo(stat);
+    VmaDetailedStatistics stats;
+    VmaClearDetailedStatistics(stats);
+    AddDetailedStatistics(stats);
 
     PrintDetailedMap_Begin(
         json,
-        stat.unusedBytes,
-        stat.allocationCount,
-        stat.unusedRangeCount,
+        stats.statistics.blockBytes - stats.statistics.allocationBytes,
+        stats.statistics.allocationCount,
+        stats.unusedRangeCount,
         mapRefCount);
 
     PrintDetailedMapNode(json, m_Root, LevelToNodeSize(0));
@@ -9776,23 +9777,23 @@ void VmaBlockMetadata_Buddy::Free(VmaAllocHandle allocHandle)
     AddToFreeListFront(level, node);
 }
 
-void VmaBlockMetadata_Buddy::CalcAllocationStatInfoNode(VmaStatInfo& inoutInfo, const Node* node, VkDeviceSize levelNodeSize) const
+void VmaBlockMetadata_Buddy::AddNodeToDetailedStatistics(VmaDetailedStatistics& inoutStats, const Node* node, VkDeviceSize levelNodeSize) const
 {
     switch (node->type)
     {
     case Node::TYPE_FREE:
-        VmaAddStatInfoUnusedRange(inoutInfo, levelNodeSize);
+        VmaAddDetailedStatisticsUnusedRange(inoutStats, levelNodeSize);
         break;
     case Node::TYPE_ALLOCATION:
-        VmaAddStatInfoAllocation(inoutInfo, levelNodeSize);
+        VmaAddDetailedStatisticsAllocation(inoutStats, levelNodeSize);
         break;
     case Node::TYPE_SPLIT:
     {
         const VkDeviceSize childrenNodeSize = levelNodeSize / 2;
         const Node* const leftChild = node->split.leftChild;
-        CalcAllocationStatInfoNode(inoutInfo, leftChild, childrenNodeSize);
+        AddNodeToDetailedStatistics(inoutStats, leftChild, childrenNodeSize);
         const Node* const rightChild = leftChild->buddy;
-        CalcAllocationStatInfoNode(inoutInfo, rightChild, childrenNodeSize);
+        AddNodeToDetailedStatistics(inoutStats, rightChild, childrenNodeSize);
     }
     break;
     default:
@@ -9921,8 +9922,8 @@ public:
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
 
-    void CalcAllocationStatInfo(VmaStatInfo& outInfo) const override;
-    void AddPoolStats(VmaPoolStats& inoutStats) const override;
+    void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
+    void AddStatistics(VmaStatistics& inoutStats) const override;
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json, uint32_t mapRefCount) const override;
@@ -10169,30 +10170,28 @@ bool VmaBlockMetadata_TLSF::Validate() const
     return true;
 }
 
-void VmaBlockMetadata_TLSF::CalcAllocationStatInfo(VmaStatInfo& outInfo) const
+void VmaBlockMetadata_TLSF::AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const
 {
-    VmaInitStatInfo(outInfo);
-    outInfo.blockCount = 1;
+    inoutStats.statistics.blockCount++;
+    inoutStats.statistics.blockBytes += GetSize();
     if (m_NullBlock->size > 0)
-        VmaAddStatInfoUnusedRange(outInfo, m_NullBlock->size);
+        VmaAddDetailedStatisticsUnusedRange(inoutStats, m_NullBlock->size);
 
     for (Block* block = m_NullBlock->prevPhysical; block != VMA_NULL; block = block->prevPhysical)
     {
         if (block->IsFree())
-            VmaAddStatInfoUnusedRange(outInfo, block->size);
+            VmaAddDetailedStatisticsUnusedRange(inoutStats, block->size);
         else
-            VmaAddStatInfoAllocation(outInfo, block->size);
+            VmaAddDetailedStatisticsAllocation(inoutStats, block->size);
     }
 }
 
-void VmaBlockMetadata_TLSF::AddPoolStats(VmaPoolStats& inoutStats) const
+void VmaBlockMetadata_TLSF::AddStatistics(VmaStatistics& inoutStats) const
 {
-    inoutStats.size += GetSize();
-    inoutStats.unusedSize += GetSumFreeSize();
-    inoutStats.allocationCount += m_AllocCount;
-    inoutStats.unusedRangeCount += m_BlocksFreeCount;
-    if(m_NullBlock->size > 0)
-        ++inoutStats.unusedRangeCount;
+    inoutStats.blockCount++;
+    inoutStats.allocationCount += (uint32_t)m_AllocCount;
+    inoutStats.blockBytes += GetSize();
+    inoutStats.allocationBytes += GetSize() - GetSumFreeSize();
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -10209,13 +10208,15 @@ void VmaBlockMetadata_TLSF::PrintDetailedMap(class VmaJsonWriter& json, uint32_t
     }
     VMA_ASSERT(i == 0);
 
-    VmaStatInfo stat;
-    CalcAllocationStatInfo(stat);
+    VmaDetailedStatistics stats;
+    VmaClearDetailedStatistics(stats);
+    AddDetailedStatistics(stats);
 
-    PrintDetailedMap_Begin(json,
-        stat.unusedBytes,
-        stat.allocationCount,
-        stat.unusedRangeCount,
+    PrintDetailedMap_Begin(
+        json,
+        stats.statistics.blockBytes - stats.statistics.allocationBytes,
+        stats.statistics.allocationCount,
+        stats.unusedRangeCount,
         mapRefCount);
 
     for (; i < blockCount; ++i)
@@ -10801,7 +10802,8 @@ public:
     void* GetAllocationNextPtr() const { return m_pMemoryAllocateNext; }
 
     VkResult CreateMinBlocks();
-    void AddPoolStats(VmaPoolStats* pStats);
+    void AddStatistics(VmaStatistics& inoutStats);
+    void AddDetailedStatistics(VmaDetailedStatistics& inoutStats);
     bool IsEmpty();
     bool IsCorruptionDetectionEnabled() const;
 
@@ -10814,8 +10816,6 @@ public:
         VmaAllocation* pAllocations);
 
     void Free(const VmaAllocation hAllocation);
-    // Adds statistics of this BlockVector to pStats.
-    void AddStats(VmaStats* pStats);
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json);
@@ -11264,6 +11264,8 @@ struct VmaPoolListItemTraits
 #ifndef _VMA_CURRENT_BUDGET_DATA
 struct VmaCurrentBudgetData
 {
+    VMA_ATOMIC_UINT32 m_BlockCount[VK_MAX_MEMORY_HEAPS];
+    VMA_ATOMIC_UINT32 m_AllocationCount[VK_MAX_MEMORY_HEAPS];
     VMA_ATOMIC_UINT64 m_BlockBytes[VK_MAX_MEMORY_HEAPS];
     VMA_ATOMIC_UINT64 m_AllocationBytes[VK_MAX_MEMORY_HEAPS];
 
@@ -11286,6 +11288,8 @@ VmaCurrentBudgetData::VmaCurrentBudgetData()
 {
     for (uint32_t heapIndex = 0; heapIndex < VK_MAX_MEMORY_HEAPS; ++heapIndex)
     {
+        m_BlockCount[heapIndex] = 0;
+        m_AllocationCount[heapIndex] = 0;
         m_BlockBytes[heapIndex] = 0;
         m_AllocationBytes[heapIndex] = 0;
 #if VMA_MEMORY_BUDGET
@@ -11303,6 +11307,7 @@ VmaCurrentBudgetData::VmaCurrentBudgetData()
 void VmaCurrentBudgetData::AddAllocation(uint32_t heapIndex, VkDeviceSize allocationSize)
 {
     m_AllocationBytes[heapIndex] += allocationSize;
+    ++m_AllocationCount[heapIndex];
 #if VMA_MEMORY_BUDGET
     ++m_OperationsSinceBudgetFetch;
 #endif
@@ -11312,6 +11317,8 @@ void VmaCurrentBudgetData::RemoveAllocation(uint32_t heapIndex, VkDeviceSize all
 {
     VMA_ASSERT(m_AllocationBytes[heapIndex] >= allocationSize);
     m_AllocationBytes[heapIndex] -= allocationSize;
+    VMA_ASSERT(m_AllocationCount[heapIndex] > 0);
+    --m_AllocationCount[heapIndex];
 #if VMA_MEMORY_BUDGET
     ++m_OperationsSinceBudgetFetch;
 #endif
@@ -11373,7 +11380,8 @@ public:
     void GetAllocationInfo(VmaVirtualAllocation allocation, VmaVirtualAllocationInfo& outInfo);
     VkResult Allocate(const VmaVirtualAllocationCreateInfo& createInfo, VmaVirtualAllocation& outAllocation,
         VkDeviceSize* outOffset);
-    void CalculateStats(VmaStatInfo& outStatInfo) const;
+    void GetStatistics(VmaStatistics& outStats) const;
+    void CalculateDetailedStatistics(VmaDetailedStatistics& outStats) const;
 #if VMA_STATS_STRING_ENABLED
     void BuildStatsString(bool detailedMap, VmaStringBuilder& sb) const;
 #endif
@@ -11457,10 +11465,16 @@ VkResult VmaVirtualBlock_T::Allocate(const VmaVirtualAllocationCreateInfo& creat
     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 
-void VmaVirtualBlock_T::CalculateStats(VmaStatInfo& outStatInfo) const
+void VmaVirtualBlock_T::GetStatistics(VmaStatistics& outStats) const
 {
-    m_Metadata->CalcAllocationStatInfo(outStatInfo);
-    VmaPostprocessCalcStatInfo(outStatInfo);
+    VmaClearStatistics(outStats);
+    m_Metadata->AddStatistics(outStats);
+}
+
+void VmaVirtualBlock_T::CalculateDetailedStatistics(VmaDetailedStatistics& outStats) const
+{
+    VmaClearDetailedStatistics(outStats);
+    m_Metadata->AddDetailedStatistics(outStats);
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -11469,11 +11483,11 @@ void VmaVirtualBlock_T::BuildStatsString(bool detailedMap, VmaStringBuilder& sb)
     VmaJsonWriter json(GetAllocationCallbacks(), sb);
     json.BeginObject();
 
-    VmaStatInfo stat = {};
-    CalculateStats(stat);
+    VmaDetailedStatistics stats;
+    CalculateDetailedStatistics(stats);
 
     json.WriteString("Stats");
-    VmaPrintStatInfo(json, stat);
+    VmaPrintDetailedStatistics(json, stats);
 
     if (detailedMap)
     {
@@ -11606,7 +11620,7 @@ public:
         size_t allocationCount,
         const VmaAllocation* pAllocations);
 
-    void CalculateStats(VmaStats* pStats);
+    void CalculateStatistics(VmaTotalStatistics* pStats);
 
     void GetHeapBudgets(
         VmaBudget* outBudgets, uint32_t firstHeap, uint32_t heapCount);
@@ -11632,7 +11646,8 @@ public:
 
     VkResult CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool);
     void DestroyPool(VmaPool pool);
-    void GetPoolStats(VmaPool pool, VmaPoolStats* pPoolStats);
+    void GetPoolStatistics(VmaPool pool, VmaStatistics* pPoolStats);
+    void CalculatePoolStatistics(VmaPool pool, VmaDetailedStatistics* pPoolStats);
 
     void SetCurrentFrameIndex(uint32_t frameIndex);
     uint32_t GetCurrentFrameIndex() const { return m_CurrentFrameIndex.load(); }
@@ -12314,19 +12329,6 @@ void* VmaAllocation_T::GetMappedData() const
     }
 }
 
-void VmaAllocation_T::DedicatedAllocCalcStatsInfo(VmaStatInfo& outInfo)
-{
-    VMA_ASSERT(m_Type == ALLOCATION_TYPE_DEDICATED);
-    outInfo.blockCount = 1;
-    outInfo.allocationCount = 1;
-    outInfo.unusedRangeCount = 0;
-    outInfo.usedBytes = m_Size;
-    outInfo.unusedBytes = 0;
-    outInfo.allocationSizeMin = outInfo.allocationSizeMax = m_Size;
-    outInfo.unusedRangeSizeMin = UINT64_MAX;
-    outInfo.unusedRangeSizeMax = 0;
-}
-
 void VmaAllocation_T::BlockAllocMap()
 {
     VMA_ASSERT(GetType() == ALLOCATION_TYPE_BLOCK);
@@ -12512,19 +12514,31 @@ VkResult VmaBlockVector::CreateMinBlocks()
     return VK_SUCCESS;
 }
 
-void VmaBlockVector::AddPoolStats(VmaPoolStats* pStats)
+void VmaBlockVector::AddStatistics(VmaStatistics& inoutStats)
 {
     VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
 
     const size_t blockCount = m_Blocks.size();
-    pStats->blockCount += blockCount;
-
     for (uint32_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
     {
         const VmaDeviceMemoryBlock* const pBlock = m_Blocks[blockIndex];
         VMA_ASSERT(pBlock);
         VMA_HEAVY_ASSERT(pBlock->Validate());
-        pBlock->m_pMetadata->AddPoolStats(*pStats);
+        pBlock->m_pMetadata->AddStatistics(inoutStats);
+    }
+}
+
+void VmaBlockVector::AddDetailedStatistics(VmaDetailedStatistics& inoutStats)
+{
+    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
+
+    const size_t blockCount = m_Blocks.size();
+    for (uint32_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+    {
+        const VmaDeviceMemoryBlock* const pBlock = m_Blocks[blockIndex];
+        VMA_ASSERT(pBlock);
+        VMA_HEAVY_ASSERT(pBlock->Validate());
+        pBlock->m_pMetadata->AddDetailedStatistics(inoutStats);
     }
 }
 
@@ -13587,25 +13601,6 @@ VkResult VmaBlockVector::CheckCorruption()
     return VK_SUCCESS;
 }
 
-void VmaBlockVector::AddStats(VmaStats* pStats)
-{
-    const uint32_t memTypeIndex = m_MemoryTypeIndex;
-    const uint32_t memHeapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(memTypeIndex);
-
-    VmaMutexLockRead lock(m_Mutex, m_hAllocator->m_UseMutex);
-
-    for (uint32_t blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
-    {
-        const VmaDeviceMemoryBlock* const pBlock = m_Blocks[blockIndex];
-        VMA_ASSERT(pBlock);
-        VMA_HEAVY_ASSERT(pBlock->Validate());
-        VmaStatInfo allocationStatInfo;
-        pBlock->m_pMetadata->CalcAllocationStatInfo(allocationStatInfo);
-        VmaAddStatInfo(pStats->total, allocationStatInfo);
-        VmaAddStatInfo(pStats->memoryType[memTypeIndex], allocationStatInfo);
-        VmaAddStatInfo(pStats->memoryHeap[memHeapIndex], allocationStatInfo);
-    }
-}
 #endif // _VMA_BLOCK_VECTOR_FUNCTIONS
 
 #ifndef _VMA_DEFRAGMENTATION_ALGORITHM_GENERIC_FUNCTIONS
@@ -16038,21 +16033,21 @@ void VmaAllocator_T::FreeMemory(
     }
 }
 
-void VmaAllocator_T::CalculateStats(VmaStats* pStats)
+void VmaAllocator_T::CalculateStatistics(VmaTotalStatistics* pStats)
 {
     // Initialize.
-    VmaInitStatInfo(pStats->total);
-    for(size_t i = 0; i < VK_MAX_MEMORY_TYPES; ++i)
-        VmaInitStatInfo(pStats->memoryType[i]);
-    for(size_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
-        VmaInitStatInfo(pStats->memoryHeap[i]);
+    VmaClearDetailedStatistics(pStats->total);
+    for(uint32_t i = 0; i < VK_MAX_MEMORY_TYPES; ++i)
+        VmaClearDetailedStatistics(pStats->memoryType[i]);
+    for(uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; ++i)
+        VmaClearDetailedStatistics(pStats->memoryHeap[i]);
 
     // Process default pools.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         VmaBlockVector* const pBlockVector = m_pBlockVectors[memTypeIndex];
         if (pBlockVector != VMA_NULL)
-            pBlockVector->AddStats(pStats);
+            pBlockVector->AddDetailedStatistics(pStats->memoryType[memTypeIndex]);
     }
 
     // Process custom pools.
@@ -16061,26 +16056,33 @@ void VmaAllocator_T::CalculateStats(VmaStats* pStats)
         for(VmaPool pool = m_Pools.Front(); pool != VMA_NULL; pool = m_Pools.GetNext(pool))
         {
             VmaBlockVector& blockVector = pool->m_BlockVector;
-            blockVector.AddStats(pStats);
             const uint32_t memTypeIndex = blockVector.GetMemoryTypeIndex();
-            const uint32_t memHeapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-            pool->m_DedicatedAllocations.AddStats(pStats, memTypeIndex, memHeapIndex);
+            blockVector.AddDetailedStatistics(pStats->memoryType[memTypeIndex]);
+            pool->m_DedicatedAllocations.AddDetailedStatistics(pStats->memoryType[memTypeIndex]);
         }
     }
 
     // Process dedicated allocations.
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
-        const uint32_t memHeapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
-        m_DedicatedAllocations[memTypeIndex].AddStats(pStats, memTypeIndex, memHeapIndex);
+        m_DedicatedAllocations[memTypeIndex].AddDetailedStatistics(pStats->memoryType[memTypeIndex]);
     }
 
-    // Postprocess.
-    VmaPostprocessCalcStatInfo(pStats->total);
-    for(size_t i = 0; i < GetMemoryTypeCount(); ++i)
-        VmaPostprocessCalcStatInfo(pStats->memoryType[i]);
-    for(size_t i = 0; i < GetMemoryHeapCount(); ++i)
-        VmaPostprocessCalcStatInfo(pStats->memoryHeap[i]);
+    // Sum from memory types to memory heaps.
+    for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
+    {
+        const uint32_t memHeapIndex = m_MemProps.memoryTypes[memTypeIndex].heapIndex;
+        VmaAddDetailedStatistics(pStats->memoryHeap[memHeapIndex], pStats->memoryType[memTypeIndex]);
+    }
+
+    // Sum from memory heaps to total.
+    for(uint32_t memHeapIndex = 0; memHeapIndex < GetMemoryHeapCount(); ++memHeapIndex)
+        VmaAddDetailedStatistics(pStats->total, pStats->memoryHeap[memHeapIndex]);
+
+    VMA_ASSERT(pStats->total.statistics.allocationCount == 0 ||
+        pStats->total.allocationSizeMax >= pStats->total.allocationSizeMin);
+    VMA_ASSERT(pStats->total.unusedRangeCount == 0 ||
+        pStats->total.unusedRangeSizeMax >= pStats->total.unusedRangeSizeMin);
 }
 
 void VmaAllocator_T::GetHeapBudgets(VmaBudget* outBudgets, uint32_t firstHeap, uint32_t heapCount)
@@ -16095,13 +16097,15 @@ void VmaAllocator_T::GetHeapBudgets(VmaBudget* outBudgets, uint32_t firstHeap, u
             {
                 const uint32_t heapIndex = firstHeap + i;
 
-                outBudgets->blockBytes = m_Budget.m_BlockBytes[heapIndex];
-                outBudgets->allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
+                outBudgets->statistics.blockCount = m_Budget.m_BlockCount[heapIndex];
+                outBudgets->statistics.allocationCount = m_Budget.m_AllocationCount[heapIndex];
+                outBudgets->statistics.blockBytes = m_Budget.m_BlockBytes[heapIndex];
+                outBudgets->statistics.allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
 
-                if(m_Budget.m_VulkanUsage[heapIndex] + outBudgets->blockBytes > m_Budget.m_BlockBytesAtBudgetFetch[heapIndex])
+                if(m_Budget.m_VulkanUsage[heapIndex] + outBudgets->statistics.blockBytes > m_Budget.m_BlockBytesAtBudgetFetch[heapIndex])
                 {
                     outBudgets->usage = m_Budget.m_VulkanUsage[heapIndex] +
-                        outBudgets->blockBytes - m_Budget.m_BlockBytesAtBudgetFetch[heapIndex];
+                        outBudgets->statistics.blockBytes - m_Budget.m_BlockBytesAtBudgetFetch[heapIndex];
                 }
                 else
                 {
@@ -16126,10 +16130,12 @@ void VmaAllocator_T::GetHeapBudgets(VmaBudget* outBudgets, uint32_t firstHeap, u
         {
             const uint32_t heapIndex = firstHeap + i;
 
-            outBudgets->blockBytes = m_Budget.m_BlockBytes[heapIndex];
-            outBudgets->allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
+            outBudgets->statistics.blockCount = m_Budget.m_BlockCount[heapIndex];
+            outBudgets->statistics.allocationCount = m_Budget.m_AllocationCount[heapIndex];
+            outBudgets->statistics.blockBytes = m_Budget.m_BlockBytes[heapIndex];
+            outBudgets->statistics.allocationBytes = m_Budget.m_AllocationBytes[heapIndex];
 
-            outBudgets->usage = outBudgets->blockBytes;
+            outBudgets->usage = outBudgets->statistics.blockBytes;
             outBudgets->budget = m_MemProps.memoryHeaps[heapIndex].size * 8 / 10; // 80% heuristics.
         }
     }
@@ -16260,16 +16266,18 @@ void VmaAllocator_T::DestroyPool(VmaPool pool)
     vma_delete(this, pool);
 }
 
-void VmaAllocator_T::GetPoolStats(VmaPool pool, VmaPoolStats* pPoolStats)
+void VmaAllocator_T::GetPoolStatistics(VmaPool pool, VmaStatistics* pPoolStats)
 {
-    pPoolStats->size = 0;
-    pPoolStats->unusedSize = 0;
-    pPoolStats->allocationCount = 0;
-    pPoolStats->unusedRangeCount = 0;
-    pPoolStats->blockCount = 0;
+    VmaClearStatistics(*pPoolStats);
+    pool->m_BlockVector.AddStatistics(*pPoolStats);
+    pool->m_DedicatedAllocations.AddStatistics(*pPoolStats);
+}
 
-    pool->m_BlockVector.AddPoolStats(pPoolStats);
-    pool->m_DedicatedAllocations.AddPoolStats(pPoolStats);
+void VmaAllocator_T::CalculatePoolStatistics(VmaPool pool, VmaDetailedStatistics* pPoolStats)
+{
+    VmaClearDetailedStatistics(*pPoolStats);
+    pool->m_BlockVector.AddDetailedStatistics(*pPoolStats);
+    pool->m_DedicatedAllocations.AddDetailedStatistics(*pPoolStats);
 }
 
 void VmaAllocator_T::SetCurrentFrameIndex(uint32_t frameIndex)
@@ -16373,6 +16381,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
     {
         m_Budget.m_BlockBytes[heapIndex] += pAllocateInfo->allocationSize;
     }
+    ++m_Budget.m_BlockCount[heapIndex];
 
     // VULKAN CALL vkAllocateMemory.
     VkResult res = (*m_VulkanFunctions.vkAllocateMemory)(m_hDevice, pAllocateInfo, GetAllocationCallbacks(), pMemory);
@@ -16393,6 +16402,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
     }
     else
     {
+        --m_Budget.m_BlockCount[heapIndex];
         m_Budget.m_BlockBytes[heapIndex] -= pAllocateInfo->allocationSize;
     }
 
@@ -16410,7 +16420,9 @@ void VmaAllocator_T::FreeVulkanMemory(uint32_t memoryType, VkDeviceSize size, Vk
     // VULKAN CALL vkFreeMemory.
     (*m_VulkanFunctions.vkFreeMemory)(m_hDevice, hMemory, GetAllocationCallbacks());
 
-    m_Budget.m_BlockBytes[MemoryTypeIndexToHeapIndex(memoryType)] -= size;
+    const uint32_t heapIndex = MemoryTypeIndexToHeapIndex(memoryType);
+    --m_Budget.m_BlockCount[heapIndex];
+    m_Budget.m_BlockBytes[heapIndex] -= size;
 
     --m_DeviceMemoryCount;
 }
@@ -17018,13 +17030,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetCurrentFrameIndex(
     allocator->SetCurrentFrameIndex(frameIndex);
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStats(
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculateStatistics(
     VmaAllocator allocator,
-    VmaStats* pStats)
+    VmaTotalStatistics* pStats)
 {
     VMA_ASSERT(allocator && pStats);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
-    allocator->CalculateStats(pStats);
+    allocator->CalculateStatistics(pStats);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
@@ -17054,11 +17066,11 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
         VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
         allocator->GetHeapBudgets(budgets, 0, allocator->GetMemoryHeapCount());
 
-        VmaStats stats;
-        allocator->CalculateStats(&stats);
+        VmaTotalStatistics stats;
+        allocator->CalculateStatistics(&stats);
 
         json.WriteString("Total");
-        VmaPrintStatInfo(json, stats.total);
+        VmaPrintDetailedStatistics(json, stats.total);
 
         for(uint32_t heapIndex = 0; heapIndex < allocator->GetMemoryHeapCount(); ++heapIndex)
         {
@@ -17082,9 +17094,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
             json.BeginObject();
             {
                 json.WriteString("BlockBytes");
-                json.WriteNumber(budgets[heapIndex].blockBytes);
+                json.WriteNumber(budgets[heapIndex].statistics.blockBytes);
                 json.WriteString("AllocationBytes");
-                json.WriteNumber(budgets[heapIndex].allocationBytes);
+                json.WriteNumber(budgets[heapIndex].statistics.allocationBytes);
+                json.WriteString("BlockCount");
+                json.WriteNumber(budgets[heapIndex].statistics.blockCount);
+                json.WriteString("AllocationCount");
+                json.WriteNumber(budgets[heapIndex].statistics.allocationCount);
                 json.WriteString("Usage");
                 json.WriteNumber(budgets[heapIndex].usage);
                 json.WriteString("Budget");
@@ -17092,10 +17108,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
             }
             json.EndObject();
 
-            if(stats.memoryHeap[heapIndex].blockCount > 0)
+            if(stats.memoryHeap[heapIndex].statistics.blockCount > 0)
             {
                 json.WriteString("Stats");
-                VmaPrintStatInfo(json, stats.memoryHeap[heapIndex]);
+                VmaPrintDetailedStatistics(json, stats.memoryHeap[heapIndex]);
             }
 
             for(uint32_t typeIndex = 0; typeIndex < allocator->GetMemoryTypeCount(); ++typeIndex)
@@ -17149,10 +17165,10 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
 #endif // #if VK_AMD_device_coherent_memory
                     json.EndArray();
 
-                    if(stats.memoryType[typeIndex].blockCount > 0)
+                    if(stats.memoryType[typeIndex].statistics.blockCount > 0)
                     {
                         json.WriteString("Stats");
-                        VmaPrintStatInfo(json, stats.memoryType[typeIndex]);
+                        VmaPrintDetailedStatistics(json, stats.memoryType[typeIndex]);
                     }
 
                     json.EndObject();
@@ -17335,16 +17351,28 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyPool(
     allocator->DestroyPool(pool);
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStats(
+VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStatistics(
     VmaAllocator allocator,
     VmaPool pool,
-    VmaPoolStats* pPoolStats)
+    VmaStatistics* pPoolStats)
 {
     VMA_ASSERT(allocator && pool && pPoolStats);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    allocator->GetPoolStats(pool, pPoolStats);
+    allocator->GetPoolStatistics(pool, pPoolStats);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculatePoolStatistics(
+    VmaAllocator allocator,
+    VmaPool pool,
+    VmaDetailedStatistics* pPoolStats)
+{
+    VMA_ASSERT(allocator && pool && pPoolStats);
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    allocator->CalculatePoolStatistics(pool, pPoolStats);
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocator, VmaPool pool)
@@ -18331,13 +18359,22 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock 
     virtualBlock->SetAllocationUserData(allocation, pUserData);
 }
 
-VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStats(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
-    VmaStatInfo* VMA_NOT_NULL pStatInfo)
+VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualBlockStatistics(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VmaStatistics* VMA_NOT_NULL pStats)
 {
-    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pStatInfo != VMA_NULL);
-    VMA_DEBUG_LOG("vmaCalculateVirtualBlockStats");
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pStats != VMA_NULL);
+    VMA_DEBUG_LOG("vmaGetVirtualBlockStatistics");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
-    virtualBlock->CalculateStats(*pStatInfo);
+    virtualBlock->GetStatistics(*pStats);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStatistics(VmaVirtualBlock VMA_NOT_NULL virtualBlock,
+    VmaDetailedStatistics* VMA_NOT_NULL pStats)
+{
+    VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pStats != VMA_NULL);
+    VMA_DEBUG_LOG("vmaCalculateVirtualBlockStatistics");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->CalculateDetailedStatistics(*pStats);
 }
 
 #if VMA_STATS_STRING_ENABLED
@@ -18809,8 +18846,8 @@ To query for current memory usage and available budget, use function vmaGetHeapB
 Returned structure #VmaBudget contains quantities expressed in bytes, per Vulkan memory heap.
 
 Please note that this function returns different information and works faster than
-vmaCalculateStats(). vmaGetHeapBudgets() can be called every frame or even before every
-allocation, while vmaCalculateStats() is intended to be used rarely,
+vmaCalculateStatistics(). vmaGetHeapBudgets() can be called every frame or even before every
+allocation, while vmaCalculateStatistics() is intended to be used rarely,
 only to obtain statistical information, e.g. for debugging purposes.
 
 It is recommended to use <b>VK_EXT_memory_budget</b> device extension to obtain information
@@ -18840,11 +18877,18 @@ budget, by default the library still tries to create it, leaving it to the Vulka
 implementation whether the allocation succeeds or fails. You can change this behavior
 by using #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag. With it, the allocation is
 not made if it would exceed the budget or if the budget is already exceeded.
-The allocation then fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+VMA then tries to make the allocation from the next eligible Vulkan memory type.
+The all of them fail, the call then fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
 Example usage pattern may be to pass the #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag
 when creating resources that are not essential for the application (e.g. the texture
 of a specific object) and not to pass it when creating critically important resources
 (e.g. render targets).
+
+On AMD graphics cards there is a custom vendor extension available: <b>VK_AMD_memory_overallocation_behavior</b>
+that allows to control the behavior of the Vulkan implementation in out-of-memory cases -
+whether it should fail with an error code or still allow the allocation.
+Usage of this extension involves only passing extra structure on Vulkan device creation,
+so it is out of scope of this library.
 
 Finally, you can also use #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT flag to make sure
 a new allocation is created only when it fits inside one of the existing memory blocks.
@@ -18852,8 +18896,8 @@ If it would require to allocate a new block, if fails instead with `VK_ERROR_OUT
 This also ensures that the function call is very fast because it never goes to Vulkan
 to obtain a new block.
 
-Please note that creating \ref custom_memory_pools with VmaPoolCreateInfo::minBlockCount
-set to more than 0 will try to allocate memory blocks without checking whether they
+\note Creating \ref custom_memory_pools with VmaPoolCreateInfo::minBlockCount
+set to more than 0 will currently try to allocate memory blocks without checking whether they
 fit within budget.
 
 
@@ -19404,25 +19448,44 @@ Here are steps needed to do this:
 
 \page statistics Statistics
 
-This library contains functions that return information about its internal state,
+This library contains several functions that return information about its internal state,
 especially the amount of memory allocated from Vulkan.
-Please keep in mind that these functions need to traverse all internal data structures
-to gather these information, so they may be quite time-consuming.
-Don't call them too often.
 
 \section statistics_numeric_statistics Numeric statistics
 
-You can query for overall statistics of the allocator using function vmaCalculateStats().
-Information are returned using structure #VmaStats.
-It contains #VmaStatInfo - number of allocated blocks, number of allocations
-(occupied ranges in these blocks), number of unused (free) ranges in these blocks,
-number of bytes used and unused (but still allocated from Vulkan) and other information.
-They are summed across memory heaps, memory types and total for whole allocator.
+If you need to obtain basic statistics about memory usage per heap, together with current budget,
+you can call function vmaGetHeapBudgets() and inspect structure #VmaBudget.
+This is useful to keep track of memory usage and stay withing budget
+(see also \ref staying_within_budget).
+Example:
 
-You can query for statistics of a custom pool using function vmaGetPoolStats().
-Information are returned using structure #VmaPoolStats.
+\code
+uint32_t heapIndex = ...
 
-You can query for information about specific allocation using function vmaGetAllocationInfo().
+VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+vmaGetHeapBudgets(allocator, budgets);
+
+printf("My heap currently has %u allocations taking %llu B,\n",
+    budgets[heapIndex].statistics.allocationCount,
+    budgets[heapIndex].statistics.allocationBytes);
+printf("allocated out of %u Vulkan device memory blocks taking %llu B,\n",
+    budgets[heapIndex].statistics.blockCount,
+    budgets[heapIndex].statistics.blockBytes);
+printf("Vulkan reports total usage %llu B with budget %llu B.\n",
+    budgets[heapIndex].usage,
+    budgets[heapIndex].budget);
+\endcode
+
+You can query for more detailed statistics per memory heap, type, and totals,
+including minimum and maximum allocation size and unused range size,
+by calling function vmaCalculateStatistics() and inspecting structure #VmaTotalStatistics.
+This function is slower though, as it has to traverse all the internal data structures,
+so it should be used only for debugging purposes.
+
+You can query for statistics of a custom pool using function vmaGetPoolStatistics()
+or vmaCalculatePoolStatistics().
+
+You can query for information about a specific allocation using function vmaGetAllocationInfo().
 It fill structure #VmaAllocationInfo.
 
 \section statistics_json_dump JSON dump
@@ -19439,7 +19502,7 @@ The format of this JSON string is not part of official documentation of the libr
 but it will not change in backward-incompatible way without increasing library major version number
 and appropriate mention in changelog.
 
-The JSON string contains all the data that can be obtained using vmaCalculateStats().
+The JSON string contains all the data that can be obtained using vmaCalculateStatistics().
 It can also contain detailed map of allocated memory blocks and their regions -
 free and occupied by allocations.
 This allows e.g. to visualize the memory or assess fragmentation.
@@ -19655,15 +19718,17 @@ It might be more convenient, but you need to make sure to use this new unit cons
 
 \section virtual_allocator_statistics Statistics
 
-You can obtain statistics of a virtual block using vmaCalculateVirtualBlockStats().
-The function fills structure #VmaStatInfo - same as used by the normal Vulkan memory allocator.
+You can obtain statistics of a virtual block using vmaGetVirtualBlockStatistics()
+(to get brief statistics that are fast to calculate)
+or vmaCalculateVirtualBlockStatistics() (to get more detailed statistics, slower to calculate).
+The functions fill structures #VmaStatistics, #VmaDetailedStatistics respectively - same as used by the normal Vulkan memory allocator.
 Example:
 
 \code
-VmaStatInfo statInfo;
-vmaCalculateVirtualBlockStats(block, &statInfo);
+VmaStatistics stats;
+vmaGetVirtualBlockStatistics(block, &stats);
 printf("My virtual block has %llu bytes used by %u virtual allocations\n",
-    statInfo.usedBytes, statInfo.allocationCount);
+    stats.allocationBytes, stats.allocationCount);
 \endcode
 
 You can also request a full list of allocations and free regions as a string in JSON format by calling

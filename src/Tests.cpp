@@ -655,11 +655,11 @@ VkResult MainTest(Result& outResult, const Config& config)
         Sleep(0);
 
     // CALCULATE MEMORY STATISTICS ON FINAL USAGE
-    VmaStats vmaStats = {};
-    vmaCalculateStats(g_hAllocator, &vmaStats);
-    outResult.TotalMemoryAllocated = vmaStats.total.usedBytes + vmaStats.total.unusedBytes;
+    VmaTotalStatistics vmaStats = {};
+    vmaCalculateStatistics(g_hAllocator, &vmaStats);
+    outResult.TotalMemoryAllocated = vmaStats.total.statistics.blockBytes;
     outResult.FreeRangeSizeMax = vmaStats.total.unusedRangeSizeMax;
-    outResult.FreeRangeSizeAvg = vmaStats.total.unusedRangeSizeAvg;
+    outResult.FreeRangeSizeAvg = round_div<VkDeviceSize>(vmaStats.total.statistics.blockBytes - vmaStats.total.statistics.allocationBytes, vmaStats.total.unusedRangeCount);
 
     // Signal threads to deallocate
     SetEvent(threadsFinishEvent);
@@ -2779,12 +2779,12 @@ static void TestVirtualBlocks()
 
     // # Calculate statistics
 
-    VmaStatInfo statInfo = {};
-    vmaCalculateVirtualBlockStats(block, &statInfo);
-    TEST(statInfo.allocationCount == 2);
-    TEST(statInfo.blockCount == 1);
-    TEST(statInfo.usedBytes == blockSize);
-    TEST(statInfo.unusedBytes + statInfo.usedBytes == blockSize);
+    VmaDetailedStatistics statInfo = {};
+    vmaCalculateVirtualBlockStatistics(block, &statInfo);
+    TEST(statInfo.statistics.allocationCount == 2);
+    TEST(statInfo.statistics.blockCount == 1);
+    TEST(statInfo.statistics.allocationBytes == blockSize);
+    TEST(statInfo.statistics.blockBytes == blockSize);
 
     // # Generate JSON dump
 
@@ -2992,14 +2992,14 @@ static void TestVirtualBlocksAlgorithms()
                 actualAllocSizeSum += a.allocationSize;
             });
 
-            VmaStatInfo statInfo = {};
-            vmaCalculateVirtualBlockStats(block, &statInfo);
-            TEST(statInfo.allocationCount == allocations.size());
-            TEST(statInfo.blockCount == 1);
-            TEST(statInfo.usedBytes + statInfo.unusedBytes == blockCreateInfo.size);
+            VmaDetailedStatistics statInfo = {};
+            vmaCalculateVirtualBlockStatistics(block, &statInfo);
+            TEST(statInfo.statistics.allocationCount == allocations.size());
+            TEST(statInfo.statistics.blockCount == 1);
+            TEST(statInfo.statistics.blockBytes == blockCreateInfo.size);
             TEST(statInfo.allocationSizeMax == actualAllocSizeMax);
             TEST(statInfo.allocationSizeMin == actualAllocSizeMin);
-            TEST(statInfo.usedBytes >= actualAllocSizeSum);
+            TEST(statInfo.statistics.allocationBytes >= actualAllocSizeSum);
         }
 
 #if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
@@ -3087,9 +3087,11 @@ static void TestPool_MinBlockCount()
     TEST(res == VK_SUCCESS && pool != VK_NULL_HANDLE);
 
     // Check that there are 2 blocks preallocated as requested.
-    VmaPoolStats begPoolStats = {};
-    vmaGetPoolStats(g_hAllocator, pool, &begPoolStats);
-    TEST(begPoolStats.blockCount == 2 && begPoolStats.allocationCount == 0 && begPoolStats.size == BLOCK_SIZE * 2);
+    VmaDetailedStatistics begPoolStats = {};
+    vmaCalculatePoolStatistics(g_hAllocator, pool, &begPoolStats);
+    TEST(begPoolStats.statistics.blockCount == 2 &&
+        begPoolStats.statistics.allocationCount == 0 &&
+        begPoolStats.statistics.blockBytes == BLOCK_SIZE * 2);
 
     // Allocate 5 buffers to create 3 blocks.
     static const uint32_t BUF_COUNT = 5;
@@ -3102,26 +3104,32 @@ static void TestPool_MinBlockCount()
     }
 
     // Check that there are really 3 blocks.
-    VmaPoolStats poolStats2 = {};
-    vmaGetPoolStats(g_hAllocator, pool, &poolStats2);
-    TEST(poolStats2.blockCount == 3 && poolStats2.allocationCount == BUF_COUNT && poolStats2.size == BLOCK_SIZE * 3);
+    VmaDetailedStatistics poolStats2 = {};
+    vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats2);
+    TEST(poolStats2.statistics.blockCount == 3 &&
+        poolStats2.statistics.allocationCount == BUF_COUNT &&
+        poolStats2.statistics.blockBytes == BLOCK_SIZE * 3);
 
     // Free two first allocations to make one block empty.
     allocs[0].Destroy();
     allocs[1].Destroy();
 
     // Check that there are still 3 blocks due to hysteresis.
-    VmaPoolStats poolStats3 = {};
-    vmaGetPoolStats(g_hAllocator, pool, &poolStats3);
-    TEST(poolStats3.blockCount == 3 && poolStats3.allocationCount == BUF_COUNT - 2 && poolStats2.size == BLOCK_SIZE * 3);
+    VmaDetailedStatistics poolStats3 = {};
+    vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats3);
+    TEST(poolStats3.statistics.blockCount == 3 &&
+        poolStats3.statistics.allocationCount == BUF_COUNT - 2 &&
+        poolStats2.statistics.blockBytes == BLOCK_SIZE * 3);
 
     // Free the last allocation to make second block empty.
     allocs[BUF_COUNT - 1].Destroy();
 
     // Check that there are now 2 blocks only.
-    VmaPoolStats poolStats4 = {};
-    vmaGetPoolStats(g_hAllocator, pool, &poolStats4);
-    TEST(poolStats4.blockCount == 2 && poolStats4.allocationCount == BUF_COUNT - 3 && poolStats4.size == BLOCK_SIZE * 2);
+    VmaDetailedStatistics poolStats4 = {};
+    vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats4);
+    TEST(poolStats4.statistics.blockCount == 2 &&
+        poolStats4.statistics.allocationCount == BUF_COUNT - 3 &&
+        poolStats4.statistics.blockBytes == BLOCK_SIZE * 2);
 
     // Cleanup.
     for(size_t i = allocs.size(); i--; )
@@ -3195,8 +3203,8 @@ static void TestPoolsAndAllocationParameters()
     std::vector<BufferInfo> bufs;
 
     uint32_t totalNewAllocCount = 0, totalNewBlockCount = 0;
-    VmaStats statsBeg, statsEnd;
-    vmaCalculateStats(g_hAllocator, &statsBeg);
+    VmaTotalStatistics statsBeg, statsEnd;
+    vmaCalculateStatistics(g_hAllocator, &statsBeg);
 
     // poolTypeI:
     // 0 = default pool
@@ -3281,22 +3289,22 @@ static void TestPoolsAndAllocationParameters()
 
         if(poolTypeI > 0)
         {
-            VmaPoolStats poolStats = {};
-            vmaGetPoolStats(g_hAllocator, poolTypeI == 2 ? pool2 : pool1, &poolStats);
-            TEST(poolStats.allocationCount == poolAllocCount);
-            const VkDeviceSize usedSize = poolStats.size - poolStats.unusedSize;
+            VmaDetailedStatistics poolStats = {};
+            vmaCalculatePoolStatistics(g_hAllocator, poolTypeI == 2 ? pool2 : pool1, &poolStats);
+            TEST(poolStats.statistics.allocationCount == poolAllocCount);
+            const VkDeviceSize usedSize = poolStats.statistics.allocationBytes;
             TEST(usedSize == poolAllocCount * MEGABYTE);
-            TEST(poolStats.blockCount == poolBlockCount);
+            TEST(poolStats.statistics.blockCount == poolBlockCount);
         }
 
         totalNewAllocCount += poolAllocCount;
         totalNewBlockCount += poolBlockCount;
     }
 
-    vmaCalculateStats(g_hAllocator, &statsEnd);
-    TEST(statsEnd.total.allocationCount == statsBeg.total.allocationCount + totalNewAllocCount);
-    TEST(statsEnd.total.blockCount >= statsBeg.total.blockCount + totalNewBlockCount);
-    TEST(statsEnd.total.usedBytes == statsBeg.total.usedBytes + totalNewAllocCount * MEGABYTE);
+    vmaCalculateStatistics(g_hAllocator, &statsEnd);
+    TEST(statsEnd.total.statistics.allocationCount == statsBeg.total.statistics.allocationCount + totalNewAllocCount);
+    TEST(statsEnd.total.statistics.blockCount >= statsBeg.total.statistics.blockCount + totalNewBlockCount);
+    TEST(statsEnd.total.statistics.allocationBytes == statsBeg.total.statistics.allocationBytes + totalNewAllocCount * MEGABYTE);
 
     for(auto& bufInfo : bufs)
         vmaDestroyBuffer(g_hAllocator, bufInfo.Buffer, bufInfo.Allocation);
@@ -3596,11 +3604,11 @@ static void TestLinearAllocator()
         }
 
         // Validate pool stats.
-        VmaPoolStats stats;
-        vmaGetPoolStats(g_hAllocator, pool, &stats);
-        TEST(stats.size == poolCreateInfo.blockSize);
-        TEST(stats.unusedSize == poolCreateInfo.blockSize - bufSumSize);
-        TEST(stats.allocationCount == bufInfo.size());
+        VmaDetailedStatistics stats;
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &stats);
+        TEST(stats.statistics.blockBytes == poolCreateInfo.blockSize);
+        TEST(stats.statistics.blockBytes - stats.statistics.allocationBytes == poolCreateInfo.blockSize - bufSumSize);
+        TEST(stats.statistics.allocationCount == bufInfo.size());
 
         // Destroy the buffers in random order.
         while(!bufInfo.empty())
@@ -3906,9 +3914,9 @@ static void TestLinearAllocatorMultiBlock()
         TEST(bufInfo.size() > 2);
 
         // Make sure that pool has now two blocks.
-        VmaPoolStats poolStats = {};
-        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
-        TEST(poolStats.blockCount == 2);
+        VmaDetailedStatistics poolStats = {};
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats);
+        TEST(poolStats.statistics.blockCount == 2);
 
         // Destroy all the buffers in random order.
         while(!bufInfo.empty())
@@ -3920,8 +3928,8 @@ static void TestLinearAllocatorMultiBlock()
         }
 
         // Make sure that pool has now at most one block.
-        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
-        TEST(poolStats.blockCount <= 1);
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats);
+        TEST(poolStats.statistics.blockCount <= 1);
     }
 
     // Test stack.
@@ -3955,9 +3963,9 @@ static void TestLinearAllocatorMultiBlock()
         }
 
         // Make sure that pool has now two blocks.
-        VmaPoolStats poolStats = {};
-        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
-        TEST(poolStats.blockCount == 2);
+        VmaDetailedStatistics poolStats = {};
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats);
+        TEST(poolStats.statistics.blockCount == 2);
         
         // Delete half of buffers, LIFO.
         for(size_t i = 0, countToDelete = bufInfo.size() / 2; i < countToDelete; ++i)
@@ -3975,8 +3983,8 @@ static void TestLinearAllocatorMultiBlock()
         bufInfo.push_back(newBufInfo);
 
         // Make sure that pool has now one block.
-        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
-        TEST(poolStats.blockCount == 1);
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats);
+        TEST(poolStats.statistics.blockCount == 1);
 
         // Delete all the remaining buffers, LIFO.
         while(!bufInfo.empty())
@@ -4125,21 +4133,21 @@ static void TestAllocationAlgorithmsCorrectness()
                     // Fetch reported statistics.
                     if(isVirtual)
                     {
-                        VmaStatInfo info = {};
-                        vmaCalculateVirtualBlockStats(virtualBlock, &info);
-                        statAllocCount = info.allocationCount;
-                        statAllocSize = info.usedBytes;
-                        TEST(info.blockCount == 1);
-                        TEST(info.usedBytes + info.unusedBytes == blockSize);
+                        VmaDetailedStatistics info = {};
+                        vmaCalculateVirtualBlockStatistics(virtualBlock, &info);
+                        statAllocCount = info.statistics.allocationCount;
+                        statAllocSize = info.statistics.allocationBytes;
+                        TEST(info.statistics.blockCount == 1);
+                        TEST(info.statistics.blockBytes == blockSize);
                     }
                     else
                     {
-                        VmaPoolStats stats = {};
-                        vmaGetPoolStats(g_hAllocator, pool, &stats);
-                        statAllocCount = (uint32_t)stats.allocationCount;
-                        statAllocSize = stats.size - stats.unusedSize;
-                        TEST(stats.blockCount == 1);
-                        TEST(stats.size == blockSize);
+                        VmaDetailedStatistics stats = {};
+                        vmaCalculatePoolStatistics(g_hAllocator, pool, &stats);
+                        statAllocCount = (uint32_t)stats.statistics.allocationCount;
+                        statAllocSize = stats.statistics.allocationBytes;
+                        TEST(stats.statistics.blockCount == 1);
+                        TEST(stats.statistics.blockBytes == blockSize);
                     }
                     // Compare them.
                     TEST(actualAllocCount == statAllocCount);
@@ -4177,8 +4185,8 @@ static void TestAllocationAlgorithmsCorrectness()
 
 static void ManuallyTestLinearAllocator()
 {
-    VmaStats origStats;
-    vmaCalculateStats(g_hAllocator, &origStats);
+    VmaTotalStatistics origStats;
+    vmaCalculateStatistics(g_hAllocator, &origStats);
 
     wprintf(L"Manually test linear allocator\n");
 
@@ -4263,10 +4271,10 @@ static void ManuallyTestLinearAllocator()
         TEST(res == VK_SUCCESS);
         bufInfo.push_back(newBufInfo);
 
-        VmaStats currStats;
-        vmaCalculateStats(g_hAllocator, &currStats);
-        VmaPoolStats poolStats;
-        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
+        VmaTotalStatistics currStats;
+        vmaCalculateStatistics(g_hAllocator, &currStats);
+        VmaDetailedStatistics poolStats;
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats);
 
 #if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
         char* statsStr = nullptr;
@@ -4738,12 +4746,12 @@ static void TestPool_SameSize()
 
     // Validate statistics.
     {
-        VmaPoolStats poolStats = {};
-        vmaGetPoolStats(g_hAllocator, pool, &poolStats);
-        TEST(poolStats.allocationCount == items.size());
-        TEST(poolStats.size == BUF_COUNT * BUF_SIZE);
+        VmaDetailedStatistics poolStats = {};
+        vmaCalculatePoolStatistics(g_hAllocator, pool, &poolStats);
+        TEST(poolStats.statistics.allocationCount == items.size());
+        TEST(poolStats.statistics.blockBytes == BUF_COUNT * BUF_SIZE);
         TEST(poolStats.unusedRangeCount == 1);
-        TEST(poolStats.unusedSize == BUF_SIZE);
+        TEST(poolStats.statistics.blockBytes - poolStats.statistics.allocationBytes == BUF_SIZE);
     }
 
     // Free all remaining items.
@@ -5669,7 +5677,7 @@ static void TestBudget()
         {
             TEST(budgetBeg[i].budget > 0);
             TEST(budgetBeg[i].budget <= memProps->memoryHeaps[i].size);
-            TEST(budgetBeg[i].allocationBytes <= budgetBeg[i].blockBytes);
+            TEST(budgetBeg[i].statistics.allocationBytes <= budgetBeg[i].statistics.blockBytes);
         }
 
         VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -5718,19 +5726,19 @@ static void TestBudget()
         // CHECK
         for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
         {
-            TEST(budgetEnd[i].allocationBytes <= budgetEnd[i].blockBytes);
+            TEST(budgetEnd[i].statistics.allocationBytes <= budgetEnd[i].statistics.blockBytes);
             if(i == heapIndex)
             {
-                TEST(budgetEnd[i].allocationBytes == budgetBeg[i].allocationBytes);
-                TEST(budgetWithBufs[i].allocationBytes == budgetBeg[i].allocationBytes + BUF_SIZE * BUF_COUNT);
-                TEST(budgetWithBufs[i].blockBytes >= budgetEnd[i].blockBytes);
+                TEST(budgetEnd[i].statistics.allocationBytes == budgetBeg[i].statistics.allocationBytes);
+                TEST(budgetWithBufs[i].statistics.allocationBytes == budgetBeg[i].statistics.allocationBytes + BUF_SIZE * BUF_COUNT);
+                TEST(budgetWithBufs[i].statistics.blockBytes >= budgetEnd[i].statistics.blockBytes);
             }
             else
             {
-                TEST(budgetEnd[i].allocationBytes == budgetEnd[i].allocationBytes &&
-                    budgetEnd[i].allocationBytes == budgetWithBufs[i].allocationBytes);
-                TEST(budgetEnd[i].blockBytes == budgetEnd[i].blockBytes &&
-                    budgetEnd[i].blockBytes == budgetWithBufs[i].blockBytes);
+                TEST(budgetEnd[i].statistics.allocationBytes == budgetEnd[i].statistics.allocationBytes &&
+                    budgetEnd[i].statistics.allocationBytes == budgetWithBufs[i].statistics.allocationBytes);
+                TEST(budgetEnd[i].statistics.blockBytes == budgetEnd[i].statistics.blockBytes &&
+                    budgetEnd[i].statistics.blockBytes == budgetWithBufs[i].statistics.blockBytes);
             }
         }
     }
@@ -6972,8 +6980,8 @@ static void BasicTestBuddyAllocator()
 
     //SaveAllocatorStatsToFile(L"TEST.json");
 
-    VmaPoolStats stats = {};
-    vmaGetPoolStats(g_hAllocator, pool, &stats);
+    VmaDetailedStatistics stats = {};
+    vmaCalculatePoolStatistics(g_hAllocator, pool, &stats);
     int DBG = 0; // Set breakpoint here to inspect `stats`.
 
     // Allocate enough new buffers to surely fall into second block.

@@ -169,9 +169,12 @@ Functions</h2></td></tr>
 <tr class="memitem:ga001ea1850458a4062b829e09c303fca2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__virtual.html#ga001ea1850458a4062b829e09c303fca2">vmaSetVirtualAllocationUserData</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, <a class="el" href="struct_vma_virtual_allocation.html">VmaVirtualAllocation</a> allocation, void *pUserData)</td></tr>
 <tr class="memdesc:ga001ea1850458a4062b829e09c303fca2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Changes custom pointer associated with given virtual allocation.  <a href="group__group__virtual.html#ga001ea1850458a4062b829e09c303fca2">More...</a><br /></td></tr>
 <tr class="separator:ga001ea1850458a4062b829e09c303fca2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga95169b4730e94757897470086ec2768a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__virtual.html#ga95169b4730e94757897470086ec2768a">vmaCalculateVirtualBlockStats</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, <a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a> *pStatInfo)</td></tr>
-<tr class="memdesc:ga95169b4730e94757897470086ec2768a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates and returns statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  <a href="group__group__virtual.html#ga95169b4730e94757897470086ec2768a">More...</a><br /></td></tr>
-<tr class="separator:ga95169b4730e94757897470086ec2768a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga2902aa3130866afcc64bb5f984113db3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__virtual.html#ga2902aa3130866afcc64bb5f984113db3">vmaGetVirtualBlockStatistics</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, <a class="el" href="struct_vma_statistics.html">VmaStatistics</a> *pStats)</td></tr>
+<tr class="memdesc:ga2902aa3130866afcc64bb5f984113db3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates and returns statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  <a href="group__group__virtual.html#ga2902aa3130866afcc64bb5f984113db3">More...</a><br /></td></tr>
+<tr class="separator:ga2902aa3130866afcc64bb5f984113db3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga93c5741bca44b43e5b849cacbd616098"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098">vmaCalculateVirtualBlockStatistics</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, <a class="el" href="struct_vma_detailed_statistics.html">VmaDetailedStatistics</a> *pStats)</td></tr>
+<tr class="memdesc:ga93c5741bca44b43e5b849cacbd616098"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates and returns detailed statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  <a href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098">More...</a><br /></td></tr>
+<tr class="separator:ga93c5741bca44b43e5b849cacbd616098"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <p >API elements related to the mechanism of <a class="el" href="virtual_allocator.html">Virtual allocator</a> - using the core allocation algorithm for user-defined purpose without allocating any real GPU memory. </p>
@@ -368,14 +371,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ga95169b4730e94757897470086ec2768a" name="ga95169b4730e94757897470086ec2768a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga95169b4730e94757897470086ec2768a">&#9670;&nbsp;</a></span>vmaCalculateVirtualBlockStats()</h2>
+<a id="ga93c5741bca44b43e5b849cacbd616098" name="ga93c5741bca44b43e5b849cacbd616098"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga93c5741bca44b43e5b849cacbd616098">&#9670;&nbsp;</a></span>vmaCalculateVirtualBlockStatistics()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vmaCalculateVirtualBlockStats </td>
+          <td class="memname">void vmaCalculateVirtualBlockStatistics </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a>&#160;</td>
           <td class="paramname"><em>virtualBlock</em>, </td>
@@ -383,8 +386,8 @@ Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="struct_vma_stat_info.html">VmaStatInfo</a> *&#160;</td>
-          <td class="paramname"><em>pStatInfo</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="struct_vma_detailed_statistics.html">VmaDetailedStatistics</a> *&#160;</td>
+          <td class="paramname"><em>pStats</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -394,7 +397,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Calculates and returns statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
+<p>Calculates and returns detailed statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
+<p >This function is slow to call. Use for debugging purposes. For less detailed statistics, see <a class="el" href="group__group__virtual.html#ga2902aa3130866afcc64bb5f984113db3" title="Calculates and returns statistics about virtual allocations and memory usage in given VmaVirtualBlock...">vmaGetVirtualBlockStatistics()</a>. </p>
 
 </div>
 </div>
@@ -512,6 +516,37 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns information about a specific virtual allocation within a virtual block, like its size and <code>pUserData</code> pointer. </p>
+
+</div>
+</div>
+<a id="ga2902aa3130866afcc64bb5f984113db3" name="ga2902aa3130866afcc64bb5f984113db3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga2902aa3130866afcc64bb5f984113db3">&#9670;&nbsp;</a></span>vmaGetVirtualBlockStatistics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaGetVirtualBlockStatistics </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a>&#160;</td>
+          <td class="paramname"><em>virtualBlock</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_statistics.html">VmaStatistics</a> *&#160;</td>
+          <td class="paramname"><em>pStats</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Calculates and returns statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
+<p >This function is fast to call. For more detailed statistics, see <a class="el" href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098" title="Calculates and returns detailed statistics about virtual allocations and memory usage in given VmaVir...">vmaCalculateVirtualBlockStatistics()</a>. </p>
 
 </div>
 </div>
