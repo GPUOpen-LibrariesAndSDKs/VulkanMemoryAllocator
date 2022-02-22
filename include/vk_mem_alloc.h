@@ -4336,8 +4336,9 @@ VmaSmallVector<T, AllocatorT, N>::VmaSmallVector(size_t count, const AllocatorT&
 template<typename T, typename AllocatorT, size_t N>
 void VmaSmallVector<T, AllocatorT, N>::push_back(const T& src)
 {
-    resize(m_Count + 1);
-    data()[m_Count] = src;
+    const size_t newIndex = size();
+    resize(newIndex + 1);
+    data()[newIndex] = src;
 }
 
 template<typename T, typename AllocatorT, size_t N>
