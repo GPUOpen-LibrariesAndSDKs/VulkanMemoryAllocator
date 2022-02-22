@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['device_0',['device',['../struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500',1,'VmaAllocatorCreateInfo::device()'],['../struct_vma_allocator_info.html#a012b4c485bf3b0ea8921352c5ee0c357',1,'VmaAllocatorInfo::device()']]],
-  ['devicememory_1',['deviceMemory',['../struct_vma_allocation_info.html#ae0bfb7dfdf79a76ffefc9a94677a2f67',1,'VmaAllocationInfo']]],
-  ['devicememoryblocksfreed_2',['deviceMemoryBlocksFreed',['../struct_vma_defragmentation_stats.html#a0113f1877904a5d1ee8f409216ff276b',1,'VmaDefragmentationStats']]]
+  ['flags_0',['flags',['../struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346',1,'VmaAllocatorCreateInfo::flags()'],['../struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b',1,'VmaAllocationCreateInfo::flags()'],['../struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446',1,'VmaPoolCreateInfo::flags()'],['../struct_vma_defragmentation_info.html#a3e23080c978ecf3abb3180f5b2069da7',1,'VmaDefragmentationInfo::flags()'],['../struct_vma_virtual_block_create_info.html#aaab9bf7e2d228c02ab6d90a72a6e6912',1,'VmaVirtualBlockCreateInfo::flags()'],['../struct_vma_virtual_allocation_create_info.html#ab10e16956cc4bf20ced9de77d1129ea4',1,'VmaVirtualAllocationCreateInfo::flags()']]]
 ];

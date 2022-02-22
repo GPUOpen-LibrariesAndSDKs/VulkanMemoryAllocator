@@ -69,6 +69,9 @@ if(VMA_BUILD_SAMPLE)
             
             # Set VmaSample as startup project
             set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT "VmaSample")
+
+            # Add C++ warnings and security checks
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive- /sdl /W3")
             
             # Enable multithreaded compiling
             target_compile_options(VmaSample PRIVATE "/MP")

@@ -56,7 +56,7 @@ enum CONFIG_TYPE
     CONFIG_TYPE_COUNT
 };
 
-static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_SMALL;
+static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_AVERAGE;
 //static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
@@ -75,12 +75,8 @@ static const char* AlgorithmToStr(uint32_t algorithm)
     {
     case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
         return "Linear";
-    case VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT:
-        return "Buddy";
-    case VMA_POOL_CREATE_TLSF_ALGORITHM_BIT:
-        return "TLSF";
     case 0:
-        return "Default";
+        return "TLSF";
     default:
         assert(0);
         return "";
@@ -93,15 +89,31 @@ static const char* VirtualAlgorithmToStr(uint32_t algorithm)
     {
     case VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT:
         return "Linear";
-    case VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT:
-        return "Buddy";
-    case VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT:
-        return "TLSF";
     case 0:
-        return "Default";
+        return "TLSF";
     default:
         assert(0);
         return "";
+    }
+}
+
+static const wchar_t* DefragmentationAlgorithmToStr(uint32_t algorithm)
+{
+    switch (algorithm)
+    {
+    case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT:
+        return L"Balanced";
+    case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FAST_BIT:
+        return L"Fast";
+    case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT:
+        return L"Full";
+    case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT:
+        return L"Extensive";
+    case 0:
+        return L"Default";
+    default:
+        assert(0);
+        return L"";
     }
 }
 
@@ -134,9 +146,6 @@ struct Result
     VkDeviceSize TotalMemoryAllocated;
     VkDeviceSize FreeRangeSizeAvg, FreeRangeSizeMax;
 };
-
-void TestDefragmentationSimple();
-void TestDefragmentationFull();
 
 struct PoolTestConfig
 {
@@ -1169,7 +1178,7 @@ static void GetMemReq(VmaAllocationCreateInfo& outMemReq)
 }
 
 static void CreateBuffer(
-    VmaPool pool,
+    VmaAllocationCreateInfo allocCreateInfo,
     const VkBufferCreateInfo& bufCreateInfo,
     bool persistentlyMapped,
     AllocInfo& outAllocInfo)
@@ -1177,10 +1186,8 @@ static void CreateBuffer(
     outAllocInfo = {};
     outAllocInfo.m_BufferInfo = bufCreateInfo;
     
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.pool = pool;
-    if(persistentlyMapped)
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    if (persistentlyMapped)
+        allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VmaAllocationInfo vmaAllocInfo = {};
     ERR_GUARD_VULKAN( vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &outAllocInfo.m_Buffer, &outAllocInfo.m_Allocation, &vmaAllocInfo) );
@@ -1202,6 +1209,45 @@ static void CreateBuffer(
 
         if(!persistentlyMapped)
             vmaUnmapMemory(g_hAllocator, outAllocInfo.m_Allocation);
+    }
+}
+
+void CreateImage(
+    VmaAllocationCreateInfo allocCreateInfo,
+    const VkImageCreateInfo& imgCreateInfo,
+    VkImageLayout dstLayout,
+    bool persistentlyMapped,
+    AllocInfo& outAllocInfo)
+{
+    if (persistentlyMapped)
+        allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    outAllocInfo.CreateImage(imgCreateInfo, allocCreateInfo, dstLayout);
+
+    // Perform barrier into destination layout
+    if (dstLayout != imgCreateInfo.initialLayout)
+    {
+        BeginSingleTimeCommands();
+
+        VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.oldLayout = imgCreateInfo.initialLayout;
+        barrier.newLayout = dstLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = outAllocInfo.m_Image;
+        barrier.subresourceRange =
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            0, VK_REMAINING_MIP_LEVELS,
+            0, VK_REMAINING_ARRAY_LAYERS
+        };
+
+        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+            0, nullptr, 0, nullptr, 1, &barrier);
+
+        EndSingleTimeCommands();
     }
 }
 
@@ -1227,7 +1273,7 @@ static void CreateAllocation(AllocInfo& outAllocation)
 
         VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufferInfo.size = bufferSize;
-        bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
         VkResult res = vmaCreateBuffer(g_hAllocator, &bufferInfo, &vmaMemReq, &outAllocation.m_Buffer, &outAllocation.m_Allocation, &allocInfo);
         outAllocation.m_BufferInfo = bufferInfo;
@@ -1253,7 +1299,7 @@ static void CreateAllocation(AllocInfo& outAllocation)
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkResult res = vmaCreateImage(g_hAllocator, &imageInfo, &vmaMemReq, &outAllocation.m_Image, &outAllocation.m_Allocation, &allocInfo);
         outAllocation.m_ImageInfo = imageInfo;
@@ -1305,15 +1351,22 @@ static void ValidateAllocationData(const AllocInfo& allocation)
 
     uint32_t value = allocation.m_StartValue;
     bool ok = true;
-    size_t i;
-    TEST(allocInfo.size % 4 == 0);
-    for(i = 0; i < allocInfo.size / sizeof(uint32_t); ++i)
+    if(allocation.m_Buffer)
     {
-        if(data[i] != value++)
+        TEST(allocInfo.size % 4 == 0);
+        for(size_t i = 0; i < allocInfo.size / sizeof(uint32_t); ++i)
         {
-            ok = false;
-            break;
+            if(data[i] != value++)
+            {
+                ok = false;
+                break;
+            }
         }
+    }
+    else
+    {
+        TEST(allocation.m_Image);
+        // Images not currently supported.
     }
     TEST(ok);
 
@@ -1357,26 +1410,240 @@ static void RecreateAllocationResource(AllocInfo& allocation)
     }
 }
 
-static void Defragment(AllocInfo* allocs, size_t allocCount,
-    const VmaDefragmentationInfo* defragmentationInfo = nullptr,
-    VmaDefragmentationStats* defragmentationStats = nullptr)
+static void ProcessDefragmentationPass(VmaDefragmentationPassMoveInfo& stepInfo)
 {
-    std::vector<VmaAllocation> vmaAllocs(allocCount);
-    for(size_t i = 0; i < allocCount; ++i)
-        vmaAllocs[i] = allocs[i].m_Allocation;
+    std::vector<VkImageMemoryBarrier> beginImageBarriers;
+    std::vector<VkImageMemoryBarrier> finalizeImageBarriers;
 
-    std::vector<VkBool32> allocChanged(allocCount);
-    
-    ERR_GUARD_VULKAN( vmaDefragment(g_hAllocator, vmaAllocs.data(), allocCount, allocChanged.data(),
-        defragmentationInfo, defragmentationStats) );
+    VkPipelineStageFlags beginSrcStageMask = 0;
+    VkPipelineStageFlags beginDstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-    for(size_t i = 0; i < allocCount; ++i)
+    VkPipelineStageFlags finalizeSrcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    VkPipelineStageFlags finalizeDstStageMask = 0;
+
+    bool wantsMemoryBarrier = false;
+
+    VkMemoryBarrier beginMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+    VkMemoryBarrier finalizeMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+
+    for (uint32_t i = 0; i < stepInfo.moveCount; ++i)
     {
-        if(allocChanged[i])
+        if (stepInfo.pMoves[i].operation == VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY)
         {
-            RecreateAllocationResource(allocs[i]);
+            VmaAllocationInfo info;
+            vmaGetAllocationInfo(g_hAllocator, stepInfo.pMoves[i].srcAllocation, &info);
+
+            AllocInfo* allocInfo = (AllocInfo*)info.pUserData;
+
+            if (allocInfo->m_Image)
+            {
+                VkImage newImage;
+
+                const VkResult result = vkCreateImage(g_hDevice, &allocInfo->m_ImageInfo, g_Allocs, &newImage);
+                TEST(result >= VK_SUCCESS);
+
+                vkBindImageMemory(g_hDevice, newImage, stepInfo.pMoves[i].dstMemory, stepInfo.pMoves[i].dstOffset);
+                allocInfo->m_NewImage = newImage;
+
+                // Keep track of our pipeline stages that we need to wait/signal on
+                beginSrcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                finalizeDstStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+                // We need one pipeline barrier and two image layout transitions here
+                // First we'll have to turn our newly created image into VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                // And the second one is turning the old image into VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+
+                VkImageSubresourceRange subresourceRange = {
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    0, VK_REMAINING_MIP_LEVELS,
+                    0, VK_REMAINING_ARRAY_LAYERS
+                };
+
+                VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+                barrier.srcAccessMask = 0;
+                barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.image = newImage;
+                barrier.subresourceRange = subresourceRange;
+
+                beginImageBarriers.push_back(barrier);
+
+                // Second barrier to convert the existing image. This one actually needs a real barrier                         
+                barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+                barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                barrier.oldLayout = allocInfo->m_ImageLayout;
+                barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                barrier.image = allocInfo->m_Image;
+
+                beginImageBarriers.push_back(barrier);
+
+                // And lastly we need a barrier that turns our new image into the layout of the old one
+                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+                barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = allocInfo->m_ImageLayout;
+                barrier.image = newImage;
+
+                finalizeImageBarriers.push_back(barrier);
+            }
+            else if (allocInfo->m_Buffer)
+            {
+                VkBuffer newBuffer;
+
+                const VkResult result = vkCreateBuffer(g_hDevice, &allocInfo->m_BufferInfo, g_Allocs, &newBuffer);
+                TEST(result >= VK_SUCCESS);
+
+                vkBindBufferMemory(g_hDevice, newBuffer, stepInfo.pMoves[i].dstMemory, stepInfo.pMoves[i].dstOffset);
+                allocInfo->m_NewBuffer = newBuffer;
+
+                // Keep track of our pipeline stages that we need to wait/signal on
+                beginSrcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                finalizeDstStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+                beginMemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
+                beginMemoryBarrier.dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+
+                finalizeMemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+                finalizeMemoryBarrier.dstAccessMask |= VK_ACCESS_MEMORY_READ_BIT;
+
+                wantsMemoryBarrier = true;
+            }
         }
     }
+
+    if (!beginImageBarriers.empty() || wantsMemoryBarrier)
+    {
+        const uint32_t memoryBarrierCount = wantsMemoryBarrier ? 1 : 0;
+
+        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, beginSrcStageMask, beginDstStageMask, 0,
+            memoryBarrierCount, &beginMemoryBarrier,
+            0, nullptr,
+            (uint32_t)beginImageBarriers.size(), beginImageBarriers.data());
+    }
+
+    for (uint32_t i = 0; i < stepInfo.moveCount; ++i)
+    {
+        if (stepInfo.pMoves[i].operation == VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY)
+        {
+            VmaAllocationInfo info;
+            vmaGetAllocationInfo(g_hAllocator, stepInfo.pMoves[i].srcAllocation, &info);
+
+            AllocInfo* allocInfo = (AllocInfo*)info.pUserData;
+
+            if (allocInfo->m_Image)
+            {
+                std::vector<VkImageCopy> imageCopies;
+
+                // Copy all mips of the source image into the target image
+                VkOffset3D offset = { 0, 0, 0 };
+                VkExtent3D extent = allocInfo->m_ImageInfo.extent;
+
+                VkImageSubresourceLayers subresourceLayers = {
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    0,
+                    0, 1
+                };
+
+                for (uint32_t mip = 0; mip < allocInfo->m_ImageInfo.mipLevels; ++mip)
+                {
+                    subresourceLayers.mipLevel = mip;
+
+                    VkImageCopy imageCopy{
+                        subresourceLayers,
+                        offset,
+                        subresourceLayers,
+                        offset,
+                        extent
+                    };
+
+                    imageCopies.push_back(imageCopy);
+
+                    extent.width = std::max(uint32_t(1), extent.width >> 1);
+                    extent.height = std::max(uint32_t(1), extent.height >> 1);
+                    extent.depth = std::max(uint32_t(1), extent.depth >> 1);
+                }
+
+                vkCmdCopyImage(
+                    g_hTemporaryCommandBuffer,
+                    allocInfo->m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    allocInfo->m_NewImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    (uint32_t)imageCopies.size(), imageCopies.data());
+            }
+            else if (allocInfo->m_Buffer)
+            {
+                VkBufferCopy region = {
+                    0,
+                    0,
+                    allocInfo->m_BufferInfo.size };
+
+                vkCmdCopyBuffer(g_hTemporaryCommandBuffer,
+                    allocInfo->m_Buffer, allocInfo->m_NewBuffer,
+                    1, &region);
+            }
+        }
+    }
+
+    if (!finalizeImageBarriers.empty() || wantsMemoryBarrier)
+    {
+        const uint32_t memoryBarrierCount = wantsMemoryBarrier ? 1 : 0;
+
+        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, finalizeSrcStageMask, finalizeDstStageMask, 0,
+            memoryBarrierCount, &finalizeMemoryBarrier,
+            0, nullptr,
+            (uint32_t)finalizeImageBarriers.size(), finalizeImageBarriers.data());
+    }
+}
+
+static void Defragment(VmaDefragmentationInfo& defragmentationInfo,
+    VmaDefragmentationStats* defragmentationStats = nullptr)
+{
+    VmaDefragmentationContext defragCtx = nullptr;
+    VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragmentationInfo, &defragCtx);
+    TEST(res == VK_SUCCESS);
+
+    VmaDefragmentationPassMoveInfo pass;
+    while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
+    {
+        BeginSingleTimeCommands();
+        ProcessDefragmentationPass(pass);
+        EndSingleTimeCommands();
+
+        // Destroy old buffers/images and replace them with new handles.
+        for(size_t i = 0; i < pass.moveCount; ++i)
+        {
+            VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
+            VmaAllocationInfo vmaAllocInfo;
+            vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+            AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+
+            if(allocInfo->m_Buffer)
+            {
+                assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+            }
+            else if(allocInfo->m_Image)
+            {
+                assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                allocInfo->m_Image = allocInfo->m_NewImage;
+                allocInfo->m_NewImage = VK_NULL_HANDLE;
+            }
+            else
+                assert(0);
+        }
+        if ((res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_SUCCESS)
+            break;
+        TEST(res == VK_INCOMPLETE);
+    }
+    TEST(res == VK_SUCCESS);
+
+    res = vmaEndDefragmentation(g_hAllocator, defragCtx, defragmentationStats);
+    TEST(res == VK_SUCCESS);
 }
 
 static void ValidateAllocationsData(const AllocInfo* allocs, size_t allocCount)
@@ -1397,41 +1664,47 @@ void TestDefragmentationSimple()
     
     const VkDeviceSize MIN_BUF_SIZE = 32;
     const VkDeviceSize MAX_BUF_SIZE = BUF_SIZE * 4;
-    auto RandomBufSize = [&]() -> VkDeviceSize {
+    auto RandomBufSize = [&]() -> VkDeviceSize
+    {
         return align_up<VkDeviceSize>(rand.Generate() % (MAX_BUF_SIZE - MIN_BUF_SIZE + 1) + MIN_BUF_SIZE, 32);
     };
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.size = BUF_SIZE;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VmaAllocationCreateInfo exampleAllocCreateInfo = {};
-    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    exampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
     uint32_t memTypeIndex = UINT32_MAX;
-    vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
+    vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &memTypeIndex);
 
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.blockSize = BLOCK_SIZE;
     poolCreateInfo.memoryTypeIndex = memTypeIndex;
 
     VmaPool pool;
-    ERR_GUARD_VULKAN( vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) );
+    TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+    allocCreateInfo.pool = pool;
+
+    VmaDefragmentationInfo defragInfo = {};
+    defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FAST_BIT;
+    defragInfo.pool = pool;
 
     // Defragmentation of empty pool.
     {
-        VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
-        defragInfo.maxCpuAllocationsToMove = UINT32_MAX;
-        defragInfo.poolCount = 1;
-        defragInfo.pPools = &pool;
+        VmaDefragmentationContext defragCtx = nullptr;
+        VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
+        TEST(res == VK_SUCCESS);
+
+        VmaDefragmentationPassMoveInfo pass;
+        res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass);
+        TEST(res == VK_SUCCESS);
 
         VmaDefragmentationStats defragStats = {};
-        VmaDefragmentationContext defragCtx = nullptr;
-        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &defragStats, &defragCtx);
-        TEST(res >= VK_SUCCESS);
-        vmaDefragmentationEnd(g_hAllocator, defragCtx);
+        res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
+        TEST(res == VK_SUCCESS);
         TEST(defragStats.allocationsMoved == 0 && defragStats.bytesFreed == 0 &&
             defragStats.bytesMoved == 0 && defragStats.deviceMemoryBlocksFreed == 0);
     }
@@ -1440,7 +1713,7 @@ void TestDefragmentationSimple()
 
     // persistentlyMappedOption = 0 - not persistently mapped.
     // persistentlyMappedOption = 1 - persistently mapped.
-    for(uint32_t persistentlyMappedOption = 0; persistentlyMappedOption < 2; ++persistentlyMappedOption)
+    for (uint32_t persistentlyMappedOption = 0; persistentlyMappedOption < 2; ++persistentlyMappedOption)
     {
         wprintf(L"  Persistently mapped option = %u\n", persistentlyMappedOption);
         const bool persistentlyMapped = persistentlyMappedOption != 0;
@@ -1450,26 +1723,28 @@ void TestDefragmentationSimple()
         // Fill 2 blocks. Remove odd buffers. Defragment everything.
         // Expected result: at least 1 block freed.
         {
-            for(size_t i = 0; i < BLOCK_SIZE / BUF_SIZE * 2; ++i)
+            for (size_t i = 0; i < BLOCK_SIZE / BUF_SIZE * 2; ++i)
             {
                 AllocInfo allocInfo;
-                CreateBuffer(pool, bufCreateInfo, persistentlyMapped, allocInfo);
+                CreateBuffer(allocCreateInfo, bufCreateInfo, persistentlyMapped, allocInfo);
                 allocations.push_back(allocInfo);
             }
 
-            for(size_t i = 1; i < allocations.size(); ++i)
+            for (size_t i = 1; i < allocations.size(); ++i)
             {
                 DestroyAllocation(allocations[i]);
                 allocations.erase(allocations.begin() + i);
             }
+            
+            // Set data for defragmentation retrieval
+            for (auto& alloc : allocations)
+                vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
 
             VmaDefragmentationStats defragStats;
-            Defragment(allocations.data(), allocations.size(), nullptr, &defragStats);
-            TEST(defragStats.allocationsMoved > 0 && defragStats.bytesMoved > 0);
-            TEST(defragStats.deviceMemoryBlocksFreed >= 1);
+            Defragment(defragInfo, &defragStats);
+            TEST(defragStats.allocationsMoved == 4 && defragStats.bytesMoved == 4 * BUF_SIZE);
 
             ValidateAllocationsData(allocations.data(), allocations.size());
-
             DestroyAllAllocations(allocations);
         }
 
@@ -1478,32 +1753,76 @@ void TestDefragmentationSimple()
         // Fill 2 blocks. Remove odd buffers. Defragment one buffer at time.
         // Expected result: Each of 4 interations makes some progress.
         {
-            for(size_t i = 0; i < BLOCK_SIZE / BUF_SIZE * 2; ++i)
+            for (size_t i = 0; i < BLOCK_SIZE / BUF_SIZE * 2; ++i)
             {
                 AllocInfo allocInfo;
-                CreateBuffer(pool, bufCreateInfo, persistentlyMapped, allocInfo);
+                CreateBuffer(allocCreateInfo, bufCreateInfo, persistentlyMapped, allocInfo);
                 allocations.push_back(allocInfo);
             }
 
-            for(size_t i = 1; i < allocations.size(); ++i)
+            for (size_t i = 1; i < allocations.size(); ++i)
             {
                 DestroyAllocation(allocations[i]);
                 allocations.erase(allocations.begin() + i);
             }
 
-            VmaDefragmentationInfo defragInfo = {};
-            defragInfo.maxAllocationsToMove = 1;
-            defragInfo.maxBytesToMove = BUF_SIZE;
+            // Set data for defragmentation retrieval
+            for (auto& alloc : allocations)
+                vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
 
-            for(size_t i = 0; i < BLOCK_SIZE / BUF_SIZE / 2; ++i)
+            defragInfo.maxAllocationsPerPass = 1;
+            defragInfo.maxBytesPerPass = BUF_SIZE;
+
+            VmaDefragmentationContext defragCtx = nullptr;
+            VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
+            TEST(res == VK_SUCCESS);
+
+            for (size_t i = 0; i < BLOCK_SIZE / BUF_SIZE / 2; ++i)
             {
-                VmaDefragmentationStats defragStats;
-                Defragment(allocations.data(), allocations.size(), &defragInfo, &defragStats);
-                TEST(defragStats.allocationsMoved > 0 && defragStats.bytesMoved > 0);
+                VmaDefragmentationPassMoveInfo pass;
+                res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass);
+                TEST(res == VK_INCOMPLETE);
+
+                BeginSingleTimeCommands();
+                ProcessDefragmentationPass(pass);
+                EndSingleTimeCommands();
+
+                // Destroy old buffers/images and replace them with new handles.
+                for (size_t i = 0; i < pass.moveCount; ++i)
+                {
+                    VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
+                    VmaAllocationInfo vmaAllocInfo;
+                    vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                    AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+
+                    if (allocInfo->m_Buffer)
+                    {
+                        assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                        vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                        allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                        allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                    }
+                    else if (allocInfo->m_Image)
+                    {
+                        assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                        vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                        allocInfo->m_Image = allocInfo->m_NewImage;
+                        allocInfo->m_NewImage = VK_NULL_HANDLE;
+                    }
+                    else
+                        assert(0);
+                }
+
+                res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass);
+                TEST(res == VK_INCOMPLETE);
             }
 
-            ValidateAllocationsData(allocations.data(), allocations.size());
+            VmaDefragmentationStats defragStats = {};
+            res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
+            TEST(res == VK_SUCCESS);
+            TEST(defragStats.allocationsMoved == 4 && defragStats.bytesMoved == 4 * BUF_SIZE);
 
+            ValidateAllocationsData(allocations.data(), allocations.size());
             DestroyAllAllocations(allocations);
         }
 
@@ -1513,19 +1832,19 @@ void TestDefragmentationSimple()
         // Defragment while having some percent of them unmovable.
         // Expected result: Just simple validation.
         {
-            for(size_t i = 0; i < 100; ++i)
+            for (size_t i = 0; i < 100; ++i)
             {
                 VkBufferCreateInfo localBufCreateInfo = bufCreateInfo;
                 localBufCreateInfo.size = RandomBufSize();
 
                 AllocInfo allocInfo;
-                CreateBuffer(pool, bufCreateInfo, persistentlyMapped, allocInfo);
+                CreateBuffer(allocCreateInfo, localBufCreateInfo, persistentlyMapped, allocInfo);
                 allocations.push_back(allocInfo);
             }
 
             const uint32_t percentToDelete = 60;
             const size_t numberToDelete = allocations.size() * percentToDelete / 100;
-            for(size_t i = 0; i < numberToDelete; ++i)
+            for (size_t i = 0; i < numberToDelete; ++i)
             {
                 size_t indexToDelete = rand.Generate() % (uint32_t)allocations.size();
                 DestroyAllocation(allocations[indexToDelete]);
@@ -1535,139 +1854,279 @@ void TestDefragmentationSimple()
             // Non-movable allocations will be at the beginning of allocations array.
             const uint32_t percentNonMovable = 20;
             const size_t numberNonMovable = allocations.size() * percentNonMovable / 100;
-            for(size_t i = 0; i < numberNonMovable; ++i)
+            for (size_t i = 0; i < numberNonMovable; ++i)
             {
                 size_t indexNonMovable = i + rand.Generate() % (uint32_t)(allocations.size() - i);
-                if(indexNonMovable != i)
+                if (indexNonMovable != i)
                     std::swap(allocations[i], allocations[indexNonMovable]);
             }
 
+            // Set data for defragmentation retrieval
+            for (auto& alloc : allocations)
+                vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
+
+            defragInfo.maxAllocationsPerPass = 0;
+            defragInfo.maxBytesPerPass = 0;
+
+            VmaDefragmentationContext defragCtx = nullptr;
+            VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
+            TEST(res == VK_SUCCESS);
+
+            VmaDefragmentationPassMoveInfo pass;
+            while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
+            {
+                VmaDefragmentationMove* end = pass.pMoves + pass.moveCount;
+                for (uint32_t i = 0; i < numberNonMovable; ++i)
+                {
+                    VmaDefragmentationMove* move = std::find_if(pass.pMoves, end, [&](VmaDefragmentationMove& move) { return move.srcAllocation == allocations[i].m_Allocation; });
+                    if (move != end)
+                        move->operation = VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE;
+                }
+
+                BeginSingleTimeCommands();
+                ProcessDefragmentationPass(pass);
+                EndSingleTimeCommands();
+
+                // Destroy old buffers/images and replace them with new handles.
+                for (size_t i = 0; i < pass.moveCount; ++i)
+                {
+                    if (pass.pMoves[i].operation != VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE)
+                    {
+                        VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
+                        VmaAllocationInfo vmaAllocInfo;
+                        vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                        AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+
+                        if (allocInfo->m_Buffer)
+                        {
+                            assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                            vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                            allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                            allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                        }
+                        else
+                            assert(0);
+                    }
+                }
+
+                if ((res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_SUCCESS)
+                    break;
+                TEST(res == VK_INCOMPLETE);
+            }
+            TEST(res == VK_SUCCESS);
+
             VmaDefragmentationStats defragStats;
-            Defragment(
-                allocations.data() + numberNonMovable,
-                allocations.size() - numberNonMovable,
-                nullptr, &defragStats);
+            res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
+            TEST(res == VK_SUCCESS);
 
             ValidateAllocationsData(allocations.data(), allocations.size());
-
             DestroyAllAllocations(allocations);
         }
-    }
-
-    /*
-    Allocation that must be move to an overlapping place using memmove().
-    Create 2 buffers, second slightly bigger than the first. Delete first. Then defragment.
-    */
-    if(VMA_DEBUG_MARGIN == 0) // FAST algorithm works only when DEBUG_MARGIN disabled.
-    {
-        AllocInfo allocInfo[2];
-
-        bufCreateInfo.size = BUF_SIZE;
-        CreateBuffer(pool, bufCreateInfo, false, allocInfo[0]);
-        const VkDeviceSize biggerBufSize = BUF_SIZE + BUF_SIZE / 256;
-        bufCreateInfo.size = biggerBufSize;
-        CreateBuffer(pool, bufCreateInfo, false, allocInfo[1]);
-
-        DestroyAllocation(allocInfo[0]);
-
-        VmaDefragmentationStats defragStats;
-        Defragment(&allocInfo[1], 1, nullptr, &defragStats);
-        // If this fails, it means we couldn't do memmove with overlapping regions.
-        TEST(defragStats.allocationsMoved == 1 && defragStats.bytesMoved > 0);
-
-        ValidateAllocationsData(&allocInfo[1], 1);
-        DestroyAllocation(allocInfo[1]);
     }
 
     vmaDestroyPool(g_hAllocator, pool);
 }
 
-void TestDefragmentationWholePool()
+void TestDefragmentationAlgorithms()
 {
-    wprintf(L"Test defragmentation whole pool\n");
+    wprintf(L"Test defragmentation simple\n");
 
-    RandomNumberGenerator rand(668);
+    RandomNumberGenerator rand(669);
 
     const VkDeviceSize BUF_SIZE = 0x10000;
-    const VkDeviceSize BLOCK_SIZE = BUF_SIZE * 8;
-    
+    const uint32_t TEX_SIZE = 256;
+    const VkDeviceSize BLOCK_SIZE = BUF_SIZE * 200 + TEX_SIZE * 200;
+
+    const VkDeviceSize MIN_BUF_SIZE = 2048;
+    const VkDeviceSize MAX_BUF_SIZE = BUF_SIZE * 4;
+    auto RandomBufSize = [&]() -> VkDeviceSize
+    {
+        return align_up<VkDeviceSize>(rand.Generate() % (MAX_BUF_SIZE - MIN_BUF_SIZE + 1) + MIN_BUF_SIZE, 32);
+    };
+
+    const uint32_t MIN_TEX_SIZE = 512;
+    const uint32_t MAX_TEX_SIZE = TEX_SIZE * 4;
+    auto RandomTexSize = [&]() -> uint32_t
+    {
+        return align_up<uint32_t>(rand.Generate() % (MAX_TEX_SIZE - MIN_TEX_SIZE + 1) + MIN_TEX_SIZE, 32);
+    };
+
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.size = BUF_SIZE;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VmaAllocationCreateInfo exampleAllocCreateInfo = {};
-    exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    exampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.extent.depth = 1;
+    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.format = VK_FORMAT_R8_UNORM;
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
     uint32_t memTypeIndex = UINT32_MAX;
-    vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
+    vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &memTypeIndex);
 
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.blockSize = BLOCK_SIZE;
     poolCreateInfo.memoryTypeIndex = memTypeIndex;
 
-    VmaDefragmentationStats defragStats[2];
-    for(size_t caseIndex = 0; caseIndex < 2; ++caseIndex)
+    VmaPool pool;
+    TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+    allocCreateInfo.pool = pool;
+
+    VmaDefragmentationInfo defragInfo = {};
+    defragInfo.pool = pool;
+
+    std::vector<AllocInfo> allocations;
+
+    for (uint8_t i = 0; i < 4; ++i)
     {
-        VmaPool pool;
-        ERR_GUARD_VULKAN( vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) );
-
-        std::vector<AllocInfo> allocations;
-
-        // Buffers of fixed size.
-        // Fill 2 blocks. Remove odd buffers. Defragment all of them.
-        for(size_t i = 0; i < BLOCK_SIZE / BUF_SIZE * 2; ++i)
+        switch (i)
         {
-            AllocInfo allocInfo;
-            CreateBuffer(pool, bufCreateInfo, false, allocInfo);
-            allocations.push_back(allocInfo);
+        case 0:
+            defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FAST_BIT;
+            break;
+        case 1:
+            defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT;
+            break;
+        case 2:
+            defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT;
+            break;
+        case 3:
+            defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT;
+            break;
         }
+        wprintf(L"  Algorithm = %s\n", DefragmentationAlgorithmToStr(defragInfo.flags));
 
-        for(size_t i = 1; i < allocations.size(); ++i)
+        // 0 - Without immovable allocations
+        // 1 - With immovable allocations
+        for (uint8_t j = 0; j < 2; ++j)
         {
-            DestroyAllocation(allocations[i]);
-            allocations.erase(allocations.begin() + i);
+            for (size_t i = 0; i < 400; ++i)
+            {
+                bufCreateInfo.size = RandomBufSize();
+
+                AllocInfo allocInfo;
+                CreateBuffer(allocCreateInfo, bufCreateInfo, false, allocInfo);
+                allocations.push_back(allocInfo);
+            }
+            for (size_t i = 0; i < 100; ++i)
+            {
+                imageCreateInfo.extent.width = RandomTexSize();
+                imageCreateInfo.extent.height = RandomTexSize();
+
+                AllocInfo allocInfo;
+                CreateImage(allocCreateInfo, imageCreateInfo, VK_IMAGE_LAYOUT_GENERAL, false, allocInfo);
+                allocations.push_back(allocInfo);
+            }
+
+            const uint32_t percentToDelete = 55;
+            const size_t numberToDelete = allocations.size() * percentToDelete / 100;
+            for (size_t i = 0; i < numberToDelete; ++i)
+            {
+                size_t indexToDelete = rand.Generate() % (uint32_t)allocations.size();
+                DestroyAllocation(allocations[indexToDelete]);
+                allocations.erase(allocations.begin() + indexToDelete);
+            }
+
+            // Non-movable allocations will be at the beginning of allocations array.
+            const uint32_t percentNonMovable = 20;
+            const size_t numberNonMovable = j == 0 ? 0 : (allocations.size() * percentNonMovable / 100);
+            for (size_t i = 0; i < numberNonMovable; ++i)
+            {
+                size_t indexNonMovable = i + rand.Generate() % (uint32_t)(allocations.size() - i);
+                if (indexNonMovable != i)
+                    std::swap(allocations[i], allocations[indexNonMovable]);
+            }
+
+            // Set data for defragmentation retrieval
+            for (auto& alloc : allocations)
+                vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
+            
+            std::wstring output = DefragmentationAlgorithmToStr(defragInfo.flags);
+            if (j == 0)
+                output += L"_NoMove";
+            else
+                output += L"_Move";
+            SaveAllocatorStatsToFile((output + L"_Before.json").c_str());
+
+            VmaDefragmentationContext defragCtx = nullptr;
+            VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
+            TEST(res == VK_SUCCESS);
+
+            VmaDefragmentationPassMoveInfo pass;
+            while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
+            {
+                VmaDefragmentationMove* end = pass.pMoves + pass.moveCount;
+                for (uint32_t i = 0; i < numberNonMovable; ++i)
+                {
+                    VmaDefragmentationMove* move = std::find_if(pass.pMoves, end, [&](VmaDefragmentationMove& move) { return move.srcAllocation == allocations[i].m_Allocation; });
+                    if (move != end)
+                        move->operation = VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE;
+                }
+                for (uint32_t i = 0; i < pass.moveCount; ++i)
+                {
+                    auto it = std::find_if(allocations.begin(), allocations.end(), [&](const AllocInfo& info) { return pass.pMoves[i].srcAllocation == info.m_Allocation; });
+                    assert(it != allocations.end());
+                }
+
+                BeginSingleTimeCommands();
+                ProcessDefragmentationPass(pass);
+                EndSingleTimeCommands();
+
+                // Destroy old buffers/images and replace them with new handles.
+                for (size_t i = 0; i < pass.moveCount; ++i)
+                {
+                    if (pass.pMoves[i].operation != VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE)
+                    {
+                        VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
+                        VmaAllocationInfo vmaAllocInfo;
+                        vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                        AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+
+                        if (allocInfo->m_Buffer)
+                        {
+                            assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                            vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                            allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                            allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                        }
+                        else if (allocInfo->m_Image)
+                        {
+                            assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                            vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                            allocInfo->m_Image = allocInfo->m_NewImage;
+                            allocInfo->m_NewImage = VK_NULL_HANDLE;
+                        }
+                        else
+                            assert(0);
+                    }
+                }
+
+                if ((res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_SUCCESS)
+                    break;
+                TEST(res == VK_INCOMPLETE);
+            }
+            TEST(res == VK_SUCCESS);
+
+            VmaDefragmentationStats defragStats;
+            res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
+            TEST(res == VK_SUCCESS);
+
+            SaveAllocatorStatsToFile((output + L"_After.json").c_str());
+            ValidateAllocationsData(allocations.data(), allocations.size());
+            DestroyAllAllocations(allocations);
         }
-
-        VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.maxCpuAllocationsToMove = UINT32_MAX;
-        defragInfo.maxCpuBytesToMove = VK_WHOLE_SIZE;
-        std::vector<VmaAllocation> allocationsToDefrag;
-        if(caseIndex == 0)
-        {
-            defragInfo.poolCount = 1;
-            defragInfo.pPools = &pool;
-        }
-        else
-        {
-            const size_t allocCount = allocations.size();
-            allocationsToDefrag.resize(allocCount);
-            std::transform(
-                allocations.begin(), allocations.end(),
-                allocationsToDefrag.begin(),
-                [](const AllocInfo& allocInfo) { return allocInfo.m_Allocation; });
-            defragInfo.allocationCount = (uint32_t)allocCount;
-            defragInfo.pAllocations = allocationsToDefrag.data();
-        }
-
-        VmaDefragmentationContext defragCtx = VK_NULL_HANDLE;
-        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &defragStats[caseIndex], &defragCtx);
-        TEST(res >= VK_SUCCESS);
-        vmaDefragmentationEnd(g_hAllocator, defragCtx);
-
-        TEST(defragStats[caseIndex].allocationsMoved > 0 && defragStats[caseIndex].bytesMoved > 0);
-
-        ValidateAllocationsData(allocations.data(), allocations.size());
-
-        DestroyAllAllocations(allocations);
-
-        vmaDestroyPool(g_hAllocator, pool);
     }
 
-    TEST(defragStats[0].bytesMoved == defragStats[1].bytesMoved);
-    TEST(defragStats[0].allocationsMoved == defragStats[1].allocationsMoved);
-    TEST(defragStats[0].bytesFreed == defragStats[1].bytesFreed);
-    TEST(defragStats[0].deviceMemoryBlocksFreed == defragStats[1].deviceMemoryBlocksFreed);
+    vmaDestroyPool(g_hAllocator, pool);
 }
 
 void TestDefragmentationFull()
@@ -1691,10 +2150,7 @@ void TestDefragmentationFull()
         DestroyAllocation(allocations[index]);
         allocations.erase(allocations.begin() + index);
     }
-
-    for(size_t i = 0; i < allocations.size(); ++i)
-        ValidateAllocationData(allocations[i]);
-
+    //ValidateAllocationsData(allocations.data(), allocations.size()); // Ultra-slow
     //SaveAllocatorStatsToFile(L"Before.csv");
 
     {
@@ -1710,22 +2166,24 @@ void TestDefragmentationFull()
             vmaAllocations.erase(vmaAllocations.begin() + index);
         }
 
+        // Set data for defragmentation retrieval
+        for (auto& alloc : allocations)
+            vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
+
         const uint32_t defragCount = 1;
         for(uint32_t defragIndex = 0; defragIndex < defragCount; ++defragIndex)
         {
             std::vector<VkBool32> allocationsChanged(vmaAllocations.size());
 
-            VmaDefragmentationInfo defragmentationInfo;
-            defragmentationInfo.maxAllocationsToMove = UINT_MAX;
-            defragmentationInfo.maxBytesToMove = SIZE_MAX;
+            VmaDefragmentationInfo defragmentationInfo = {};
+            defragmentationInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT;
 
             wprintf(L"Defragmentation #%u\n", defragIndex);
 
             time_point begTime = std::chrono::high_resolution_clock::now();
 
             VmaDefragmentationStats stats;
-            VkResult res = vmaDefragment(g_hAllocator, vmaAllocations.data(), vmaAllocations.size(), allocationsChanged.data(), &defragmentationInfo, &stats);
-            TEST(res >= 0);
+            Defragment(defragmentationInfo, &stats);
 
             float defragmentDuration = ToFloatSeconds(std::chrono::high_resolution_clock::now() - begTime);
 
@@ -1741,9 +2199,6 @@ void TestDefragmentationFull()
                 }
             }
 
-            for(size_t i = 0; i < allocations.size(); ++i)
-                ValidateAllocationData(allocations[i]);
-
             //wchar_t fileName[MAX_PATH];
             //swprintf(fileName, MAX_PATH, L"After_%02u.csv", defragIndex);
             //SaveAllocatorStatsToFile(fileName);
@@ -1751,6 +2206,7 @@ void TestDefragmentationFull()
     }
 
     // Destroy all remaining allocations.
+    //ValidateAllocationsData(allocations.data(), allocations.size()); // Ultra-slow
     DestroyAllAllocations(allocations);
 }
 
@@ -1773,7 +2229,6 @@ static void TestDefragmentationGpu()
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    allocCreateInfo.flags = 0;
 
     // Create all intended buffers.
     for(size_t i = 0; i < bufCount; ++i)
@@ -1814,6 +2269,10 @@ static void TestDefragmentationGpu()
         }
     }
 
+    // Set data for defragmentation retrieval
+    for (auto& alloc : allocations)
+        vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
+
     // Fill them with meaningful data.
     UploadGpuData(allocations.data(), allocations.size());
 
@@ -1843,25 +2302,9 @@ static void TestDefragmentationGpu()
 
         const size_t movableAllocCount = allocationPtrs.size();
 
-        BeginSingleTimeCommands();
-
-        VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.flags = 0;
-        defragInfo.allocationCount = (uint32_t)movableAllocCount;
-        defragInfo.pAllocations = allocationPtrs.data();
-        defragInfo.pAllocationsChanged = allocationChanged.data();
-        defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
-        defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
-        defragInfo.commandBuffer = g_hTemporaryCommandBuffer;
-
-        VmaDefragmentationStats stats = {};
-        VmaDefragmentationContext ctx = VK_NULL_HANDLE;
-        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &stats, &ctx);
-        TEST(res >= VK_SUCCESS);
-
-        EndSingleTimeCommands();
-
-        vmaDefragmentationEnd(g_hAllocator, ctx);
+        VmaDefragmentationInfo defragInfo = {};
+        VmaDefragmentationStats stats;
+        Defragment(defragInfo, &stats);
 
         for(size_t i = 0; i < movableAllocCount; ++i)
         {
@@ -1880,196 +2323,14 @@ static void TestDefragmentationGpu()
         #endif
     }
 
-    ValidateGpuData(allocations.data(), allocations.size());
-
     swprintf_s(fileName, L"GPU_defragmentation_B_after.json");
     SaveAllocatorStatsToFile(fileName);
+    ValidateGpuData(allocations.data(), allocations.size());
 
     // Destroy all remaining buffers.
     for(size_t i = allocations.size(); i--; )
     {
         allocations[i].Destroy();
-    }
-}
-
-static void ProcessDefragmentationStepInfo(VmaDefragmentationPassInfo &stepInfo)
-{
-    std::vector<VkImageMemoryBarrier> beginImageBarriers;
-    std::vector<VkImageMemoryBarrier> finalizeImageBarriers;
-
-    VkPipelineStageFlags beginSrcStageMask = 0;
-    VkPipelineStageFlags beginDstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-    VkPipelineStageFlags finalizeSrcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    VkPipelineStageFlags finalizeDstStageMask = 0;
-
-    bool wantsMemoryBarrier = false;
-
-    VkMemoryBarrier beginMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-    VkMemoryBarrier finalizeMemoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-
-    for(uint32_t i = 0; i < stepInfo.moveCount; ++i)
-    {
-        VmaAllocationInfo info;
-        vmaGetAllocationInfo(g_hAllocator, stepInfo.pMoves[i].allocation, &info);
-
-        AllocInfo *allocInfo = (AllocInfo *)info.pUserData;
-
-        if(allocInfo->m_Image)
-        {
-            VkImage newImage;
-
-            const VkResult result = vkCreateImage(g_hDevice, &allocInfo->m_ImageInfo, g_Allocs, &newImage);
-            TEST(result >= VK_SUCCESS);
-
-            vkBindImageMemory(g_hDevice, newImage, stepInfo.pMoves[i].memory, stepInfo.pMoves[i].offset);
-            allocInfo->m_NewImage = newImage;
-
-            // Keep track of our pipeline stages that we need to wait/signal on
-            beginSrcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            finalizeDstStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-            // We need one pipeline barrier and two image layout transitions here
-            // First we'll have to turn our newly created image into VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-            // And the second one is turning the old image into VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-
-            VkImageSubresourceRange subresourceRange = {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0, VK_REMAINING_MIP_LEVELS,
-                0, VK_REMAINING_ARRAY_LAYERS
-            };
-
-            VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = newImage;
-            barrier.subresourceRange = subresourceRange;
-
-            beginImageBarriers.push_back(barrier);
-
-            // Second barrier to convert the existing image. This one actually needs a real barrier                         
-            barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            barrier.oldLayout = allocInfo->m_ImageLayout;
-            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            barrier.image = allocInfo->m_Image;
-
-            beginImageBarriers.push_back(barrier);
-
-            // And lastly we need a barrier that turns our new image into the layout of the old one
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout = allocInfo->m_ImageLayout;
-            barrier.image = newImage;
-
-            finalizeImageBarriers.push_back(barrier);
-        }
-        else if(allocInfo->m_Buffer)
-        {
-            VkBuffer newBuffer;
-
-            const VkResult result = vkCreateBuffer(g_hDevice, &allocInfo->m_BufferInfo, g_Allocs, &newBuffer);
-            TEST(result >= VK_SUCCESS);
-
-            vkBindBufferMemory(g_hDevice, newBuffer, stepInfo.pMoves[i].memory, stepInfo.pMoves[i].offset);
-            allocInfo->m_NewBuffer = newBuffer;
-
-            // Keep track of our pipeline stages that we need to wait/signal on
-            beginSrcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            finalizeDstStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-            beginMemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
-            beginMemoryBarrier.dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-
-            finalizeMemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-            finalizeMemoryBarrier.dstAccessMask |= VK_ACCESS_MEMORY_READ_BIT;
-
-            wantsMemoryBarrier = true;
-        }
-    }
-
-    if(!beginImageBarriers.empty() || wantsMemoryBarrier)
-    {
-        const uint32_t memoryBarrierCount = wantsMemoryBarrier ? 1 : 0;
-
-        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, beginSrcStageMask, beginDstStageMask, 0,
-            memoryBarrierCount, &beginMemoryBarrier,
-            0, nullptr,
-            (uint32_t)beginImageBarriers.size(), beginImageBarriers.data());
-    }
-
-    for(uint32_t i = 0; i < stepInfo.moveCount; ++ i)
-    {
-        VmaAllocationInfo info;
-        vmaGetAllocationInfo(g_hAllocator, stepInfo.pMoves[i].allocation, &info);
-
-        AllocInfo *allocInfo = (AllocInfo *)info.pUserData;
-
-        if(allocInfo->m_Image)
-        {
-            std::vector<VkImageCopy> imageCopies;
-
-            // Copy all mips of the source image into the target image
-            VkOffset3D offset = { 0, 0, 0 };
-            VkExtent3D extent = allocInfo->m_ImageInfo.extent;
-
-            VkImageSubresourceLayers subresourceLayers = {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0,
-                0, 1
-            };
-
-            for(uint32_t mip = 0; mip < allocInfo->m_ImageInfo.mipLevels; ++ mip)
-            {
-                subresourceLayers.mipLevel = mip;
-
-                VkImageCopy imageCopy{
-                    subresourceLayers,
-                    offset,
-                    subresourceLayers,
-                    offset,
-                    extent
-                };
-
-                imageCopies.push_back(imageCopy);
-
-                extent.width = std::max(uint32_t(1), extent.width >> 1);
-                extent.height = std::max(uint32_t(1), extent.height >> 1);
-                extent.depth = std::max(uint32_t(1), extent.depth >> 1);
-            }
-
-            vkCmdCopyImage(
-                g_hTemporaryCommandBuffer,
-                allocInfo->m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                allocInfo->m_NewImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                (uint32_t)imageCopies.size(), imageCopies.data());
-        }
-        else if(allocInfo->m_Buffer)
-        {
-            VkBufferCopy region = {
-                0,
-                0,
-                allocInfo->m_BufferInfo.size };
-
-            vkCmdCopyBuffer(g_hTemporaryCommandBuffer, 
-                allocInfo->m_Buffer, allocInfo->m_NewBuffer,
-                1, &region);
-        }
-    }
-
-    if(!finalizeImageBarriers.empty() || wantsMemoryBarrier)
-    {
-        const uint32_t memoryBarrierCount = wantsMemoryBarrier ? 1 : 0;
-
-        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, finalizeSrcStageMask, finalizeDstStageMask, 0,
-            memoryBarrierCount, &finalizeMemoryBarrier,
-            0, nullptr,
-            (uint32_t)finalizeImageBarriers.size(), finalizeImageBarriers.data());
     }
 }
 
@@ -2102,7 +2363,6 @@ static void TestDefragmentationIncrementalBasic()
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    allocCreateInfo.flags = 0;
 
     // Create all intended images.
     for(size_t i = 0; i < imageCount; ++i)
@@ -2113,7 +2373,7 @@ static void TestDefragmentationIncrementalBasic()
         imageInfo.extent.height = size;
 
         AllocInfo alloc;
-        alloc.CreateImage(imageInfo, allocCreateInfo, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        CreateImage(allocCreateInfo, imageInfo, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, alloc);
         alloc.m_StartValue = 0;
 
         allocations.push_back(alloc);
@@ -2164,78 +2424,63 @@ static void TestDefragmentationIncrementalBasic()
 
     // Defragment using GPU only.
     {
-        const size_t allocCount = allocations.size();
-
-        std::vector<VmaAllocation> allocationPtrs;
-
-        for(size_t i = 0; i < allocCount; ++i)
-        {
-            allocationPtrs.push_back(allocations[i].m_Allocation);
-        }
-
-        const size_t movableAllocCount = allocationPtrs.size();
-
-        VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_INCREMENTAL;
-        defragInfo.allocationCount = (uint32_t)movableAllocCount;
-        defragInfo.pAllocations = allocationPtrs.data();
-        defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
-        defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
-
-        VmaDefragmentationStats stats = {};
+        VmaDefragmentationInfo defragInfo = {};
         VmaDefragmentationContext ctx = VK_NULL_HANDLE;
-        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &stats, &ctx);
-        TEST(res >= VK_SUCCESS);
+        VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &ctx);
+        TEST(res == VK_SUCCESS);
 
-        res = VK_NOT_READY;
-
-        std::vector<VmaDefragmentationPassMoveInfo> moveInfo;
-        moveInfo.resize(movableAllocCount);
-
-        while(res == VK_NOT_READY)
+        VmaDefragmentationPassMoveInfo pass;
+        while ((res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_INCOMPLETE)
         {
-            VmaDefragmentationPassInfo stepInfo = {};
-            stepInfo.pMoves = moveInfo.data();
-            stepInfo.moveCount = (uint32_t)moveInfo.size();
-
-            res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &stepInfo);
-            TEST(res >= VK_SUCCESS);
+            // Ignore data outside of test
+            for (uint32_t i = 0; i < pass.moveCount; ++i)
+            {
+                auto it = std::find_if(allocations.begin(), allocations.end(), [&](const AllocInfo& info) { return pass.pMoves[i].srcAllocation == info.m_Allocation; });
+                if (it == allocations.end())
+                    pass.pMoves[i].operation = VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE;
+            }
 
             BeginSingleTimeCommands();
-            std::vector<void*> newHandles;
-            ProcessDefragmentationStepInfo(stepInfo);
+            ProcessDefragmentationPass(pass);
             EndSingleTimeCommands();
 
-            res = vmaEndDefragmentationPass(g_hAllocator, ctx);
-            
             // Destroy old buffers/images and replace them with new handles.
-            for(size_t i = 0; i < stepInfo.moveCount; ++i)
+            for (size_t i = 0; i < pass.moveCount; ++i)
             {
-                VmaAllocation const alloc = stepInfo.pMoves[i].allocation;
-                VmaAllocationInfo vmaAllocInfo;
-                vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
-                AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
-                if(allocInfo->m_Buffer)
+                if (pass.pMoves[i].operation != VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE)
                 {
-                    assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
-                    vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
-                    allocInfo->m_Buffer = allocInfo->m_NewBuffer;
-                    allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                    VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
+                    VmaAllocationInfo vmaAllocInfo;
+                    vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                    AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+
+                    if (allocInfo->m_Buffer)
+                    {
+                        assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                        vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                        allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                        allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                    }
+                    else if (allocInfo->m_Image)
+                    {
+                        assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                        vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                        allocInfo->m_Image = allocInfo->m_NewImage;
+                        allocInfo->m_NewImage = VK_NULL_HANDLE;
+                    }
+                    else
+                        assert(0);
                 }
-                else if(allocInfo->m_Image)
-                {
-                    assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
-                    vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
-                    allocInfo->m_Image = allocInfo->m_NewImage;
-                    allocInfo->m_NewImage = VK_NULL_HANDLE;
-                }
-                else
-                    assert(0);
             }
+
+            if ((res = vmaEndDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_SUCCESS)
+                break;
+            TEST(res == VK_INCOMPLETE);
         }
 
-        TEST(res >= VK_SUCCESS);
-        vmaDefragmentationEnd(g_hAllocator, ctx);
+        TEST(res == VK_SUCCESS);
+        VmaDefragmentationStats stats = {};
+        vmaEndDefragmentation(g_hAllocator, ctx, &stats);
 
         // If corruption detection is enabled, GPU defragmentation may not work on
         // memory types that have this detection active, e.g. on Intel.
@@ -2286,7 +2531,6 @@ void TestDefragmentationIncrementalComplex()
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    allocCreateInfo.flags = 0;
 
     // Create all intended images.
     for(size_t i = 0; i < imageCount; ++i)
@@ -2297,7 +2541,7 @@ void TestDefragmentationIncrementalComplex()
         imageInfo.extent.height = size;
 
         AllocInfo alloc;
-        alloc.CreateImage(imageInfo, allocCreateInfo, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        CreateImage(allocCreateInfo, imageInfo, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, alloc);
         alloc.m_StartValue = 0;
 
         allocations.push_back(alloc);
@@ -2331,12 +2575,8 @@ void TestDefragmentationIncrementalComplex()
 
     {
         // Set our user data pointers. A real application should probably be more clever here
-        const size_t allocationCount = allocations.size();
-        for(size_t i = 0; i < allocationCount; ++i)
-        {
-            AllocInfo &alloc = allocations[i];
+        for (auto& alloc : allocations)
             vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &alloc);
-        }
     }
 
     // Fill them with meaningful data.
@@ -2346,103 +2586,96 @@ void TestDefragmentationIncrementalComplex()
     swprintf_s(fileName, L"GPU_defragmentation_incremental_complex_A_before.json");
     SaveAllocatorStatsToFile(fileName);
 
+    const size_t maxAdditionalAllocations = 100;
     std::vector<AllocInfo> additionalAllocations;
+    additionalAllocations.reserve(maxAdditionalAllocations);
 
 #define MakeAdditionalAllocation() \
-    do { \
-        { \
-            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16); \
-            bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT; \
-            \
-            AllocInfo alloc; \
-            alloc.CreateBuffer(bufCreateInfo, allocCreateInfo); \
-            \
-            additionalAllocations.push_back(alloc); \
-        } \
-    } while(0)
+    if (additionalAllocations.size() < maxAdditionalAllocations) \
+    { \
+        bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16); \
+        bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT; \
+        \
+        AllocInfo alloc; \
+        alloc.CreateBuffer(bufCreateInfo, allocCreateInfo); \
+        \
+        additionalAllocations.push_back(alloc); \
+        vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &additionalAllocations.back()); \
+    }
 
     // Defragment using GPU only.
     {
-        const size_t allocCount = allocations.size();
+        VmaDefragmentationInfo defragInfo = {};
+        defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT;
 
-        std::vector<VmaAllocation> allocationPtrs;
-
-        for(size_t i = 0; i < allocCount; ++i)
-        {
-            VmaAllocationInfo allocInfo = {};
-            vmaGetAllocationInfo(g_hAllocator, allocations[i].m_Allocation, &allocInfo);
-
-            allocationPtrs.push_back(allocations[i].m_Allocation);
-        }
-
-        const size_t movableAllocCount = allocationPtrs.size();
-
-        VmaDefragmentationInfo2 defragInfo = {};
-        defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_INCREMENTAL;
-        defragInfo.allocationCount = (uint32_t)movableAllocCount;
-        defragInfo.pAllocations = allocationPtrs.data();
-        defragInfo.maxGpuBytesToMove = VK_WHOLE_SIZE;
-        defragInfo.maxGpuAllocationsToMove = UINT32_MAX;
-
-        VmaDefragmentationStats stats = {};
         VmaDefragmentationContext ctx = VK_NULL_HANDLE;
-        VkResult res = vmaDefragmentationBegin(g_hAllocator, &defragInfo, &stats, &ctx);
-        TEST(res >= VK_SUCCESS);
-
-        res = VK_NOT_READY;
-
-        std::vector<VmaDefragmentationPassMoveInfo> moveInfo;
-        moveInfo.resize(movableAllocCount);
+        VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &ctx);
+        TEST(res == VK_SUCCESS);
 
         MakeAdditionalAllocation();
 
-        while(res == VK_NOT_READY)
+        VmaDefragmentationPassMoveInfo pass;
+        while((res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_INCOMPLETE)
         {
-            VmaDefragmentationPassInfo stepInfo = {};
-            stepInfo.pMoves = moveInfo.data();
-            stepInfo.moveCount = (uint32_t)moveInfo.size();
+            MakeAdditionalAllocation();
 
-            res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &stepInfo);
-            TEST(res >= VK_SUCCESS);
+            // Ignore data outside of test
+            for (uint32_t i = 0; i < pass.moveCount; ++i)
+            {
+                auto it = std::find_if(allocations.begin(), allocations.end(), [&](const AllocInfo& info) { return pass.pMoves[i].srcAllocation == info.m_Allocation; });
+                if (it == allocations.end())
+                {
+                    auto it = std::find_if(additionalAllocations.begin(), additionalAllocations.end(), [&](const AllocInfo& info) { return pass.pMoves[i].srcAllocation == info.m_Allocation; });
+                    if (it == additionalAllocations.end())
+                        pass.pMoves[i].operation = VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE;
+                }
+            }
+
+            BeginSingleTimeCommands();
+            ProcessDefragmentationPass(pass);
+            EndSingleTimeCommands();
 
             MakeAdditionalAllocation();
 
-            BeginSingleTimeCommands();
-            ProcessDefragmentationStepInfo(stepInfo);
-            EndSingleTimeCommands();
-
-            res = vmaEndDefragmentationPass(g_hAllocator, ctx);
-
             // Destroy old buffers/images and replace them with new handles.
-            for(size_t i = 0; i < stepInfo.moveCount; ++i)
+            for (size_t i = 0; i < pass.moveCount; ++i)
             {
-                VmaAllocation const alloc = stepInfo.pMoves[i].allocation;
-                VmaAllocationInfo vmaAllocInfo;
-                vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
-                AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
-                if(allocInfo->m_Buffer)
+                if (pass.pMoves[i].operation != VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE)
                 {
-                    assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
-                    vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
-                    allocInfo->m_Buffer = allocInfo->m_NewBuffer;
-                    allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                    VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
+                    VmaAllocationInfo vmaAllocInfo;
+                    vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
+                    AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
+
+                    if (allocInfo->m_Buffer)
+                    {
+                        assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                        vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                        allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                        allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                    }
+                    else if (allocInfo->m_Image)
+                    {
+                        assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                        vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                        allocInfo->m_Image = allocInfo->m_NewImage;
+                        allocInfo->m_NewImage = VK_NULL_HANDLE;
+                    }
+                    else
+                        assert(0);
                 }
-                else if(allocInfo->m_Image)
-                {
-                    assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
-                    vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
-                    allocInfo->m_Image = allocInfo->m_NewImage;
-                    allocInfo->m_NewImage = VK_NULL_HANDLE;
-                }
-                else
-                    assert(0);
             }
+
+            if ((res = vmaEndDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_SUCCESS)
+                break;
+            TEST(res == VK_INCOMPLETE);
 
             MakeAdditionalAllocation();
         }
 
-        TEST(res >= VK_SUCCESS);
-        vmaDefragmentationEnd(g_hAllocator, ctx);
+        TEST(res == VK_SUCCESS);
+        VmaDefragmentationStats stats = {};
+        vmaEndDefragmentation(g_hAllocator, ctx, &stats);
 
         // If corruption detection is enabled, GPU defragmentation may not work on
         // memory types that have this detection active, e.g. on Intel.
@@ -2862,7 +3095,7 @@ static void TestVirtualBlocksAlgorithms()
     RandomNumberGenerator rand{3454335};
     auto calcRandomAllocSize = [&rand]() -> VkDeviceSize { return rand.Generate() % 20 + 5; };
 
-    for(size_t algorithmIndex = 0; algorithmIndex < 4; ++algorithmIndex)
+    for(size_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
     {
         // Create the block
         VmaVirtualBlockCreateInfo blockCreateInfo = {};
@@ -2871,8 +3104,6 @@ static void TestVirtualBlocksAlgorithms()
         switch(algorithmIndex)
         {
         case 1: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT; break;
-        case 2: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_BUDDY_ALGORITHM_BIT; break;
-        case 3: blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT; break;
         }
         VmaVirtualBlock block = nullptr;
         VkResult res = vmaCreateVirtualBlock(&blockCreateInfo, &block);
@@ -3445,13 +3676,12 @@ static void TestDebugMargin()
     TEST(vmaFindMemoryTypeIndexForBufferInfo(
         g_hAllocator, &bufInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex) == VK_SUCCESS);
     
-    for(size_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
+    for(size_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
     {
         switch(algorithmIndex)
         {
         case 0: poolCreateInfo.flags = 0; break;
-        case 1: poolCreateInfo.flags = VMA_POOL_CREATE_TLSF_ALGORITHM_BIT; break;
-        case 2: poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT; break;
+        case 1: poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT; break;
         default: assert(0);
         }
         VmaPool pool = VK_NULL_HANDLE;
@@ -3528,7 +3758,7 @@ static void TestDebugMarginNotInVirtualAllocator()
     {
         VmaVirtualBlockCreateInfo blockCreateInfo = {};
         blockCreateInfo.size = ALLOCATION_COUNT * MEGABYTE;
-        blockCreateInfo.flags = (algorithm == 1 ? VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT : 0);
+        blockCreateInfo.flags = (algorithm == 1 ? VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT : 0);
 
         VmaVirtualBlock block = VK_NULL_HANDLE;
         TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS);
@@ -4013,16 +4243,26 @@ static void TestAllocationAlgorithmsCorrectness()
         const VkDeviceSize sizeUnit = isVirtual == 2 ? 1 : 0x10000;
         const VkDeviceSize blockSize = (1llu << (LEVEL_COUNT - 1)) * sizeUnit;
 
-        for(uint32_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
+        for(uint32_t algorithmIndex = 0; algorithmIndex < 1; ++algorithmIndex)
         {
             VmaPool pool = VK_NULL_HANDLE;
             VmaVirtualBlock virtualBlock = VK_NULL_HANDLE;
+
+            uint32_t algorithm;
+            switch (algorithmIndex)
+            {
+            case 0:
+                algorithm = 0;
+                break;
+            default:
+                break;
+            }
 
             if(isVirtual)
             {
                 VmaVirtualBlockCreateInfo blockCreateInfo = {};
                 blockCreateInfo.pAllocationCallbacks = g_Allocs;
-                blockCreateInfo.flags = algorithmIndex ? VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT : 0;
+                blockCreateInfo.flags = algorithm;
                 blockCreateInfo.size = blockSize;
                 TEST(vmaCreateVirtualBlock(&blockCreateInfo, &virtualBlock) == VK_SUCCESS);
             }
@@ -4030,7 +4270,7 @@ static void TestAllocationAlgorithmsCorrectness()
             {
                 VmaPoolCreateInfo poolCreateInfo = {};
                 poolCreateInfo.blockSize = blockSize;
-                poolCreateInfo.flags = algorithmIndex ? VMA_POOL_CREATE_TLSF_ALGORITHM_BIT : 0;
+                poolCreateInfo.flags = algorithm;
                 poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
 
                 VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -4552,7 +4792,7 @@ static void BenchmarkAlgorithms(FILE* file)
 
         for(uint32_t emptyIndex = 0; emptyIndex < emptyCount; ++emptyIndex)
         {
-            for(uint32_t algorithmIndex = 0; algorithmIndex < 4; ++algorithmIndex)
+            for(uint32_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
             {
                 uint32_t algorithm = 0;
                 switch(algorithmIndex)
@@ -4560,13 +4800,7 @@ static void BenchmarkAlgorithms(FILE* file)
                 case 0:
                     break;
                 case 1:
-                    algorithm = VMA_POOL_CREATE_BUDDY_ALGORITHM_BIT;
-                    break;
-                case 2:
                     algorithm = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
-                    break;
-                case 3:
-                    algorithm = VMA_POOL_CREATE_TLSF_ALGORITHM_BIT;
                     break;
                 default:
                     assert(0);
@@ -4777,14 +5011,27 @@ static void TestPool_SameSize()
 
     // Defragment!
     {
-        std::vector<VmaAllocation> allocationsToDefragment(items.size());
-        for(size_t i = 0; i < items.size(); ++i)
-            allocationsToDefragment[i] = items[i].Alloc;
+        VmaDefragmentationInfo defragmentationInfo = {};
+        defragmentationInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT;
+        defragmentationInfo.pool = pool;
+
+        VmaDefragmentationContext defragCtx = nullptr;
+        VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragmentationInfo, &defragCtx);
+        TEST(res == VK_SUCCESS);
+
+        VmaDefragmentationPassMoveInfo pass;
+        while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
+        {
+            if ((res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_SUCCESS)
+                break;
+            TEST(res == VK_INCOMPLETE);
+        }
+        TEST(res == VK_SUCCESS);
 
         VmaDefragmentationStats defragmentationStats;
-        res = vmaDefragment(g_hAllocator, allocationsToDefragment.data(), items.size(), nullptr, nullptr, &defragmentationStats);
+        res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragmentationStats);
         TEST(res == VK_SUCCESS);
-        TEST(defragmentationStats.deviceMemoryBlocksFreed == 2);
+        TEST(defragmentationStats.allocationsMoved == 24);
     }
 
     // Free all remaining items.
@@ -6879,7 +7126,7 @@ static void BasicTestTLSF()
     VmaVirtualBlock block;
 
     VmaVirtualBlockCreateInfo blockInfo = {};
-    blockInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT;
+    blockInfo.flags = 0;
     blockInfo.size = 50331648;
     vmaCreateVirtualBlock(&blockInfo, &block);
 
@@ -6904,6 +7151,7 @@ static void BasicTestTLSF()
     vmaDestroyVirtualBlock(block);
 }
 
+#if 0
 static void BasicTestBuddyAllocator()
 {
     wprintf(L"Basic test buddy allocator\n");
@@ -7007,6 +7255,7 @@ static void BasicTestBuddyAllocator()
 
     vmaDestroyPool(g_hAllocator, pool);
 }
+#endif // #if 0
 
 static void BasicTestAllocatePages()
 {
@@ -7187,7 +7436,7 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
             default: assert(0);
             }
 
-            for (uint8_t algorithmIndex = 0; algorithmIndex < 3; ++algorithmIndex)
+            for (uint8_t algorithmIndex = 0; algorithmIndex < 2; ++algorithmIndex)
             {
                 switch (algorithmIndex)
                 {
@@ -7196,9 +7445,6 @@ static void TestVirtualBlocksAlgorithmsBenchmark()
                     break;
                 case 1:
                     blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT;
-                    break;
-                case 2:
-                    blockCreateInfo.flags = VMA_VIRTUAL_BLOCK_CREATE_TLSF_ALGORITHM_BIT;
                     break;
                 default:
                     assert(0);
@@ -7453,12 +7699,11 @@ void Test()
     TestAllocationAlgorithmsCorrectness();
 
     BasicTestTLSF();
-    BasicTestBuddyAllocator();
     BasicTestAllocatePages();
 
-    if(VK_KHR_buffer_device_address_enabled)
+    if (VK_KHR_buffer_device_address_enabled)
         TestBufferDeviceAddress();
-    if(VK_EXT_memory_priority_enabled)
+    if (VK_EXT_memory_priority_enabled)
         TestMemoryPriority();
 
     {
@@ -7469,11 +7714,11 @@ void Test()
         fclose(file);
     }
 
-    if(ConfigType >= CONFIG_TYPE_AVERAGE)
+    if (ConfigType >= CONFIG_TYPE_AVERAGE)
     {
         TestDefragmentationSimple();
+        TestDefragmentationAlgorithms();
         TestDefragmentationFull();
-        TestDefragmentationWholePool();
         TestDefragmentationGpu();
         TestDefragmentationIncrementalBasic();
         TestDefragmentationIncrementalComplex();
