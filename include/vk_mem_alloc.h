@@ -17939,7 +17939,7 @@ enough free space, just scattered across many small free ranges between existing
 allocations.
 
 To mitigate this problem, you can use defragmentation feature.
-It doesn't happen automatically thought and needs your cooperation,
+It doesn't happen automatically though and needs your cooperation,
 because VMA is a low level library that only allocates memory.
 It cannot recreate buffers and images in a new place as it doesn't remember the contents of `VkBufferCreateInfo` / `VkImageCreateInfo` structures.
 It cannot copy their contents as it doesn't record any commands to a command buffer.
@@ -17971,7 +17971,11 @@ for(;;)
         }
         //- Make sure the copy commands finished executing.
         //- Update appropriate descriptors to point to the new places.
-        vmaEndDefragmentationPass(allocator, defragCtx, &pass);
+        res = vmaEndDefragmentationPass(allocator, defragCtx, &pass);
+        if(res == VK_SUCCESS)
+            break;
+        else if(res != VK_INCOMPLETE)
+            // Handle error...
     }
     else
         // Handle error...

@@ -70,7 +70,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p >Interleaved allocations and deallocations of many objects of varying size can cause fragmentation over time, which can lead to a situation where the library is unable to find a continuous range of free memory for a new allocation despite there is enough free space, just scattered across many small free ranges between existing allocations.</p>
-<p >To mitigate this problem, you can use defragmentation feature. It doesn't happen automatically thought and needs your cooperation, because VMA is a low level library that only allocates memory. It cannot recreate buffers and images in a new place as it doesn't remember the contents of <code>VkBufferCreateInfo</code> / <code>VkImageCreateInfo</code> structures. It cannot copy their contents as it doesn't record any commands to a command buffer.</p>
+<p >To mitigate this problem, you can use defragmentation feature. It doesn't happen automatically though and needs your cooperation, because VMA is a low level library that only allocates memory. It cannot recreate buffers and images in a new place as it doesn't remember the contents of <code>VkBufferCreateInfo</code> / <code>VkImageCreateInfo</code> structures. It cannot copy their contents as it doesn't record any commands to a command buffer.</p>
 <p >Example:</p>
 <div class="fragment"><div class="line"><a class="code hl_struct" href="struct_vma_defragmentation_info.html">VmaDefragmentationInfo</a> defragInfo = {};</div>
 <div class="line">defragInfo.<a class="code hl_variable" href="struct_vma_defragmentation_info.html#a18dd2097d8ab2976cdc7dd3e7b978bd4">pool</a> = myPool;</div>
@@ -96,7 +96,11 @@ $(function() {
 <div class="line">        }</div>
 <div class="line">        <span class="comment">//- Make sure the copy commands finished executing.</span></div>
 <div class="line">        <span class="comment">//- Update appropriate descriptors to point to the new places.</span></div>
-<div class="line">        <a class="code hl_function" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226">vmaEndDefragmentationPass</a>(allocator, defragCtx, &amp;pass);</div>
+<div class="line">        res = <a class="code hl_function" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226">vmaEndDefragmentationPass</a>(allocator, defragCtx, &amp;pass);</div>
+<div class="line">        <span class="keywordflow">if</span>(res == VK_SUCCESS)</div>
+<div class="line">            <span class="keywordflow">break</span>;</div>
+<div class="line">        <span class="keywordflow">else</span> <span class="keywordflow">if</span>(res != VK_INCOMPLETE)</div>
+<div class="line">            <span class="comment">// Handle error...</span></div>
 <div class="line">    }</div>
 <div class="line">    <span class="keywordflow">else</span></div>
 <div class="line">        <span class="comment">// Handle error...</span></div>
