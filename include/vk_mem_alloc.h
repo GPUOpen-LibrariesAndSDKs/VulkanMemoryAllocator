@@ -11889,7 +11889,7 @@ VmaAllocation_T::~VmaAllocation_T()
     VMA_ASSERT(m_MapCount == 0 && "Allocation was not unmapped before destruction.");
 
     // Check if owned string was freed.
-    VMA_ASSERT(m_pUserData == VMA_NULL);
+    VMA_ASSERT((IsUserDataString() && m_pUserData == VMA_NULL) || !IsUserDataString());
 }
 
 void VmaAllocation_T::InitBlockAllocation(
@@ -12326,14 +12326,8 @@ VkResult VmaBlockVector::Allocate(
     if (res != VK_SUCCESS)
     {
         // Free all already created allocations.
-        const uint32_t heapIndex = m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex);
         while (allocIndex--)
-        {
-            VmaAllocation_T* const alloc = pAllocations[allocIndex];
-            const VkDeviceSize allocSize = alloc->GetSize();
-            Free(alloc);
-            m_hAllocator->m_Budget.RemoveAllocation(heapIndex, allocSize);
-        }
+            Free(pAllocations[allocIndex]);
         memset(pAllocations, 0, sizeof(VmaAllocation) * allocationCount);
     }
 
@@ -12618,6 +12612,9 @@ void VmaBlockVector::Free(
         pBlockToDelete->Destroy(m_hAllocator);
         vma_delete(m_hAllocator, pBlockToDelete);
     }
+
+    m_hAllocator->m_Budget.RemoveAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), hAllocation->GetSize());
+    m_hAllocator->m_AllocationObjectAllocator.Free(hAllocation);
 }
 
 VkDeviceSize VmaBlockVector::CalcMaxBlockSize() const
@@ -14467,7 +14464,6 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
 
             FreeVulkanMemory(memTypeIndex, currAlloc->GetSize(), hMemory);
             m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), currAlloc->GetSize());
-            currAlloc->SetUserData(this, VMA_NULL);
             m_AllocationObjectAllocator.Free(currAlloc);
         }
 
@@ -14874,10 +14870,6 @@ void VmaAllocator_T::FreeMemory(
             default:
                 VMA_ASSERT(0);
             }
-
-            m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex()), allocation->GetSize());
-            allocation->SetUserData(this, VMA_NULL);
-            m_AllocationObjectAllocator.Free(allocation);
         }
     }
 }
@@ -15477,6 +15469,9 @@ void VmaAllocator_T::FreeDedicatedMemory(const VmaAllocation allocation)
     */
 
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
+
+    m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex()), allocation->GetSize());
+    m_AllocationObjectAllocator.Free(allocation);
 
     VMA_DEBUG_LOG("    Freed DedicatedMemory MemoryTypeIndex=%u", memTypeIndex);
 }

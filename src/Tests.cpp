@@ -7731,11 +7731,11 @@ void Test()
     
     WriteMainTestResultHeader(file);
     PerformMainTests(file);
-    //PerformCustomMainTest(file);
+    PerformCustomMainTest(file);
 
     WritePoolTestResultHeader(file);
     PerformPoolTests(file);
-    //PerformCustomPoolTest(file);
+    PerformCustomPoolTest(file);
     
     fclose(file);
 #endif // #if defined(VMA_DEBUG_MARGIN) && VMA_DEBUG_MARGIN > 0
