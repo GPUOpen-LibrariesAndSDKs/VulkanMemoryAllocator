@@ -13016,7 +13016,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
     VMA_ASSERT(moveInfo.moveCount > 0 ? moveInfo.pMoves != VMA_NULL : true);
 
     VkResult result = VK_SUCCESS;
-    VmaVector<ImmovableBlock, VmaStlAllocator<ImmovableBlock>> immovableBlocks({ m_MoveAllocator.m_pCallbacks });
+    VmaVector<ImmovableBlock, VmaStlAllocator<ImmovableBlock>> immovableBlocks(VmaStlAllocator<ImmovableBlock>(m_MoveAllocator.m_pCallbacks));
     for (uint32_t i = 0; i < moveInfo.moveCount; ++i)
     {
         VmaDefragmentationMove& move = moveInfo.pMoves[i];
