@@ -1406,7 +1406,7 @@ typedef struct VmaDefragmentationMove
     /// Allocation that should be moved.
     VmaAllocation VMA_NOT_NULL srcAllocation;
     /// Destination memory block where the allocation should be moved.
-    VkDeviceMemory dstMemory;
+    VkDeviceMemory VMA_NOT_NULL_NON_DISPATCHABLE dstMemory;
     /// Destination offset where the allocation should be moved.
     VkDeviceSize dstOffset;
     /// Internal data used by VMA. Do not use or modify!
