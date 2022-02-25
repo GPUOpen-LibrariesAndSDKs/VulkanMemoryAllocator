@@ -2685,6 +2685,11 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
     #endif
 #endif
 
+#ifndef VMA_COUNT_BITS_SET
+    // Returns number of bits set to 1 in (v)
+    #define VMA_COUNT_BITS_SET(v) VmaCountBitsSet(v)
+#endif
+
 #ifndef VMA_BITSCAN_LSB
     // Scans integer for index of first nonzero value from the Least Significant Bit (LSB). If mask is 0 then returns UINT8_MAX
     #define VMA_BITSCAN_LSB(mask) VmaBitScanLSB(mask)
@@ -3073,22 +3078,29 @@ class VmaAllocationObjectAllocator;
 #endif // _VMA_FORWARD_DECLARATIONS
 
 
-#ifndef _VMA_FUNCTIONS 
-// Returns number of bits set to 1 in (v).
+#ifndef _VMA_FUNCTIONS
+
+/*
+Returns number of bits set to 1 in (v).
+
+On specific platforms and compilers you can use instrinsics like:
+
+Visual Studio:
+    return __popcnt(v);
+GCC, Clang:
+    return static_cast<uint32_t>(__builtin_popcount(v));
+
+Define macro VMA_COUNT_BITS_SET to provide your optimized implementation.
+But you need to check in runtime whether user's CPU supports these, as some old processors don't.
+*/
 static inline uint32_t VmaCountBitsSet(uint32_t v)
 {
-#ifdef _MSC_VER
-    return __popcnt(v);
-#elif defined __GNUC__ || defined __clang__
-    return static_cast<uint32_t>(__builtin_popcount(v));
-#else
     uint32_t c = v - ((v >> 1) & 0x55555555);
     c = ((c >> 2) & 0x33333333) + (c & 0x33333333);
     c = ((c >> 4) + c) & 0x0F0F0F0F;
     c = ((c >> 8) + c) & 0x00FF00FF;
     c = ((c >> 16) + c) & 0x0000FFFF;
     return c;
-#endif
 }
 
 static inline uint8_t VmaBitScanLSB(uint64_t mask)
@@ -14625,8 +14637,8 @@ VkResult VmaAllocator_T::FindMemoryTypeIndex(
             if((requiredFlags & ~currFlags) == 0)
             {
                 // Calculate cost as number of bits from preferredFlags not present in this memory type.
-                uint32_t currCost = VmaCountBitsSet(preferredFlags & ~currFlags) +
-                    VmaCountBitsSet(currFlags & notPreferredFlags);
+                uint32_t currCost = VMA_COUNT_BITS_SET(preferredFlags & ~currFlags) +
+                    VMA_COUNT_BITS_SET(currFlags & notPreferredFlags);
                 // Remember memory type with lowest cost.
                 if(currCost < minCost)
                 {
