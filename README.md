@@ -39,9 +39,9 @@ This library can help game developers to manage memory allocations and resource 
 Additional features:
 
 - Well-documented - description of all functions and structures provided, along with chapters that contain general description and example code.
-- Thread-safety: Library is designed to be used in multithreaded code. Access to a single device memory block referred by different buffers and textures (binding, mapping) is synchronized internally.
-- Configuration: Fill optional members of CreateInfo structure to provide custom CPU memory allocator, pointers to Vulkan functions and other parameters.
-- Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library, from assert, mutex, and atomic, to vector and linked list. 
+- Thread-safety: Library is designed to be used in multithreaded code. Access to a single device memory block referred by different buffers and textures (binding, mapping) is synchronized internally. Memory mapping is reference-counted.
+- Configuration: Fill optional members of `VmaAllocatorCreateInfo` structure to provide custom CPU memory allocator, pointers to Vulkan functions and other parameters.
+- Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library like assert, mutex, atomic.
 - Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and you get access to mapped pointer.
 - Support for non-coherent memory. Functions that flush/invalidate memory. `nonCoherentAtomSize` is respected automatically.
 - Support for resource aliasing (overlap).
@@ -50,10 +50,11 @@ Additional features:
 - Linear allocator: Create a pool with linear algorithm and use it for much faster allocations and deallocations in free-at-once, stack, double stack, or ring buffer fashion.
 - Support for Vulkan 1.0, 1.1, 1.2, 1.3.
 - Support for extensions (and equivalent functionality included in new Vulkan versions):
-   - VK_EXT_memory_budget: Used internally if available to query for current usage and budget. If not available, it falls back to an estimation based on memory heap sizes.
    - VK_KHR_dedicated_allocation: Just enable it and it will be used automatically by the library.
+   - VK_KHR_buffer_device_address: Flag `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR` is automatically added to memory allocations where needed.
+   - VK_EXT_memory_budget: Used internally if available to query for current usage and budget. If not available, it falls back to an estimation based on memory heap sizes.
+   - VK_EXT_memory_priority: Set `priority` of allocations or custom pools and it will be set automatically using this extension.
    - VK_AMD_device_coherent_memory
-   - VK_KHR_buffer_device_address
 - Defragmentation of GPU and CPU memory: Let the library move data around to free some memory blocks and make your allocations better compacted.
 - Statistics: Obtain detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.
 - Debug annotations: Associate string with name or opaque pointer to your own data with every allocation.
@@ -65,7 +66,7 @@ Additional features:
 
 # Prequisites
 
-- Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan. Some features of C++14 used. STL containers are not used.
+- Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan. Some features of C++14 used. STL containers or C++ exceptions are not used.
 - Public interface in C, in same convention as Vulkan API. Implementation in C++.
 - Error handling implemented by returning `VkResult` error codes - same way as in Vulkan.
 - Interface documented using Doxygen-style comments.
@@ -94,7 +95,7 @@ With this one function call:
 2. `VkDeviceMemory` block is allocated if needed.
 3. An unused region of the memory block is bound to this buffer.
 
-`VmaAllocation` is an object that represents memory assigned to this buffer. It can be queried for parameters like Vulkan memory handle and offset.
+`VmaAllocation` is an object that represents memory assigned to this buffer. It can be queried for parameters like `VkDeviceMemory` handle and offset.
 
 # How to build
 
@@ -115,9 +116,8 @@ The following targets are available
 | ------------- | ------------- | ------------- | ------------- |
 | VmaSample | VMA sample application | `VMA_BUILD_SAMPLE` | `OFF` |
 | VmaBuildSampleShaders | Shaders for VmaSample | `VMA_BUILD_SAMPLE_SHADERS` | `OFF` |
-| VmaReplay | Replay tool for VMA .csv trace files | `VMA_BUILD_REPLAY` | `OFF` |
 
-Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaSample and VmaReplay are not.
+Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaSample is not.
 
 These CMake options are available
 
@@ -134,7 +134,7 @@ These CMake options are available
 
 # Binaries
 
-The release comes with precompiled binary executables for "VulkanSample" application which contains test suite and "VmaReplay" tool. They are compiled using Visual Studio 2019, so they require appropriate libraries to work, including "MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll". If their launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable for Visual Studio 2015, 2017 and 2019](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "x64" version.
+The release comes with precompiled binary executable for "VulkanSample" application which contains test suite. It is compiled using Visual Studio 2019, so it requires appropriate libraries to work, including "MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll". If the launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable for Visual Studio 2015, 2017 and 2019](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "x64" version.
 
 # Read more
 

@@ -89,6 +89,7 @@ License: MIT
 - \subpage vk_amd_device_coherent_memory
 - \subpage general_considerations
   - [Thread safety](@ref general_considerations_thread_safety)
+  - [Versioning and compatibility](@ref general_considerations_versioning_and_compatibility)
   - [Validation layer warnings](@ref general_considerations_validation_layer_warnings)
   - [Allocation algorithm](@ref general_considerations_allocation_algorithm)
   - [Features not supported](@ref general_considerations_features_not_supported)
@@ -587,7 +588,7 @@ typedef enum VmaAllocationCreateFlagBits
     never read or accessed randomly, so a memory type can be selected that is uncached and write-combined.
 
     \warning Violating this declaration may work correctly, but will likely be very slow.
-    Watch out for implicit reads introduces by doing e.g. `pMappedData[i] += x;`
+    Watch out for implicit reads introduced by doing e.g. `pMappedData[i] += x;`
     Better prepare your data in a local variable and `memcpy()` it to the mapped pointer all at once.
     */
     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT = 0x00000400,
@@ -724,7 +725,7 @@ typedef enum VmaDefragmentationFlagBits
 } VmaDefragmentationFlagBits;
 typedef VkFlags VmaDefragmentationFlags;
 
-/// Operation performed on single defragmentation move.
+/// Operation performed on single defragmentation move. See structure #VmaDefragmentationMove.
 typedef enum VmaDefragmentationMoveOperation
 {
     /// Buffer/image has been recreated at `dstMemory` + `dstOffset`, data has been copied, old buffer/image has been destroyed. `srcAllocation` should be changed to point to the new place. This is the default value set by vmaBeginDefragmentationPass().
@@ -1193,7 +1194,7 @@ typedef struct VmaBudget
     Fetched from system using VK_EXT_memory_budget extension if enabled.
 
     It might be different (most probably smaller) than `VkMemoryHeap::size[heapIndex]` due to factors
-    external to the program, like other programs also consuming system resources.
+    external to the program, decided by the operating system.
     Difference `budget - usage` is the amount of additional memory that can probably
     be allocated without problems. Exceeding the budget may result in various problems.
     */
@@ -17945,6 +17946,8 @@ you can achieve behavior of a ring buffer / queue.
 Ring buffer is available only in pools with one memory block -
 VmaPoolCreateInfo::maxBlockCount must be 1. Otherwise behavior is undefined.
 
+\note \ref defragmentation is not supported in custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT.
+
 
 \page defragmentation Defragmentation
 
@@ -18007,7 +18010,7 @@ Unlike in previous iterations of the defragmentation API, there is no list of "m
 Defragmentation algorithm tries to move all suitable allocations.
 You can, however, refuse to move some of them inside a defragmentation pass, by setting
 `pass.pMoves[i].operation` to #VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE.
-However, this is not recommended and may result in suboptimal packing of the allocations after defragmentation.
+This is not recommended and may result in suboptimal packing of the allocations after defragmentation.
 If you cannot ensure any allocation can be moved, it is better to keep movable allocations separate in a custom pool.
 
 You can also decide to destroy an allocation instead of moving it.
@@ -18020,6 +18023,8 @@ See members: VmaDefragmentationInfo::maxBytesPerPass, VmaDefragmentationInfo::ma
 It is also safe to perform the defragmentation asynchronously to render frames and other Vulkan and VMA
 usage, possibly from multiple threads, with the exception that allocations
 returned in VmaDefragmentationPassMoveInfo::pMoves shouldn't be destroyed until the defragmentation pass is ended.
+
+\note Defragmentation is not supported in custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT.
 
 
 \page statistics Statistics
@@ -18503,6 +18508,7 @@ imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 VmaAllocationCreateInfo allocCreateInfo = {};
 allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+allocCreateInfo.priority = 1.0f;
 
 VkImage img;
 VmaAllocation alloc;
@@ -18514,7 +18520,8 @@ Consider creating them as dedicated allocations using #VMA_ALLOCATION_CREATE_DED
 especially if they are large or if you plan to destroy and recreate them with different sizes
 e.g. when display resolution changes.
 Prefer to create such resources first and all other GPU resources (like textures and vertex buffers) later.
-
+When VK_EXT_memory_priority extension is enabled, it is also worth setting high priority to such allocation
+to decrease chances to be evicted to system memory by the operating system.
 
 \section usage_patterns_staging_copy_upload Staging copy for upload
 
@@ -18665,6 +18672,7 @@ else
 
     // [Executed in runtime]:
     memcpy(stagingAllocInfo.pMappedData, myData, myDataSize);
+    //vkCmdPipelineBarrier: VK_ACCESS_HOST_WRITE_BIT --> VK_ACCESS_TRANSFER_READ_BIT
     VkBufferCopy bufCopy = {
         0, // srcOffset
         0, // dstOffset,
@@ -18950,6 +18958,28 @@ accompanying this library.
   threads at the same time if you pass the same #VmaAllocation object to these
   functions.
 - #VmaVirtualBlock is not safe to be used from multiple threads simultaneously.
+
+\section general_considerations_versioning_and_compatibility Versioning and compatibility
+
+The library uses [**Semantic Versioning**](https://semver.org/),
+which means version numbers follow convention: Major.Minor.Patch (e.g. 2.3.0), where:
+
+- Incremented Patch version means a release is backward- and forward-compatible,
+  introducing only some internal improvements, bug fixes, optimizations etc.
+  or changes that are out of scope of the official API described in this documentation.
+- Incremented Minor version means a release is backward-compatible,
+  so existing code that uses the library should continue to work, while some new
+  symbols could have been added: new structures, functions, new values in existing
+  enums and bit flags, new structure members, but not new function parameters.
+- Incrementing Major version means a release could break some backward compatibility.
+
+All changes between official releases are documented in file "CHANGELOG.md".
+
+\warning Backward compatiblity is considered on the level of C++ source code, not binary linkage.
+Adding new members to existing structures is treated as backward compatible if initializing
+the new members to binary zero results in the old behavior.
+You should always fully initialize all library structures to zeros and not rely on their
+exact binary size.
 
 \section general_considerations_validation_layer_warnings Validation layer warnings
 

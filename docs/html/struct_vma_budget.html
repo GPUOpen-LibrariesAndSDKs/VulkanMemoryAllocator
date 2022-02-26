@@ -102,7 +102,7 @@ Public Attributes</h2></td></tr>
 
 <p>Estimated amount of memory available to the program, in bytes. </p>
 <p >Fetched from system using VK_EXT_memory_budget extension if enabled.</p>
-<p >It might be different (most probably smaller) than <code>VkMemoryHeap::size[heapIndex]</code> due to factors external to the program, like other programs also consuming system resources. Difference <code>budget - usage</code> is the amount of additional memory that can probably be allocated without problems. Exceeding the budget may result in various problems. </p>
+<p >It might be different (most probably smaller) than <code>VkMemoryHeap::size[heapIndex]</code> due to factors external to the program, decided by the operating system. Difference <code>budget - usage</code> is the amount of additional memory that can probably be allocated without problems. Exceeding the budget may result in various problems. </p>
 
 </div>
 </div>
