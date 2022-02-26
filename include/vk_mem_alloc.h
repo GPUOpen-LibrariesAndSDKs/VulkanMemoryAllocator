@@ -600,7 +600,7 @@ typedef enum VmaAllocationCreateFlagBits
       This includes allocations created in \ref custom_memory_pools.
 
     Declares that mapped memory can be read, written, and accessed in random order,
-    so a `HOST_CACHED` memory type is preferred.
+    so a `HOST_CACHED` memory type is required.
     */
     VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT = 0x00000800,
     /**
@@ -3639,7 +3639,11 @@ static bool FindMemoryPreferences(
             // GPU access, no CPU access (e.g. a color attachment image) - prefer GPU memory
             if(deviceAccess)
             {
-                outPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+                // ...unless there is a clear preference from the user not to do so.
+                if(preferHost)
+                    outNotPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+                else
+                    outPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
             }
             // No direct GPU access, no CPU access, just transfers.
             // It may be staging copy intended for e.g. preserving image for next frame (then better GPU memory) or
