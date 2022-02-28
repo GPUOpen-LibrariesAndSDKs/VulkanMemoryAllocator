@@ -17788,14 +17788,28 @@ To use custom memory pools:
 Example:
 
 \code
+// Find memoryTypeIndex for the pool.
+VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+sampleBufCreateInfo.size = 0x10000; // Doesn't matter.
+sampleBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+uint32_t memTypeIndex;
+VkResult res = vmaFindMemoryTypeIndexForBufferInfo(allocator,
+    &sampleBufCreateInfo, &sampleAllocCreateInfo, &memTypeIndex);
+// Check res...
+
 // Create a pool that can have at most 2 blocks, 128 MiB each.
 VmaPoolCreateInfo poolCreateInfo = {};
-poolCreateInfo.memoryTypeIndex = ...
+poolCreateInfo.memoryTypeIndex = memTypeIndex;
 poolCreateInfo.blockSize = 128ull * 1024 * 1024;
 poolCreateInfo.maxBlockCount = 2;
 
 VmaPool pool;
-vmaCreatePool(allocator, &poolCreateInfo, &pool);
+res = vmaCreatePool(allocator, &poolCreateInfo, &pool);
+// Check res...
 
 // Allocate a buffer out of it.
 VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -17807,8 +17821,8 @@ allocCreateInfo.pool = pool;
 
 VkBuffer buf;
 VmaAllocation alloc;
-VmaAllocationInfo allocInfo;
-vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
+res = vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
+// Check res...
 \endcode
 
 You have to free all allocations made from this pool before destroying it.

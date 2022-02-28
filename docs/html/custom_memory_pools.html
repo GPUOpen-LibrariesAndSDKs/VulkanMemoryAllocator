@@ -86,14 +86,28 @@ $(function() {
 <li>When making an allocation, set <a class="el" href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150" title="Pool that this allocation should be created in.">VmaAllocationCreateInfo::pool</a> to this handle. You don't need to specify any other parameters of this structure, like <code>usage</code>.</li>
 </ol>
 <p >Example:</p>
-<div class="fragment"><div class="line"><span class="comment">// Create a pool that can have at most 2 blocks, 128 MiB each.</span></div>
+<div class="fragment"><div class="line"><span class="comment">// Find memoryTypeIndex for the pool.</span></div>
+<div class="line">VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };</div>
+<div class="line">sampleBufCreateInfo.size = 0x10000; <span class="comment">// Doesn&#39;t matter.</span></div>
+<div class="line">sampleBufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;</div>
+<div class="line"> </div>
+<div class="line"><a class="code hl_struct" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> sampleAllocCreateInfo = {};</div>
+<div class="line">sampleAllocCreateInfo.<a class="code hl_variable" href="struct_vma_allocation_create_info.html#accb8b06b1f677d858cb9af20705fa910">usage</a> = <a class="code hl_enumvalue" href="group__group__alloc.html#ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e">VMA_MEMORY_USAGE_AUTO</a>;</div>
+<div class="line"> </div>
+<div class="line">uint32_t memTypeIndex;</div>
+<div class="line">VkResult res = <a class="code hl_function" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888">vmaFindMemoryTypeIndexForBufferInfo</a>(allocator,</div>
+<div class="line">    &amp;sampleBufCreateInfo, &amp;sampleAllocCreateInfo, &amp;memTypeIndex);</div>
+<div class="line"><span class="comment">// Check res...</span></div>
+<div class="line"> </div>
+<div class="line"><span class="comment">// Create a pool that can have at most 2 blocks, 128 MiB each.</span></div>
 <div class="line"><a class="code hl_struct" href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a> poolCreateInfo = {};</div>
-<div class="line">poolCreateInfo.<a class="code hl_variable" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319">memoryTypeIndex</a> = ...</div>
-<div class="line">poolCreateInfo.blockSize = 128ull * 1024 * 1024;</div>
+<div class="line">poolCreateInfo.<a class="code hl_variable" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319">memoryTypeIndex</a> = memTypeIndex;</div>
+<div class="line">poolCreateInfo.<a class="code hl_variable" href="struct_vma_pool_create_info.html#aa4265160536cdb9be821b7686c16c676">blockSize</a> = 128ull * 1024 * 1024;</div>
 <div class="line">poolCreateInfo.<a class="code hl_variable" href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c">maxBlockCount</a> = 2;</div>
 <div class="line"> </div>
 <div class="line"><a class="code hl_struct" href="struct_vma_pool.html">VmaPool</a> pool;</div>
-<div class="line"><a class="code hl_function" href="group__group__alloc.html#ga5c8770ded7c59c8caac6de0c2cb00b50">vmaCreatePool</a>(allocator, &amp;poolCreateInfo, &amp;pool);</div>
+<div class="line">res = <a class="code hl_function" href="group__group__alloc.html#ga5c8770ded7c59c8caac6de0c2cb00b50">vmaCreatePool</a>(allocator, &amp;poolCreateInfo, &amp;pool);</div>
+<div class="line"><span class="comment">// Check res...</span></div>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Allocate a buffer out of it.</span></div>
 <div class="line">VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };</div>
@@ -105,16 +119,19 @@ $(function() {
 <div class="line"> </div>
 <div class="line">VkBuffer buf;</div>
 <div class="line"><a class="code hl_struct" href="struct_vma_allocation.html">VmaAllocation</a> alloc;</div>
-<div class="line"><a class="code hl_struct" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> allocInfo;</div>
-<div class="line"><a class="code hl_function" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer</a>(allocator, &amp;bufCreateInfo, &amp;allocCreateInfo, &amp;buf, &amp;alloc, &amp;allocInfo);</div>
+<div class="line">res = <a class="code hl_function" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer</a>(allocator, &amp;bufCreateInfo, &amp;allocCreateInfo, &amp;buf, &amp;alloc, <span class="keyword">nullptr</span>);</div>
+<div class="line"><span class="comment">// Check res...</span></div>
 <div class="ttc" id="agroup__group__alloc_html_ga5c8770ded7c59c8caac6de0c2cb00b50"><div class="ttname"><a href="group__group__alloc.html#ga5c8770ded7c59c8caac6de0c2cb00b50">vmaCreatePool</a></div><div class="ttdeci">VkResult vmaCreatePool(VmaAllocator allocator, const VmaPoolCreateInfo *pCreateInfo, VmaPool *pPool)</div><div class="ttdoc">Allocates Vulkan device memory and creates VmaPool object.</div></div>
 <div class="ttc" id="agroup__group__alloc_html_gac72ee55598617e8eecca384e746bab51"><div class="ttname"><a href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer</a></div><div class="ttdeci">VkResult vmaCreateBuffer(VmaAllocator allocator, const VkBufferCreateInfo *pBufferCreateInfo, const VmaAllocationCreateInfo *pAllocationCreateInfo, VkBuffer *pBuffer, VmaAllocation *pAllocation, VmaAllocationInfo *pAllocationInfo)</div></div>
+<div class="ttc" id="agroup__group__alloc_html_gae790ab9ffaf7667fb8f62523e6897888"><div class="ttname"><a href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888">vmaFindMemoryTypeIndexForBufferInfo</a></div><div class="ttdeci">VkResult vmaFindMemoryTypeIndexForBufferInfo(VmaAllocator allocator, const VkBufferCreateInfo *pBufferCreateInfo, const VmaAllocationCreateInfo *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</div><div class="ttdoc">Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.</div></div>
+<div class="ttc" id="agroup__group__alloc_html_ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e"><div class="ttname"><a href="group__group__alloc.html#ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e">VMA_MEMORY_USAGE_AUTO</a></div><div class="ttdeci">@ VMA_MEMORY_USAGE_AUTO</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:489</div></div>
 <div class="ttc" id="astruct_vma_allocation_create_info_html"><div class="ttname"><a href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a></div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1212</div></div>
 <div class="ttc" id="astruct_vma_allocation_create_info_html_a6272c0555cfd1fe28bff1afeb6190150"><div class="ttname"><a href="struct_vma_allocation_create_info.html#a6272c0555cfd1fe28bff1afeb6190150">VmaAllocationCreateInfo::pool</a></div><div class="ttdeci">VmaPool pool</div><div class="ttdoc">Pool that this allocation should be created in.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1244</div></div>
+<div class="ttc" id="astruct_vma_allocation_create_info_html_accb8b06b1f677d858cb9af20705fa910"><div class="ttname"><a href="struct_vma_allocation_create_info.html#accb8b06b1f677d858cb9af20705fa910">VmaAllocationCreateInfo::usage</a></div><div class="ttdeci">VmaMemoryUsage usage</div><div class="ttdoc">Intended usage of memory.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1220</div></div>
 <div class="ttc" id="astruct_vma_allocation_html"><div class="ttname"><a href="struct_vma_allocation.html">VmaAllocation</a></div><div class="ttdoc">Represents single memory allocation.</div></div>
-<div class="ttc" id="astruct_vma_allocation_info_html"><div class="ttname"><a href="struct_vma_allocation_info.html">VmaAllocationInfo</a></div><div class="ttdoc">Parameters of VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1327</div></div>
 <div class="ttc" id="astruct_vma_pool_create_info_html"><div class="ttname"><a href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a></div><div class="ttdoc">Describes parameter of created VmaPool.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1263</div></div>
 <div class="ttc" id="astruct_vma_pool_create_info_html_a596fa76b685d3f1f688f84a709a5b319"><div class="ttname"><a href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319">VmaPoolCreateInfo::memoryTypeIndex</a></div><div class="ttdeci">uint32_t memoryTypeIndex</div><div class="ttdoc">Vulkan memory type index to allocate this pool from.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1266</div></div>
+<div class="ttc" id="astruct_vma_pool_create_info_html_aa4265160536cdb9be821b7686c16c676"><div class="ttname"><a href="struct_vma_pool_create_info.html#aa4265160536cdb9be821b7686c16c676">VmaPoolCreateInfo::blockSize</a></div><div class="ttdeci">VkDeviceSize blockSize</div><div class="ttdoc">Size of a single VkDeviceMemory block to be allocated as part of this pool, in bytes....</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1279</div></div>
 <div class="ttc" id="astruct_vma_pool_create_info_html_ae41142f2834fcdc82baa4883c187b75c"><div class="ttname"><a href="struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c">VmaPoolCreateInfo::maxBlockCount</a></div><div class="ttdeci">size_t maxBlockCount</div><div class="ttdoc">Maximum number of blocks that can be allocated in this pool. Optional.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1292</div></div>
 <div class="ttc" id="astruct_vma_pool_html"><div class="ttname"><a href="struct_vma_pool.html">VmaPool</a></div><div class="ttdoc">Represents custom memory pool.</div></div>
 </div><!-- fragment --><p >You have to free all allocations made from this pool before destroying it.</p>
@@ -140,9 +157,6 @@ Choosing memory type index</h1>
 <div class="line"><a class="code hl_struct" href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a> poolCreateInfo = {};</div>
 <div class="line">poolCreateInfo.<a class="code hl_variable" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319">memoryTypeIndex</a> = memTypeIndex;</div>
 <div class="line"><span class="comment">// ...</span></div>
-<div class="ttc" id="agroup__group__alloc_html_gae790ab9ffaf7667fb8f62523e6897888"><div class="ttname"><a href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888">vmaFindMemoryTypeIndexForBufferInfo</a></div><div class="ttdeci">VkResult vmaFindMemoryTypeIndexForBufferInfo(VmaAllocator allocator, const VkBufferCreateInfo *pBufferCreateInfo, const VmaAllocationCreateInfo *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</div><div class="ttdoc">Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.</div></div>
-<div class="ttc" id="agroup__group__alloc_html_ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e"><div class="ttname"><a href="group__group__alloc.html#ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e">VMA_MEMORY_USAGE_AUTO</a></div><div class="ttdeci">@ VMA_MEMORY_USAGE_AUTO</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:489</div></div>
-<div class="ttc" id="astruct_vma_allocation_create_info_html_accb8b06b1f677d858cb9af20705fa910"><div class="ttname"><a href="struct_vma_allocation_create_info.html#accb8b06b1f677d858cb9af20705fa910">VmaAllocationCreateInfo::usage</a></div><div class="ttdeci">VmaMemoryUsage usage</div><div class="ttdoc">Intended usage of memory.</div><div class="ttdef"><b>Definition:</b> vk_mem_alloc.h:1220</div></div>
 </div><!-- fragment --><p >When creating buffers/images allocated in that pool, provide following parameters:</p>
 <ul>
 <li><code>VkBufferCreateInfo</code>: Prefer to pass same parameters as above. Otherwise you risk creating resources in a memory type that is not suitable for them, which may result in undefined behavior. Using different <code>VK_BUFFER_USAGE_</code> flags may work, but you shouldn't create images in a pool intended for buffers or the other way around.</li>
