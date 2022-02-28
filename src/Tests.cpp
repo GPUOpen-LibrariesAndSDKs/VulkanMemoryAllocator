@@ -1604,7 +1604,7 @@ static void Defragment(VmaDefragmentationInfo& defragmentationInfo,
     VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragmentationInfo, &defragCtx);
     TEST(res == VK_SUCCESS);
 
-    VmaDefragmentationPassMoveInfo pass;
+    VmaDefragmentationPassMoveInfo pass = {};
     while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
     {
         BeginSingleTimeCommands();
@@ -1698,7 +1698,7 @@ void TestDefragmentationSimple()
         VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
         TEST(res == VK_SUCCESS);
 
-        VmaDefragmentationPassMoveInfo pass;
+        VmaDefragmentationPassMoveInfo pass = {};
         res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass);
         TEST(res == VK_SUCCESS);
 
@@ -1779,7 +1779,7 @@ void TestDefragmentationSimple()
 
             for (size_t i = 0; i < BLOCK_SIZE / BUF_SIZE / 2; ++i)
             {
-                VmaDefragmentationPassMoveInfo pass;
+                VmaDefragmentationPassMoveInfo pass = {};
                 res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass);
                 TEST(res == VK_INCOMPLETE);
 
@@ -1872,7 +1872,7 @@ void TestDefragmentationSimple()
             VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
             TEST(res == VK_SUCCESS);
 
-            VmaDefragmentationPassMoveInfo pass;
+            VmaDefragmentationPassMoveInfo pass = {};
             while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
             {
                 VmaDefragmentationMove* end = pass.pMoves + pass.moveCount;
@@ -2061,7 +2061,7 @@ void TestDefragmentationAlgorithms()
             VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx);
             TEST(res == VK_SUCCESS);
 
-            VmaDefragmentationPassMoveInfo pass;
+            VmaDefragmentationPassMoveInfo pass = {};
             while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
             {
                 VmaDefragmentationMove* end = pass.pMoves + pass.moveCount;
@@ -2429,7 +2429,7 @@ static void TestDefragmentationIncrementalBasic()
         VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &ctx);
         TEST(res == VK_SUCCESS);
 
-        VmaDefragmentationPassMoveInfo pass;
+        VmaDefragmentationPassMoveInfo pass = {};
         while ((res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_INCOMPLETE)
         {
             // Ignore data outside of test
@@ -2614,7 +2614,7 @@ void TestDefragmentationIncrementalComplex()
 
         MakeAdditionalAllocation();
 
-        VmaDefragmentationPassMoveInfo pass;
+        VmaDefragmentationPassMoveInfo pass = {};
         while((res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_INCOMPLETE)
         {
             MakeAdditionalAllocation();
@@ -5019,7 +5019,7 @@ static void TestPool_SameSize()
         VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragmentationInfo, &defragCtx);
         TEST(res == VK_SUCCESS);
 
-        VmaDefragmentationPassMoveInfo pass;
+        VmaDefragmentationPassMoveInfo pass = {};
         while ((res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_INCOMPLETE)
         {
             if ((res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass)) == VK_SUCCESS)

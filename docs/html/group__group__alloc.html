@@ -71,12 +71,13 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p>API elements related to the allocation, deallocation, and management of Vulkan memory, buffers, images. Most basic ones being: <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>.  
+<p>API elements related to the allocation, deallocation, and management of Vulkan memory, buffers, images. Most basic ones being: <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>.  
 <a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of new <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a>.  <a href="struct_vma_allocation_create_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Describes parameter of created <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>.  <a href="struct_vma_pool_create_info.html#details">More...</a><br /></td></tr>
@@ -115,6 +116,7 @@ Typedefs</h2></td></tr>
 <tr class="memdesc:ga4fceecc301f4064dc808d3cd6c038941"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum.">VmaAllocationCreateInfo::flags</a>.  <a href="group__group__alloc.html#ga4fceecc301f4064dc808d3cd6c038941">More...</a><br /></td></tr>
 <tr class="separator:ga4fceecc301f4064dc808d3cd6c038941"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga5225e5e11f8376f6a31a1791f3d6e817"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga5225e5e11f8376f6a31a1791f3d6e817">VmaAllocationCreateFlags</a></td></tr>
+<tr class="memdesc:ga5225e5e11f8376f6a31a1791f3d6e817"><td class="mdescLeft">&#160;</td><td class="mdescRight">See <a class="el" href="group__group__alloc.html#gad9889c10c798b040d59c92f257cae597" title="Flags to be passed as VmaAllocationCreateInfo::flags.">VmaAllocationCreateFlagBits</a>.  <a href="group__group__alloc.html#ga5225e5e11f8376f6a31a1791f3d6e817">More...</a><br /></td></tr>
 <tr class="separator:ga5225e5e11f8376f6a31a1791f3d6e817"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga4d4f2efc2509157a9e4ecd4fd7942303"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="group__group__alloc.html#ga9a7c45f9c863695d98c83fa5ac940fe7">VmaPoolCreateFlagBits</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga4d4f2efc2509157a9e4ecd4fd7942303">VmaPoolCreateFlagBits</a></td></tr>
 <tr class="memdesc:ga4d4f2efc2509157a9e4ecd4fd7942303"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_pool_create_info.html#a8405139f63d078340ae74513a59f5446" title="Use combination of VmaPoolCreateFlagBits.">VmaPoolCreateInfo::flags</a>.  <a href="group__group__alloc.html#ga4d4f2efc2509157a9e4ecd4fd7942303">More...</a><br /></td></tr>
@@ -126,11 +128,13 @@ Typedefs</h2></td></tr>
 <tr class="memdesc:ga13415cc0b443353a7b5abda300b833fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags to be passed as <a class="el" href="struct_vma_defragmentation_info.html#a3e23080c978ecf3abb3180f5b2069da7" title="Use combination of VmaDefragmentationFlagBits.">VmaDefragmentationInfo::flags</a>.  <a href="group__group__alloc.html#ga13415cc0b443353a7b5abda300b833fc">More...</a><br /></td></tr>
 <tr class="separator:ga13415cc0b443353a7b5abda300b833fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga88a77cef37e5d3c4fc9eb328885d048d"><td class="memItemLeft" align="right" valign="top">typedef VkFlags&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga88a77cef37e5d3c4fc9eb328885d048d">VmaDefragmentationFlags</a></td></tr>
+<tr class="memdesc:ga88a77cef37e5d3c4fc9eb328885d048d"><td class="mdescLeft">&#160;</td><td class="mdescRight">See <a class="el" href="group__group__alloc.html#ga6552a65b71d16f378c6994b3ceaef50c" title="Flags to be passed as VmaDefragmentationInfo::flags.">VmaDefragmentationFlagBits</a>.  <a href="group__group__alloc.html#ga88a77cef37e5d3c4fc9eb328885d048d">More...</a><br /></td></tr>
 <tr class="separator:ga88a77cef37e5d3c4fc9eb328885d048d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga2ea666deeb3c2c74806a097e27cdb4a1"><td class="memItemLeft" align="right" valign="top">typedef enum <a class="el" href="group__group__alloc.html#gada9e3861caf96f08894b0bcc160ec257">VmaDefragmentationMoveOperation</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga2ea666deeb3c2c74806a097e27cdb4a1">VmaDefragmentationMoveOperation</a></td></tr>
 <tr class="memdesc:ga2ea666deeb3c2c74806a097e27cdb4a1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Operation performed on single defragmentation move. See structure <a class="el" href="struct_vma_defragmentation_move.html" title="Single move of an allocation to be done for defragmentation.">VmaDefragmentationMove</a>.  <a href="group__group__alloc.html#ga2ea666deeb3c2c74806a097e27cdb4a1">More...</a><br /></td></tr>
 <tr class="separator:ga2ea666deeb3c2c74806a097e27cdb4a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga3bf110892ea2fb4649fedb68488d026a"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga3bf110892ea2fb4649fedb68488d026a">VmaAllocationCreateInfo</a></td></tr>
+<tr class="memdesc:ga3bf110892ea2fb4649fedb68488d026a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of new <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a>.  <a href="group__group__alloc.html#ga3bf110892ea2fb4649fedb68488d026a">More...</a><br /></td></tr>
 <tr class="separator:ga3bf110892ea2fb4649fedb68488d026a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga1017aa83489c0eee8d2163d2bf253f67"><td class="memItemLeft" align="right" valign="top">typedef struct <a class="el" href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga1017aa83489c0eee8d2163d2bf253f67">VmaPoolCreateInfo</a></td></tr>
 <tr class="memdesc:ga1017aa83489c0eee8d2163d2bf253f67"><td class="mdescLeft">&#160;</td><td class="mdescRight">Describes parameter of created <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a>.  <a href="group__group__alloc.html#ga1017aa83489c0eee8d2163d2bf253f67">More...</a><br /></td></tr>
@@ -229,13 +233,13 @@ Enumerations</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gaef15a94b58fbcb0fe706d5720e84a74a">vmaFindMemoryTypeIndex</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryTypeBits, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</td></tr>
-<tr class="memdesc:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given memoryTypeBits and <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>.  <a href="group__group__alloc.html#gaef15a94b58fbcb0fe706d5720e84a74a">More...</a><br /></td></tr>
+<tr class="memdesc:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given memoryTypeBits and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <a href="group__group__alloc.html#gaef15a94b58fbcb0fe706d5720e84a74a">More...</a><br /></td></tr>
 <tr class="separator:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae790ab9ffaf7667fb8f62523e6897888"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888">vmaFindMemoryTypeIndexForBufferInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</td></tr>
-<tr class="memdesc:gae790ab9ffaf7667fb8f62523e6897888"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given VkBufferCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>.  <a href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888">More...</a><br /></td></tr>
+<tr class="memdesc:gae790ab9ffaf7667fb8f62523e6897888"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given VkBufferCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <a href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888">More...</a><br /></td></tr>
 <tr class="separator:gae790ab9ffaf7667fb8f62523e6897888"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472">vmaFindMemoryTypeIndexForImageInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkImageCreateInfo *pImageCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</td></tr>
-<tr class="memdesc:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given VkImageCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>.  <a href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472">More...</a><br /></td></tr>
+<tr class="memdesc:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given VkImageCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <a href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472">More...</a><br /></td></tr>
 <tr class="separator:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga5c8770ded7c59c8caac6de0c2cb00b50"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga5c8770ded7c59c8caac6de0c2cb00b50">vmaCreatePool</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const <a class="el" href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_pool.html">VmaPool</a> *pPool)</td></tr>
 <tr class="memdesc:ga5c8770ded7c59c8caac6de0c2cb00b50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocates Vulkan device memory and creates <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object.  <a href="group__group__alloc.html#ga5c8770ded7c59c8caac6de0c2cb00b50">More...</a><br /></td></tr>
@@ -259,12 +263,13 @@ Functions</h2></td></tr>
 <tr class="memdesc:gad37e82e492b3de38fc3f4cffd9ad0ae1"><td class="mdescLeft">&#160;</td><td class="mdescRight">General purpose memory allocation for multiple allocation objects at once.  <a href="group__group__alloc.html#gad37e82e492b3de38fc3f4cffd9ad0ae1">More...</a><br /></td></tr>
 <tr class="separator:gad37e82e492b3de38fc3f4cffd9ad0ae1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga7fdf64415b6c3d83c454f28d2c53df7b"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkBuffer buffer, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
+<tr class="memdesc:ga7fdf64415b6c3d83c454f28d2c53df7b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocates memory suitable for given <code>VkBuffer</code>.  <a href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">More...</a><br /></td></tr>
 <tr class="separator:ga7fdf64415b6c3d83c454f28d2c53df7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga0faa3f9e5fb233d29d1e00390650febb"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb">vmaAllocateMemoryForImage</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkImage image, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
-<tr class="memdesc:ga0faa3f9e5fb233d29d1e00390650febb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function similar to <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>.  <a href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb">More...</a><br /></td></tr>
+<tr class="memdesc:ga0faa3f9e5fb233d29d1e00390650febb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocates memory suitable for given <code>VkImage</code>.  <a href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb">More...</a><br /></td></tr>
 <tr class="separator:ga0faa3f9e5fb233d29d1e00390650febb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga5fea5518972ae9094b1526cbcb19b05f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f">vmaFreeMemory</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
-<tr class="memdesc:ga5fea5518972ae9094b1526cbcb19b05f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory previously allocated using <a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation.">vmaAllocateMemory()</a>, <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer().">vmaAllocateMemoryForImage()</a>.  <a href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f">More...</a><br /></td></tr>
+<tr class="memdesc:ga5fea5518972ae9094b1526cbcb19b05f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory previously allocated using <a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation.">vmaAllocateMemory()</a>, <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b" title="Allocates memory suitable for given VkBuffer.">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Allocates memory suitable for given VkImage.">vmaAllocateMemoryForImage()</a>.  <a href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f">More...</a><br /></td></tr>
 <tr class="separator:ga5fea5518972ae9094b1526cbcb19b05f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga834b1e4aef395c0a1d56a28e69a4a17e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga834b1e4aef395c0a1d56a28e69a4a17e">vmaFreeMemoryPages</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, size_t allocationCount, const <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocations)</td></tr>
 <tr class="memdesc:ga834b1e4aef395c0a1d56a28e69a4a17e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory and destroys multiple allocations.  <a href="group__group__alloc.html#ga834b1e4aef395c0a1d56a28e69a4a17e">More...</a><br /></td></tr>
@@ -324,6 +329,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:gaa8251ee81b0045a443e35b8e8aa021bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Binds image to allocation with additional parameters.  <a href="group__group__alloc.html#gaa8251ee81b0045a443e35b8e8aa021bc">More...</a><br /></td></tr>
 <tr class="separator:gaa8251ee81b0045a443e35b8e8aa021bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gac72ee55598617e8eecca384e746bab51"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, VkBuffer *pBuffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
+<tr class="memdesc:gac72ee55598617e8eecca384e746bab51"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a new <code>VkBuffer</code>, allocates and binds memory for it.  <a href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">More...</a><br /></td></tr>
 <tr class="separator:gac72ee55598617e8eecca384e746bab51"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaa06a690013a0d01e60894ac378083834"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gaa06a690013a0d01e60894ac378083834">vmaCreateBufferWithAlignment</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, VkDeviceSize minAlignment, VkBuffer *pBuffer, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
 <tr class="memdesc:gaa06a690013a0d01e60894ac378083834"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a buffer with additional minimum alignment.  <a href="group__group__alloc.html#gaa06a690013a0d01e60894ac378083834">More...</a><br /></td></tr>
@@ -332,14 +338,14 @@ Functions</h2></td></tr>
 <tr class="memdesc:ga0d9f4e4ba5bf9aab1f1c746387753d77"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroys Vulkan buffer and frees allocated memory.  <a href="group__group__alloc.html#ga0d9f4e4ba5bf9aab1f1c746387753d77">More...</a><br /></td></tr>
 <tr class="separator:ga0d9f4e4ba5bf9aab1f1c746387753d77"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga02a94f25679275851a53e82eacbcfc73"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73">vmaCreateImage</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkImageCreateInfo *pImageCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, VkImage *pImage, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> *pAllocation, <a class="el" href="struct_vma_allocation_info.html">VmaAllocationInfo</a> *pAllocationInfo)</td></tr>
-<tr class="memdesc:ga02a94f25679275851a53e82eacbcfc73"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function similar to <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>.  <a href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73">More...</a><br /></td></tr>
+<tr class="memdesc:ga02a94f25679275851a53e82eacbcfc73"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function similar to <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>.  <a href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73">More...</a><br /></td></tr>
 <tr class="separator:ga02a94f25679275851a53e82eacbcfc73"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae50d2cb3b4a3bfd4dd40987234e50e7e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gae50d2cb3b4a3bfd4dd40987234e50e7e">vmaDestroyImage</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, VkImage image, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation)</td></tr>
 <tr class="memdesc:gae50d2cb3b4a3bfd4dd40987234e50e7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroys Vulkan image and frees allocated memory.  <a href="group__group__alloc.html#gae50d2cb3b4a3bfd4dd40987234e50e7e">More...</a><br /></td></tr>
 <tr class="separator:gae50d2cb3b4a3bfd4dd40987234e50e7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<p >API elements related to the allocation, deallocation, and management of Vulkan memory, buffers, images. Most basic ones being: <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. </p>
+<p >API elements related to the allocation, deallocation, and management of Vulkan memory, buffers, images. Most basic ones being: <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. </p>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="ga4fceecc301f4064dc808d3cd6c038941" name="ga4fceecc301f4064dc808d3cd6c038941"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ga4fceecc301f4064dc808d3cd6c038941">&#9670;&nbsp;</a></span>VmaAllocationCreateFlagBits</h2>
@@ -369,6 +375,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>See <a class="el" href="group__group__alloc.html#gad9889c10c798b040d59c92f257cae597" title="Flags to be passed as VmaAllocationCreateInfo::flags.">VmaAllocationCreateFlagBits</a>. </p>
+
 </div>
 </div>
 <a id="ga3bf110892ea2fb4649fedb68488d026a" name="ga3bf110892ea2fb4649fedb68488d026a"></a>
@@ -382,6 +390,9 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Parameters of new <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a>. </p>
+<p >To be used with functions like <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, and many others. </p>
 
 </div>
 </div>
@@ -428,6 +439,8 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>See <a class="el" href="group__group__alloc.html#ga6552a65b71d16f378c6994b3ceaef50c" title="Flags to be passed as VmaDefragmentationInfo::flags.">VmaDefragmentationFlagBits</a>. </p>
 
 </div>
 </div>
@@ -613,7 +626,7 @@ Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df" name="ggad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df"></a>VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT&#160;</td><td class="fielddoc"><p >Allocation will be created from upper stack in a double stack pool.</p>
 <p >This flag is only allowed for custom pools created with <a class="el" href="group__group__alloc.html#gga9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726" title="Enables alternative, linear allocation algorithm in this pool.">VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT</a> flag. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea" name="ggad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea"></a>VMA_ALLOCATION_CREATE_DONT_BIND_BIT&#160;</td><td class="fielddoc"><p >Create both buffer/image and allocation, but don't bind them together. It is useful when you want to bind yourself to do some more advanced binding, e.g. using some extensions. The flag is meaningful only with functions that bind by default: <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. Otherwise it is ignored. </p>
+<tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea" name="ggad9889c10c798b040d59c92f257cae597a2310568c62208af432724305fe29ccea"></a>VMA_ALLOCATION_CREATE_DONT_BIND_BIT&#160;</td><td class="fielddoc"><p >Create both buffer/image and allocation, but don't bind them together. It is useful when you want to bind yourself to do some more advanced binding, e.g. using some extensions. The flag is meaningful only with functions that bind by default: <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. Otherwise it is ignored. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597ab8b1764f3e9022368e440c057783b92d" name="ggad9889c10c798b040d59c92f257cae597ab8b1764f3e9022368e440c057783b92d"></a>VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT&#160;</td><td class="fielddoc"><p >Create allocation only if additional device memory required for it, if any, won't exceed memory budget. Otherwise return <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code>. </p>
 </td></tr>
@@ -719,7 +732,7 @@ Functions</h2></td></tr>
 
 <p>Intended usage of the allocated memory. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd" name="ggaa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd"></a>VMA_MEMORY_USAGE_UNKNOWN&#160;</td><td class="fielddoc"><p >No intended memory usage specified. Use other members of <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> to specify your requirements. </p>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd" name="ggaa5846affa1e9da3800e3e78fae2305ccaf50d27e34e0925cf3a63db8c839121dd"></a>VMA_MEMORY_USAGE_UNKNOWN&#160;</td><td class="fielddoc"><p >No intended memory usage specified. Use other members of <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a> to specify your requirements. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7" name="ggaa5846affa1e9da3800e3e78fae2305ccac6b5dc1432d88647aa4cd456246eadf7"></a>VMA_MEMORY_USAGE_GPU_ONLY&#160;</td><td class="fielddoc"><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000001">Deprecated:</a></b></dt><dd>Obsolete, preserved for backward compatibility. Prefers <code>VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT</code>. </dd></dl>
 </td></tr>
@@ -737,15 +750,15 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e" name="ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e"></a>VMA_MEMORY_USAGE_AUTO&#160;</td><td class="fielddoc"><p >Selects best memory type automatically. This flag is recommended for most common use cases.</p>
 <p >When using this flag, if you want to map the allocation (using <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> or <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a>), you must pass one of the flags: <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a9be224df3bfc1cfa06203aed689a30c5">VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT</a> or <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597add61238d98e20917b9a06c617763f492">VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT</a> in <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum.">VmaAllocationCreateInfo::flags</a>.</p>
-<p >It can be used only with functions that let the library know <code>VkBufferCreateInfo</code> or <code>VkImageCreateInfo</code>, e.g. <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888" title="Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForBufferInfo()</a>, <a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472" title="Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForImageInfo()</a> and not with generic memory allocation functions. </p>
+<p >It can be used only with functions that let the library know <code>VkBufferCreateInfo</code> or <code>VkImageCreateInfo</code>, e.g. <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888" title="Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForBufferInfo()</a>, <a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472" title="Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForImageInfo()</a> and not with generic memory allocation functions. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305ccae2adb696d6a73c18bb20c23666661327" name="ggaa5846affa1e9da3800e3e78fae2305ccae2adb696d6a73c18bb20c23666661327"></a>VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE&#160;</td><td class="fielddoc"><p >Selects best memory type automatically with preference for GPU (device) memory.</p>
 <p >When using this flag, if you want to map the allocation (using <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> or <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a>), you must pass one of the flags: <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a9be224df3bfc1cfa06203aed689a30c5">VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT</a> or <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597add61238d98e20917b9a06c617763f492">VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT</a> in <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum.">VmaAllocationCreateInfo::flags</a>.</p>
-<p >It can be used only with functions that let the library know <code>VkBufferCreateInfo</code> or <code>VkImageCreateInfo</code>, e.g. <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888" title="Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForBufferInfo()</a>, <a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472" title="Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForImageInfo()</a> and not with generic memory allocation functions. </p>
+<p >It can be used only with functions that let the library know <code>VkBufferCreateInfo</code> or <code>VkImageCreateInfo</code>, e.g. <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888" title="Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForBufferInfo()</a>, <a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472" title="Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForImageInfo()</a> and not with generic memory allocation functions. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca9b422585242160b8ed3418310ee6664d" name="ggaa5846affa1e9da3800e3e78fae2305cca9b422585242160b8ed3418310ee6664d"></a>VMA_MEMORY_USAGE_AUTO_PREFER_HOST&#160;</td><td class="fielddoc"><p >Selects best memory type automatically with preference for CPU (host) memory.</p>
 <p >When using this flag, if you want to map the allocation (using <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> or <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a>), you must pass one of the flags: <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a9be224df3bfc1cfa06203aed689a30c5">VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT</a> or <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597add61238d98e20917b9a06c617763f492">VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT</a> in <a class="el" href="struct_vma_allocation_create_info.html#add09658ac14fe290ace25470ddd6d41b" title="Use VmaAllocationCreateFlagBits enum.">VmaAllocationCreateInfo::flags</a>.</p>
-<p >It can be used only with functions that let the library know <code>VkBufferCreateInfo</code> or <code>VkImageCreateInfo</code>, e.g. <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888" title="Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForBufferInfo()</a>, <a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472" title="Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForImageInfo()</a> and not with generic memory allocation functions. </p>
+<p >It can be used only with functions that let the library know <code>VkBufferCreateInfo</code> or <code>VkImageCreateInfo</code>, e.g. <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888" title="Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForBufferInfo()</a>, <a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472" title="Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.">vmaFindMemoryTypeIndexForImageInfo()</a> and not with generic memory allocation functions. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaa5846affa1e9da3800e3e78fae2305cca091e69437ef693e8d0d287f1c719ba6e" name="ggaa5846affa1e9da3800e3e78fae2305cca091e69437ef693e8d0d287f1c719ba6e"></a>VMA_MEMORY_USAGE_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>
@@ -768,8 +781,8 @@ Functions</h2></td></tr>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="gga9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2" name="gga9a7c45f9c863695d98c83fa5ac940fe7a9f1a499508a8edb4e8ba40aa0290a3d2"></a>VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT&#160;</td><td class="fielddoc"><p >Use this flag if you always allocate only buffers and linear images or only optimal images out of this pool and so Buffer-Image Granularity can be ignored. </p>
 <p >This is an optional optimization flag.</p>
-<p >If you always allocate using <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, then you don't need to use it because allocator knows exact type of your allocations so it can handle Buffer-Image Granularity in the optimal way.</p>
-<p >If you also allocate using <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer().">vmaAllocateMemoryForImage()</a> or <a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation.">vmaAllocateMemory()</a>, exact type of such allocations is not known, so allocator must be conservative in handling Buffer-Image Granularity, which can lead to suboptimal allocation (wasted memory). In that case, if you can make sure you always allocate only buffers and linear images or only optimal images out of this pool, use this flag to make allocator disregard Buffer-Image Granularity and so make allocations faster and more optimal. </p>
+<p >If you always allocate using <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>, <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b" title="Allocates memory suitable for given VkBuffer.">vmaAllocateMemoryForBuffer()</a>, then you don't need to use it because allocator knows exact type of your allocations so it can handle Buffer-Image Granularity in the optimal way.</p>
+<p >If you also allocate using <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Allocates memory suitable for given VkImage.">vmaAllocateMemoryForImage()</a> or <a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation.">vmaAllocateMemory()</a>, exact type of such allocations is not known, so allocator must be conservative in handling Buffer-Image Granularity, which can lead to suboptimal allocation (wasted memory). In that case, if you can make sure you always allocate only buffers and linear images or only optimal images out of this pool, use this flag to make allocator disregard Buffer-Image Granularity and so make allocations faster and more optimal. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="gga9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726" name="gga9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726"></a>VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT&#160;</td><td class="fielddoc"><p >Enables alternative, linear allocation algorithm in this pool. </p>
 <p >Specify this flag to enable linear allocation algorithm, which always creates new allocations after last one and doesn't reuse space from allocations freed in between. It trades memory consumption for simplified algorithm and data structure, which has better performance and uses less memory for metadata.</p>
@@ -839,7 +852,7 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <p>You should free the memory using <a class="el" href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a> or <a class="el" href="group__group__alloc.html#ga834b1e4aef395c0a1d56a28e69a4a17e" title="Frees memory and destroys multiple allocations.">vmaFreeMemoryPages()</a>.</p>
-<p >It is recommended to use <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer().">vmaAllocateMemoryForImage()</a>, <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a> instead whenever possible. </p>
+<p >It is recommended to use <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b" title="Allocates memory suitable for given VkBuffer.">vmaAllocateMemoryForBuffer()</a>, <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Allocates memory suitable for given VkImage.">vmaAllocateMemoryForImage()</a>, <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a> instead whenever possible. </p>
 
 </div>
 </div>
@@ -886,6 +899,8 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Allocates memory suitable for given <code>VkBuffer</code>. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
@@ -896,7 +911,9 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<p>You should free the memory using <a class="el" href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a>. </p>
+<p>It only creates <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a>. To bind the memory to the buffer, use <a class="el" href="group__group__alloc.html#ga6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a>.</p>
+<p >This is a special-purpose function. In most cases you should use <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>.</p>
+<p >You must free the allocation using <a class="el" href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a> when no longer needed. </p>
 
 </div>
 </div>
@@ -944,7 +961,20 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Function similar to <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>. </p>
+<p>Allocates memory suitable for given <code>VkImage</code>. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">image</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="group__group__alloc.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>It only creates <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a>. To bind the memory to the buffer, use <a class="el" href="group__group__alloc.html#ga3d3ca45799923aa5d138e9e5f9eb2da5" title="Binds image to allocation.">vmaBindImageMemory()</a>.</p>
+<p >This is a special-purpose function. In most cases you should use <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>.</p>
+<p >You must free the allocation using <a class="el" href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a> when no longer needed. </p>
 
 </div>
 </div>
@@ -1144,7 +1174,7 @@ Functions</h2></td></tr>
 
 <p>Binds buffer to allocation. </p>
 <p >Binds specified buffer to region of memory represented by specified allocation. Gets <code>VkDeviceMemory</code> handle and offset from the allocation. If you want to create a buffer, allocate memory for it and bind them together separately, you should use this function for binding instead of standard <code>vkBindBufferMemory()</code>, because it ensures proper synchronization so that when a <code>VkDeviceMemory</code> object is used by multiple allocations, calls to <code>vkBind*Memory()</code> or <code>vkMapMemory()</code> won't happen from multiple threads simultaneously (which is illegal in Vulkan).</p>
-<p >It is recommended to use function <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a> instead of this one. </p>
+<p >It is recommended to use function <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a> instead of this one. </p>
 
 </div>
 </div>
@@ -1438,6 +1468,8 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Creates a new <code>VkBuffer</code>, allocates and binds memory for it. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
@@ -1519,7 +1551,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates a buffer with additional minimum alignment. </p>
-<p >Similar to <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a> but provides additional parameter <code>minAlignment</code> which allows to specify custom, minimum alignment to be used when placing the buffer inside a larger memory block, which may be needed e.g. for interop with OpenGL. </p>
+<p >Similar to <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a> but provides additional parameter <code>minAlignment</code> which allows to specify custom, minimum alignment to be used when placing the buffer inside a larger memory block, which may be needed e.g. for interop with OpenGL. </p>
 
 </div>
 </div>
@@ -1573,7 +1605,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Function similar to <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>. </p>
+<p>Function similar to <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>. </p>
 
 </div>
 </div>
@@ -1866,7 +1898,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Helps to find memoryTypeIndex, given memoryTypeBits and <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>. </p>
+<p>Helps to find memoryTypeIndex, given memoryTypeBits and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
 <p >This algorithm tries to find a memory type that:</p>
 <ul>
 <li>Is allowed by memoryTypeBits.</li>
@@ -1916,7 +1948,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Helps to find memoryTypeIndex, given VkBufferCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>. </p>
+<p>Helps to find memoryTypeIndex, given VkBufferCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
 <p >It can be useful e.g. to determine value to be used as <a class="el" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319" title="Vulkan memory type index to allocate this pool from.">VmaPoolCreateInfo::memoryTypeIndex</a>. It internally creates a temporary, dummy buffer that never has memory bound. </p>
 
 </div>
@@ -1959,7 +1991,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Helps to find memoryTypeIndex, given VkImageCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a>. </p>
+<p>Helps to find memoryTypeIndex, given VkImageCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
 <p >It can be useful e.g. to determine value to be used as <a class="el" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319" title="Vulkan memory type index to allocate this pool from.">VmaPoolCreateInfo::memoryTypeIndex</a>. It internally creates a temporary, dummy image that never has memory bound. </p>
 
 </div>
@@ -2102,7 +2134,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Frees memory previously allocated using <a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation.">vmaAllocateMemory()</a>, <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Function similar to vmaAllocateMemoryForBuffer().">vmaAllocateMemoryForImage()</a>. </p>
+<p>Frees memory previously allocated using <a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8" title="General purpose memory allocation.">vmaAllocateMemory()</a>, <a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b" title="Allocates memory suitable for given VkBuffer.">vmaAllocateMemoryForBuffer()</a>, or <a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb" title="Allocates memory suitable for given VkImage.">vmaAllocateMemoryForImage()</a>. </p>
 <p >Passing <code>VK_NULL_HANDLE</code> as <code>allocation</code> is valid. Such function call is just skipped. </p>
 
 </div>
@@ -2179,7 +2211,7 @@ Functions</h2></td></tr>
 
 <p>Returns current information about specified allocation. </p>
 <p >Current paramteres of given allocation are returned in <code>pAllocationInfo</code>.</p>
-<p >Although this function doesn't lock any mutex, so it should be quite efficient, you should avoid calling it too often. You can retrieve same <a class="el" href="struct_vma_allocation_info.html" title="Parameters of VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().">VmaAllocationInfo</a> structure while creating your resource, from function <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. You can remember it if you are sure parameters don't change (e.g. due to defragmentation). </p>
+<p >Although this function doesn't lock any mutex, so it should be quite efficient, you should avoid calling it too often. You can retrieve same <a class="el" href="struct_vma_allocation_info.html" title="Parameters of VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().">VmaAllocationInfo</a> structure while creating your resource, from function <a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a>. You can remember it if you are sure parameters don't change (e.g. due to defragmentation). </p>
 
 </div>
 </div>
