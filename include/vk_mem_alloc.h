@@ -2116,6 +2116,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckCorruption(
 \param allocator Allocator object.
 \param pInfo Structure filled with parameters of defragmentation.
 \param[out] pContext Context object that must be passed to vmaEndDefragmentation() to finish defragmentation.
+\returns
+- `VK_SUCCESS` if defragmentation can begin.
+- `VK_ERROR_FEATURE_NOT_PRESENT` if defragmentation is not supported.
 
 For more information about defragmentation, see documentation chapter:
 [Defragmentation](@ref defragmentation).
@@ -5987,7 +5990,7 @@ public:
     bool IsMappingAllowed() const { return (m_Flags & FLAG_MAPPING_ALLOWED) != 0; }
 
     void SetUserData(VmaAllocator hAllocator, void* pUserData);
-    void SwapBlockAllocation(VmaAllocation allocation);
+    uint8_t SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocation allocation);
     VmaAllocHandle GetAllocHandle() const;
     VkDeviceSize GetOffset() const;
     VmaPool GetParentPool() const;
@@ -6280,6 +6283,7 @@ public:
     // Validates all data structures inside this object. If not valid, returns false.
     virtual bool Validate() const = 0;
     virtual size_t GetAllocationCount() const = 0;
+    virtual size_t GetFreeRegionsCount() const = 0;
     virtual VkDeviceSize GetSumFreeSize() const = 0;
     // Returns true if this block is empty - contains only single free suballocation.
     virtual bool IsEmpty() const = 0;
@@ -6289,6 +6293,7 @@ public:
 
     virtual VmaAllocHandle GetAllocationListBegin() const = 0;
     virtual VmaAllocHandle GetNextAllocation(VmaAllocHandle prevAlloc) const = 0;
+    virtual VkDeviceSize GetNextFreeRegionSize(VmaAllocHandle alloc) const = 0;
 
     // Shouldn't modify blockCount.
     virtual void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const = 0;
@@ -7590,6 +7595,7 @@ public:
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
     size_t GetAllocationCount() const override;
+    size_t GetFreeRegionsCount() const override;
 
     void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
     void AddStatistics(VmaStatistics& inoutStats) const override;
@@ -7618,6 +7624,7 @@ public:
     void* GetAllocationUserData(VmaAllocHandle allocHandle) const override;
     VmaAllocHandle GetAllocationListBegin() const override;
     VmaAllocHandle GetNextAllocation(VmaAllocHandle prevAlloc) const override;
+    VkDeviceSize GetNextFreeRegionSize(VmaAllocHandle alloc) const override;
     void Clear() override;
     void SetAllocationUserData(VmaAllocHandle allocHandle, void* userData) override;
     void DebugLogAllAllocations() const override;
@@ -7854,6 +7861,13 @@ size_t VmaBlockMetadata_Linear::GetAllocationCount() const
 {
     return AccessSuballocations1st().size() - m_1stNullItemsBeginCount - m_1stNullItemsMiddleCount +
         AccessSuballocations2nd().size() - m_2ndNullItemsCount;
+}
+
+size_t VmaBlockMetadata_Linear::GetFreeRegionsCount() const
+{
+    // Function only used for defragmentation, which is disabled for this algorithm
+    VMA_ASSERT(0);
+    return SIZE_MAX;
 }
 
 void VmaBlockMetadata_Linear::AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const
@@ -8725,6 +8739,13 @@ VmaAllocHandle VmaBlockMetadata_Linear::GetNextAllocation(VmaAllocHandle prevAll
     // Function only used for defragmentation, which is disabled for this algorithm
     VMA_ASSERT(0);
     return VK_NULL_HANDLE;
+}
+
+VkDeviceSize VmaBlockMetadata_Linear::GetNextFreeRegionSize(VmaAllocHandle alloc) const
+{
+    // Function only used for defragmentation, which is disabled for this algorithm
+    VMA_ASSERT(0);
+    return 0;
 }
 
 void VmaBlockMetadata_Linear::Clear()
@@ -9925,6 +9946,7 @@ public:
     virtual ~VmaBlockMetadata_TLSF();
 
     size_t GetAllocationCount() const override { return m_AllocCount; }
+    size_t GetFreeRegionsCount() const override { return m_BlocksFreeCount + 1; }
     VkDeviceSize GetSumFreeSize() const override { return m_BlocksFreeSize + m_NullBlock->size; }
     bool IsEmpty() const override { return m_NullBlock->offset == 0; }
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return ((Block*)allocHandle)->offset; };
@@ -9958,6 +9980,7 @@ public:
     void* GetAllocationUserData(VmaAllocHandle allocHandle) const override;
     VmaAllocHandle GetAllocationListBegin() const override;
     VmaAllocHandle GetNextAllocation(VmaAllocHandle prevAlloc) const override;
+    VkDeviceSize GetNextFreeRegionSize(VmaAllocHandle alloc) const override;
     void Clear() override;
     void SetAllocationUserData(VmaAllocHandle allocHandle, void* userData) override;
     void DebugLogAllAllocations() const override;
@@ -10634,6 +10657,16 @@ VmaAllocHandle VmaBlockMetadata_TLSF::GetNextAllocation(VmaAllocHandle prevAlloc
     return VK_NULL_HANDLE;
 }
 
+VkDeviceSize VmaBlockMetadata_TLSF::GetNextFreeRegionSize(VmaAllocHandle alloc) const
+{
+    Block* block = (Block*)alloc;
+    VMA_ASSERT(!block->IsFree() && "Incorrect block!");
+
+    if (block->prevPhysical)
+        return block->prevPhysical->IsFree() ? block->prevPhysical->size : 0;
+    return 0;
+}
+
 void VmaBlockMetadata_TLSF::Clear()
 {
     m_AllocCount = 0;
@@ -10975,10 +11008,15 @@ public:
     VkResult DefragmentPassEnd(VmaDefragmentationPassMoveInfo& moveInfo);
 
 private:
-    struct ImmovableBlock
+    struct FragmentedBlock
     {
-        uint32_t vectorIndex;
+        uint32_t data;
         VmaDeviceMemoryBlock* block;
+    };
+    struct StateBalanced
+    {
+        VkDeviceSize avgFreeSize = 0;
+        VkDeviceSize avgAllocSize = UINT64_MAX;
     };
     struct StateExtensive
     {
@@ -11022,10 +11060,11 @@ private:
 
     bool ComputeDefragmentation(VmaBlockVector& vector, size_t index);
     bool ComputeDefragmentation_Fast(VmaBlockVector& vector);
-    bool ComputeDefragmentation_Balanced(VmaBlockVector& vector);
+    bool ComputeDefragmentation_Balanced(VmaBlockVector& vector, size_t index, bool update);
     bool ComputeDefragmentation_Full(VmaBlockVector& vector);
     bool ComputeDefragmentation_Extensive(VmaBlockVector& vector, size_t index);
 
+    void UpdateVectorStatistics(VmaBlockVector& vector, StateBalanced& state);
     bool MoveDataToFreeBlocks(VmaSuballocationType currentType,
         VmaBlockVector& vector, size_t firstFreeBlock,
         bool& texturePresent, bool& bufferPresent, bool& otherPresent);
@@ -12008,11 +12047,16 @@ void VmaAllocation_T::SetUserData(VmaAllocator hAllocator, void* pUserData)
     }
 }
 
-void VmaAllocation_T::SwapBlockAllocation(VmaAllocation allocation)
+uint8_t VmaAllocation_T::SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocation allocation)
 {
     VMA_ASSERT(allocation != VMA_NULL);
     VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK);
     VMA_ASSERT(allocation->m_Type == ALLOCATION_TYPE_BLOCK);
+
+    m_MapCount = allocation->m_MapCount;
+    if (m_MapCount != 0)
+        m_BlockAllocation.m_Block->Unmap(hAllocator, m_MapCount);
+    allocation->m_MapCount = 0;
 
     m_BlockAllocation.m_Block->m_pMetadata->SetAllocationUserData(m_BlockAllocation.m_AllocHandle, allocation);
     VMA_SWAP(m_BlockAllocation, allocation->m_BlockAllocation);
@@ -12021,6 +12065,7 @@ void VmaAllocation_T::SwapBlockAllocation(VmaAllocation allocation)
 #if VMA_STATS_STRING_ENABLED
     VMA_SWAP(m_BufferImageUsage, allocation->m_BufferImageUsage);
 #endif
+    return m_MapCount;
 }
 
 VmaAllocHandle VmaAllocation_T::GetAllocHandle() const
@@ -12988,6 +13033,13 @@ VmaDefragmentationContext_T::VmaDefragmentationContext_T(
     
     switch (m_Algorithm)
     {
+    case 0: // Default algorithm
+        m_Algorithm = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT;
+    case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT:
+    {
+        m_AlgorithmState = vma_new_array(hAllocator, StateBalanced, m_BlockVectorCount);
+        break;
+    }
     case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT:
     {
         if (hAllocator->GetBufferImageGranularity() > 1)
@@ -13005,6 +13057,9 @@ VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
     {
         switch (m_Algorithm)
         {
+        case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT:
+            vma_delete_array(m_MoveAllocator.m_pCallbacks, reinterpret_cast<StateBalanced*>(m_AlgorithmState), m_BlockVectorCount);
+            break;
         case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT:
             vma_delete_array(m_MoveAllocator.m_pCallbacks, reinterpret_cast<StateExtensive*>(m_AlgorithmState), m_BlockVectorCount);
             break;
@@ -13059,7 +13114,11 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
     VMA_ASSERT(moveInfo.moveCount > 0 ? moveInfo.pMoves != VMA_NULL : true);
 
     VkResult result = VK_SUCCESS;
-    VmaVector<ImmovableBlock, VmaStlAllocator<ImmovableBlock>> immovableBlocks(VmaStlAllocator<ImmovableBlock>(m_MoveAllocator.m_pCallbacks));
+    VmaStlAllocator<FragmentedBlock> blockAllocator(m_MoveAllocator.m_pCallbacks);
+    VmaVector<FragmentedBlock, VmaStlAllocator<FragmentedBlock>> immovableBlocks(blockAllocator);
+    VmaVector<FragmentedBlock, VmaStlAllocator<FragmentedBlock>> mappedBlocks(blockAllocator);
+
+    VmaAllocator allocator = VMA_NULL;
     for (uint32_t i = 0; i < moveInfo.moveCount; ++i)
     {
         VmaDefragmentationMove& move = moveInfo.pMoves[i];
@@ -13085,7 +13144,25 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         {
         case VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY:
         {
-            move.srcAllocation->SwapBlockAllocation(dst);
+            uint8_t mapCount = move.srcAllocation->SwapBlockAllocation(vector->m_hAllocator, dst);
+            if (mapCount > 0)
+            {
+                allocator = vector->m_hAllocator;
+                VmaDeviceMemoryBlock* newMapBlock = move.srcAllocation->GetBlock();
+                bool notPresent = true;
+                for (FragmentedBlock& block : mappedBlocks)
+                {
+                    if (block.block == newMapBlock)
+                    {
+                        notPresent = false;
+                        block.data += mapCount;
+                        break;
+                    }
+                }
+                if (notPresent)
+                    mappedBlocks.push_back({ mapCount, newMapBlock });
+            }
+
             prevCount = vector->GetBlockCount();
             freedBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
             vector->Free(dst, false);
@@ -13101,7 +13178,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
 
             VmaDeviceMemoryBlock* newBlock = move.srcAllocation->GetBlock();
             bool notPresent = true;
-            for (const ImmovableBlock& block : immovableBlocks)
+            for (const FragmentedBlock& block : immovableBlocks)
             {
                 if (block.block == newBlock)
                 {
@@ -13173,12 +13250,12 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             {
                 bool swapped = false;
                 // Move to the start of free blocks range
-                for (const ImmovableBlock& block : immovableBlocks)
+                for (const FragmentedBlock& block : immovableBlocks)
                 {
-                    StateExtensive& state = reinterpret_cast<StateExtensive*>(m_AlgorithmState)[block.vectorIndex];
+                    StateExtensive& state = reinterpret_cast<StateExtensive*>(m_AlgorithmState)[block.data];
                     if (state.operation != StateExtensive::Operation::Cleanup)
                     {
-                        VmaBlockVector* vector = m_pBlockVectors[block.vectorIndex];
+                        VmaBlockVector* vector = m_pBlockVectors[block.data];
                         for (size_t i = 0, count = vector->GetBlockCount() - m_ImmovableBlockCount; i < count; ++i)
                         {
                             if (vector->GetBlock(i) == block.block)
@@ -13205,9 +13282,9 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         default:
         {
             // Move to the begining
-            for (const ImmovableBlock& block : immovableBlocks)
+            for (const FragmentedBlock& block : immovableBlocks)
             {
-                VmaBlockVector* vector = m_pBlockVectors[block.vectorIndex];
+                VmaBlockVector* vector = m_pBlockVectors[block.data];
                 for (size_t i = m_ImmovableBlockCount; vector->GetBlockCount(); ++i)
                 {
                     if (vector->GetBlock(i) == block.block)
@@ -13221,6 +13298,13 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         }
         }
     }
+
+    // Bulk-map destination blocks
+    for (const FragmentedBlock& block : mappedBlocks)
+    {
+        VkResult res = block.block->Map(allocator, block.data, VMA_NULL);
+        VMA_ASSERT(res == VK_SUCCESS);
+    }
     return result;
 }
 
@@ -13230,9 +13314,10 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation(VmaBlockVector& vector,
     {
     case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FAST_BIT:
         return ComputeDefragmentation_Fast(vector);
-    default: // Default algoritm
+    default:
+        VMA_ASSERT(0);
     case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT:
-        return ComputeDefragmentation_Balanced(vector);
+        return ComputeDefragmentation_Balanced(vector, index, true);
     case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT:
         return ComputeDefragmentation_Full(vector);
     case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT:
@@ -13389,19 +13474,26 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Fast(VmaBlockVector& ve
     return false;
 }
 
-bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector& vector)
+bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector& vector, size_t index, bool update)
 {
     // Go over every allocation and try to fit it in previous blocks at lowest offsets,
     // if not possible: realloc within single block to minimize offset (exclude offset == 0),
     // but only if there are noticable gaps between them (some heuristic, ex. average size of allocation in block)
+    VMA_ASSERT(m_AlgorithmState != VMA_NULL);
 
     VkDeviceSize currentBytesMoved = 0;
     uint32_t currentAllocsMoved = 0;
 
+    StateBalanced& vectorState = reinterpret_cast<StateBalanced*>(m_AlgorithmState)[index];
+    if (update && vectorState.avgAllocSize == UINT64_MAX)
+        UpdateVectorStatistics(vector, vectorState);
+
+    VkDeviceSize minimalFreeRegion = vectorState.avgFreeSize / 2;
     for (size_t i = vector.GetBlockCount() - 1; i > m_ImmovableBlockCount; --i)
     {
         VmaDeviceMemoryBlock* block = vector.GetBlock(i);
         VmaBlockMetadata* metadata = block->m_pMetadata;
+        VkDeviceSize prevFreeRegionSize = 0;
 
         for (VmaAllocHandle handle = metadata->GetAllocationListBegin();
             handle != VK_NULL_HANDLE;
@@ -13417,43 +13509,59 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
             if (AllocInOtherBlock(0, i, moveData, vector))
                 return true;
 
+            VkDeviceSize nextFreeRegionSize = metadata->GetNextFreeRegionSize(handle);
             // If no room found then realloc within block for lower offset
             VkDeviceSize offset = moveData.move.srcAllocation->GetOffset();
             if (prevMoveCount == m_Moves.size() && offset != 0 && metadata->GetSumFreeSize() >= moveData.size)
             {
-                VmaAllocationRequest request = {};
-                if (metadata->CreateAllocationRequest(
-                    moveData.size,
-                    moveData.alignment,
-                    false,
-                    moveData.type,
-                    VMA_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT,
-                    &request))
+                // Check if realloc will make sense
+                if (prevFreeRegionSize >= minimalFreeRegion ||
+                    nextFreeRegionSize >= minimalFreeRegion ||
+                    moveData.size <= vectorState.avgFreeSize ||
+                    moveData.size <= vectorState.avgAllocSize)
                 {
-                    if (metadata->GetAllocationOffset(request.allocHandle) < offset)
+                    VmaAllocationRequest request = {};
+                    if (metadata->CreateAllocationRequest(
+                        moveData.size,
+                        moveData.alignment,
+                        false,
+                        moveData.type,
+                        VMA_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT,
+                        &request))
                     {
-                        VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(moveData.move.internalData);
-                        if (vector.CommitAllocationRequest(
-                            request,
-                            block,
-                            moveData.alignment,
-                            moveData.flags,
-                            this,
-                            moveData.type,
-                            &dst) == VK_SUCCESS)
+                        if (metadata->GetAllocationOffset(request.allocHandle) < offset)
                         {
-                            moveData.move.dstMemory = dst->GetMemory();
-                            moveData.move.dstOffset = dst->GetOffset();
-                            m_Moves.push_back(moveData.move);
-                            currentBytesMoved += moveData.size;
+                            VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(moveData.move.internalData);
+                            if (vector.CommitAllocationRequest(
+                                request,
+                                block,
+                                moveData.alignment,
+                                moveData.flags,
+                                this,
+                                moveData.type,
+                                &dst) == VK_SUCCESS)
+                            {
+                                moveData.move.dstMemory = dst->GetMemory();
+                                moveData.move.dstOffset = dst->GetOffset();
+                                m_Moves.push_back(moveData.move);
+                                currentBytesMoved += moveData.size;
 
-                            if (IncrementCounters(currentAllocsMoved, currentBytesMoved))
-                                return true;
+                                if (IncrementCounters(currentAllocsMoved, currentBytesMoved))
+                                    return true;
+                            }
                         }
                     }
                 }
             }
+            prevFreeRegionSize = nextFreeRegionSize;
         }
+    }
+    
+    // No moves perfomed, update statistics to current vector state
+    if (currentAllocsMoved == 0 && !update)
+    {
+        vectorState.avgAllocSize = UINT64_MAX;
+        return ComputeDefragmentation_Balanced(vector, index, false);
     }
 
     m_Stats.bytesMoved += currentBytesMoved;
@@ -13695,6 +13803,27 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             vectorState.operation = StateExtensive::Operation::Done;
     }
     return false;
+}
+
+void VmaDefragmentationContext_T::UpdateVectorStatistics(VmaBlockVector& vector, StateBalanced& state)
+{
+    size_t allocCount = 0;
+    size_t freeCount = 0;
+    state.avgFreeSize = 0;
+    state.avgAllocSize = 0;
+
+    for (size_t i = 0; i < vector.GetBlockCount(); ++i)
+    {
+        VmaBlockMetadata* metadata = vector.GetBlock(i)->m_pMetadata;
+
+        allocCount += metadata->GetAllocationCount();
+        freeCount += metadata->GetFreeRegionsCount();
+        state.avgFreeSize += metadata->GetSumFreeSize();
+        state.avgAllocSize += metadata->GetSize();
+    }
+
+    state.avgAllocSize = (state.avgAllocSize - state.avgFreeSize) / allocCount;
+    state.avgFreeSize /= freeCount;
 }
 
 bool VmaDefragmentationContext_T::MoveDataToFreeBlocks(VmaSuballocationType currentType, 
@@ -16609,6 +16738,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentation(
     VMA_ASSERT(allocator && pInfo && pContext);
 
     VMA_DEBUG_LOG("vmaBeginDefragmentation");
+
+    if (pInfo->pool != VMA_NULL)
+    {
+        // Check if run on supported algorithms
+        if (pInfo->pool->m_BlockVector.GetAlgorithm() & VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT)
+            return VK_ERROR_FEATURE_NOT_PRESENT;
+    }
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 

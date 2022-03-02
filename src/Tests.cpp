@@ -1666,7 +1666,7 @@ void TestDefragmentationSimple()
     const VkDeviceSize MAX_BUF_SIZE = BUF_SIZE * 4;
     auto RandomBufSize = [&]() -> VkDeviceSize
     {
-        return align_up<VkDeviceSize>(rand.Generate() % (MAX_BUF_SIZE - MIN_BUF_SIZE + 1) + MIN_BUF_SIZE, 32);
+        return align_up<VkDeviceSize>(rand.Generate() % (MAX_BUF_SIZE - MIN_BUF_SIZE + 1) + MIN_BUF_SIZE, 64);
     };
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -1941,14 +1941,14 @@ void TestDefragmentationAlgorithms()
     const VkDeviceSize MAX_BUF_SIZE = BUF_SIZE * 4;
     auto RandomBufSize = [&]() -> VkDeviceSize
     {
-        return align_up<VkDeviceSize>(rand.Generate() % (MAX_BUF_SIZE - MIN_BUF_SIZE + 1) + MIN_BUF_SIZE, 32);
+        return align_up<VkDeviceSize>(rand.Generate() % (MAX_BUF_SIZE - MIN_BUF_SIZE + 1) + MIN_BUF_SIZE, 64);
     };
 
     const uint32_t MIN_TEX_SIZE = 512;
     const uint32_t MAX_TEX_SIZE = TEX_SIZE * 4;
     auto RandomTexSize = [&]() -> uint32_t
     {
-        return align_up<uint32_t>(rand.Generate() % (MAX_TEX_SIZE - MIN_TEX_SIZE + 1) + MIN_TEX_SIZE, 32);
+        return align_up<uint32_t>(rand.Generate() % (MAX_TEX_SIZE - MIN_TEX_SIZE + 1) + MIN_TEX_SIZE, 64);
     };
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -2026,7 +2026,7 @@ void TestDefragmentationAlgorithms()
                 CreateImage(allocCreateInfo, imageCreateInfo, VK_IMAGE_LAYOUT_GENERAL, false, allocInfo);
                 allocations.push_back(allocInfo);
             }
-
+            
             const uint32_t percentToDelete = 55;
             const size_t numberToDelete = allocations.size() * percentToDelete / 100;
             for (size_t i = 0; i < numberToDelete; ++i)
@@ -2084,7 +2084,7 @@ void TestDefragmentationAlgorithms()
                 // Destroy old buffers/images and replace them with new handles.
                 for (size_t i = 0; i < pass.moveCount; ++i)
                 {
-                    if (pass.pMoves[i].operation != VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE)
+                    if (pass.pMoves[i].operation == VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY)
                     {
                         VmaAllocation const alloc = pass.pMoves[i].srcAllocation;
                         VmaAllocationInfo vmaAllocInfo;
