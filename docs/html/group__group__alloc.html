@@ -280,6 +280,9 @@ Functions</h2></td></tr>
 <tr class="memitem:gaf9147d31ffc11d62fc187bde283ed14f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f">vmaSetAllocationUserData</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, void *pUserData)</td></tr>
 <tr class="memdesc:gaf9147d31ffc11d62fc187bde283ed14f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets pUserData in given allocation to new value.  <a href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f">More...</a><br /></td></tr>
 <tr class="separator:gaf9147d31ffc11d62fc187bde283ed14f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gabe02cbb0cd913b3f125958179f2020fc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc">vmaSetAllocationName</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, const char *pName)</td></tr>
+<tr class="memdesc:gabe02cbb0cd913b3f125958179f2020fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets pName in given allocation to new value.  <a href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc">More...</a><br /></td></tr>
+<tr class="separator:gabe02cbb0cd913b3f125958179f2020fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga571e87dd38e552249b56b1b0b982fad1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__alloc.html#ga571e87dd38e552249b56b1b0b982fad1">vmaGetAllocationMemoryProperties</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_allocation.html">VmaAllocation</a> allocation, VkMemoryPropertyFlags *pFlags)</td></tr>
 <tr class="memdesc:ga571e87dd38e552249b56b1b0b982fad1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given an allocation, returns Property Flags of its memory type.  <a href="group__group__alloc.html#ga571e87dd38e552249b56b1b0b982fad1">More...</a><br /></td></tr>
 <tr class="separator:ga571e87dd38e552249b56b1b0b982fad1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -621,7 +624,8 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597ae9290dbcf5817e7616d5802e2aa251e7" name="ggad9889c10c798b040d59c92f257cae597ae9290dbcf5817e7616d5802e2aa251e7"></a>VMA_ALLOCATION_CREATE_RESERVED_2_BIT&#160;</td><td class="fielddoc"><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000007">Deprecated:</a></b></dt><dd>Removed. Do not use. </dd></dl>
 </td></tr>
-<tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520" name="ggad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520"></a>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT&#160;</td><td class="fielddoc"><p >Set this flag to treat <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> as pointer to a null-terminated string. Instead of copying pointer value, a local copy of the string is made and stored in allocation's <code>pUserData</code>. The string is automatically freed together with the allocation. It is also used in <a class="el" href="group__group__stats.html#gaa4fee7eb5253377599ef4fd38c93c2a0" title="Builds and returns statistics as a null-terminated string in JSON format.">vmaBuildStatsString()</a>. </p>
+<tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520" name="ggad9889c10c798b040d59c92f257cae597aa6f24f821cd6a7c5e4a443f7bf59c520"></a>VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT&#160;</td><td class="fielddoc"><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000008">Deprecated:</a></b></dt><dd>Preserved for backward compatibility. Consider using <a class="el" href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc" title="Sets pName in given allocation to new value.">vmaSetAllocationName()</a> instead.</dd></dl>
+<p >Set this flag to treat <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> as pointer to a null-terminated string. Instead of copying pointer value, a local copy of the string is made and stored in allocation's <code>pName</code>. The string is automatically freed together with the allocation. It is also used in <a class="el" href="group__group__stats.html#gaa4fee7eb5253377599ef4fd38c93c2a0" title="Builds and returns statistics as a null-terminated string in JSON format.">vmaBuildStatsString()</a>. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df" name="ggad9889c10c798b040d59c92f257cae597a42ba3a2d2c7117953210b7c3ef8da0df"></a>VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT&#160;</td><td class="fielddoc"><p >Allocation will be created from upper stack in a double stack pool.</p>
 <p >This flag is only allowed for custom pools created with <a class="el" href="group__group__alloc.html#gga9a7c45f9c863695d98c83fa5ac940fe7a13c8a444197c67866be9cb05599fc726" title="Enables alternative, linear allocation algorithm in this pool.">VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT</a> flag. </p>
@@ -1083,10 +1087,15 @@ Functions</h2></td></tr>
   <table class="params">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pInfo</td><td>Structure filled with parameters of defragmentation. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pContext</td><td>Context object that must be passed to <a class="el" href="group__group__alloc.html#ga729a594b45ae1681096940a44f3eb174" title="Ends defragmentation process.">vmaEndDefragmentation()</a> to finish defragmentation.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pContext</td><td>Context object that must be passed to <a class="el" href="group__group__alloc.html#ga729a594b45ae1681096940a44f3eb174" title="Ends defragmentation process.">vmaEndDefragmentation()</a> to finish defragmentation. </td></tr>
   </table>
   </dd>
 </dl>
+<dl class="section return"><dt>Returns</dt><dd><ul>
+<li><code>VK_SUCCESS</code> if defragmentation can begin.</li>
+<li><code>VK_ERROR_FEATURE_NOT_PRESENT</code> if defragmentation is not supported.</li>
+</ul>
+</dd></dl>
 <p>For more information about defragmentation, see documentation chapter: <a class="el" href="defragmentation.html">Defragmentation</a>. </p>
 
 </div>
@@ -2445,6 +2454,43 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="gabe02cbb0cd913b3f125958179f2020fc" name="gabe02cbb0cd913b3f125958179f2020fc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gabe02cbb0cd913b3f125958179f2020fc">&#9670;&nbsp;</a></span>vmaSetAllocationName()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaSetAllocationName </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a>&#160;</td>
+          <td class="paramname"><em>allocator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td>
+          <td class="paramname"><em>allocation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>pName</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets pName in given allocation to new value. </p>
+<p ><code>pName</code> must be either null, or pointer to a null-terminated string. The function makes local copy of the string and sets it as allocation's <code>pName</code>. String passed as pName doesn't need to be valid for whole lifetime of the allocation - you can free it after this call. String previously pointed by allocation's <code>pName</code> is freed from memory. </p>
+
+</div>
+</div>
 <a id="gaf9147d31ffc11d62fc187bde283ed14f" name="gaf9147d31ffc11d62fc187bde283ed14f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#gaf9147d31ffc11d62fc187bde283ed14f">&#9670;&nbsp;</a></span>vmaSetAllocationUserData()</h2>
 
@@ -2478,8 +2524,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Sets pUserData in given allocation to new value. </p>
-<p >If the allocation was created with VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT, pUserData must be either null, or pointer to a null-terminated string. The function makes local copy of the string and sets it as allocation's <code>pUserData</code>. String passed as pUserData doesn't need to be valid for whole lifetime of the allocation - you can free it after this call. String previously pointed by allocation's pUserData is freed from memory.</p>
-<p >If the flag was not used, the value of pointer <code>pUserData</code> is just copied to allocation's <code>pUserData</code>. It is opaque, so you can use it however you want - e.g. as a pointer, ordinal number or some handle to you own data. </p>
+<p >The value of pointer <code>pUserData</code> is copied to allocation's <code>pUserData</code>. It is opaque, so you can use it however you want - e.g. as a pointer, ordinal number or some handle to you own data. </p>
 
 </div>
 </div>

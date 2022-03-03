@@ -2623,12 +2623,14 @@ int Main2(int argc, wchar_t** argv)
 
 int wmain(int argc, wchar_t** argv)
 {
+    int result = 0;
     try
     {
-        return Main2(argc, argv);
+        result = Main2(argc, argv);
         TEST(g_CpuAllocCount.load() == 0);
     }
     CATCH_PRINT_ERROR(return (int)ExitCode::RuntimeError;)
+    return result;
 } 
 
 #else // #ifdef _WIN32

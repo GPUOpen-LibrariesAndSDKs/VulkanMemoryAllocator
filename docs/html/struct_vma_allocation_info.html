@@ -92,6 +92,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:adc507656149c04de7ed95d0042ba2a13"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13">pUserData</a></td></tr>
 <tr class="memdesc:adc507656149c04de7ed95d0042ba2a13"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom general-purpose pointer that was passed as <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> or set using <a class="el" href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f" title="Sets pUserData in given allocation to new value.">vmaSetAllocationUserData()</a>.  <a href="struct_vma_allocation_info.html#adc507656149c04de7ed95d0042ba2a13">More...</a><br /></td></tr>
 <tr class="separator:adc507656149c04de7ed95d0042ba2a13"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a28612f3e897e5b268254a3c63413d759"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_allocation_info.html#a28612f3e897e5b268254a3c63413d759">pName</a></td></tr>
+<tr class="memdesc:a28612f3e897e5b268254a3c63413d759"><td class="mdescLeft">&#160;</td><td class="mdescRight">Custom allocation name that was set with <a class="el" href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc" title="Sets pName in given allocation to new value.">vmaSetAllocationName()</a>.  <a href="struct_vma_allocation_info.html#a28612f3e897e5b268254a3c63413d759">More...</a><br /></td></tr>
+<tr class="separator:a28612f3e897e5b268254a3c63413d759"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p >Parameters of <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> objects, that can be retrieved using function <a class="el" href="group__group__alloc.html#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>. </p>
@@ -164,6 +167,24 @@ Public Attributes</h2></td></tr>
 <p>Pointer to the beginning of this allocation as mapped data. </p>
 <p >If the allocation hasn't been mapped using <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a> and hasn't been created with <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a11da372cc3a82931c5e5d6146cd9dd1f" title="Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.">VMA_ALLOCATION_CREATE_MAPPED_BIT</a> flag, this value is null.</p>
 <p >It can change after call to <a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069" title="Maps memory represented by given allocation and returns pointer to it.">vmaMapMemory()</a>, <a class="el" href="group__group__alloc.html#ga9bc268595cb33f6ec4d519cfce81ff45" title="Unmaps memory represented by given allocation, mapped previously using vmaMapMemory().">vmaUnmapMemory()</a>. It can also change after call to vmaDefragment() if this allocation is passed to the function. </p>
+
+</div>
+</div>
+<a id="a28612f3e897e5b268254a3c63413d759" name="a28612f3e897e5b268254a3c63413d759"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a28612f3e897e5b268254a3c63413d759">&#9670;&nbsp;</a></span>pName</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const char* VmaAllocationInfo::pName</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Custom allocation name that was set with <a class="el" href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc" title="Sets pName in given allocation to new value.">vmaSetAllocationName()</a>. </p>
+<p >It can change after call to <a class="el" href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc" title="Sets pName in given allocation to new value.">vmaSetAllocationName()</a> for this allocation.</p>
+<p >Another way to set custom name is to pass it in <a class="el" href="struct_vma_allocation_create_info.html#a8259e85c272683434f4abb4ddddffe19" title="Custom general-purpose pointer that will be stored in VmaAllocation, can be read as VmaAllocationInfo...">VmaAllocationCreateInfo::pUserData</a> with additional flag VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT set [DEPRECATED]. </p>
 
 </div>
 </div>

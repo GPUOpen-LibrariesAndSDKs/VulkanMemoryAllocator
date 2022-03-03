@@ -56,11 +56,12 @@ var searchData=
   ['vmainvalidateallocations_53',['vmaInvalidateAllocations',['../group__group__alloc.html#gab25b558d75f7378ec944a1522fdcc3c5',1,'vk_mem_alloc.h']]],
   ['vmaisvirtualblockempty_54',['vmaIsVirtualBlockEmpty',['../group__group__virtual.html#gacd53b5b1d23f8fcbad692ccfdc1811f1',1,'vk_mem_alloc.h']]],
   ['vmamapmemory_55',['vmaMapMemory',['../group__group__alloc.html#gad5bd1243512d099706de88168992f069',1,'vk_mem_alloc.h']]],
-  ['vmasetallocationuserdata_56',['vmaSetAllocationUserData',['../group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f',1,'vk_mem_alloc.h']]],
-  ['vmasetcurrentframeindex_57',['vmaSetCurrentFrameIndex',['../group__group__init.html#gade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
-  ['vmasetpoolname_58',['vmaSetPoolName',['../group__group__alloc.html#gadbae3a0b4ab078024462fc85c37f3b58',1,'vk_mem_alloc.h']]],
-  ['vmasetvirtualallocationuserdata_59',['vmaSetVirtualAllocationUserData',['../group__group__virtual.html#ga001ea1850458a4062b829e09c303fca2',1,'vk_mem_alloc.h']]],
-  ['vmaunmapmemory_60',['vmaUnmapMemory',['../group__group__alloc.html#ga9bc268595cb33f6ec4d519cfce81ff45',1,'vk_mem_alloc.h']]],
-  ['vmavirtualallocate_61',['vmaVirtualAllocate',['../group__group__virtual.html#ga6b7cdcc1c3e5103c323fedc4e1319e01',1,'vk_mem_alloc.h']]],
-  ['vmavirtualfree_62',['vmaVirtualFree',['../group__group__virtual.html#ga09fc688c0c3653ff23723b037e5d5033',1,'vk_mem_alloc.h']]]
+  ['vmasetallocationname_56',['vmaSetAllocationName',['../group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc',1,'vk_mem_alloc.h']]],
+  ['vmasetallocationuserdata_57',['vmaSetAllocationUserData',['../group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f',1,'vk_mem_alloc.h']]],
+  ['vmasetcurrentframeindex_58',['vmaSetCurrentFrameIndex',['../group__group__init.html#gade56bf8dc9f5a5eaddf5f119ed525236',1,'vk_mem_alloc.h']]],
+  ['vmasetpoolname_59',['vmaSetPoolName',['../group__group__alloc.html#gadbae3a0b4ab078024462fc85c37f3b58',1,'vk_mem_alloc.h']]],
+  ['vmasetvirtualallocationuserdata_60',['vmaSetVirtualAllocationUserData',['../group__group__virtual.html#ga001ea1850458a4062b829e09c303fca2',1,'vk_mem_alloc.h']]],
+  ['vmaunmapmemory_61',['vmaUnmapMemory',['../group__group__alloc.html#ga9bc268595cb33f6ec4d519cfce81ff45',1,'vk_mem_alloc.h']]],
+  ['vmavirtualallocate_62',['vmaVirtualAllocate',['../group__group__virtual.html#ga6b7cdcc1c3e5103c323fedc4e1319e01',1,'vk_mem_alloc.h']]],
+  ['vmavirtualfree_63',['vmaVirtualFree',['../group__group__virtual.html#ga09fc688c0c3653ff23723b037e5d5033',1,'vk_mem_alloc.h']]]
 ];

@@ -2758,21 +2758,21 @@ static void TestUserData()
             VkBuffer buf; VmaAllocation alloc; VmaAllocationInfo allocInfo;
             res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo);
             TEST(res == VK_SUCCESS);
-            TEST(allocInfo.pUserData != nullptr && allocInfo.pUserData != name1Buf);
-            TEST(strcmp(name1, (const char*)allocInfo.pUserData) == 0);
+            TEST(allocInfo.pName != nullptr && allocInfo.pName != name1Buf);
+            TEST(strcmp(name1, allocInfo.pName) == 0);
 
             delete[] name1Buf;
 
             vmaGetAllocationInfo(g_hAllocator, alloc, &allocInfo);
-            TEST(strcmp(name1, (const char*)allocInfo.pUserData) == 0);
+            TEST(strcmp(name1, allocInfo.pName) == 0);
 
-            vmaSetAllocationUserData(g_hAllocator, alloc, (void*)name2);
+            vmaSetAllocationName(g_hAllocator, alloc, name2);
             vmaGetAllocationInfo(g_hAllocator, alloc, &allocInfo);
-            TEST(strcmp(name2, (const char*)allocInfo.pUserData) == 0);
+            TEST(strcmp(name2, allocInfo.pName) == 0);
 
-            vmaSetAllocationUserData(g_hAllocator, alloc, nullptr);
+            vmaSetAllocationName(g_hAllocator, alloc, nullptr);
             vmaGetAllocationInfo(g_hAllocator, alloc, &allocInfo);
-            TEST(allocInfo.pUserData == nullptr);
+            TEST(allocInfo.pName == nullptr);
 
             vmaDestroyBuffer(g_hAllocator, buf, alloc);
         }
