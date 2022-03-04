@@ -11001,12 +11001,16 @@ public:
         const VmaDefragmentationInfo& info);
     ~VmaDefragmentationContext_T();
 
-    void GetStats(VmaDefragmentationStats& outStats) { outStats = m_Stats; }
+    void GetStats(VmaDefragmentationStats& outStats) { outStats = m_GlobalStats; }
 
     VkResult DefragmentPassBegin(VmaDefragmentationPassMoveInfo& moveInfo);
     VkResult DefragmentPassEnd(VmaDefragmentationPassMoveInfo& moveInfo);
 
 private:
+    // Max number of allocations to ignore due to size constraints before ending single pass
+    static const uint8_t MAX_ALLOCS_TO_IGNORE = 16;
+    enum class CounterStatus { Pass, Ignore, End };
+
     struct FragmentedBlock
     {
         uint32_t data;
@@ -11044,16 +11048,19 @@ private:
     VmaStlAllocator<VmaDefragmentationMove> m_MoveAllocator;
     VmaVector<VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove>> m_Moves;
 
+    uint8_t m_IgnoredAllocs = 0;
     uint32_t m_Algorithm;
     uint32_t m_BlockVectorCount;
     VmaBlockVector* m_PoolBlockVector;
     VmaBlockVector** m_pBlockVectors;
     size_t m_ImmovableBlockCount = 0;
-    VmaDefragmentationStats m_Stats = { 0 };
+    VmaDefragmentationStats m_GlobalStats = { 0 };
+    VmaDefragmentationStats m_PassStats = { 0 };
     void* m_AlgorithmState = VMA_NULL;
 
     static MoveAllocationData GetMoveData(VmaAllocHandle handle, VmaBlockMetadata* metadata);
-    bool IncrementCounters(uint32_t& allocations, VkDeviceSize bytes);
+    CounterStatus CheckCounters(VkDeviceSize bytes);
+    bool IncrementCounters(VkDeviceSize bytes);
     bool ReallocWithinBlock(VmaBlockVector& vector, VmaDeviceMemoryBlock* block);
     bool AllocInOtherBlock(size_t start, size_t end, MoveAllocationData& data, VmaBlockVector& vector);
 
@@ -13159,17 +13166,25 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
                     mappedBlocks.push_back({ mapCount, newMapBlock });
             }
 
-            prevCount = vector->GetBlockCount();
-            freedBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
+            // Scope for locks, Free have it's own lock
+            {
+                VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                prevCount = vector->GetBlockCount();
+                freedBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
+            }
             vector->Free(dst, false);
-            currentCount = vector->GetBlockCount();
+            {
+                VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                currentCount = vector->GetBlockCount();
+            }
 
             result = VK_INCOMPLETE;
             break;
         }
         case VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE:
         {
-            m_Stats.bytesMoved -= move.srcAllocation->GetSize();
+            m_PassStats.bytesMoved -= move.srcAllocation->GetSize();
+            --m_PassStats.allocationsMoved;
             vector->Free(dst, false);
 
             VmaDeviceMemoryBlock* newBlock = move.srcAllocation->GetBlock();
@@ -13188,16 +13203,32 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         }
         case VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY:
         {
-            prevCount = vector->GetBlockCount();
-            freedBlockSize = move.srcAllocation->GetBlock()->m_pMetadata->GetSize();
+            m_PassStats.bytesMoved -= move.srcAllocation->GetSize();
+            --m_PassStats.allocationsMoved;
+            // Scope for locks, Free have it's own lock
+            {
+                VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                prevCount = vector->GetBlockCount();
+                freedBlockSize = move.srcAllocation->GetBlock()->m_pMetadata->GetSize();
+            }
             vector->Free(move.srcAllocation, false);
-            currentCount = vector->GetBlockCount();
+            {
+                VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                currentCount = vector->GetBlockCount();
+            }
             freedBlockSize *= prevCount - currentCount;
 
-            VkDeviceSize dstBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
+            VkDeviceSize dstBlockSize;
+            {
+                VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                dstBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
+            }
             vector->Free(dst, false);
-            freedBlockSize += dstBlockSize * (currentCount - vector->GetBlockCount());
-            currentCount = vector->GetBlockCount();
+            {
+                VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                freedBlockSize += dstBlockSize * (currentCount - vector->GetBlockCount());
+                currentCount = vector->GetBlockCount();
+            }
 
             result = VK_INCOMPLETE;
             break;
@@ -13209,8 +13240,8 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         if (prevCount > currentCount)
         {
             size_t freedBlocks = prevCount - currentCount;
-            m_Stats.deviceMemoryBlocksFreed += static_cast<uint32_t>(freedBlocks);
-            m_Stats.bytesFreed += freedBlockSize;
+            m_PassStats.deviceMemoryBlocksFreed += static_cast<uint32_t>(freedBlocks);
+            m_PassStats.bytesFreed += freedBlockSize;
         }
 
         switch (m_Algorithm)
@@ -13234,6 +13265,13 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
     moveInfo.moveCount = 0;
     moveInfo.pMoves = VMA_NULL;
     m_Moves.clear();
+
+    // Update stats
+    m_GlobalStats.allocationsMoved += m_PassStats.allocationsMoved;
+    m_GlobalStats.bytesFreed += m_PassStats.bytesFreed;
+    m_GlobalStats.bytesMoved += m_PassStats.bytesMoved;
+    m_GlobalStats.deviceMemoryBlocksFreed += m_PassStats.deviceMemoryBlocksFreed;
+    m_PassStats = { 0 };
 
     // Move blocks with immovable allocations according to algorithm
     if (immovableBlocks.size() > 0)
@@ -13343,12 +13381,27 @@ VmaDefragmentationContext_T::MoveAllocationData VmaDefragmentationContext_T::Get
     return moveData;
 }
 
-bool VmaDefragmentationContext_T::IncrementCounters(uint32_t& allocations, VkDeviceSize bytes)
+VmaDefragmentationContext_T::CounterStatus VmaDefragmentationContext_T::CheckCounters(VkDeviceSize bytes)
 {
-    if (++allocations >= m_MaxPassAllocations || bytes >= m_MaxPassBytes)
+    // Ignore allocation if will exceed max size for copy
+    if (m_PassStats.bytesMoved + bytes > m_MaxPassBytes)
     {
-        m_Stats.bytesMoved += bytes;
-        m_Stats.allocationsMoved += allocations;
+        if (++m_IgnoredAllocs < MAX_ALLOCS_TO_IGNORE)
+            return CounterStatus::Ignore;
+        else
+            return CounterStatus::End;
+    }
+    return CounterStatus::Pass;
+}
+
+bool VmaDefragmentationContext_T::IncrementCounters(VkDeviceSize bytes)
+{
+    m_PassStats.bytesMoved += bytes;
+    // Early return when max found
+    if (++m_PassStats.allocationsMoved >= m_MaxPassAllocations || m_PassStats.bytesMoved >= m_MaxPassBytes)
+    {
+        VMA_ASSERT(m_PassStats.allocationsMoved == m_MaxPassAllocations ||
+            m_PassStats.bytesMoved == m_MaxPassBytes && "Exceeded maximal pass threshold!");
         return true;
     }
     return false;
@@ -13356,8 +13409,6 @@ bool VmaDefragmentationContext_T::IncrementCounters(uint32_t& allocations, VkDev
 
 bool VmaDefragmentationContext_T::ReallocWithinBlock(VmaBlockVector& vector, VmaDeviceMemoryBlock* block)
 {
-    VkDeviceSize currentBytesMoved = 0;
-    uint32_t currentAllocsMoved = 0;
     VmaBlockMetadata* metadata = block->m_pMetadata;
 
     for (VmaAllocHandle handle = metadata->GetAllocationListBegin();
@@ -13368,6 +13419,17 @@ bool VmaDefragmentationContext_T::ReallocWithinBlock(VmaBlockVector& vector, Vma
         // Ignore newly created allocations by defragmentation algorithm
         if (moveData.move.srcAllocation->GetUserData() == this)
             continue;
+        switch (CheckCounters(moveData.move.srcAllocation->GetSize()))
+        {
+        case CounterStatus::Ignore:
+            continue;
+        case CounterStatus::End:
+            return true;
+        default:
+            VMA_ASSERT(0);
+        case CounterStatus::Pass:
+            break;
+        }
         VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(moveData.move.internalData);
 
         VkDeviceSize offset = moveData.move.srcAllocation->GetOffset();
@@ -13396,25 +13458,19 @@ bool VmaDefragmentationContext_T::ReallocWithinBlock(VmaBlockVector& vector, Vma
                         moveData.move.dstMemory = dst->GetMemory();
                         moveData.move.dstOffset = dst->GetOffset();
                         m_Moves.push_back(moveData.move);
-                        currentBytesMoved += moveData.size;
 
-                        if (IncrementCounters(currentAllocsMoved, currentBytesMoved))
+                        if (IncrementCounters(moveData.size))
                             return true;
                     }
                 }
             }
         }
     }
-
-    m_Stats.bytesMoved += currentBytesMoved;
-    m_Stats.allocationsMoved += currentAllocsMoved;
     return false;
 }
 
 bool VmaDefragmentationContext_T::AllocInOtherBlock(size_t start, size_t end, MoveAllocationData& data, VmaBlockVector& vector)
 {
-    VkDeviceSize currentBytesMoved = 0;
-    uint32_t currentAllocsMoved = 0;
     VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(data.move.internalData);
 
     for (; start < end; ++start)
@@ -13434,17 +13490,13 @@ bool VmaDefragmentationContext_T::AllocInOtherBlock(size_t start, size_t end, Mo
                 data.move.dstMemory = dst->GetMemory();
                 data.move.dstOffset = dst->GetOffset();
                 m_Moves.push_back(data.move);
-                currentBytesMoved += data.size;
 
-                if (IncrementCounters(currentAllocsMoved, currentBytesMoved))
+                if (IncrementCounters(data.size))
                     return true;
                 break;
             }
         }
     }
-
-    m_Stats.bytesMoved += currentBytesMoved;
-    m_Stats.allocationsMoved += currentAllocsMoved;
     return false;
 }
 
@@ -13465,6 +13517,17 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Fast(VmaBlockVector& ve
             // Ignore newly created allocations by defragmentation algorithm
             if (moveData.move.srcAllocation->GetUserData() == this)
                 continue;
+            switch (CheckCounters(moveData.move.srcAllocation->GetSize()))
+            {
+            case CounterStatus::Ignore:
+                continue;
+            case CounterStatus::End:
+                return true;
+            default:
+                VMA_ASSERT(0);
+            case CounterStatus::Pass:
+                break;
+            }
 
             // Check all previous blocks for free space
             if (AllocInOtherBlock(0, i, moveData, vector))
@@ -13481,13 +13544,11 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
     // but only if there are noticable gaps between them (some heuristic, ex. average size of allocation in block)
     VMA_ASSERT(m_AlgorithmState != VMA_NULL);
 
-    VkDeviceSize currentBytesMoved = 0;
-    uint32_t currentAllocsMoved = 0;
-
     StateBalanced& vectorState = reinterpret_cast<StateBalanced*>(m_AlgorithmState)[index];
     if (update && vectorState.avgAllocSize == UINT64_MAX)
         UpdateVectorStatistics(vector, vectorState);
 
+    const size_t startMoveCount = m_Moves.size();
     VkDeviceSize minimalFreeRegion = vectorState.avgFreeSize / 2;
     for (size_t i = vector.GetBlockCount() - 1; i > m_ImmovableBlockCount; --i)
     {
@@ -13503,6 +13564,17 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
             // Ignore newly created allocations by defragmentation algorithm
             if (moveData.move.srcAllocation->GetUserData() == this)
                 continue;
+            switch (CheckCounters(moveData.move.srcAllocation->GetSize()))
+            {
+            case CounterStatus::Ignore:
+                continue;
+            case CounterStatus::End:
+                return true;
+            default:
+                VMA_ASSERT(0);
+            case CounterStatus::Pass:
+                break;
+            }
 
             // Check all previous blocks for free space
             const size_t prevMoveCount = m_Moves.size();
@@ -13544,9 +13616,8 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
                                 moveData.move.dstMemory = dst->GetMemory();
                                 moveData.move.dstOffset = dst->GetOffset();
                                 m_Moves.push_back(moveData.move);
-                                currentBytesMoved += moveData.size;
 
-                                if (IncrementCounters(currentAllocsMoved, currentBytesMoved))
+                                if (IncrementCounters(moveData.size))
                                     return true;
                             }
                         }
@@ -13558,14 +13629,11 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
     }
     
     // No moves perfomed, update statistics to current vector state
-    if (currentAllocsMoved == 0 && !update)
+    if (startMoveCount == m_Moves.size() && !update)
     {
         vectorState.avgAllocSize = UINT64_MAX;
         return ComputeDefragmentation_Balanced(vector, index, false);
     }
-
-    m_Stats.bytesMoved += currentBytesMoved;
-    m_Stats.allocationsMoved += currentAllocsMoved;
     return false;
 }
 
@@ -13573,9 +13641,6 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Full(VmaBlockVector& ve
 {
     // Go over every allocation and try to fit it in previous blocks at lowest offsets,
     // if not possible: realloc within single block to minimize offset (exclude offset == 0)
-
-    VkDeviceSize currentBytesMoved = 0;
-    uint32_t currentAllocsMoved = 0;
 
     for (size_t i = vector.GetBlockCount() - 1; i > m_ImmovableBlockCount; --i)
     {
@@ -13590,6 +13655,17 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Full(VmaBlockVector& ve
             // Ignore newly created allocations by defragmentation algorithm
             if (moveData.move.srcAllocation->GetUserData() == this)
                 continue;
+            switch (CheckCounters(moveData.move.srcAllocation->GetSize()))
+            {
+            case CounterStatus::Ignore:
+                continue;
+            case CounterStatus::End:
+                return true;
+            default:
+                VMA_ASSERT(0);
+            case CounterStatus::Pass:
+                break;
+            }
 
             // Check all previous blocks for free space
             const size_t prevMoveCount = m_Moves.size();
@@ -13624,9 +13700,8 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Full(VmaBlockVector& ve
                             moveData.move.dstMemory = dst->GetMemory();
                             moveData.move.dstOffset = dst->GetOffset();
                             m_Moves.push_back(moveData.move);
-                            currentBytesMoved += moveData.size;
 
-                            if (IncrementCounters(currentAllocsMoved, currentBytesMoved))
+                            if (IncrementCounters(moveData.size))
                                 return true;
                         }
                     }
@@ -13634,9 +13709,6 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Full(VmaBlockVector& ve
             }
         }
     }
-    
-    m_Stats.bytesMoved += currentBytesMoved;
-    m_Stats.allocationsMoved += currentAllocsMoved;
     return false;
 }
 
@@ -13671,6 +13743,17 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             handle = freeMetadata->GetNextAllocation(handle))
         {
             MoveAllocationData moveData = GetMoveData(handle, freeMetadata);
+            switch (CheckCounters(moveData.move.srcAllocation->GetSize()))
+            {
+            case CounterStatus::Ignore:
+                continue;
+            case CounterStatus::End:
+                return true;
+            default:
+                VMA_ASSERT(0);
+            case CounterStatus::Pass:
+                break;
+            }
 
             // Check all previous blocks for free space
             if (AllocInOtherBlock(0, last, moveData, vector))
@@ -13844,6 +13927,17 @@ bool VmaDefragmentationContext_T::MoveDataToFreeBlocks(VmaSuballocationType curr
             // Ignore newly created allocations by defragmentation algorithm
             if (moveData.move.srcAllocation->GetUserData() == this)
                 continue;
+            switch (CheckCounters(moveData.move.srcAllocation->GetSize()))
+            {
+            case CounterStatus::Ignore:
+                continue;
+            case CounterStatus::End:
+                return true;
+            default:
+                VMA_ASSERT(0);
+            case CounterStatus::Pass:
+                break;
+            }
 
             // Move only single type of resources at once
             if (!VmaIsBufferImageGranularityConflict(moveData.type, currentType))
