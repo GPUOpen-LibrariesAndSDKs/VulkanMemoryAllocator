@@ -426,7 +426,7 @@ typedef enum VmaAllocatorCreateFlagBits
 
     VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocatorCreateFlagBits;
-/// See #VmaAllocatorCreateFlagBigs.
+/// See #VmaAllocatorCreateFlagBits.
 typedef VkFlags VmaAllocatorCreateFlags;
 
 /** @} */
@@ -1388,7 +1388,7 @@ typedef struct VmaAllocationInfo
     It can change after call to vmaSetAllocationName() for this allocation.
     
     Another way to set custom name is to pass it in VmaAllocationCreateInfo::pUserData with
-    additional flag VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT set [DEPRECATED].
+    additional flag #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT set [DEPRECATED].
     */
     const char* VMA_NULLABLE pName;
 } VmaAllocationInfo;
@@ -18267,31 +18267,72 @@ for(;;)
     res = vmaBeginDefragmentationPass(allocator, defragCtx, &pass);
     if(res == VK_SUCCESS)
         break;
-    else if(res == VK_INCOMPLETE)
+    else if(res != VK_INCOMPLETE)
+        // Handle error...
+
+    for(uint32_t i = 0; i < pass.moveCount; ++i)
     {
-        for(uint32_t i = 0; i < pass.moveCount; ++i)
-        {
-            //- Inspect pass.pMoves[i].srcAllocation, identify what buffer or image it represents.
-            //- Recreate and bind this buffer or image at pass.pMoves[i].dstMemory, pass.pMoves[i].dstOffset.
-            //- Issue a vkCmdCopyBuffer/vkCmdCopyImage to copy its content to the new place.
-        }
-        //- Make sure the copy commands finished executing.
-        //- Update appropriate descriptors to point to the new places.
-        res = vmaEndDefragmentationPass(allocator, defragCtx, &pass);
-        if(res == VK_SUCCESS)
-            break;
-        else if(res != VK_INCOMPLETE)
-            // Handle error...
+        // Inspect pass.pMoves[i].srcAllocation, identify what buffer/image it represents.
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(allocator, pMoves[i].srcAllocation, &allocInfo);
+        MyEngineResourceData* resData = (MyEngineResourceData*)allocInfo.pUserData;
+            
+        // Recreate and bind this buffer/image at: pass.pMoves[i].dstMemory, pass.pMoves[i].dstOffset.
+        VkImageCreateInfo imgCreateInfo = ...
+        VkImage newImg;
+        res = vkCreateImage(device, &imgCreateInfo, nullptr, &newImg);
+        // Check res...
+        res = vKBindImageMemory(device, newImg, pass.pMoves[i].dstMemory, pass.pMoves[i].dstOffset);
+        // Check res...
+
+        // Issue a vkCmdCopyBuffer/vkCmdCopyImage to copy its content to the new place.
+        vkCmdCopyImage(cmdBuf, resData->img, ..., newImg, ...);
     }
-    else
+        
+    // Make sure the copy commands finished executing.
+    vkWaitForFences(...);
+
+    // Destroy old buffers/images bound with pass.pMoves[i].srcAllocation.
+    for(uint32_t i = 0; i < pass.moveCount; ++i)
+    {
+        // ...
+        vkDestroyImage(device, resData->img, nullptr);
+    }
+
+    // Update appropriate descriptors to point to the new places...
+        
+    res = vmaEndDefragmentationPass(allocator, defragCtx, &pass);
+    if(res == VK_SUCCESS)
+        break;
+    else if(res != VK_INCOMPLETE)
         // Handle error...
 }
 
 vmaEndDefragmentation(allocator, defragCtx, nullptr);
 \endcode
 
-You can defragment a specific custom pool by setting VmaDefragmentationInfo::pool
-(like in the example above) or all the default pools by setting this member to null.
+Although functions like vmaCreateBuffer(), vmaCreateImage(), vmaDestroyBuffer(), vmaDestroyImage()
+create/destroy an allocation and a buffer/image at once, these are just a shortcut for
+creating the resource, allocating memory, and binding them together.
+Defragmentation works on memory allocations only. You must handle the rest manually.
+Defragmentation is an iterative process that should repreat "passes" as long as related functions
+return `VK_INCOMPLETE` not `VK_SUCCESS`.
+In each pass:
+
+1. vmaBeginDefragmentationPass() function call:
+   - Calculates and returns the list of allocations to be moved in this pass.
+     Note this can be a time-consuming process.
+   - Reserves destination memory for them by creating internal allocations.
+     Returns their `VkDeviceMemory` + offset.
+2. Inside the pass, **you should**:
+   - Inspect the returned list of allocations to be moved.
+   - Create new buffers/images and bind them at the returned destination `VkDeviceMemory` + offset.
+   - Copy data from source to destination resources if necessary.
+   - Destroy the source buffers/images, but NOT their allocations.
+3. vmaEndDefragmentationPass() function call:
+   - Frees the source memory reserved for the allocations that are moved.
+   - Modifies #VmaAllocation objects that are moved to point to the destination reserved memory.
+   - Frees `VkDeviceMemory` blocks that became empty.
 
 Unlike in previous iterations of the defragmentation API, there is no list of "movable" allocations passed as a parameter.
 Defragmentation algorithm tries to move all suitable allocations.
@@ -18300,8 +18341,31 @@ You can, however, refuse to move some of them inside a defragmentation pass, by 
 This is not recommended and may result in suboptimal packing of the allocations after defragmentation.
 If you cannot ensure any allocation can be moved, it is better to keep movable allocations separate in a custom pool.
 
-You can also decide to destroy an allocation instead of moving it.
-You should then set `pass.pMoves[i].operation` to #VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY.
+Inside a pass, for each allocation that should be moved:
+
+- You should copy its data from the source to the destination place by calling e.g. `vkCmdCopyBuffer()`, `vkCmdCopyImage()`.
+  - You need to make sure these commands finished executing before destroying the source buffers/images and before calling vmaEndDefragmentationPass().
+- If a resource doesn't contain any meaningful data, e.g. it is a transient color attachment image to be cleared,
+  filled, and used temporarily in each rendering frame, you can just recreate this image
+  without copying its data.
+- If the resource is in `HOST_VISIBLE` and `HOST_COHERENT` memory, you can copy its data on the CPU
+  using `memcpy()`.
+- If you cannot move the allocation, you can set `pass.pMoves[i].operation` to #VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE.
+  This will cancel the move.
+  - vmaEndDefragmentationPass() will then free the destination memory
+    not the source memory of the allocation, leaving it unchanged.
+- If you decide the allocation is unimportant and can be destroyed instead of moved (e.g. it wasn't used for long time),
+  you can set `pass.pMoves[i].operation` to #VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY.
+  - vmaEndDefragmentationPass() will then free both source and destination memory, and will destroy the #VmaAllocation object.
+
+You can defragment a specific custom pool by setting VmaDefragmentationInfo::pool
+(like in the example above) or all the default pools by setting this member to null.
+
+Defragmentation is always performed in each pool separately.
+Allocations are never moved between different Vulkan memory types.
+The size of the destination memory reserved for a moved allocation is the same as the original one.
+Alignment of an allocation as it was determined using `vkGetBufferMemoryRequirements()` etc. is also respected after defragmentation.
+Buffers/images should be recreated with the same `VkBufferCreateInfo` / `VkImageCreateInfo` parameters as the original ones.
 
 You can perform the defragmentation incrementally to limit the number of allocations and bytes to be moved
 in each pass, e.g. to call it in sync with render frames and not to experience too big hitches.
@@ -18385,6 +18449,8 @@ To do that, fill VmaAllocationCreateInfo::pUserData field when creating
 an allocation. It is an opaque `void*` pointer. You can use it e.g. as a pointer,
 some handle, index, key, ordinal number or any other value that would associate
 the allocation with your custom metadata.
+It it useful to identify appropriate data structures in your engine given #VmaAllocation,
+e.g. when doing \ref defragmentation.
 
 \code
 VkBufferCreateInfo bufCreateInfo = ...
@@ -18415,44 +18481,21 @@ vmaBuildStatsString() in hexadecimal form.
 
 \section allocation_names Allocation names
 
-There is alternative mode available where `pUserData` pointer is used to point to
-a null-terminated string, giving a name to the allocation. To use this mode,
-set #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT flag in VmaAllocationCreateInfo::flags.
-Then `pUserData` passed as VmaAllocationCreateInfo::pUserData or argument to
-vmaSetAllocationUserData() must be either null or a pointer to a null-terminated string.
+An allocation can also carry a null-terminated string, giving a name to the allocation.
+To set it, call vmaSetAllocationName().
 The library creates internal copy of the string, so the pointer you pass doesn't need
 to be valid for whole lifetime of the allocation. You can free it after the call.
 
 \code
-VkImageCreateInfo imageInfo = ...
-
 std::string imageName = "Texture: ";
 imageName += fileName;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-allocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-allocCreateInfo.pUserData = imageName.c_str();
-
-VkImage image;
-VmaAllocation allocation;
-vmaCreateImage(allocator, &imageInfo, &allocCreateInfo, &image, &allocation, nullptr);
+vmaSetAllocationName(allocator, allocation, imageName.c_str());
 \endcode
 
-The value of `pUserData` pointer of the allocation will be different than the one
-you passed when setting allocation's name - pointing to a buffer managed
-internally that holds copy of the string.
+The string can be later retrieved by inspecting VmaAllocationInfo::pName.
+It is also printed in JSON report created by vmaBuildStatsString().
 
-\code
-VmaAllocationInfo allocInfo;
-vmaGetAllocationInfo(allocator, allocation, &allocInfo);
-const char* imageName = (const char*)allocInfo.pUserData;
-printf("Image name: %s\n", imageName);
-\endcode
-
-That string is also printed in JSON report created by vmaBuildStatsString().
-
-\note Passing string name to VMA allocation doesn't automatically set it to the Vulkan buffer or image created with it.
+\note Setting string name to VMA allocation doesn't automatically set it to the Vulkan buffer or image created with it.
 You must do it manually using an extension like VK_EXT_debug_utils, which is independent of this library.
 
 

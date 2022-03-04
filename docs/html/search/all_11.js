@@ -148,7 +148,7 @@ var searchData=
   ['vmadestroyvirtualblock_145',['vmaDestroyVirtualBlock',['../group__group__virtual.html#ga3795f7783ae2c182cede067d656f66a5',1,'vk_mem_alloc.h']]],
   ['vmadetailedstatistics_146',['VmaDetailedStatistics',['../struct_vma_detailed_statistics.html',1,'VmaDetailedStatistics'],['../group__group__stats.html#ga9ab0c535a6ca655dc63b8609ab4b8394',1,'VmaDetailedStatistics():&#160;vk_mem_alloc.h']]],
   ['vmadevicememorycallbacks_147',['VmaDeviceMemoryCallbacks',['../struct_vma_device_memory_callbacks.html',1,'VmaDeviceMemoryCallbacks'],['../group__group__init.html#ga77692d3c8770ea8882d573206bd27b2b',1,'VmaDeviceMemoryCallbacks():&#160;vk_mem_alloc.h']]],
-  ['vmaenddefragmentation_148',['vmaEndDefragmentation',['../group__group__alloc.html#ga729a594b45ae1681096940a44f3eb174',1,'vk_mem_alloc.h']]],
+  ['vmaenddefragmentation_148',['vmaEndDefragmentation',['../group__group__alloc.html#ga59f01ca3d53d50b7cca9b442b77a3e87',1,'vk_mem_alloc.h']]],
   ['vmaenddefragmentationpass_149',['vmaEndDefragmentationPass',['../group__group__alloc.html#gaded05a445742a00718ee766144c5c226',1,'vk_mem_alloc.h']]],
   ['vmafindmemorytypeindex_150',['vmaFindMemoryTypeIndex',['../group__group__alloc.html#gaef15a94b58fbcb0fe706d5720e84a74a',1,'vk_mem_alloc.h']]],
   ['vmafindmemorytypeindexforbufferinfo_151',['vmaFindMemoryTypeIndexForBufferInfo',['../group__group__alloc.html#gae790ab9ffaf7667fb8f62523e6897888',1,'vk_mem_alloc.h']]],
