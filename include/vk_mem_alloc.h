@@ -13252,6 +13252,8 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
                     if (state.operation != StateExtensive::Operation::Cleanup)
                     {
                         VmaBlockVector* vector = m_pBlockVectors[block.data];
+                        VmaMutexLockWrite lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+
                         for (size_t i = 0, count = vector->GetBlockCount() - m_ImmovableBlockCount; i < count; ++i)
                         {
                             if (vector->GetBlock(i) == block.block)
@@ -13281,6 +13283,8 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             for (const FragmentedBlock& block : immovableBlocks)
             {
                 VmaBlockVector* vector = m_pBlockVectors[block.data];
+                VmaMutexLockWrite lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+
                 for (size_t i = m_ImmovableBlockCount; i < vector->GetBlockCount(); ++i)
                 {
                     if (vector->GetBlock(i) == block.block)
