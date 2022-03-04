@@ -2152,7 +2152,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentation(
 
 Use this function to finish defragmentation started by vmaBeginDefragmentation().
 */
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentation(
+VMA_CALL_PRE void VMA_CALL_POST vmaEndDefragmentation(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaDefragmentationContext VMA_NOT_NULL context,
     VmaDefragmentationStats* VMA_NULLABLE pStats);
@@ -16860,7 +16860,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentation(
     return VK_SUCCESS;
 }
 
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentation(
+VMA_CALL_PRE void VMA_CALL_POST vmaEndDefragmentation(
     VmaAllocator allocator,
     VmaDefragmentationContext context,
     VmaDefragmentationStats* pStats)
@@ -16874,7 +16874,6 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentation(
     if (pStats)
         context->GetStats(*pStats);
     vma_delete(allocator, context);
-    return VK_SUCCESS;
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(

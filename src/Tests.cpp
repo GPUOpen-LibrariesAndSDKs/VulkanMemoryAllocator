@@ -1642,8 +1642,7 @@ static void Defragment(VmaDefragmentationInfo& defragmentationInfo,
     }
     TEST(res == VK_SUCCESS);
 
-    res = vmaEndDefragmentation(g_hAllocator, defragCtx, defragmentationStats);
-    TEST(res == VK_SUCCESS);
+    vmaEndDefragmentation(g_hAllocator, defragCtx, defragmentationStats);
 }
 
 static void ValidateAllocationsData(const AllocInfo* allocs, size_t allocCount)
@@ -1703,8 +1702,7 @@ void TestDefragmentationSimple()
         TEST(res == VK_SUCCESS);
 
         VmaDefragmentationStats defragStats = {};
-        res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
-        TEST(res == VK_SUCCESS);
+        vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
         TEST(defragStats.allocationsMoved == 0 && defragStats.bytesFreed == 0 &&
             defragStats.bytesMoved == 0 && defragStats.deviceMemoryBlocksFreed == 0);
     }
@@ -1818,8 +1816,7 @@ void TestDefragmentationSimple()
             }
 
             VmaDefragmentationStats defragStats = {};
-            res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
-            TEST(res == VK_SUCCESS);
+            vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
             TEST(defragStats.allocationsMoved == 4 && defragStats.bytesMoved == 4 * BUF_SIZE);
 
             ValidateAllocationsData(allocations.data(), allocations.size());
@@ -1916,8 +1913,7 @@ void TestDefragmentationSimple()
             TEST(res == VK_SUCCESS);
 
             VmaDefragmentationStats defragStats;
-            res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
-            TEST(res == VK_SUCCESS);
+            vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
 
             ValidateAllocationsData(allocations.data(), allocations.size());
             DestroyAllAllocations(allocations);
@@ -2117,8 +2113,7 @@ void TestDefragmentationAlgorithms()
             TEST(res == VK_SUCCESS);
 
             VmaDefragmentationStats defragStats;
-            res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
-            TEST(res == VK_SUCCESS);
+            vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
 
             SaveAllocatorStatsToFile((output + L"_After.json").c_str());
             ValidateAllocationsData(allocations.data(), allocations.size());
@@ -5029,8 +5024,7 @@ static void TestPool_SameSize()
         TEST(res == VK_SUCCESS);
 
         VmaDefragmentationStats defragmentationStats;
-        res = vmaEndDefragmentation(g_hAllocator, defragCtx, &defragmentationStats);
-        TEST(res == VK_SUCCESS);
+        vmaEndDefragmentation(g_hAllocator, defragCtx, &defragmentationStats);
         TEST(defragmentationStats.allocationsMoved == 24);
     }
 
