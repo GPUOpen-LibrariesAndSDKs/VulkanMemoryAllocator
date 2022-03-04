@@ -13276,7 +13276,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             for (const FragmentedBlock& block : immovableBlocks)
             {
                 VmaBlockVector* vector = m_pBlockVectors[block.data];
-                for (size_t i = m_ImmovableBlockCount; vector->GetBlockCount(); ++i)
+                for (size_t i = m_ImmovableBlockCount; i < vector->GetBlockCount(); ++i)
                 {
                     if (vector->GetBlock(i) == block.block)
                     {
