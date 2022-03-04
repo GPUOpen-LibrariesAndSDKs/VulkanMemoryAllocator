@@ -10909,6 +10909,7 @@ public:
     size_t GetBlockCount() const { return m_Blocks.size(); }
     // To be used only while the m_Mutex is locked. Used during defragmentation.
     VmaDeviceMemoryBlock* GetBlock(size_t index) const { return m_Blocks[index]; }
+    VMA_RW_MUTEX &GetMutex() { return m_Mutex; }
 
     VkResult CreateMinBlocks();
     void AddStatistics(VmaStatistics& inoutStats);
@@ -13064,6 +13065,8 @@ VkResult VmaDefragmentationContext_T::DefragmentPassBegin(VmaDefragmentationPass
 {
     if (m_PoolBlockVector != VMA_NULL)
     {
+        VmaMutexLockWrite lock(m_PoolBlockVector->GetMutex(), m_PoolBlockVector->GetAllocator()->m_UseMutex);
+
         if (m_PoolBlockVector->GetBlockCount() > 1)
             ComputeDefragmentation(*m_PoolBlockVector, 0);
         else if (m_PoolBlockVector->GetBlockCount() == 1)
@@ -13075,6 +13078,8 @@ VkResult VmaDefragmentationContext_T::DefragmentPassBegin(VmaDefragmentationPass
         {
             if (m_pBlockVectors[i] != VMA_NULL)
             {
+                VmaMutexLockWrite lock(m_pBlockVectors[i]->GetMutex(), m_pBlockVectors[i]->GetAllocator()->m_UseMutex);
+
                 if (m_pBlockVectors[i]->GetBlockCount() > 1)
                 {
                     if (ComputeDefragmentation(*m_pBlockVectors[i], i))
