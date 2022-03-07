@@ -75,69 +75,32 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a20996a4686c9246dff77b375ac4a91e2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__group__alloc.html#gada9e3861caf96f08894b0bcc160ec257">VmaDefragmentationMoveOperation</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_move.html#a20996a4686c9246dff77b375ac4a91e2">operation</a></td></tr>
-<tr class="memdesc:a20996a4686c9246dff77b375ac4a91e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Operation to be performed on the allocation by <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a>. Default value is <a class="el" href="group__group__alloc.html#ggada9e3861caf96f08894b0bcc160ec257ad4a06ac46c4cb1c67b0ebc1edfab9f18" title="Buffer/image has been recreated at dstMemory + dstOffset, data has been copied, old buffer/image has ...">VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY</a>. You can modify it.  <a href="struct_vma_defragmentation_move.html#a20996a4686c9246dff77b375ac4a91e2">More...</a><br /></td></tr>
+<tr class="memdesc:a20996a4686c9246dff77b375ac4a91e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Operation to be performed on the allocation by <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a>. Default value is <a class="el" href="group__group__alloc.html#ggada9e3861caf96f08894b0bcc160ec257ad4a06ac46c4cb1c67b0ebc1edfab9f18" title="Buffer/image has been recreated at dstTmpAllocation, data has been copied, old buffer/image has been ...">VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY</a>. You can modify it.  <a href="struct_vma_defragmentation_move.html#a20996a4686c9246dff77b375ac4a91e2">More...</a><br /></td></tr>
 <tr class="separator:a20996a4686c9246dff77b375ac4a91e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a25aa1bb64efc507a49c6cbc50689f862"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_move.html#a25aa1bb64efc507a49c6cbc50689f862">srcAllocation</a></td></tr>
 <tr class="memdesc:a25aa1bb64efc507a49c6cbc50689f862"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocation that should be moved.  <a href="struct_vma_defragmentation_move.html#a25aa1bb64efc507a49c6cbc50689f862">More...</a><br /></td></tr>
 <tr class="separator:a25aa1bb64efc507a49c6cbc50689f862"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a382fbec8dac2747abdc1883b69ef9458"><td class="memItemLeft" align="right" valign="top">VkDeviceMemory&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_move.html#a382fbec8dac2747abdc1883b69ef9458">dstMemory</a></td></tr>
-<tr class="memdesc:a382fbec8dac2747abdc1883b69ef9458"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destination memory block where the allocation should be moved.  <a href="struct_vma_defragmentation_move.html#a382fbec8dac2747abdc1883b69ef9458">More...</a><br /></td></tr>
-<tr class="separator:a382fbec8dac2747abdc1883b69ef9458"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a80c466b445bc272f82c7dbf1a971ba18"><td class="memItemLeft" align="right" valign="top">VkDeviceSize&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_move.html#a80c466b445bc272f82c7dbf1a971ba18">dstOffset</a></td></tr>
-<tr class="memdesc:a80c466b445bc272f82c7dbf1a971ba18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destination offset where the allocation should be moved.  <a href="struct_vma_defragmentation_move.html#a80c466b445bc272f82c7dbf1a971ba18">More...</a><br /></td></tr>
-<tr class="separator:a80c466b445bc272f82c7dbf1a971ba18"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4f3637400767f3e642b3936e18b00e0f"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_move.html#a4f3637400767f3e642b3936e18b00e0f">internalData</a></td></tr>
-<tr class="memdesc:a4f3637400767f3e642b3936e18b00e0f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Internal data used by VMA. Do not use or modify!  <a href="struct_vma_defragmentation_move.html#a4f3637400767f3e642b3936e18b00e0f">More...</a><br /></td></tr>
-<tr class="separator:a4f3637400767f3e642b3936e18b00e0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab65b106adf209acd7313296d1075300e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_defragmentation_move.html#ab65b106adf209acd7313296d1075300e">dstTmpAllocation</a></td></tr>
+<tr class="memdesc:ab65b106adf209acd7313296d1075300e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Temporary allocation pointing to destination memory that will replace <code>srcAllocation</code>.  <a href="struct_vma_defragmentation_move.html#ab65b106adf209acd7313296d1075300e">More...</a><br /></td></tr>
+<tr class="separator:ab65b106adf209acd7313296d1075300e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p >Single move of an allocation to be done for defragmentation. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
-<a id="a382fbec8dac2747abdc1883b69ef9458" name="a382fbec8dac2747abdc1883b69ef9458"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a382fbec8dac2747abdc1883b69ef9458">&#9670;&nbsp;</a></span>dstMemory</h2>
+<a id="ab65b106adf209acd7313296d1075300e" name="ab65b106adf209acd7313296d1075300e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab65b106adf209acd7313296d1075300e">&#9670;&nbsp;</a></span>dstTmpAllocation</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">VkDeviceMemory VmaDefragmentationMove::dstMemory</td>
+          <td class="memname"><a class="el" href="struct_vma_allocation.html">VmaAllocation</a> VmaDefragmentationMove::dstTmpAllocation</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Destination memory block where the allocation should be moved. </p>
-
-</div>
-</div>
-<a id="a80c466b445bc272f82c7dbf1a971ba18" name="a80c466b445bc272f82c7dbf1a971ba18"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a80c466b445bc272f82c7dbf1a971ba18">&#9670;&nbsp;</a></span>dstOffset</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">VkDeviceSize VmaDefragmentationMove::dstOffset</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Destination offset where the allocation should be moved. </p>
-
-</div>
-</div>
-<a id="a4f3637400767f3e642b3936e18b00e0f" name="a4f3637400767f3e642b3936e18b00e0f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f3637400767f3e642b3936e18b00e0f">&#9670;&nbsp;</a></span>internalData</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void* VmaDefragmentationMove::internalData</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Internal data used by VMA. Do not use or modify! </p>
+<p>Temporary allocation pointing to destination memory that will replace <code>srcAllocation</code>. </p>
+<dl class="section warning"><dt>Warning</dt><dd>Do not store this allocation in your data structures! It exists only temporarily, for the duration of the defragmentation pass, to be used for binding new buffer/image to the destination memory using e.g. <a class="el" href="group__group__alloc.html#ga6b0929b914b60cf2d45cac4bf3547470" title="Binds buffer to allocation.">vmaBindBufferMemory()</a>. <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a> will destroy it and make <code>srcAllocation</code> point to this memory. </dd></dl>
 
 </div>
 </div>
@@ -153,7 +116,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Operation to be performed on the allocation by <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a>. Default value is <a class="el" href="group__group__alloc.html#ggada9e3861caf96f08894b0bcc160ec257ad4a06ac46c4cb1c67b0ebc1edfab9f18" title="Buffer/image has been recreated at dstMemory + dstOffset, data has been copied, old buffer/image has ...">VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY</a>. You can modify it. </p>
+<p>Operation to be performed on the allocation by <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a>. Default value is <a class="el" href="group__group__alloc.html#ggada9e3861caf96f08894b0bcc160ec257ad4a06ac46c4cb1c67b0ebc1edfab9f18" title="Buffer/image has been recreated at dstTmpAllocation, data has been copied, old buffer/image has been ...">VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY</a>. You can modify it. </p>
 
 </div>
 </div>

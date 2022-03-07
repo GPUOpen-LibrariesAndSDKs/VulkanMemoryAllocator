@@ -1442,7 +1442,7 @@ static void ProcessDefragmentationPass(VmaDefragmentationPassMoveInfo& stepInfo)
                 const VkResult result = vkCreateImage(g_hDevice, &allocInfo->m_ImageInfo, g_Allocs, &newImage);
                 TEST(result >= VK_SUCCESS);
 
-                vkBindImageMemory(g_hDevice, newImage, stepInfo.pMoves[i].dstMemory, stepInfo.pMoves[i].dstOffset);
+                vmaBindImageMemory(g_hAllocator, stepInfo.pMoves[i].dstTmpAllocation, newImage);
                 allocInfo->m_NewImage = newImage;
 
                 // Keep track of our pipeline stages that we need to wait/signal on
@@ -1496,7 +1496,7 @@ static void ProcessDefragmentationPass(VmaDefragmentationPassMoveInfo& stepInfo)
                 const VkResult result = vkCreateBuffer(g_hDevice, &allocInfo->m_BufferInfo, g_Allocs, &newBuffer);
                 TEST(result >= VK_SUCCESS);
 
-                vkBindBufferMemory(g_hDevice, newBuffer, stepInfo.pMoves[i].dstMemory, stepInfo.pMoves[i].dstOffset);
+                vmaBindBufferMemory(g_hAllocator, stepInfo.pMoves[i].dstTmpAllocation, newBuffer);
                 allocInfo->m_NewBuffer = newBuffer;
 
                 // Keep track of our pipeline stages that we need to wait/signal on

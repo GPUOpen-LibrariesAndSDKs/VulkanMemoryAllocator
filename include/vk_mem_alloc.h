@@ -735,11 +735,11 @@ typedef VkFlags VmaDefragmentationFlags;
 /// Operation performed on single defragmentation move. See structure #VmaDefragmentationMove.
 typedef enum VmaDefragmentationMoveOperation
 {
-    /// Buffer/image has been recreated at `dstMemory` + `dstOffset`, data has been copied, old buffer/image has been destroyed. `srcAllocation` should be changed to point to the new place. This is the default value set by vmaBeginDefragmentationPass().
+    /// Buffer/image has been recreated at `dstTmpAllocation`, data has been copied, old buffer/image has been destroyed. `srcAllocation` should be changed to point to the new place. This is the default value set by vmaBeginDefragmentationPass().
     VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY = 0,
-    /// Set this value if you cannot move the allocation. New place reserved `dstMemory` + `dstOffset` will be freed. `srcAllocation` will remain unchanged.
+    /// Set this value if you cannot move the allocation. New place reserved at `dstTmpAllocation` will be freed. `srcAllocation` will remain unchanged.
     VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE = 1,
-    /// Set this value if you decide to abandon the allocation and you destroyed the buffer/image. New place reserved `dstMemory` + `dstOffset` will be freed, along with `srcAllocation`.
+    /// Set this value if you decide to abandon the allocation and you destroyed the buffer/image. New place reserved at `dstTmpAllocation` will be freed, along with `srcAllocation`, which will be destroyed.
     VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY = 2,
 } VmaDefragmentationMoveOperation;
 
@@ -1425,12 +1425,13 @@ typedef struct VmaDefragmentationMove
     VmaDefragmentationMoveOperation operation;
     /// Allocation that should be moved.
     VmaAllocation VMA_NOT_NULL srcAllocation;
-    /// Destination memory block where the allocation should be moved.
-    VkDeviceMemory VMA_NOT_NULL_NON_DISPATCHABLE dstMemory;
-    /// Destination offset where the allocation should be moved.
-    VkDeviceSize dstOffset;
-    /// Internal data used by VMA. Do not use or modify!
-    void* VMA_NOT_NULL internalData;
+    /** \brief Temporary allocation pointing to destination memory that will replace `srcAllocation`.
+    
+    \warning Do not store this allocation in your data structures! It exists only temporarily, for the duration of the defragmentation pass,
+    to be used for binding new buffer/image to the destination memory using e.g. vmaBindBufferMemory().
+    vmaEndDefragmentationPass() will destroy it and make `srcAllocation` point to this memory.
+    */
+    VmaAllocation VMA_NOT_NULL dstTmpAllocation;
 } VmaDefragmentationMove;
 
 /** \brief Parameters for incremental defragmentation steps.
@@ -13141,13 +13142,12 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             vector = m_pBlockVectors[vectorIndex];
             VMA_ASSERT(vector != VMA_NULL);
         }
-
-        VmaAllocation dst = reinterpret_cast<VmaAllocation>(move.internalData);
+        
         switch (move.operation)
         {
         case VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY:
         {
-            uint8_t mapCount = move.srcAllocation->SwapBlockAllocation(vector->m_hAllocator, dst);
+            uint8_t mapCount = move.srcAllocation->SwapBlockAllocation(vector->m_hAllocator, move.dstTmpAllocation);
             if (mapCount > 0)
             {
                 allocator = vector->m_hAllocator;
@@ -13170,9 +13170,9 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 prevCount = vector->GetBlockCount();
-                freedBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
+                freedBlockSize = move.dstTmpAllocation->GetBlock()->m_pMetadata->GetSize();
             }
-            vector->Free(dst, false);
+            vector->Free(move.dstTmpAllocation, false);
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 currentCount = vector->GetBlockCount();
@@ -13185,7 +13185,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         {
             m_PassStats.bytesMoved -= move.srcAllocation->GetSize();
             --m_PassStats.allocationsMoved;
-            vector->Free(dst, false);
+            vector->Free(move.dstTmpAllocation, false);
 
             VmaDeviceMemoryBlock* newBlock = move.srcAllocation->GetBlock();
             bool notPresent = true;
@@ -13221,9 +13221,9 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             VkDeviceSize dstBlockSize;
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
-                dstBlockSize = dst->GetBlock()->m_pMetadata->GetSize();
+                dstBlockSize = move.dstTmpAllocation->GetBlock()->m_pMetadata->GetSize();
             }
-            vector->Free(dst, false);
+            vector->Free(move.dstTmpAllocation, false);
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 freedBlockSize += dstBlockSize * (currentCount - vector->GetBlockCount());
@@ -13430,8 +13430,7 @@ bool VmaDefragmentationContext_T::ReallocWithinBlock(VmaBlockVector& vector, Vma
         case CounterStatus::Pass:
             break;
         }
-        VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(moveData.move.internalData);
-
+        
         VkDeviceSize offset = moveData.move.srcAllocation->GetOffset();
         if (offset != 0 && metadata->GetSumFreeSize() >= moveData.size)
         {
@@ -13453,12 +13452,9 @@ bool VmaDefragmentationContext_T::ReallocWithinBlock(VmaBlockVector& vector, Vma
                         moveData.flags,
                         this,
                         moveData.type,
-                        &dst) == VK_SUCCESS)
+                        &moveData.move.dstTmpAllocation) == VK_SUCCESS)
                     {
-                        moveData.move.dstMemory = dst->GetMemory();
-                        moveData.move.dstOffset = dst->GetOffset();
                         m_Moves.push_back(moveData.move);
-
                         if (IncrementCounters(moveData.size))
                             return true;
                     }
@@ -13471,8 +13467,6 @@ bool VmaDefragmentationContext_T::ReallocWithinBlock(VmaBlockVector& vector, Vma
 
 bool VmaDefragmentationContext_T::AllocInOtherBlock(size_t start, size_t end, MoveAllocationData& data, VmaBlockVector& vector)
 {
-    VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(data.move.internalData);
-
     for (; start < end; ++start)
     {
         VmaDeviceMemoryBlock* dstBlock = vector.GetBlock(start);
@@ -13485,12 +13479,9 @@ bool VmaDefragmentationContext_T::AllocInOtherBlock(size_t start, size_t end, Mo
                 this,
                 data.type,
                 0,
-                &dst) == VK_SUCCESS)
+                &data.move.dstTmpAllocation) == VK_SUCCESS)
             {
-                data.move.dstMemory = dst->GetMemory();
-                data.move.dstOffset = dst->GetOffset();
                 m_Moves.push_back(data.move);
-
                 if (IncrementCounters(data.size))
                     return true;
                 break;
@@ -13603,7 +13594,6 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
                     {
                         if (metadata->GetAllocationOffset(request.allocHandle) < offset)
                         {
-                            VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(moveData.move.internalData);
                             if (vector.CommitAllocationRequest(
                                 request,
                                 block,
@@ -13611,12 +13601,9 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Balanced(VmaBlockVector
                                 moveData.flags,
                                 this,
                                 moveData.type,
-                                &dst) == VK_SUCCESS)
+                                &moveData.move.dstTmpAllocation) == VK_SUCCESS)
                             {
-                                moveData.move.dstMemory = dst->GetMemory();
-                                moveData.move.dstOffset = dst->GetOffset();
                                 m_Moves.push_back(moveData.move);
-
                                 if (IncrementCounters(moveData.size))
                                     return true;
                             }
@@ -13687,7 +13674,6 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Full(VmaBlockVector& ve
                 {
                     if (metadata->GetAllocationOffset(request.allocHandle) < offset)
                     {
-                        VmaAllocation& dst = reinterpret_cast<VmaAllocation&>(moveData.move.internalData);
                         if (vector.CommitAllocationRequest(
                             request,
                             block,
@@ -13695,12 +13681,9 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Full(VmaBlockVector& ve
                             moveData.flags,
                             this,
                             moveData.type,
-                            &dst) == VK_SUCCESS)
+                            &moveData.move.dstTmpAllocation) == VK_SUCCESS)
                         {
-                            moveData.move.dstMemory = dst->GetMemory();
-                            moveData.move.dstOffset = dst->GetOffset();
                             m_Moves.push_back(moveData.move);
-
                             if (IncrementCounters(moveData.size))
                                 return true;
                         }
@@ -18282,7 +18265,7 @@ for(;;)
         VkImage newImg;
         res = vkCreateImage(device, &imgCreateInfo, nullptr, &newImg);
         // Check res...
-        res = vKBindImageMemory(device, newImg, pass.pMoves[i].dstMemory, pass.pMoves[i].dstOffset);
+        res = vmaBindImageMemory(allocator, pMoves[i].dstTmpAllocation, newImg);
         // Check res...
 
         // Issue a vkCmdCopyBuffer/vkCmdCopyImage to copy its content to the new place.
@@ -18322,16 +18305,16 @@ In each pass:
 1. vmaBeginDefragmentationPass() function call:
    - Calculates and returns the list of allocations to be moved in this pass.
      Note this can be a time-consuming process.
-   - Reserves destination memory for them by creating internal allocations.
-     Returns their `VkDeviceMemory` + offset.
+   - Reserves destination memory for them by creating temporary destination allocations
+     that you can query for their `VkDeviceMemory` + offset using vmaGetAllocationInfo().
 2. Inside the pass, **you should**:
    - Inspect the returned list of allocations to be moved.
-   - Create new buffers/images and bind them at the returned destination `VkDeviceMemory` + offset.
+   - Create new buffers/images and bind them at the returned destination temporary allocations.
    - Copy data from source to destination resources if necessary.
    - Destroy the source buffers/images, but NOT their allocations.
 3. vmaEndDefragmentationPass() function call:
    - Frees the source memory reserved for the allocations that are moved.
-   - Modifies #VmaAllocation objects that are moved to point to the destination reserved memory.
+   - Modifies source #VmaAllocation objects that are moved to point to the destination reserved memory.
    - Frees `VkDeviceMemory` blocks that became empty.
 
 Unlike in previous iterations of the defragmentation API, there is no list of "movable" allocations passed as a parameter.
@@ -18356,7 +18339,7 @@ Inside a pass, for each allocation that should be moved:
     not the source memory of the allocation, leaving it unchanged.
 - If you decide the allocation is unimportant and can be destroyed instead of moved (e.g. it wasn't used for long time),
   you can set `pass.pMoves[i].operation` to #VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY.
-  - vmaEndDefragmentationPass() will then free both source and destination memory, and will destroy the #VmaAllocation object.
+  - vmaEndDefragmentationPass() will then free both source and destination memory, and will destroy the source #VmaAllocation object.
 
 You can defragment a specific custom pool by setting VmaDefragmentationInfo::pool
 (like in the example above) or all the default pools by setting this member to null.

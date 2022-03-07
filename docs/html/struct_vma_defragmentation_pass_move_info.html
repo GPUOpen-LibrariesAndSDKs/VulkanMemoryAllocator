@@ -117,13 +117,13 @@ Public Attributes</h2></td></tr>
 <p >Pointer to an array of <code>moveCount</code> elements, owned by VMA, created in <a class="el" href="group__group__alloc.html#ga980d7da2ce3b1fd5c8b8476bc362cc00" title="Starts single defragmentation pass.">vmaBeginDefragmentationPass()</a>, destroyed in <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a>.</p>
 <p >For each element, you should:</p>
 <ol type="1">
-<li>Create a new buffer/image in the place pointed by <a class="el" href="struct_vma_defragmentation_move.html#a382fbec8dac2747abdc1883b69ef9458" title="Destination memory block where the allocation should be moved.">VmaDefragmentationMove::dstMemory</a> + <a class="el" href="struct_vma_defragmentation_move.html#a80c466b445bc272f82c7dbf1a971ba18" title="Destination offset where the allocation should be moved.">VmaDefragmentationMove::dstOffset</a>.</li>
+<li>Create a new buffer/image in the place pointed by VmaDefragmentationMove::dstMemory + VmaDefragmentationMove::dstOffset.</li>
 <li>Copy data from the <a class="el" href="struct_vma_defragmentation_move.html#a25aa1bb64efc507a49c6cbc50689f862" title="Allocation that should be moved.">VmaDefragmentationMove::srcAllocation</a> e.g. using <code>vkCmdCopyBuffer</code>, <code>vkCmdCopyImage</code>.</li>
 <li>Make sure these commands finished executing on the GPU.</li>
 <li>Destroy the old buffer/image.</li>
 </ol>
 <p >Only then you can finish defragmentation pass by calling <a class="el" href="group__group__alloc.html#gaded05a445742a00718ee766144c5c226" title="Ends single defragmentation pass.">vmaEndDefragmentationPass()</a>. After this call, the allocation will point to the new place in memory.</p>
-<p >Alternatively, if you cannot move specific allocation, you can set <a class="el" href="struct_vma_defragmentation_move.html#a20996a4686c9246dff77b375ac4a91e2" title="Operation to be performed on the allocation by vmaEndDefragmentationPass(). Default value is VMA_DEFR...">VmaDefragmentationMove::operation</a> to <a class="el" href="group__group__alloc.html#ggada9e3861caf96f08894b0bcc160ec257ad25bc6f816b226b4fd5170e845f218d2" title="Set this value if you cannot move the allocation. New place reserved dstMemory + dstOffset will be fr...">VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE</a>.</p>
+<p >Alternatively, if you cannot move specific allocation, you can set <a class="el" href="struct_vma_defragmentation_move.html#a20996a4686c9246dff77b375ac4a91e2" title="Operation to be performed on the allocation by vmaEndDefragmentationPass(). Default value is VMA_DEFR...">VmaDefragmentationMove::operation</a> to <a class="el" href="group__group__alloc.html#ggada9e3861caf96f08894b0bcc160ec257ad25bc6f816b226b4fd5170e845f218d2" title="Set this value if you cannot move the allocation. New place reserved at dstTmpAllocation will be free...">VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE</a>.</p>
 <p >Alternatively, if you decide you want to completely remove the allocation:</p>
 <ol type="1">
 <li>Destroy its buffer/image.</li>
