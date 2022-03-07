@@ -793,7 +793,7 @@ typedef enum VmaVirtualAllocationCreateFlagBits
     /** Allocation strategy that chooses always the lowest offset in available space.
     This is not the most efficient strategy but achieves highly packed data.
     */
-    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_PACKED_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT ,
+    VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT = VMA_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT,
     /** \brief A bit mask to extract only `STRATEGY` bits from entire set of flags.
 
     These strategy flags are binary compatible with equivalent flags in #VmaAllocationCreateFlagBits.
