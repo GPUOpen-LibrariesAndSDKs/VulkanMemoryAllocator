@@ -534,8 +534,7 @@ typedef enum VmaAllocationCreateFlagBits
 
     You should not use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT and
     #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT at the same time. It makes no sense.
-
-    If VmaAllocationCreateInfo::pool is not null, this flag is implied and ignored. */
+    */
     VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT = 0x00000002,
     /** \brief Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.
 
@@ -548,10 +547,6 @@ typedef enum VmaAllocationCreateFlagBits
     support it (e.g. Intel GPU).
     */
     VMA_ALLOCATION_CREATE_MAPPED_BIT = 0x00000004,
-    /// \deprecated Removed. Do not use.
-    VMA_ALLOCATION_CREATE_RESERVED_1_BIT = 0x00000008,
-    /// \deprecated Removed. Do not use.
-    VMA_ALLOCATION_CREATE_RESERVED_2_BIT = 0x00000010,
     /** \deprecated Preserved for backward compatibility. Consider using vmaSetAllocationName() instead.
     
     Set this flag to treat VmaAllocationCreateInfo::pUserData as pointer to a
@@ -569,6 +564,10 @@ typedef enum VmaAllocationCreateFlagBits
     It is useful when you want to bind yourself to do some more advanced binding, e.g. using some extensions.
     The flag is meaningful only with functions that bind by default: vmaCreateBuffer(), vmaCreateImage().
     Otherwise it is ignored.
+
+    If you want to make sure the new buffer/image is not tied to the new memory allocation
+    through `VkMemoryDedicatedAllocateInfoKHR` structure in case the allocation ends up in its own memory block,
+    use also flag #VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT.
     */
     VMA_ALLOCATION_CREATE_DONT_BIND_BIT = 0x00000080,
     /** Create allocation only if additional device memory required for it, if any, won't exceed
