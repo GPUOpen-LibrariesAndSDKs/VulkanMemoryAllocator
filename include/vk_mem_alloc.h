@@ -12049,10 +12049,8 @@ uint8_t VmaAllocation_T::SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocat
     VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK);
     VMA_ASSERT(allocation->m_Type == ALLOCATION_TYPE_BLOCK);
 
-    m_MapCount = allocation->m_MapCount;
     if (m_MapCount != 0)
         m_BlockAllocation.m_Block->Unmap(hAllocator, m_MapCount);
-    allocation->m_MapCount = 0;
 
     m_BlockAllocation.m_Block->m_pMetadata->SetAllocationUserData(m_BlockAllocation.m_AllocHandle, allocation);
     VMA_SWAP(m_BlockAllocation, allocation->m_BlockAllocation);

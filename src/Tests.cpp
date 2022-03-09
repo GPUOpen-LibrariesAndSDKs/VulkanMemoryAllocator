@@ -31,6 +31,7 @@
 #ifdef _WIN32
 
 static const char* CODE_DESCRIPTION = "Foo";
+static constexpr VkDeviceSize KILOBYTE = 1024;
 static constexpr VkDeviceSize MEGABYTE = 1024 * 1024;
 
 extern VkCommandBuffer g_hTemporaryCommandBuffer;
@@ -1919,6 +1920,136 @@ void TestDefragmentationSimple()
             DestroyAllAllocations(allocations);
         }
     }
+
+    vmaDestroyPool(g_hAllocator, pool);
+}
+
+void TestDefragmentationVsMapping()
+{
+    wprintf(L"Test defragmentation vs mapping\n");
+
+    VkBufferCreateInfo bufCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufCreateInfo.size = 64 * KILOBYTE;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo dummyAllocCreateInfo = {};
+    dummyAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    dummyAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.flags = VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT;
+    poolCreateInfo.blockSize = 1 * MEGABYTE;
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &dummyAllocCreateInfo, &poolCreateInfo.memoryTypeIndex)
+        == VK_SUCCESS);
+
+    VmaPool pool = VK_NULL_HANDLE;
+    TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+
+    RandomNumberGenerator rand{2355762};
+
+    // 16 * 64 KB allocations fit into a single 1 MB block. Create 10 such blocks.
+    constexpr uint32_t START_ALLOC_COUNT = 160;
+    std::vector<AllocInfo> allocs{START_ALLOC_COUNT};
+    
+    constexpr uint32_t RAND_NUM_PERSISTENTLY_MAPPED_BIT = 0x1000;
+    constexpr uint32_t RAND_NUM_MANUAL_MAP_COUNT_MASK = 0x3;
+
+    // Create all the allocations, map what's needed.
+    {
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.pool = pool;
+        for(size_t allocIndex = 0; allocIndex < START_ALLOC_COUNT; ++allocIndex)
+        {
+            const uint32_t randNum = rand.Generate();
+            if(randNum & RAND_NUM_PERSISTENTLY_MAPPED_BIT)
+                allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+            else
+                allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_MAPPED_BIT;
+            allocs[allocIndex].CreateBuffer(bufCreateInfo, allocCreateInfo);
+            vmaSetAllocationUserData(g_hAllocator, allocs[allocIndex].m_Allocation, (void*)(uintptr_t)randNum);
+        }
+    }
+
+    // Destroy 2/3 of them.
+    for(uint32_t i = 0; i < START_ALLOC_COUNT * 2 / 3; ++i)
+    {
+        const uint32_t allocIndexToRemove = rand.Generate() % allocs.size();
+        allocs[allocIndexToRemove].Destroy();
+        allocs.erase(allocs.begin() + allocIndexToRemove);
+    }
+
+    // Map the remaining allocations the right number of times.
+    for(size_t allocIndex = 0, allocCount = allocs.size(); allocIndex < allocCount; ++allocIndex)
+    {
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(g_hAllocator, allocs[allocIndex].m_Allocation, &allocInfo);
+        const uint32_t randNum = (uint32_t)(uintptr_t)allocInfo.pUserData;
+        const uint32_t mapCount = randNum & RAND_NUM_MANUAL_MAP_COUNT_MASK;
+        for(uint32_t mapIndex = 0; mapIndex < mapCount; ++mapIndex)
+        {
+            void* ptr;
+            TEST(vmaMapMemory(g_hAllocator, allocs[allocIndex].m_Allocation, &ptr) == VK_SUCCESS);
+            TEST(ptr != nullptr);
+        }
+    }
+
+    // Defragment!
+    {
+        VmaDefragmentationInfo defragInfo = {};
+        defragInfo.pool = pool;
+        defragInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT;
+        VmaDefragmentationContext defragCtx;
+        TEST(vmaBeginDefragmentation(g_hAllocator, &defragInfo, &defragCtx) == VK_SUCCESS);
+
+        for(uint32_t passIndex = 0; ; ++passIndex)
+        {
+            VmaDefragmentationPassMoveInfo passInfo = {};
+            VkResult res = vmaBeginDefragmentationPass(g_hAllocator, defragCtx, &passInfo);
+            if(res == VK_SUCCESS)
+                break;
+            TEST(res == VK_INCOMPLETE);
+
+            wprintf(L"    Pass %u moving %u allocations\n", passIndex, passInfo.moveCount);
+
+            for(uint32_t moveIndex = 0; moveIndex < passInfo.moveCount; ++moveIndex)
+            {
+                if(rand.Generate() % 5 == 0)
+                    passInfo.pMoves[moveIndex].operation = VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE;
+            }
+
+
+            res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &passInfo);
+            if(res == VK_SUCCESS)
+                break;
+            TEST(res == VK_INCOMPLETE);
+        }
+
+        VmaDefragmentationStats defragStats = {};
+        vmaEndDefragmentation(g_hAllocator, defragCtx, &defragStats);
+        wprintf(L"    Defragmentation: moved %u allocations, %llu B, freed %u memory blocks, %llu B\n",
+            defragStats.allocationsMoved, defragStats.bytesMoved,
+            defragStats.deviceMemoryBlocksFreed, defragStats.bytesFreed);
+        TEST(defragStats.allocationsMoved > 0 && defragStats.bytesMoved > 0);
+        TEST(defragStats.deviceMemoryBlocksFreed > 0 && defragStats.bytesFreed > 0);
+    }
+
+    // Test mapping and unmap
+    for(size_t allocIndex = allocs.size(); allocIndex--; )
+    {
+        VmaAllocationInfo allocInfo;
+        vmaGetAllocationInfo(g_hAllocator, allocs[allocIndex].m_Allocation, &allocInfo);
+        const uint32_t randNum = (uint32_t)(uintptr_t)allocInfo.pUserData;
+        const bool isMapped = (randNum & (RAND_NUM_PERSISTENTLY_MAPPED_BIT | RAND_NUM_MANUAL_MAP_COUNT_MASK)) != 0;
+        TEST(isMapped == (allocInfo.pMappedData != nullptr));
+
+        const uint32_t mapCount = randNum & RAND_NUM_MANUAL_MAP_COUNT_MASK;
+        for(uint32_t mapIndex = 0; mapIndex < mapCount; ++mapIndex)
+            vmaUnmapMemory(g_hAllocator, allocs[allocIndex].m_Allocation);
+    }
+
+    // Destroy all the remaining allocations.
+    for(size_t i = allocs.size(); i--; )
+        allocs[i].Destroy();
 
     vmaDestroyPool(g_hAllocator, pool);
 }
@@ -7708,9 +7839,10 @@ void Test()
         fclose(file);
     }
 
+    TestDefragmentationSimple();
+    TestDefragmentationVsMapping();
     if (ConfigType >= CONFIG_TYPE_AVERAGE)
     {
-        TestDefragmentationSimple();
         TestDefragmentationAlgorithms();
         TestDefragmentationFull();
         TestDefragmentationGpu();
