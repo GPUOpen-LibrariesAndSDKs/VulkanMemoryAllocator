@@ -10925,7 +10925,7 @@ public:
         size_t allocationCount,
         VmaAllocation* pAllocations);
 
-    void Free(const VmaAllocation hAllocation, bool incrementalSort = true);
+    void Free(const VmaAllocation hAllocation);
 
 #if VMA_STATS_STRING_ENABLED
     void PrintDetailedMap(class VmaJsonWriter& json);
@@ -10951,6 +10951,9 @@ private:
     // Incrementally sorted by sumFreeSize, ascending.
     VmaVector<VmaDeviceMemoryBlock*, VmaStlAllocator<VmaDeviceMemoryBlock*>> m_Blocks;
     uint32_t m_NextBlockId;
+    bool m_IncrementalSort = true;
+
+    void SetIncrementalSort(bool val) { m_IncrementalSort = val; }
 
     VkDeviceSize CalcMaxBlockSize() const;
     // Finds and removes given block from vector.
@@ -12622,9 +12625,7 @@ VkResult VmaBlockVector::AllocatePage(
     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 
-void VmaBlockVector::Free(
-    const VmaAllocation hAllocation,
-    bool incrementalSort)
+void VmaBlockVector::Free(const VmaAllocation hAllocation)
 {
     VmaDeviceMemoryBlock* pBlockToDelete = VMA_NULL;
 
@@ -12684,8 +12685,7 @@ void VmaBlockVector::Free(
             }
         }
 
-        if (incrementalSort)
-            IncrementallySortBlocks();
+        IncrementallySortBlocks();
     }
 
     // Destruction of a free block. Deferred until this point, outside of mutex
@@ -12730,6 +12730,8 @@ void VmaBlockVector::Remove(VmaDeviceMemoryBlock* pBlock)
 
 void VmaBlockVector::IncrementallySortBlocks()
 {
+    if (!m_IncrementalSort)
+        return;
     if (m_Algorithm != VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT)
     {
         // Bubble sort only until first swap.
@@ -13013,6 +13015,7 @@ VmaDefragmentationContext_T::VmaDefragmentationContext_T(
         m_BlockVectorCount = 1;
         m_PoolBlockVector = &info.pool->m_BlockVector;
         m_pBlockVectors = &m_PoolBlockVector;
+        m_PoolBlockVector->SetIncrementalSort(false);
         m_PoolBlockVector->SortByFreeSize();
     }
     else
@@ -13024,7 +13027,10 @@ VmaDefragmentationContext_T::VmaDefragmentationContext_T(
         {
             VmaBlockVector* vector = m_pBlockVectors[i];
             if (vector != VMA_NULL)
+            {
+                vector->SetIncrementalSort(false);
                 vector->SortByFreeSize();
+            }
         }
     }
     
@@ -13050,6 +13056,20 @@ VmaDefragmentationContext_T::VmaDefragmentationContext_T(
 
 VmaDefragmentationContext_T::~VmaDefragmentationContext_T()
 {
+    if (m_PoolBlockVector != VMA_NULL)
+    {
+        m_PoolBlockVector->SetIncrementalSort(true);
+    }
+    else
+    {
+        for (uint32_t i = 0; i < m_BlockVectorCount; ++i)
+        {
+            VmaBlockVector* vector = m_pBlockVectors[i];
+            if (vector != VMA_NULL)
+                vector->SetIncrementalSort(true);
+        }
+    }
+
     if (m_AlgorithmState)
     {
         switch (m_Algorithm)
@@ -13169,7 +13189,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
                 prevCount = vector->GetBlockCount();
                 freedBlockSize = move.dstTmpAllocation->GetBlock()->m_pMetadata->GetSize();
             }
-            vector->Free(move.dstTmpAllocation, false);
+            vector->Free(move.dstTmpAllocation);
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 currentCount = vector->GetBlockCount();
@@ -13182,7 +13202,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         {
             m_PassStats.bytesMoved -= move.srcAllocation->GetSize();
             --m_PassStats.allocationsMoved;
-            vector->Free(move.dstTmpAllocation, false);
+            vector->Free(move.dstTmpAllocation);
 
             VmaDeviceMemoryBlock* newBlock = move.srcAllocation->GetBlock();
             bool notPresent = true;
@@ -13208,7 +13228,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
                 prevCount = vector->GetBlockCount();
                 freedBlockSize = move.srcAllocation->GetBlock()->m_pMetadata->GetSize();
             }
-            vector->Free(move.srcAllocation, false);
+            vector->Free(move.srcAllocation);
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 currentCount = vector->GetBlockCount();
@@ -13220,7 +13240,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 dstBlockSize = move.dstTmpAllocation->GetBlock()->m_pMetadata->GetSize();
             }
-            vector->Free(move.dstTmpAllocation, false);
+            vector->Free(move.dstTmpAllocation);
             {
                 VmaMutexLockRead lock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
                 freedBlockSize += dstBlockSize * (currentCount - vector->GetBlockCount());
