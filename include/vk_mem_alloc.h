@@ -2285,7 +2285,7 @@ This function automatically:
 -# Binds the buffer with the memory.
 
 If any of these operations fail, buffer and allocation are not created,
-returned value is negative error code, *pBuffer and *pAllocation are null.
+returned value is negative error code, `*pBuffer` and `*pAllocation` are null.
 
 If the function succeeded, you must destroy both buffer and allocation when you
 no longer need them using either convenience function vmaDestroyBuffer() or
@@ -2326,6 +2326,31 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
+/** \brief Creates a new `VkBuffer`, binds already created memory for it.
+
+\param allocator
+\param allocation Allocation that provides memory to be used for binding new buffer to it.
+\param pBufferCreateInfo
+\param[out] pBuffer Buffer that was created.
+
+This function automatically:
+
+-# Creates buffer.
+-# Binds the buffer with the supplied memory.
+
+If any of these operations fail, buffer is not created,
+returned value is negative error code and `*pBuffer` is null.
+
+If the function succeeded, you must destroy the buffer when you
+no longer need it using `vkDestroyBuffer()`. If you want to also destroy the corresponding
+allocation you can use convenience function vmaDestroyBuffer().
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
+    VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer);
+
 /** \brief Destroys Vulkan buffer and frees allocated memory.
 
 This is just a convenience function equivalent to:
@@ -2350,6 +2375,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
     VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage,
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
+
+/// Function similar to vmaCreateAliasingBuffer().
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage);
 
 /** \brief Destroys Vulkan image and frees allocated memory.
 
@@ -17150,6 +17182,50 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     return res;
 }
 
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
+    VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer)
+{
+    VMA_ASSERT(allocator && pBufferCreateInfo && pBuffer && allocation);
+
+    VMA_DEBUG_LOG("vmaCreateAliasingBuffer");
+
+    *pBuffer = VK_NULL_HANDLE;
+
+    if (pBufferCreateInfo->size == 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+    if ((pBufferCreateInfo->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY) != 0 &&
+        !allocator->m_UseKhrBufferDeviceAddress)
+    {
+        VMA_ASSERT(0 && "Creating a buffer with VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT is not valid if VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT was not used.");
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    // 1. Create VkBuffer.
+    VkResult res = (*allocator->GetVulkanFunctions().vkCreateBuffer)(
+        allocator->m_hDevice,
+        pBufferCreateInfo,
+        allocator->GetAllocationCallbacks(),
+        pBuffer);
+    if (res >= 0)
+    {
+        // 2. Bind buffer with memory.
+        res = allocator->BindBufferMemory(allocation, 0, *pBuffer, VMA_NULL);
+        if (res >= 0)
+        {
+            return VK_SUCCESS;
+        }
+        (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
+    }
+    return res;
+}
+
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyBuffer(
     VmaAllocator allocator,
     VkBuffer buffer,
@@ -17271,10 +17347,52 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
     return res;
 }
 
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage)
+{
+    VMA_ASSERT(allocator && pImageCreateInfo && pImage && allocation);
+
+    *pImage = VK_NULL_HANDLE;
+
+    VMA_DEBUG_LOG("vmaCreateImage");
+
+    if (pImageCreateInfo->extent.width == 0 ||
+        pImageCreateInfo->extent.height == 0 ||
+        pImageCreateInfo->extent.depth == 0 ||
+        pImageCreateInfo->mipLevels == 0 ||
+        pImageCreateInfo->arrayLayers == 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    // 1. Create VkImage.
+    VkResult res = (*allocator->GetVulkanFunctions().vkCreateImage)(
+        allocator->m_hDevice,
+        pImageCreateInfo,
+        allocator->GetAllocationCallbacks(),
+        pImage);
+    if (res >= 0)
+    {
+        // 2. Bind image with memory.
+        res = allocator->BindImageMemory(allocation, 0, *pImage, VMA_NULL);
+        if (res >= 0)
+        {
+            return VK_SUCCESS;
+        }
+        (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
+    }
+    return res;
+}
+
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
-    VmaAllocator allocator,
-    VkImage image,
-    VmaAllocation allocation)
+    VmaAllocator VMA_NOT_NULL allocator,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE image,
+    VmaAllocation VMA_NULLABLE allocation)
 {
     VMA_ASSERT(allocator);
 
