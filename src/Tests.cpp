@@ -2716,18 +2716,20 @@ void TestDefragmentationIncrementalComplex()
     std::vector<AllocInfo> additionalAllocations;
     additionalAllocations.reserve(maxAdditionalAllocations);
 
-#define MakeAdditionalAllocation() \
-    if (additionalAllocations.size() < maxAdditionalAllocations) \
-    { \
-        bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16); \
-        bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT; \
-        \
-        AllocInfo alloc; \
-        alloc.CreateBuffer(bufCreateInfo, allocCreateInfo); \
-        \
-        additionalAllocations.push_back(alloc); \
-        vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &additionalAllocations.back()); \
-    }
+    const auto makeAdditionalAllocation = [&]()
+    {
+        if (additionalAllocations.size() < maxAdditionalAllocations)
+        {
+            bufCreateInfo.size = align_up<VkDeviceSize>(bufSizeMin + rand.Generate() % (bufSizeMax - bufSizeMin), 16);
+            bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            
+            AllocInfo alloc;
+            alloc.CreateBuffer(bufCreateInfo, allocCreateInfo);
+            
+            additionalAllocations.push_back(alloc);
+            vmaSetAllocationUserData(g_hAllocator, alloc.m_Allocation, &additionalAllocations.back());
+        }
+    };
 
     // Defragment using GPU only.
     {
@@ -2738,12 +2740,12 @@ void TestDefragmentationIncrementalComplex()
         VkResult res = vmaBeginDefragmentation(g_hAllocator, &defragInfo, &ctx);
         TEST(res == VK_SUCCESS);
 
-        MakeAdditionalAllocation();
+        makeAdditionalAllocation();
 
         VmaDefragmentationPassMoveInfo pass = {};
         while((res = vmaBeginDefragmentationPass(g_hAllocator, ctx, &pass)) == VK_INCOMPLETE)
         {
-            MakeAdditionalAllocation();
+            makeAdditionalAllocation();
 
             // Ignore data outside of test
             for (uint32_t i = 0; i < pass.moveCount; ++i)
@@ -2761,7 +2763,7 @@ void TestDefragmentationIncrementalComplex()
             ProcessDefragmentationPass(pass);
             EndSingleTimeCommands();
 
-            MakeAdditionalAllocation();
+            makeAdditionalAllocation();
 
             // Destroy old buffers/images and replace them with new handles.
             for (size_t i = 0; i < pass.moveCount; ++i)
@@ -2796,7 +2798,7 @@ void TestDefragmentationIncrementalComplex()
                 break;
             TEST(res == VK_INCOMPLETE);
 
-            MakeAdditionalAllocation();
+            makeAdditionalAllocation();
         }
 
         TEST(res == VK_SUCCESS);
