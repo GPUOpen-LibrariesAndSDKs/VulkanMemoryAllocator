@@ -18466,7 +18466,7 @@ Inside a pass, for each allocation that should be moved:
 - If a resource doesn't contain any meaningful data, e.g. it is a transient color attachment image to be cleared,
   filled, and used temporarily in each rendering frame, you can just recreate this image
   without copying its data.
-- If the resource is in `HOST_VISIBLE` and `HOST_COHERENT` memory, you can copy its data on the CPU
+- If the resource is in `HOST_VISIBLE` and `HOST_CACHED` memory, you can copy its data on the CPU
   using `memcpy()`.
 - If you cannot move the allocation, you can set `pass.pMoves[i].operation` to #VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE.
   This will cancel the move.
