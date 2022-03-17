@@ -19,12 +19,12 @@ Easy to integrate Vulkan memory allocation library.
 
 # Problem
 
-Memory allocation and resource (buffer and image) creation in Vulkan is difficult (comparing to older graphics API-s, like D3D11 or OpenGL) for several reasons:
+Memory allocation and resource (buffer and image) creation in Vulkan is difficult (comparing to older graphics APIs, like D3D11 or OpenGL) for several reasons:
 
 - It requires a lot of boilerplate code, just like everything else in Vulkan, because it is a low-level and high-performance API.
 - There is additional level of indirection: `VkDeviceMemory` is allocated separately from creating `VkBuffer`/`VkImage` and they must be bound together.
-- Driver must be queried for supported memory heaps and memory types. Different IHVs provide different types of it.
-- It is recommended practice to allocate bigger chunks of memory and assign parts of them to particular resources.
+- Driver must be queried for supported memory heaps and memory types. Different GPU vendors provide different types of it.
+- It is recommended to allocate bigger chunks of memory and assign parts of them to particular resources, as there is a limit on maximum number of memory blocks that can be allocated.
 
 # Features
 
@@ -41,8 +41,8 @@ Additional features:
 - Well-documented - description of all functions and structures provided, along with chapters that contain general description and example code.
 - Thread-safety: Library is designed to be used in multithreaded code. Access to a single device memory block referred by different buffers and textures (binding, mapping) is synchronized internally. Memory mapping is reference-counted.
 - Configuration: Fill optional members of `VmaAllocatorCreateInfo` structure to provide custom CPU memory allocator, pointers to Vulkan functions and other parameters.
-- Customization: Predefine appropriate macros to provide your own implementation of all external facilities used by the library like assert, mutex, atomic.
-- Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and you get access to mapped pointer.
+- Customization and integration with custom engines: Predefine appropriate macros to provide your own implementation of all external facilities used by the library like assert, mutex, atomic.
+- Support for memory mapping, reference-counted internally. Support for persistently mapped memory: Just allocate with appropriate flag and access the pointer to already mapped memory.
 - Support for non-coherent memory. Functions that flush/invalidate memory. `nonCoherentAtomSize` is respected automatically.
 - Support for resource aliasing (overlap).
 - Support for sparse binding and sparse residency: Convenience functions that allocate or free multiple memory pages at once.
@@ -56,9 +56,9 @@ Additional features:
    - VK_EXT_memory_priority: Set `priority` of allocations or custom pools and it will be set automatically using this extension.
    - VK_AMD_device_coherent_memory
 - Defragmentation of GPU and CPU memory: Let the library move data around to free some memory blocks and make your allocations better compacted.
-- Statistics: Obtain detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.
-- Debug annotations: Associate string with name or opaque pointer to your own data with every allocation.
-- JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations and gaps between them.
+- Statistics: Obtain brief or detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.
+- Debug annotations: Associate custom `void* pUserData` and debug `char* pName` with each allocation.
+- JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations, their string names, and gaps between them.
 - Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
 - Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number after every allocation to detect out-of-bounds memory corruption.
 - Support for interoperability with OpenGL.
@@ -66,7 +66,7 @@ Additional features:
 
 # Prequisites
 
-- Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan. Some features of C++14 used. STL containers or C++ exceptions are not used.
+- Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan. Some features of C++14 used. STL containers, RTTI, or C++ exceptions are not used.
 - Public interface in C, in same convention as Vulkan API. Implementation in C++.
 - Error handling implemented by returning `VkResult` error codes - same way as in Vulkan.
 - Interface documented using Doxygen-style comments.
