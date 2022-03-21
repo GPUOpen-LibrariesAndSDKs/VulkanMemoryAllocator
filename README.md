@@ -64,7 +64,7 @@ Additional features:
 - Support for interoperability with OpenGL.
 - Virtual allocator: Interface for using core allocation algorithm to allocate any custom data, e.g. pieces of one large buffer.
 
-# Prequisites
+# Prerequisites
 
 - Self-contained C++ library in single header file. No external dependencies other than standard C and C++ library and of course Vulkan. Some features of C++14 used. STL containers, RTTI, or C++ exceptions are not used.
 - Public interface in C, in same convention as Vulkan API. Implementation in C++.
