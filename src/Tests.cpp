@@ -6259,14 +6259,38 @@ static void TestAllocationAliasing()
         VkImage aliasingImage;
         imageInfo.extent.width = 480;
         imageInfo.extent.height = 256;
-        res = vkCreateImage(g_hDevice, &imageInfo, nullptr, &aliasingImage);
+        res = vkCreateImage(g_hDevice, &imageInfo, g_Allocs, &aliasingImage);
         TEST(res == VK_SUCCESS);
         // Now with VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT flag validation error is no more
         res = vmaBindImageMemory(g_hAllocator, allocation, aliasingImage);
         TEST(res == VK_SUCCESS);
 
-        vkDestroyImage(g_hDevice, aliasingImage, nullptr);
+        vkDestroyImage(g_hDevice, aliasingImage, g_Allocs);
         vmaDestroyImage(g_hAllocator, originalImage, allocation);
+    }
+
+    // Test creating buffer without DEDICATED flag, but large enought to end up as dedicated.
+    allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT;
+
+    VkBufferCreateInfo bufCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+    bufCreateInfo.size = 300 * MEGABYTE;
+
+    {
+        VkBuffer origBuf;
+        VmaAllocation alloc;
+        VmaAllocationInfo allocInfo;
+        VkResult res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocationCreateInfo, &origBuf, &alloc, &allocInfo);
+        TEST(res == VK_SUCCESS && origBuf && alloc);
+        TEST(allocInfo.offset == 0); // Dedicated
+
+        VkBuffer aliasingBuf;
+        bufCreateInfo.size = 200 * MEGABYTE;
+        res = vmaCreateAliasingBuffer(g_hAllocator, alloc, &bufCreateInfo, &aliasingBuf);
+        TEST(res == VK_SUCCESS && aliasingBuf);
+
+        vkDestroyBuffer(g_hDevice, aliasingBuf, g_Allocs);
+        vmaDestroyBuffer(g_hAllocator, origBuf, alloc);
     }
 }
 
