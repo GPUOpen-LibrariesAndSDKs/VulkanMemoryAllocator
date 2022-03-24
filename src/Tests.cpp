@@ -1653,6 +1653,168 @@ static void ValidateAllocationsData(const AllocInfo* allocs, size_t allocCount)
     });
 }
 
+
+static void TestJson()
+{
+    wprintf(L"Test JSON\n");
+
+    std::vector<VmaPool> pools;
+    std::vector<VmaAllocation> allocs;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+
+    VkBufferCreateInfo buffCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    buffCreateInfo.size = 1024;
+    buffCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    
+    VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imgCreateInfo.extent.depth = 1;
+    imgCreateInfo.mipLevels = 1;
+    imgCreateInfo.arrayLayers = 1;
+    imgCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imgCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkMemoryRequirements memReq = {};
+    {
+        VkBuffer dummyBuffer = VK_NULL_HANDLE;
+        TEST(vkCreateBuffer(g_hDevice, &buffCreateInfo, g_Allocs, &dummyBuffer) == VK_SUCCESS && dummyBuffer);
+
+        vkGetBufferMemoryRequirements(g_hDevice, dummyBuffer, &memReq);
+        vkDestroyBuffer(g_hDevice, dummyBuffer, g_Allocs);
+    }
+
+    // Select if using custom pool or default
+    for (uint8_t poolType = 0; poolType < 2; ++poolType)
+    {
+        // Select different memoryTypes
+        for (uint8_t memType = 0; memType < 2; ++memType)
+        {
+            switch (memType)
+            {
+            case 0:
+                allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+                allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DONT_BIND_BIT;
+                break;
+            case 1:
+                allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+                allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DONT_BIND_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+                break;
+            }
+
+            switch (poolType)
+            {
+            case 0:
+                allocCreateInfo.pool = nullptr;
+                break;
+            case 1:
+            {
+                VmaPoolCreateInfo poolCreateInfo = {};
+                TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &buffCreateInfo, &allocCreateInfo, &poolCreateInfo.memoryTypeIndex) == VK_SUCCESS);
+
+                VmaPool pool;
+                TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+
+                allocCreateInfo.pool = pool;
+                pools.emplace_back(pool);
+                break;
+            }
+            }
+
+            // Select different allocation flags
+            for (uint8_t allocFlag = 0; allocFlag < 2; ++allocFlag)
+            {
+                switch (allocFlag)
+                {
+                case 1:
+                    allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+                    break;
+                }
+
+                // Select different alloc types (block, buffer, texture, etc.)
+                for (uint8_t allocType = 0; allocType < 4; ++allocType)
+                {
+                    // Select different data stored in the allocation
+                    for (uint8_t data = 0; data < 4; ++data)
+                    {
+                        VmaAllocation alloc = nullptr;
+
+                        switch (allocType)
+                        {
+                        case 0:
+                        {
+                            VmaAllocationCreateInfo localCreateInfo = allocCreateInfo;
+                            switch (memType)
+                            {
+                            case 0:
+                                localCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+                                break;
+                            case 1:
+                                localCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+                                break;
+                            }
+                            TEST(vmaAllocateMemory(g_hAllocator, &memReq, &localCreateInfo, &alloc, nullptr) == VK_SUCCESS);
+                            break;
+                        }
+                        case 1:
+                        {
+                            VkBuffer buffer;
+                            TEST(vmaCreateBuffer(g_hAllocator, &buffCreateInfo, &allocCreateInfo, &buffer, &alloc, nullptr) == VK_SUCCESS);
+                            vkDestroyBuffer(g_hDevice, buffer, g_Allocs);
+                            break;
+                        }
+                        case 2:
+                        {
+                            imgCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+                            imgCreateInfo.extent.width = 512;
+                            imgCreateInfo.extent.height = 1;
+                            VkImage image;
+                            TEST(vmaCreateImage(g_hAllocator, &imgCreateInfo, &allocCreateInfo, &image, &alloc, nullptr) == VK_SUCCESS);
+                            vkDestroyImage(g_hDevice, image, g_Allocs);
+                            break;
+                        }
+                        case 3:
+                        {
+                            imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+                            imgCreateInfo.extent.width = 1024;
+                            imgCreateInfo.extent.height = 512;
+                            VkImage image;
+                            TEST(vmaCreateImage(g_hAllocator, &imgCreateInfo, &allocCreateInfo, &image, &alloc, nullptr) == VK_SUCCESS);
+                            vkDestroyImage(g_hDevice, image, g_Allocs);
+                            break;
+                        }
+                        }
+
+                        switch (data)
+                        {
+                        case 1:
+                            vmaSetAllocationUserData(g_hAllocator, alloc, (void*)16112007);
+                            break;
+                        case 2:
+                            vmaSetAllocationName(g_hAllocator, alloc, "SHEPURD");
+                            break;
+                        case 3:
+                            vmaSetAllocationUserData(g_hAllocator, alloc, (void*)26012010);
+                            vmaSetAllocationName(g_hAllocator, alloc, "JOKER");
+                            break;
+                        }
+                        allocs.emplace_back(alloc);
+                    }
+                }
+
+            }
+        }
+    }
+    SaveAllocatorStatsToFile(L"JSON_VULKAN.json");
+
+    for (auto& alloc : allocs)
+        vmaFreeMemory(g_hAllocator, alloc);
+    for (auto& pool : pools)
+        vmaDestroyPool(g_hAllocator, pool);
+}
+
 void TestDefragmentationSimple()
 {
     wprintf(L"Test defragmentation simple\n");
@@ -3154,8 +3316,8 @@ static void TestVirtualBlocks()
     vmaBuildVirtualBlockStatsString(block, &json, VK_TRUE);
     {
         std::string str(json);
-        TEST( str.find("\"UserData\": \"0000000000000001\"") != std::string::npos );
-        TEST( str.find("\"UserData\": \"0000000000000002\"") != std::string::npos );
+        TEST( str.find("\"CustomData\": \"0000000000000001\"") != std::string::npos );
+        TEST( str.find("\"CustomData\": \"0000000000000002\"") != std::string::npos );
     }
     vmaFreeVirtualBlockStatsString(block, json);
 #endif
@@ -7821,6 +7983,7 @@ void Test()
     TestDebugMargin();
     TestDebugMarginNotInVirtualAllocator();
 #else
+    TestJson();
     TestBasics();
     TestVirtualBlocks();
     TestVirtualBlocksAlgorithms();

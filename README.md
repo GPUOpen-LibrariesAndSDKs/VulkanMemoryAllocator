@@ -59,7 +59,7 @@ Additional features:
 - Statistics: Obtain brief or detailed statistics about the amount of memory used, unused, number of allocated blocks, number of allocations etc. - globally, per memory heap, and per memory type.
 - Debug annotations: Associate custom `void* pUserData` and debug `char* pName` with each allocation.
 - JSON dump: Obtain a string in JSON format with detailed map of internal state, including list of allocations, their string names, and gaps between them.
-- Convert this JSON dump into a picture to visualize your memory. See [tools/VmaDumpVis](tools/VmaDumpVis/README.md).
+- Convert this JSON dump into a picture to visualize your memory. See [tools/GpuMemDumpVis](tools/GpuMemDumpVis/README.md).
 - Debugging incorrect memory usage: Enable initialization of all allocated memory with a bit pattern to detect usage of uninitialized or freed memory. Enable validation of a magic number after every allocation to detect out-of-bounds memory corruption.
 - Support for interoperability with OpenGL.
 - Virtual allocator: Interface for using core allocation algorithm to allocate any custom data, e.g. pieces of one large buffer.
