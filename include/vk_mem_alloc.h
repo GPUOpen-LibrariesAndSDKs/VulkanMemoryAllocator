@@ -2766,8 +2766,13 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
 #endif
 
 #ifndef VMA_COUNT_BITS_SET
-    // Returns number of bits set to 1 in (v)
-    #define VMA_COUNT_BITS_SET(v) VmaCountBitsSet(v)
+    #if __cplusplus >= 202002L // C++20
+        #include <bit>
+        #define VMA_COUNT_BITS_SET(v) std::popcount(v);
+    #else
+        // Returns number of bits set to 1 in (v)
+        #define VMA_COUNT_BITS_SET(v) VmaCountBitsSet(v)
+    #endif
 #endif
 
 #ifndef VMA_BITSCAN_LSB
