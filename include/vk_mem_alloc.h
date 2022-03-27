@@ -5879,9 +5879,14 @@ private:
     void PostMinorCounter()
     {
         if(m_MinorCounter < m_MajorCounter)
+        {
             ++m_MinorCounter;
+        }
         else if(m_MajorCounter > 0)
-            --m_MajorCounter, --m_MinorCounter;
+        {
+            --m_MajorCounter;
+            --m_MinorCounter;
+        }
     }
 };
 
