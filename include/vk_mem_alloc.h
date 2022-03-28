@@ -17608,9 +17608,10 @@ before including these headers (like `WIN32_LEAN_AND_MEAN` or
 `WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
 them before every `#include` of this library.
 
-\note This library is written in C++, but has C-compatible interface.
+This library is written in C++, but has C-compatible interface.
 Thus you can include and use vk_mem_alloc.h in C or C++ code, but full
 implementation with `VMA_IMPLEMENTATION` macro must be compiled as C++, NOT as C.
+Some features of C++14 used. STL containers, RTTI, or C++ exceptions are not used.
 
 
 \section quick_start_initialization Initialization

@@ -83,7 +83,7 @@ Project setup</h1>
 <div class="ttc" id="avk__mem__alloc_8h_html"><div class="ttname"><a href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a></div></div>
 </div><!-- fragment --><p >It may be a good idea to create dedicated CPP file just for this purpose.</p>
 <p >This library includes header <code>&lt;vulkan/vulkan.h&gt;</code>, which in turn includes <code>&lt;windows.h&gt;</code> on Windows. If you need some specific macros defined before including these headers (like <code>WIN32_LEAN_AND_MEAN</code> or <code>WINVER</code> for Windows, <code>VK_USE_PLATFORM_WIN32_KHR</code> for Vulkan), you must define them before every <code>#include</code> of this library.</p>
-<dl class="section note"><dt>Note</dt><dd>This library is written in C++, but has C-compatible interface. Thus you can include and use <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a> in C or C++ code, but full implementation with <code>VMA_IMPLEMENTATION</code> macro must be compiled as C++, NOT as C.</dd></dl>
+<p >This library is written in C++, but has C-compatible interface. Thus you can include and use <a class="el" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a> in C or C++ code, but full implementation with <code>VMA_IMPLEMENTATION</code> macro must be compiled as C++, NOT as C. Some features of C++14 used. STL containers, RTTI, or C++ exceptions are not used.</p>
 <h1><a class="anchor" id="quick_start_initialization"></a>
 Initialization</h1>
 <p >At program startup:</p>
