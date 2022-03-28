@@ -5879,9 +5879,14 @@ private:
     void PostMinorCounter()
     {
         if(m_MinorCounter < m_MajorCounter)
+        {
             ++m_MinorCounter;
+        }
         else if(m_MajorCounter > 0)
-            --m_MajorCounter, --m_MinorCounter;
+        {
+            --m_MajorCounter;
+            --m_MinorCounter;
+        }
     }
 };
 
@@ -13841,6 +13846,9 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
         }
         break;
     }
+    case StateExtensive::Operation::Cleanup:
+        // Cleanup is handled below so that other operations may reuse the cleanup code. This case is here to prevent the unhandled enum value warning (C4062).
+        break;
     }
 
     if (vectorState.operation == StateExtensive::Operation::Cleanup)
