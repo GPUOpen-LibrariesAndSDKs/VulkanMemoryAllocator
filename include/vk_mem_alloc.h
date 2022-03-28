@@ -2569,6 +2569,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
 #include <cstdlib>
 #include <cstring>
 #include <utility>
+#include <type_traits>
 
 #ifdef _MSC_VER
     #include <intrin.h> // For functions like __popcnt, _BitScanForward etc.
@@ -5491,6 +5492,7 @@ public:
     // Posts next part of an open string. The number is converted to decimal characters.
     void ContinueString(uint32_t n);
     void ContinueString(uint64_t n);
+    void ContinueString_Size(size_t n);
     // Posts next part of an open string. Pointer value is converted to characters
     // using "%p" formatting - shown as hexadecimal number, e.g.: 000000081276Ad00
     void ContinueString_Pointer(const void* ptr);
@@ -5500,6 +5502,7 @@ public:
     // Writes a number value.
     void WriteNumber(uint32_t n);
     void WriteNumber(uint64_t n);
+    void WriteSize(size_t n);
     // Writes a boolean value - false or true.
     void WriteBool(bool b);
     // Writes a null value.
@@ -5523,6 +5526,11 @@ private:
     VmaStringBuilder& m_SB;
     VmaVector< StackItem, VmaStlAllocator<StackItem> > m_Stack;
     bool m_InsideString;
+
+    // Write size_t for less than 64bits
+    void WriteSize(size_t n, std::integral_constant<bool, false>) { m_SB.AddNumber(static_cast<uint32_t>(n)); }
+    // Write size_t for 64bits
+    void WriteSize(size_t n, std::integral_constant<bool, true>) { m_SB.AddNumber(static_cast<uint64_t>(n)); }
 
     void BeginValue(bool isString);
     void WriteIndent(bool oneLess = false);
@@ -5666,6 +5674,14 @@ void VmaJsonWriter::ContinueString(uint64_t n)
     m_SB.AddNumber(n);
 }
 
+void VmaJsonWriter::ContinueString_Size(size_t n)
+{
+    VMA_ASSERT(m_InsideString);
+    // Fix for AppleClang incorrect type casting
+    // TODO: Change to if constexpr when C++17 used as minimal standard
+    WriteSize(n, std::is_same<size_t, uint64_t>{});
+}
+
 void VmaJsonWriter::ContinueString_Pointer(const void* ptr)
 {
     VMA_ASSERT(m_InsideString);
@@ -5695,6 +5711,15 @@ void VmaJsonWriter::WriteNumber(uint64_t n)
     VMA_ASSERT(!m_InsideString);
     BeginValue(false);
     m_SB.AddNumber(n);
+}
+
+void VmaJsonWriter::WriteSize(size_t n)
+{
+    VMA_ASSERT(!m_InsideString);
+    BeginValue(false);
+    // Fix for AppleClang incorrect type casting
+    // TODO: Change to if constexpr when C++17 used as minimal standard
+    WriteSize(n, std::is_same<size_t, uint64_t>{});
 }
 
 void VmaJsonWriter::WriteBool(bool b)
@@ -6445,13 +6470,13 @@ void VmaBlockMetadata::PrintDetailedMap_Begin(class VmaJsonWriter& json,
     json.WriteNumber(GetSize());
 
     json.WriteString("UnusedBytes");
-    json.WriteNumber(unusedBytes);
+    json.WriteSize(unusedBytes);
 
     json.WriteString("Allocations");
-    json.WriteNumber(allocationCount);
+    json.WriteSize(allocationCount);
 
     json.WriteString("UnusedRanges");
-    json.WriteNumber(unusedRangeCount);
+    json.WriteSize(unusedRangeCount);
 
     json.WriteString("Suballocations");
     json.BeginArray();
@@ -15978,7 +16003,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                         {
                             json.WriteString("Name");
                             json.BeginString();
-                            json.ContinueString(index++);
+                            json.ContinueString_Size(index++);
                             if (pool->GetName())
                             {
                                 json.WriteString(" - ");
