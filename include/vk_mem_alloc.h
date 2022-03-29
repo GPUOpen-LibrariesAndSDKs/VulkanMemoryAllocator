@@ -16006,8 +16006,8 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                             json.ContinueString_Size(index++);
                             if (pool->GetName())
                             {
-                                json.WriteString(" - ");
-                                json.WriteString(pool->GetName());
+                                json.ContinueString(" - ");
+                                json.ContinueString(pool->GetName());
                             }
                             json.EndString();
 

@@ -5175,6 +5175,11 @@ static void TestPool_SameSize()
         vmaGetPoolName(g_hAllocator, pool, &fetchedPoolName);
         TEST(strcmp(fetchedPoolName, POOL_NAME) == 0);
 
+        // Generate JSON dump. There was a bug with this...
+        char* json = nullptr;
+        vmaBuildStatsString(g_hAllocator, &json, VK_TRUE);
+        vmaFreeStatsString(g_hAllocator, json);
+
         vmaSetPoolName(g_hAllocator, pool, nullptr);
     }
 
