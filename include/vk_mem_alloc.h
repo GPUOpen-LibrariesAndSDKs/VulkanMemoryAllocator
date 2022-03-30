@@ -1580,6 +1580,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocatorInfo(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocatorInfo* VMA_NOT_NULL pAllocatorInfo);
 
+/** 
+VkAllocationCallbacks are returned from the allocator.
+*/
+VMA_CALL_PRE const VkAllocationCallbacks* vmaGetAllocatorAllocationCallbacks(
+    VmaAllocator VMA_NOT_NULL allocator
+);
+
 /**
 PhysicalDeviceProperties are fetched from physicalDevice by the allocator.
 You can access it here, without fetching it again on your own.
@@ -16078,6 +16085,13 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocatorInfo(VmaAllocator allocator, VmaA
     pAllocatorInfo->instance = allocator->m_hInstance;
     pAllocatorInfo->physicalDevice = allocator->GetPhysicalDevice();
     pAllocatorInfo->device = allocator->m_hDevice;
+}
+
+VMA_CALL_PRE const VkAllocationCallbacks* vmaGetAllocatorAllocationCallbacks(
+    VmaAllocator VMA_NOT_NULL allocator
+){
+    VMA_ASSERT(allocator);
+    return allocator->GetAllocationCallbacks();
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPhysicalDeviceProperties(
