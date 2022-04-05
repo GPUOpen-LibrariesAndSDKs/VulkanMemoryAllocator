@@ -38,7 +38,7 @@ extern VkCommandBuffer g_hTemporaryCommandBuffer;
 
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
-void SaveAllocatorStatsToFile(const wchar_t* filePath);
+void SaveAllocatorStatsToFile(const wchar_t* filePath, bool detailed = true);
 void LoadShader(std::vector<char>& out, const char* fileName);
 
 ////////////////////////////////////////////////////////////////////////////////

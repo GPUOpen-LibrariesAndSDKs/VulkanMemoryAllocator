@@ -719,12 +719,12 @@ VkResult MainTest(Result& outResult, const Config& config)
     return res;
 }
 
-void SaveAllocatorStatsToFile(const wchar_t* filePath)
+void SaveAllocatorStatsToFile(const wchar_t* filePath, bool detailed = true)
 {
 #if !defined(VMA_STATS_STRING_ENABLED) || VMA_STATS_STRING_ENABLED
     wprintf(L"Saving JSON dump to file \"%s\"\n", filePath);
     char* stats;
-    vmaBuildStatsString(g_hAllocator, &stats, VK_TRUE);
+    vmaBuildStatsString(g_hAllocator, &stats, detailed ? VK_TRUE : VK_FALSE);
     SaveFile(filePath, stats, strlen(stats));
     vmaFreeStatsString(g_hAllocator, stats);
 #endif

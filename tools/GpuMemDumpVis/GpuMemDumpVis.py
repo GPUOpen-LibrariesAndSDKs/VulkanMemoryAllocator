@@ -106,9 +106,9 @@ def CalcParams():
     maxBlockSize = 0
     # Get height occupied by every memory pool
     for poolData in data.values():
-        height += IMG_MARGIN + FONT_SIZE
-        height += len(poolData['DedicatedAllocations']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-        height += len(poolData['Blocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
+        height += FONT_SIZE + IMG_MARGIN # Memory pool title
+        height += len(poolData['Blocks']) * (FONT_SIZE + MAP_SIZE + IMG_MARGIN * 2)
+        height += len(poolData['DedicatedAllocations']) * (FONT_SIZE + MAP_SIZE + IMG_MARGIN * 2)
         # Get longest block size
         for dedicatedAlloc in poolData['DedicatedAllocations']:
             maxBlockSize = max(maxBlockSize, dedicatedAlloc['Size'])
@@ -116,16 +116,15 @@ def CalcParams():
             maxBlockSize = max(maxBlockSize, block['Size'])
         # Same for custom pools
         for customPoolData in poolData['CustomPools'].values():
-            height += len(customPoolData['DedicatedAllocations']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-            height += len(customPoolData['Blocks']) * (IMG_MARGIN * 2 + FONT_SIZE + MAP_SIZE)
-            height += FONT_SIZE * 2 + IMG_MARGIN if len(customPoolData['DedicatedAllocations']) == 0 else 0
+            height += len(customPoolData['Blocks']) * (FONT_SIZE + MAP_SIZE + IMG_MARGIN * 2)
+            height += len(customPoolData['DedicatedAllocations']) * (FONT_SIZE + MAP_SIZE + IMG_MARGIN * 2)
             # Get longest block size
             for dedicatedAlloc in customPoolData['DedicatedAllocations']:
                 maxBlockSize = max(maxBlockSize, dedicatedAlloc['Size'])
             for block in customPoolData['Blocks']:
                 maxBlockSize = max(maxBlockSize, block['Size'])
 
-    return height + FONT_SIZE, (IMG_WIDTH - IMG_MARGIN * 2) / float(maxBlockSize)
+    return height, (IMG_WIDTH - IMG_MARGIN * 2) / float(maxBlockSize)
 
 def BytesToStr(bytes):
     if bytes < 1024:
@@ -306,7 +305,7 @@ if __name__ == '__main__':
                 draw.text((IMG_MARGIN, y), "Custom pool %s block %s" % (poolName, block['ID']), fill=COLOR_TEXT_H2, font=font)
                 y += FONT_SIZE + IMG_MARGIN
                 DrawBlock(draw, y, block, pixelsPerByte)
-                y += 2 * (FONT_SIZE + IMG_MARGIN)
+                y += MAP_SIZE + IMG_MARGIN
             index = 0
             for dedicatedAlloc in pool['DedicatedAllocations']:
                 draw.text((IMG_MARGIN, y), "Custom pool %s dedicated allocation %d" % (poolName, index), fill=COLOR_TEXT_H2, font=font)
