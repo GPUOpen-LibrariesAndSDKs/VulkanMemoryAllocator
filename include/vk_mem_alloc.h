@@ -3377,22 +3377,6 @@ static inline bool VmaStrIsEmpty(const char* pStr)
     return pStr == VMA_NULL || *pStr == '\0';
 }
 
-#if VMA_STATS_STRING_ENABLED
-static const char* VmaAlgorithmToStr(uint32_t algorithm)
-{
-    switch (algorithm)
-    {
-    case VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT:
-        return "Linear";
-    case 0:
-        return "TLSF";
-    default:
-        VMA_ASSERT(0);
-        return "";
-    }
-}
-#endif // VMA_STATS_STRING_ENABLED
-
 #ifndef VMA_SORT
 template<typename Iterator, typename Compare>
 Iterator VmaQuickSortPartition(Iterator beg, Iterator end, Compare cmp)
