@@ -76,9 +76,9 @@ Memory initialization</h1>
 <div class="fragment"><div class="line"><span class="preprocessor">#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1</span></div>
 <div class="line"><span class="preprocessor">#include &quot;<a class="code" href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a>&quot;</span></div>
 <div class="ttc" id="avk__mem__alloc_8h_html"><div class="ttname"><a href="vk__mem__alloc_8h.html">vk_mem_alloc.h</a></div></div>
-</div><!-- fragment --><p >It makes memory of all new allocations initialized to bit pattern <code>0xDCDCDCDC</code>. Before an allocation is destroyed, its memory is filled with bit pattern <code>0xEFEFEFEF</code>. Memory is automatically mapped and unmapped if necessary.</p>
+</div><!-- fragment --><p >It makes memory of new allocations initialized to bit pattern <code>0xDCDCDCDC</code>. Before an allocation is destroyed, its memory is filled with bit pattern <code>0xEFEFEFEF</code>. Memory is automatically mapped and unmapped if necessary.</p>
 <p >If you find these values while debugging your program, good chances are that you incorrectly read Vulkan memory that is allocated but not initialized, or already freed, respectively.</p>
-<p >Memory initialization works only with memory types that are <code>HOST_VISIBLE</code>. It works also with dedicated allocations.</p>
+<p >Memory initialization works only with memory types that are <code>HOST_VISIBLE</code> and with allocations that can be mapped. It works also with dedicated allocations.</p>
 <h1><a class="anchor" id="debugging_memory_usage_margins"></a>
 Margins</h1>
 <p >By default, allocations are laid out in memory blocks next to each other if possible (considering required alignment, <code>bufferImageGranularity</code>, and <code>nonCoherentAtomSize</code>).</p>

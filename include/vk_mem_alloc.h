@@ -15906,6 +15906,7 @@ void VmaAllocator_T::UpdateVulkanBudget()
 void VmaAllocator_T::FillAllocation(const VmaAllocation hAllocation, uint8_t pattern)
 {
     if(VMA_DEBUG_INITIALIZE_ALLOCATIONS &&
+        hAllocation->IsMappingAllowed() &&
         (m_MemProps.memoryTypes[hAllocation->GetMemoryTypeIndex()].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
     {
         void* pData = VMA_NULL;
@@ -18823,14 +18824,14 @@ To do it, define macro `VMA_DEBUG_INITIALIZE_ALLOCATIONS` to 1.
 #include "vk_mem_alloc.h"
 \endcode
 
-It makes memory of all new allocations initialized to bit pattern `0xDCDCDCDC`.
+It makes memory of new allocations initialized to bit pattern `0xDCDCDCDC`.
 Before an allocation is destroyed, its memory is filled with bit pattern `0xEFEFEFEF`.
 Memory is automatically mapped and unmapped if necessary.
 
 If you find these values while debugging your program, good chances are that you incorrectly
 read Vulkan memory that is allocated but not initialized, or already freed, respectively.
 
-Memory initialization works only with memory types that are `HOST_VISIBLE`.
+Memory initialization works only with memory types that are `HOST_VISIBLE` and with allocations that can be mapped.
 It works also with dedicated allocations.
 
 \section debugging_memory_usage_margins Margins
