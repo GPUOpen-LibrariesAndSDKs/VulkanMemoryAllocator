@@ -1238,6 +1238,11 @@ typedef struct VmaAllocationCreateInfo
     Set to 0 if no additional flags are preferred. \n
     If `pool` is not null, this member is ignored. */
     VkMemoryPropertyFlags preferredFlags;
+    /** \brief Flags that preferably should not be set in a memory type chosen for an allocation.
+
+    Set to 0 if no flags are undesired. \n
+    If `pool` is not null, this member is ignored. */
+    VkMemoryPropertyFlags notPreferredFlags;
     /** \brief Bitmask containing one bit set for every memory type acceptable for this allocation.
 
     Value 0 is equivalent to `UINT32_MAX` - it means any memory type is accepted if
@@ -3568,7 +3573,7 @@ static bool FindMemoryPreferences(
 {
     outRequiredFlags = allocCreateInfo.requiredFlags;
     outPreferredFlags = allocCreateInfo.preferredFlags;
-    outNotPreferredFlags = 0;
+    outNotPreferredFlags = allocCreateInfo.notPreferredFlags;
 
     switch(allocCreateInfo.usage)
     {
