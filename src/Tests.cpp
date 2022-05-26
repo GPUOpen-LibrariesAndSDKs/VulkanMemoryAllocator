@@ -58,7 +58,6 @@ enum CONFIG_TYPE
 };
 
 static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_AVERAGE;
-//static constexpr CONFIG_TYPE ConfigType = CONFIG_TYPE_LARGE;
 
 enum class FREE_ORDER { FORWARD, BACKWARD, RANDOM, COUNT };
 
@@ -1755,13 +1754,13 @@ static void TestJson()
                                 localCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
                                 break;
                             }
-                            TEST(vmaAllocateMemory(g_hAllocator, &memReq, &localCreateInfo, &alloc, nullptr) == VK_SUCCESS);
+                            TEST(vmaAllocateMemory(g_hAllocator, &memReq, &localCreateInfo, &alloc, nullptr) == VK_SUCCESS || alloc == VK_NULL_HANDLE);
                             break;
                         }
                         case 1:
                         {
                             VkBuffer buffer;
-                            TEST(vmaCreateBuffer(g_hAllocator, &buffCreateInfo, &allocCreateInfo, &buffer, &alloc, nullptr) == VK_SUCCESS);
+                            TEST(vmaCreateBuffer(g_hAllocator, &buffCreateInfo, &allocCreateInfo, &buffer, &alloc, nullptr) == VK_SUCCESS || alloc == VK_NULL_HANDLE);
                             vkDestroyBuffer(g_hDevice, buffer, g_Allocs);
                             break;
                         }
@@ -1771,7 +1770,7 @@ static void TestJson()
                             imgCreateInfo.extent.width = 512;
                             imgCreateInfo.extent.height = 1;
                             VkImage image;
-                            TEST(vmaCreateImage(g_hAllocator, &imgCreateInfo, &allocCreateInfo, &image, &alloc, nullptr) == VK_SUCCESS);
+                            TEST(vmaCreateImage(g_hAllocator, &imgCreateInfo, &allocCreateInfo, &image, &alloc, nullptr) == VK_SUCCESS || alloc == VK_NULL_HANDLE);
                             vkDestroyImage(g_hDevice, image, g_Allocs);
                             break;
                         }
@@ -1781,26 +1780,29 @@ static void TestJson()
                             imgCreateInfo.extent.width = 1024;
                             imgCreateInfo.extent.height = 512;
                             VkImage image;
-                            TEST(vmaCreateImage(g_hAllocator, &imgCreateInfo, &allocCreateInfo, &image, &alloc, nullptr) == VK_SUCCESS);
+                            TEST(vmaCreateImage(g_hAllocator, &imgCreateInfo, &allocCreateInfo, &image, &alloc, nullptr) == VK_SUCCESS || alloc == VK_NULL_HANDLE);
                             vkDestroyImage(g_hDevice, image, g_Allocs);
                             break;
                         }
                         }
 
-                        switch (data)
+                        if(alloc)
                         {
-                        case 1:
-                            vmaSetAllocationUserData(g_hAllocator, alloc, (void*)16112007);
-                            break;
-                        case 2:
-                            vmaSetAllocationName(g_hAllocator, alloc, "SHEPURD");
-                            break;
-                        case 3:
-                            vmaSetAllocationUserData(g_hAllocator, alloc, (void*)26012010);
-                            vmaSetAllocationName(g_hAllocator, alloc, "JOKER");
-                            break;
+                            switch (data)
+                            {
+                            case 1:
+                                vmaSetAllocationUserData(g_hAllocator, alloc, (void*)16112007);
+                                break;
+                            case 2:
+                                vmaSetAllocationName(g_hAllocator, alloc, "SHEPURD");
+                                break;
+                            case 3:
+                                vmaSetAllocationUserData(g_hAllocator, alloc, (void*)26012010);
+                                vmaSetAllocationName(g_hAllocator, alloc, "JOKER");
+                                break;
+                            }
+                            allocs.emplace_back(alloc);
                         }
-                        allocs.emplace_back(alloc);
                     }
                 }
 
@@ -4120,7 +4122,8 @@ static void TestLinearAllocator()
             TEST(i == 0 || allocInfo.offset > prevOffset);
             bufInfo.push_back(newBufInfo);
             prevOffset = allocInfo.offset;
-            bufSumSize += bufCreateInfo.size;
+            TEST(allocInfo.size >= bufCreateInfo.size);
+            bufSumSize += allocInfo.size;
         }
 
         // Validate pool stats.

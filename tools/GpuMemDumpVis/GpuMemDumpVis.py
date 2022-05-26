@@ -25,7 +25,7 @@ import json
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROGRAM_VERSION = 'Vulkan/D3D12 Memory Allocator Dump Visualization 3.0.0'
+PROGRAM_VERSION = 'Vulkan/D3D12 Memory Allocator Dump Visualization 3.0.1'
 IMG_WIDTH = 1200
 IMG_MARGIN = 8
 TEXT_MARGIN = 4

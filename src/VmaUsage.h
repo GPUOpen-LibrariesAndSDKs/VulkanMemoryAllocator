@@ -60,7 +60,7 @@ include all public interface declarations. Example:
 //#define VMA_MAPPING_HYSTERESIS_ENABLED 0
 
 //#define VMA_VULKAN_VERSION 1003000 // Vulkan 1.3
-#define VMA_VULKAN_VERSION 1002000 // Vulkan 1.2
+//#define VMA_VULKAN_VERSION 1002000 // Vulkan 1.2
 //#define VMA_VULKAN_VERSION 1001000 // Vulkan 1.1
 //#define VMA_VULKAN_VERSION 1000000 // Vulkan 1.0
 
