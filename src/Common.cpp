@@ -68,9 +68,9 @@ void PrintMessage(CONSOLE_COLOR color, const char* msg)
 {
     if(color != CONSOLE_COLOR::NORMAL)
         SetConsoleColor(color);
-    
+
     printf("%s\n", msg);
-    
+
     if (color != CONSOLE_COLOR::NORMAL)
         SetConsoleColor(CONSOLE_COLOR::NORMAL);
 }
@@ -79,9 +79,9 @@ void PrintMessage(CONSOLE_COLOR color, const wchar_t* msg)
 {
     if(color != CONSOLE_COLOR::NORMAL)
         SetConsoleColor(color);
-    
+
     wprintf(L"%s\n", msg);
-    
+
     if (color != CONSOLE_COLOR::NORMAL)
         SetConsoleColor(CONSOLE_COLOR::NORMAL);
 }
