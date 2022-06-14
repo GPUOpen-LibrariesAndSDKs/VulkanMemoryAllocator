@@ -352,7 +352,7 @@ static VkSurfaceFormatKHR ChooseSurfaceFormat()
         VkSurfaceFormatKHR result = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
         return result;
     }
-    
+
     for(const auto& format : g_SurfaceFormats)
     {
         if((format.format == VK_FORMAT_B8G8R8A8_UNORM) &&
@@ -368,7 +368,7 @@ static VkSurfaceFormatKHR ChooseSurfaceFormat()
 VkPresentModeKHR ChooseSwapPresentMode()
 {
     VkPresentModeKHR preferredMode = VSYNC ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
-    
+
     if(std::find(g_PresentModes.begin(), g_PresentModes.end(), preferredMode) !=
         g_PresentModes.end())
     {
@@ -456,7 +456,7 @@ void VulkanUsage::Init()
         if(strcmp(extensionProperties.extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0)
         {
             if(GetVulkanApiVersion() == VK_API_VERSION_1_0)
-            {   
+            {
                 enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
                 VK_KHR_get_physical_device_properties2_enabled = true;
             }
@@ -703,11 +703,11 @@ static void CreateMesh()
     ibInfo.size = indexBufferSize;
     ibInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     ibInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    
+
     VmaAllocationCreateInfo ibAllocCreateInfo = {};
     ibAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     ibAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    
+
     VkBuffer stagingIndexBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingIndexBufferAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingIndexBufferAllocInfo = {};
@@ -756,7 +756,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     VmaAllocationCreateInfo stagingBufAllocCreateInfo = {};
     stagingBufAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     stagingBufAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    
+
     VkBuffer stagingBuf = VK_NULL_HANDLE;
     VmaAllocation stagingBufAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingBufAllocInfo = {};
@@ -800,7 +800,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
 
     VmaAllocationCreateInfo imageAllocCreateInfo = {};
     imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    
+
     ERR_GUARD_VULKAN( vmaCreateImage(g_hAllocator, &imageInfo, &imageAllocCreateInfo, &g_hTextureImage, &g_hTextureImageAlloc, nullptr) );
 
     // Transition image layouts, copy image.
@@ -886,7 +886,7 @@ static VkFormat FindSupportedFormat(
     {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(g_hPhysicalDevice, format, &props);
-        
+
         if ((tiling == VK_IMAGE_TILING_LINEAR) &&
             ((props.linearTilingFeatures & features) == features))
         {
@@ -919,7 +919,7 @@ static void CreateSwapchain()
     // Query surface formats.
 
     ERR_GUARD_VULKAN( vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_hPhysicalDevice, g_hSurface, &g_SurfaceCapabilities) );
-    
+
     uint32_t formatCount = 0;
     ERR_GUARD_VULKAN( vkGetPhysicalDeviceSurfaceFormatsKHR(g_hPhysicalDevice, g_hSurface, &formatCount, nullptr) );
     g_SurfaceFormats.resize(formatCount);
@@ -1099,11 +1099,11 @@ static void CreateSwapchain()
         VkAttachmentReference colorAttachmentRef = {};
         colorAttachmentRef.attachment = 0;
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        
+
         VkAttachmentReference depthStencilAttachmentRef = {};
         depthStencilAttachmentRef.attachment = 1;
         depthStencilAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        
+
         VkSubpassDescription subpassDesc = {};
         subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpassDesc.colorAttachmentCount = 1;
@@ -1163,7 +1163,7 @@ static void CreateSwapchain()
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
-        
+
         attributeDescriptions[1].binding = 0;
         attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -1362,7 +1362,7 @@ static void DestroySwapchain(bool destroyActualSwapchain)
         vkDestroyPipelineLayout(g_hDevice, g_hPipelineLayout, g_Allocs);
         g_hPipelineLayout = VK_NULL_HANDLE;
     }
-    
+
     for(size_t i = g_SwapchainImageViews.size(); i--; )
         vkDestroyImageView(g_hDevice, g_SwapchainImageViews[i], g_Allocs);
     g_SwapchainImageViews.clear();
@@ -1558,7 +1558,7 @@ static void PrintMemoryTypes()
         sizeStr = SizeToStr(heap.size);
         flagsStr = HeapFlagsToStr(heap.flags);
         wprintf(L"Heap %u: %llu B (%s) %s\n", heapIndex, heap.size, sizeStr.c_str(), flagsStr.c_str());
-        
+
         for(uint32_t typeIndex = 0; typeIndex < memProps->memoryTypeCount; ++typeIndex)
         {
             const VkMemoryType& type = memProps->memoryTypes[typeIndex];
@@ -1762,7 +1762,7 @@ static void PrintMemoryConclusions()
     if(deviceLocalHeapCount < heapCount)
     {
         const uint32_t nonDeviceLocalTypeBits = ~deviceLocalTypeBits & allTypeBits;
-        
+
         if(CanCreateVertexBuffer(nonDeviceLocalTypeBits))
             wprintf(L"- A buffer with VERTEX_BUFFER usage can be created in some non-DEVICE_LOCAL type.\n");
         else
@@ -1845,7 +1845,7 @@ static void InitializeApplication()
 
 #if VMA_VULKAN_VERSION >= 1001000
     VkPhysicalDeviceProperties2 physicalDeviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-    
+
 #if VMA_VULKAN_VERSION >= 1002000
     // Vulkan spec says structure VkPhysicalDeviceVulkan11Properties is "Provided by VK_VERSION_1_2" - is this a mistake? Assuming not...
     VkPhysicalDeviceVulkan11Properties physicalDeviceVulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
@@ -1872,13 +1872,13 @@ static void InitializeApplication()
     wprintf(L"\n");
 
     VkPhysicalDeviceFeatures2 physicalDeviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-    
+
     VkPhysicalDeviceCoherentMemoryFeaturesAMD physicalDeviceCoherentMemoryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD };
     if(VK_AMD_device_coherent_memory_enabled)
     {
         PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceCoherentMemoryFeatures);
     }
-    
+
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR physicalDeviceBufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR };
     if(VK_KHR_buffer_device_address_enabled)
     {
@@ -1955,7 +1955,7 @@ static void InitializeApplication()
     queueCreateInfo[0].queueFamilyIndex = g_GraphicsQueueFamilyIndex;
     queueCreateInfo[0].queueCount = 1;
     queueCreateInfo[0].pQueuePriorities = &queuePriority;
-    
+
     if(g_PresentQueueFamilyIndex != g_GraphicsQueueFamilyIndex)
     {
 
@@ -1965,7 +1965,7 @@ static void InitializeApplication()
         queueCreateInfo[queueCount].pQueuePriorities = &queuePriority;
         ++queueCount;
     }
-    
+
     if(g_SparseBindingEnabled &&
         g_SparseBindingQueueFamilyIndex != g_GraphicsQueueFamilyIndex &&
         g_SparseBindingQueueFamilyIndex != g_PresentQueueFamilyIndex)
@@ -2206,7 +2206,7 @@ static void FinalizeApplication()
         vmaDestroyBuffer(g_hAllocator, g_hVertexBuffer, g_hVertexBufferAlloc);
         g_hVertexBuffer = VK_NULL_HANDLE;
     }
-    
+
     if(g_hSampler != VK_NULL_HANDLE)
     {
         vkDestroySampler(g_hDevice, g_hSampler, g_Allocs);
@@ -2293,7 +2293,7 @@ static void DrawFrame()
     VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     ERR_GUARD_VULKAN( vkBeginCommandBuffer(hCommandBuffer, &commandBufferBeginInfo) );
-    
+
     // Acquire swapchain image
     uint32_t imageIndex = 0;
     VkResult res = vkAcquireNextImageKHR(g_hDevice, g_hSwapchain, UINT64_MAX, g_hImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
@@ -2326,7 +2326,7 @@ static void DrawFrame()
     renderPassBeginInfo.clearValueCount = (uint32_t)_countof(clearValues);
     renderPassBeginInfo.pClearValues = clearValues;
     vkCmdBeginRenderPass(hCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    
+
     vkCmdBindPipeline(
         hCommandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -2369,11 +2369,11 @@ static void DrawFrame()
     vkCmdDrawIndexed(hCommandBuffer, g_IndexCount, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(hCommandBuffer);
-    
+
     vkEndCommandBuffer(hCommandBuffer);
 
     // Submit command buffer
-    
+
     VkSemaphore submitWaitSemaphores[] = { g_hImageAvailableSemaphore };
     VkPipelineStageFlags submitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     VkSemaphore submitSignalSemaphores[] = { g_hRenderFinishedSemaphore };
@@ -2538,7 +2538,7 @@ int MainWindow()
     wndClassDesc.hInstance = g_hAppInstance;
     wndClassDesc.lpfnWndProc = WndProc;
     wndClassDesc.lpszClassName = WINDOW_CLASS_NAME;
-    
+
     const ATOM hWndClass = RegisterClassEx(&wndClassDesc);
     assert(hWndClass);
 
@@ -2631,7 +2631,7 @@ int wmain(int argc, wchar_t** argv)
     }
     CATCH_PRINT_ERROR(return (int)ExitCode::RuntimeError;)
     return result;
-} 
+}
 
 #else // #ifdef _WIN32
 
