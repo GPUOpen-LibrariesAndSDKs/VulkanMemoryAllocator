@@ -5907,7 +5907,7 @@ public:
 
     // Call when allocation/free was made from m_pMetadata.
     // Used for m_MappingHysteresis.
-    void PostAlloc() { m_MappingHysteresis.PostAlloc(); }
+    void PostAlloc(VmaAllocator hAllocator);
     void PostFree(VmaAllocator hAllocator);
 
     // Validates all data structures inside this object. If not valid, returns false.
@@ -11765,8 +11765,15 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
     m_pMetadata = VMA_NULL;
 }
 
+void VmaDeviceMemoryBlock::PostAlloc(VmaAllocator hAllocator)
+{
+    VmaMutexLock lock(m_MapAndBindMutex, hAllocator->m_UseMutex);
+    m_MappingHysteresis.PostAlloc();
+}
+
 void VmaDeviceMemoryBlock::PostFree(VmaAllocator hAllocator)
 {
+    VmaMutexLock lock(m_MapAndBindMutex, hAllocator->m_UseMutex);
     if(m_MappingHysteresis.PostFree())
     {
         VMA_ASSERT(m_MappingHysteresis.GetExtraMapping() == 0);
@@ -12775,7 +12782,7 @@ VkResult VmaBlockVector::CommitAllocationRequest(
     const bool isMappingAllowed = (allocFlags &
         (VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)) != 0;
 
-    pBlock->PostAlloc();
+    pBlock->PostAlloc(m_hAllocator);
     // Allocate from pCurrBlock.
     if (mapped)
     {
