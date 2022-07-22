@@ -3943,10 +3943,6 @@ void TestHeapSizeLimit()
     vmaDestroyAllocator(hAllocator);
 }
 
-#ifndef VMA_DEBUG_MARGIN
-    #define VMA_DEBUG_MARGIN (0)
-#endif
-
 static void TestDebugMargin()
 {
     if(VMA_DEBUG_MARGIN == 0)
@@ -3990,7 +3986,7 @@ static void TestDebugMargin()
             const bool isLast = allocIndex == BUF_COUNT - 1;
             bufInfo.size = (VkDeviceSize)(allocIndex + 1) * 256;
             // Last one will be mapped.
-            allocCreateInfo.flags = isLast ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
+            allocCreateInfo.flags = isLast ? VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT : 0;
 
             VkResult res = vmaCreateBuffer(g_hAllocator, &bufInfo, &allocCreateInfo, &buffers[allocIndex].Buffer, &buffers[allocIndex].Allocation, &allocInfo[allocIndex]);
             TEST(res == VK_SUCCESS);
