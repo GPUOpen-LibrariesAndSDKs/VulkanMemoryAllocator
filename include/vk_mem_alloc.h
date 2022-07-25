@@ -10587,9 +10587,10 @@ void VmaBlockMetadata_TLSF::Free(VmaAllocHandle allocHandle)
     VkDeviceSize debugMargin = GetDebugMargin();
     if (debugMargin > 0)
     {
+        VMA_ASSERT(next->size == debugMargin);
         // Adjust stats for one less block
         --m_BlocksFreeCount;
-        m_BlocksFreeSize -= block->size;
+        m_BlocksFreeSize -= debugMargin;
         MergeBlock(next, block);
         block = next;
         next = next->nextPhysical;
