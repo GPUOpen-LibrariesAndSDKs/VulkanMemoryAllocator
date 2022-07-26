@@ -17596,7 +17596,7 @@ Otherwise, VMA would use only features of Vulkan 1.0 core with no extensions.
 
 VMA supports Vulkan version down to 1.0, for backward compatibility.
 If you want to use higher version, you need to inform the library about it.
-This is a two-step proces.
+This is a two-step process.
 
 <b>Step 1: Compile time.</b> By default, VMA compiles with code supporting the highest
 Vulkan version found in the included `<vulkan/vulkan.h>` that is also supported by the library.
