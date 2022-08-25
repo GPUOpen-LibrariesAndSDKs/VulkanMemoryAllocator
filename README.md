@@ -132,7 +132,7 @@ These CMake options are available
 | `VMA_DEBUG_GLOBAL_MUTEX` | Enable single mutex protecting all entry calls to the library | `OFF` |
 | `VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT` | Never exceed [VkPhysicalDeviceLimits::maxMemoryAllocationCount](https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#limits-maxMemoryAllocationCount) and return error | `OFF` |
 
-# Building VulkanMemoryAllocator - Using vcpkg
+## Building using vcpkg
 
 You can download and install VulkanMemoryAllocator using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
 
@@ -179,6 +179,7 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 
 - **[D3D12 Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator)** - equivalent library for Direct3D 12. License: MIT.
 - **[Awesome Vulkan](https://github.com/vinjn/awesome-vulkan)** - a curated list of awesome Vulkan libraries, debuggers and resources.
+- **[vcpkg](https://github.com/Microsoft/vcpkg)** dependency manager from Microsoft also offers a port of this library.
 - **[VulkanMemoryAllocator-Hpp](https://github.com/malte-v/VulkanMemoryAllocator-Hpp)** - C++ binding for this library. License: CC0-1.0.
 - **[PyVMA](https://github.com/realitix/pyvma)** - Python wrapper for this library. Author: Jean-Sébastien B. (@realitix). License: Apache 2.0.
 - **[vk-mem](https://github.com/gwihlidal/vk-mem-rs)** - Rust binding for this library. Author: Graham Wihlidal. License: Apache 2.0 or MIT.
