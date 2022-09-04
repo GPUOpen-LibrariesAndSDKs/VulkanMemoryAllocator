@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.0.1 (2022-05-26)</b>
+<b>Version 3.1.0-development</b>
 
 Copyright (c) 2017-2022 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT
@@ -2341,10 +2341,41 @@ returned value is negative error code and `*pBuffer` is null.
 If the function succeeded, you must destroy the buffer when you
 no longer need it using `vkDestroyBuffer()`. If you want to also destroy the corresponding
 allocation you can use convenience function vmaDestroyBuffer().
+
+\note There is a new version of this function augmented with parameter `allocationLocalOffset` - see vmaCreateAliasingBuffer2().
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation,
+    const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
+    VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer);
+
+/** \brief Creates a new `VkBuffer`, binds already created memory for it.
+
+\param allocator
+\param allocation Allocation that provides memory to be used for binding new buffer to it.
+\param allocationLocalOffset Additional offset to be added while binding, relative to the beginning of the allocation. Normally it should be 0.
+\param pBufferCreateInfo 
+\param[out] pBuffer Buffer that was created.
+
+This function automatically:
+
+-# Creates buffer.
+-# Binds the buffer with the supplied memory.
+
+If any of these operations fail, buffer is not created,
+returned value is negative error code and `*pBuffer` is null.
+
+If the function succeeded, you must destroy the buffer when you
+no longer need it using `vkDestroyBuffer()`. If you want to also destroy the corresponding
+allocation you can use convenience function vmaDestroyBuffer().
+
+\note This is a new version of the function augmented with parameter `allocationLocalOffset`.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer2(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VkDeviceSize allocationLocalOffset,
     const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
     VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer);
 
@@ -2373,10 +2404,18 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
-/// Function similar to vmaCreateAliasingBuffer().
+/// Function similar to vmaCreateAliasingBuffer() but for images.
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation,
+    const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage);
+
+/// Function similar to vmaCreateAliasingBuffer2() but for images.
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage2(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VkDeviceSize allocationLocalOffset,
     const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
     VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage);
 
@@ -17180,9 +17219,20 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
     const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
     VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer)
 {
-    VMA_ASSERT(allocator && pBufferCreateInfo && pBuffer && allocation);
+    return vmaCreateAliasingBuffer2(allocator, allocation, 0, pBufferCreateInfo, pBuffer);
+}
 
-    VMA_DEBUG_LOG("vmaCreateAliasingBuffer");
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer2(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VkDeviceSize allocationLocalOffset,
+    const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
+    VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer)
+{
+    VMA_ASSERT(allocator && pBufferCreateInfo && pBuffer && allocation);
+    VMA_ASSERT(allocationLocalOffset + pBufferCreateInfo->size <= allocation->GetSize());
+
+    VMA_DEBUG_LOG("vmaCreateAliasingBuffer2");
 
     *pBuffer = VK_NULL_HANDLE;
 
@@ -17208,7 +17258,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
     if (res >= 0)
     {
         // 2. Bind buffer with memory.
-        res = allocator->BindBufferMemory(allocation, 0, *pBuffer, VMA_NULL);
+        res = allocator->BindBufferMemory(allocation, allocationLocalOffset, *pBuffer, VMA_NULL);
         if (res >= 0)
         {
             return VK_SUCCESS;
@@ -17345,11 +17395,21 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage(
     const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
     VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage)
 {
+    return vmaCreateAliasingImage2(allocator, allocation, 0, pImageCreateInfo, pImage);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage2(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VkDeviceSize allocationLocalOffset,
+    const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage)
+{
     VMA_ASSERT(allocator && pImageCreateInfo && pImage && allocation);
 
     *pImage = VK_NULL_HANDLE;
 
-    VMA_DEBUG_LOG("vmaCreateImage");
+    VMA_DEBUG_LOG("vmaCreateImage2");
 
     if (pImageCreateInfo->extent.width == 0 ||
         pImageCreateInfo->extent.height == 0 ||
@@ -17371,7 +17431,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage(
     if (res >= 0)
     {
         // 2. Bind image with memory.
-        res = allocator->BindImageMemory(allocation, 0, *pImage, VMA_NULL);
+        res = allocator->BindImageMemory(allocation, allocationLocalOffset, *pImage, VMA_NULL);
         if (res >= 0)
         {
             return VK_SUCCESS;

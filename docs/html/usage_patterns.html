@@ -159,7 +159,7 @@ Advanced data uploading</h1>
 <p >For resources that you frequently write on CPU via mapped pointer and freqnently read on GPU e.g. as a uniform buffer (also called "dynamic"), multiple options are possible:</p>
 <ol type="1">
 <li>Easiest solution is to have one copy of the resource in <code>HOST_VISIBLE</code> memory, even if it means system RAM (not <code>DEVICE_LOCAL</code>) on systems with a discrete graphics card, and make the device reach out to that resource directly.<ul>
-<li>Reads performed by the device will then go through PCI Express bus. The performace of this access may be limited, but it may be fine depending on the size of this resource (whether it is small enough to quickly end up in GPU cache) and the sparsity of access.</li>
+<li>Reads performed by the device will then go through PCI Express bus. The performance of this access may be limited, but it may be fine depending on the size of this resource (whether it is small enough to quickly end up in GPU cache) and the sparsity of access.</li>
 </ul>
 </li>
 <li>On systems with unified memory (e.g. AMD APU or Intel integrated graphics, mobile chips), a memory type may be available that is both <code>HOST_VISIBLE</code> (available for mapping) and <code>DEVICE_LOCAL</code> (fast to access from the GPU). Then, it is likely the best choice for such type of resource.</li>

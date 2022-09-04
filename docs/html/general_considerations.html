@@ -87,7 +87,7 @@ Versioning and compatibility</h1>
 <li>Incrementing Major version means a release could break some backward compatibility.</li>
 </ul>
 <p >All changes between official releases are documented in file "CHANGELOG.md".</p>
-<dl class="section warning"><dt>Warning</dt><dd>Backward compatiblity is considered on the level of C++ source code, not binary linkage. Adding new members to existing structures is treated as backward compatible if initializing the new members to binary zero results in the old behavior. You should always fully initialize all library structures to zeros and not rely on their exact binary size.</dd></dl>
+<dl class="section warning"><dt>Warning</dt><dd>Backward compatibility is considered on the level of C++ source code, not binary linkage. Adding new members to existing structures is treated as backward compatible if initializing the new members to binary zero results in the old behavior. You should always fully initialize all library structures to zeros and not rely on their exact binary size.</dd></dl>
 <h1><a class="anchor" id="general_considerations_validation_layer_warnings"></a>
 Validation layer warnings</h1>
 <p >When using this library, you can meet following types of warnings issued by Vulkan validation layer. They don't necessarily indicate a bug, so you may need to just ignore them.</p>
