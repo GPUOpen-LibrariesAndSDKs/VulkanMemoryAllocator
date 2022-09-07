@@ -2693,6 +2693,30 @@ remove them if not needed.
    #define VMA_NULL   nullptr
 #endif
 
+// Normal assert to check for programmer's errors, especially in Debug configuration.
+#ifndef VMA_ASSERT
+   #ifdef NDEBUG
+       #define VMA_ASSERT(expr)
+   #else
+       #define VMA_ASSERT(expr)         assert(expr)
+   #endif
+#endif
+
+// Assert that will be called very often, like inside data structures e.g. operator[].
+// Making it non-empty can make program slow.
+#ifndef VMA_HEAVY_ASSERT
+   #ifdef NDEBUG
+       #define VMA_HEAVY_ASSERT(expr)
+   #else
+       #define VMA_HEAVY_ASSERT(expr)   //VMA_ASSERT(expr)
+   #endif
+#endif
+
+// If your compiler is not compatible with C++17 and definition of
+// aligned_alloc() function is missing, uncommenting following line may help:
+
+//#include <malloc.h>
+
 #if defined(__ANDROID_API__) && (__ANDROID_API__ < 16)
 #include <cstdlib>
 static void* vma_aligned_alloc(size_t alignment, size_t size)
@@ -2768,30 +2792,6 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
 {
     free(ptr);
 }
-#endif
-
-// If your compiler is not compatible with C++11 and definition of
-// aligned_alloc() function is missing, uncommeting following line may help:
-
-//#include <malloc.h>
-
-// Normal assert to check for programmer's errors, especially in Debug configuration.
-#ifndef VMA_ASSERT
-   #ifdef NDEBUG
-       #define VMA_ASSERT(expr)
-   #else
-       #define VMA_ASSERT(expr)         assert(expr)
-   #endif
-#endif
-
-// Assert that will be called very often, like inside data structures e.g. operator[].
-// Making it non-empty can make program slow.
-#ifndef VMA_HEAVY_ASSERT
-   #ifdef NDEBUG
-       #define VMA_HEAVY_ASSERT(expr)
-   #else
-       #define VMA_HEAVY_ASSERT(expr)   //VMA_ASSERT(expr)
-   #endif
 #endif
 
 #ifndef VMA_ALIGN_OF
