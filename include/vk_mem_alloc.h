@@ -3031,7 +3031,7 @@ Mapping hysteresis is a logic that launches when vmaMapMemory/vmaUnmapMemory is 
 or a persistently mapped allocation is created and destroyed several times in a row.
 It keeps additional +1 mapping of a device memory block to prevent calling actual
 vkMapMemory/vkUnmapMemory too many times, which may improve performance and help
-tools like RenderDOc.
+tools like RenderDoc.
 */
 #ifndef VMA_MAPPING_HYSTERESIS_ENABLED
     #define VMA_MAPPING_HYSTERESIS_ENABLED 1
@@ -17831,7 +17831,7 @@ so you can map it.
 
 For example, a staging buffer that will be filled via mapped pointer and then
 used as a source of transfer to the buffer described previously can be created like this.
-It will likely and up in a memory type that is `HOST_VISIBLE` and `HOST_COHERENT`
+It will likely end up in a memory type that is `HOST_VISIBLE` and `HOST_COHERENT`
 but not `HOST_CACHED` (meaning uncached, write-combined) and not `DEVICE_LOCAL` (meaning system RAM).
 
 \code
@@ -19074,7 +19074,7 @@ to decrease chances to be evicted to system memory by the operating system.
 \section usage_patterns_staging_copy_upload Staging copy for upload
 
 <b>When:</b>
-A "staging" buffer than you want to map and fill from CPU code, then use as a source od transfer
+A "staging" buffer than you want to map and fill from CPU code, then use as a source of transfer
 to some GPU resource.
 
 <b>What to do:</b>
@@ -19141,7 +19141,7 @@ const float* downloadedData = (const float*)allocInfo.pMappedData;
 \section usage_patterns_advanced_data_uploading Advanced data uploading
 
 For resources that you frequently write on CPU via mapped pointer and
-freqnently read on GPU e.g. as a uniform buffer (also called "dynamic"), multiple options are possible:
+frequently read on GPU e.g. as a uniform buffer (also called "dynamic"), multiple options are possible:
 
 -# Easiest solution is to have one copy of the resource in `HOST_VISIBLE` memory,
    even if it means system RAM (not `DEVICE_LOCAL`) on systems with a discrete graphics card,
