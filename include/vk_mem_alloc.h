@@ -16169,11 +16169,11 @@ VMA_CALL_PRE void VMA_CALL_POST vmaBuildStatsString(
 
                 json.WriteString("apiVersion");
                 json.BeginString();
-                json.ContinueString(VK_API_VERSION_MAJOR(deviceProperties.apiVersion));
+                json.ContinueString(VK_VERSION_MAJOR(deviceProperties.apiVersion));
                 json.ContinueString(".");
-                json.ContinueString(VK_API_VERSION_MINOR(deviceProperties.apiVersion));
+                json.ContinueString(VK_VERSION_MINOR(deviceProperties.apiVersion));
                 json.ContinueString(".");
-                json.ContinueString(VK_API_VERSION_PATCH(deviceProperties.apiVersion));
+                json.ContinueString(VK_VERSION_PATCH(deviceProperties.apiVersion));
                 json.EndString();
 
                 json.WriteString("GPU");
