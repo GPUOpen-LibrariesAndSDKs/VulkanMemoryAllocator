@@ -3341,7 +3341,7 @@ static inline T VmaAlignUp(T val, T alignment)
     return (val + alignment - 1) & ~(alignment - 1);
 }
 
-// Aligns given value down to nearest multiply of align value. For example: VmaAlignUp(11, 8) = 8.
+// Aligns given value down to nearest multiply of align value. For example: VmaAlignDown(11, 8) = 8.
 // Use types like uint32_t, uint64_t as T.
 template <typename T>
 static inline T VmaAlignDown(T val, T alignment)
