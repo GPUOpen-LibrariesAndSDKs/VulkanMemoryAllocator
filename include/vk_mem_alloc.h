@@ -6468,10 +6468,10 @@ void VmaBlockMetadata::PrintDetailedMap_Begin(class VmaJsonWriter& json,
     json.WriteSize(unusedBytes);
 
     json.WriteString("Allocations");
-    json.WriteSize(allocationCount);
+    json.WriteSize((uint64_t)allocationCount);
 
     json.WriteString("UnusedRanges");
-    json.WriteSize(unusedRangeCount);
+    json.WriteSize((uint64_t)unusedRangeCount);
 
     json.WriteString("Suballocations");
     json.BeginArray();
@@ -16012,7 +16012,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                         {
                             json.WriteString("Name");
                             json.BeginString();
-                            json.ContinueString_Size(index++);
+                            json.ContinueString_Size((uint64_t)index++);
                             if (pool->GetName())
                             {
                                 json.ContinueString(" - ");
