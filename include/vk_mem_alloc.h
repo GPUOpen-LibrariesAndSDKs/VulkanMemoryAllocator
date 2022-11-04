@@ -18487,7 +18487,7 @@ for(;;)
     {
         // Inspect pass.pMoves[i].srcAllocation, identify what buffer/image it represents.
         VmaAllocationInfo allocInfo;
-        vmaGetAllocationInfo(allocator, pMoves[i].srcAllocation, &allocInfo);
+        vmaGetAllocationInfo(allocator, pass.pMoves[i].srcAllocation, &allocInfo);
         MyEngineResourceData* resData = (MyEngineResourceData*)allocInfo.pUserData;
 
         // Recreate and bind this buffer/image at: pass.pMoves[i].dstMemory, pass.pMoves[i].dstOffset.
@@ -18495,7 +18495,7 @@ for(;;)
         VkImage newImg;
         res = vkCreateImage(device, &imgCreateInfo, nullptr, &newImg);
         // Check res...
-        res = vmaBindImageMemory(allocator, pMoves[i].dstTmpAllocation, newImg);
+        res = vmaBindImageMemory(allocator, pass.pMoves[i].dstTmpAllocation, newImg);
         // Check res...
 
         // Issue a vkCmdCopyBuffer/vkCmdCopyImage to copy its content to the new place.
