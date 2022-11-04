@@ -884,7 +884,7 @@ Use it as a unique identifier to virtual allocation within the single block.
 
 Use value `VK_NULL_HANDLE` to represent a null/invalid allocation.
 */
-VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation);
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation)
 
 /** @} */
 
@@ -3126,7 +3126,7 @@ enum class VmaAllocationRequestType
 
 #ifndef _VMA_FORWARD_DECLARATIONS
 // Opaque handle used by allocation algorithms to identify single allocation in any conforming way.
-VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaAllocHandle);
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaAllocHandle)
 
 struct VmaMutexLock;
 struct VmaMutexLockRead;
@@ -3341,7 +3341,7 @@ static inline T VmaAlignUp(T val, T alignment)
     return (val + alignment - 1) & ~(alignment - 1);
 }
 
-// Aligns given value down to nearest multiply of align value. For example: VmaAlignUp(11, 8) = 8.
+// Aligns given value down to nearest multiply of align value. For example: VmaAlignDown(11, 8) = 8.
 // Use types like uint32_t, uint64_t as T.
 template <typename T>
 static inline T VmaAlignDown(T val, T alignment)
@@ -6468,10 +6468,10 @@ void VmaBlockMetadata::PrintDetailedMap_Begin(class VmaJsonWriter& json,
     json.WriteSize(unusedBytes);
 
     json.WriteString("Allocations");
-    json.WriteSize(allocationCount);
+    json.WriteSize((uint64_t)allocationCount);
 
     json.WriteString("UnusedRanges");
-    json.WriteSize(unusedRangeCount);
+    json.WriteSize((uint64_t)unusedRangeCount);
 
     json.WriteString("Suballocations");
     json.BeginArray();
@@ -6781,7 +6781,7 @@ public:
     VkDeviceSize GetSumFreeSize() const override { return m_SumFreeSize; }
     bool IsEmpty() const override { return (m_Suballocations.size() == 1) && (m_FreeCount == 1); }
     void Free(VmaAllocHandle allocHandle) override { FreeSuballocation(FindAtOffset((VkDeviceSize)allocHandle - 1)); }
-    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; };
+    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; }
 
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
@@ -7618,7 +7618,7 @@ public:
 
     VkDeviceSize GetSumFreeSize() const override { return m_SumFreeSize; }
     bool IsEmpty() const override { return GetAllocationCount() == 0; }
-    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; };
+    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; }
 
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
@@ -9278,7 +9278,7 @@ public:
     VkDeviceSize GetSumFreeSize() const override { return m_SumFreeSize + GetUnusableSize(); }
     bool IsEmpty() const override { return m_Root->type == Node::TYPE_FREE; }
     VkResult CheckCorruption(const void* pBlockData) override { return VK_ERROR_FEATURE_NOT_PRESENT; }
-    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; };
+    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; }
     void DebugLogAllAllocations() const override { DebugLogAllAllocationNode(m_Root, 0); }
 
     void Init(VkDeviceSize size) override;
@@ -9977,7 +9977,7 @@ public:
     size_t GetFreeRegionsCount() const override { return m_BlocksFreeCount + 1; }
     VkDeviceSize GetSumFreeSize() const override { return m_BlocksFreeSize + m_NullBlock->size; }
     bool IsEmpty() const override { return m_NullBlock->offset == 0; }
-    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return ((Block*)allocHandle)->offset; };
+    VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return ((Block*)allocHandle)->offset; }
 
     void Init(VkDeviceSize size) override;
     bool Validate() const override;
@@ -16012,7 +16012,7 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
                         {
                             json.WriteString("Name");
                             json.BeginString();
-                            json.ContinueString_Size(index++);
+                            json.ContinueString_Size((uint64_t)index++);
                             if (pool->GetName())
                             {
                                 json.ContinueString(" - ");
