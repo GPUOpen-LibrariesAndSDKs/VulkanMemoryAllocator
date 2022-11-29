@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.9)
 
 project(VulkanMemoryAllocator)
 
-find_package(Vulkan REQUIRED)
+if(PROJECT_IS_TOP_LEVEL)
+    find_package(Vulkan REQUIRED)
+endif()
 include_directories(${Vulkan_INCLUDE_DIR})
 
 # VulkanMemoryAllocator contains an sample application which is not built by default
@@ -30,7 +32,9 @@ if(VMA_BUILD_SAMPLE)
     set(VMA_BUILD_SAMPLE_SHADERS ON)
 endif(VMA_BUILD_SAMPLE)
 
-find_package(Doxygen)
+if(PROJECT_IS_TOP_LEVEL)
+    find_package(Doxygen)
+endif()
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
 if(BUILD_DOCUMENTATION)
