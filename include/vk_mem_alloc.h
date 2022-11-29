@@ -2842,14 +2842,18 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
    #define VMA_SORT(beg, end, cmp)  std::sort(beg, end, cmp)
 #endif
 
-#ifndef VMA_DEBUG_LOG
-   #define VMA_DEBUG_LOG(format, ...)
+#ifndef VMA_DEBUG_LOG_FORMAT
+   #define VMA_DEBUG_LOG_FORMAT(format, ...)
    /*
-   #define VMA_DEBUG_LOG(format, ...) do { \
-       printf(format, __VA_ARGS__); \
+   #define VMA_DEBUG_LOG_FORMAT(format, ...) do { \
+       printf((format), __VA_ARGS__); \
        printf("\n"); \
    } while(false)
    */
+#endif
+
+#ifndef VMA_DEBUG_LOG
+    #define VMA_DEBUG_LOG(str)   VMA_DEBUG_LOG_FORMAT("%s", (str))
 #endif
 
 // Define this macro to 1 to enable functions: vmaBuildStatsString, vmaFreeStatsString.
@@ -6409,7 +6413,7 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
 {
     if (IsVirtual())
     {
-        VMA_DEBUG_LOG("UNFREED VIRTUAL ALLOCATION; Offset: %llu; Size: %llu; UserData: %p", offset, size, userData);
+        VMA_DEBUG_LOG_FORMAT("UNFREED VIRTUAL ALLOCATION; Offset: %llu; Size: %llu; UserData: %p", offset, size, userData);
     }
     else
     {
@@ -6420,12 +6424,12 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
         const char* name = allocation->GetName();
 
 #if VMA_STATS_STRING_ENABLED
-        VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Name: %s; Type: %s; Usage: %u",
+        VMA_DEBUG_LOG_FORMAT("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Name: %s; Type: %s; Usage: %u",
             offset, size, userData, name ? name : "vma_empty",
             VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()],
             allocation->GetBufferImageUsage());
 #else
-        VMA_DEBUG_LOG("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Name: %s; Type: %u",
+        VMA_DEBUG_LOG_FORMAT("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Name: %s; Type: %u",
             offset, size, userData, name ? name : "vma_empty",
             (uint32_t)allocation->GetSuballocationType());
 #endif // VMA_STATS_STRING_ENABLED
@@ -11279,7 +11283,7 @@ VmaVirtualBlock_T::VmaVirtualBlock_T(const VmaVirtualBlockCreateInfo& createInfo
 
 VmaVirtualBlock_T::~VmaVirtualBlock_T()
 {
-    // Define macro VMA_DEBUG_LOG to receive the list of the unfreed allocations
+    // Define macro VMA_DEBUG_LOG_FORMAT to receive the list of the unfreed allocations
     if (!m_Metadata->IsEmpty())
         m_Metadata->DebugLogAllAllocations();
     // This is the most important assert in the entire library.
@@ -11771,7 +11775,7 @@ void VmaDeviceMemoryBlock::Init(
 
 void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
 {
-    // Define macro VMA_DEBUG_LOG to receive the list of the unfreed allocations
+    // Define macro VMA_DEBUG_LOG_FORMAT to receive the list of the unfreed allocations
     if (!m_pMetadata->IsEmpty())
         m_pMetadata->DebugLogAllAllocations();
     // This is the most important assert in the entire library.
@@ -12479,7 +12483,7 @@ VkResult VmaBlockVector::AllocatePage(
                 pCurrBlock, size, alignment, createInfo.flags, createInfo.pUserData, suballocType, strategy, pAllocation);
             if (res == VK_SUCCESS)
             {
-                VMA_DEBUG_LOG("    Returned from last block #%u", pCurrBlock->GetId());
+                VMA_DEBUG_LOG_FORMAT("    Returned from last block #%u", pCurrBlock->GetId());
                 IncrementallySortBlocks();
                 return VK_SUCCESS;
             }
@@ -12515,7 +12519,7 @@ VkResult VmaBlockVector::AllocatePage(
                                 pCurrBlock, size, alignment, createInfo.flags, createInfo.pUserData, suballocType, strategy, pAllocation);
                             if (res == VK_SUCCESS)
                             {
-                                VMA_DEBUG_LOG("    Returned from existing block #%u", pCurrBlock->GetId());
+                                VMA_DEBUG_LOG_FORMAT("    Returned from existing block #%u", pCurrBlock->GetId());
                                 IncrementallySortBlocks();
                                 return VK_SUCCESS;
                             }
@@ -12534,7 +12538,7 @@ VkResult VmaBlockVector::AllocatePage(
                         pCurrBlock, size, alignment, createInfo.flags, createInfo.pUserData, suballocType, strategy, pAllocation);
                     if (res == VK_SUCCESS)
                     {
-                        VMA_DEBUG_LOG("    Returned from existing block #%u", pCurrBlock->GetId());
+                        VMA_DEBUG_LOG_FORMAT("    Returned from existing block #%u", pCurrBlock->GetId());
                         IncrementallySortBlocks();
                         return VK_SUCCESS;
                     }
@@ -12551,7 +12555,7 @@ VkResult VmaBlockVector::AllocatePage(
                 VkResult res = AllocateFromBlock(pCurrBlock, size, alignment, createInfo.flags, createInfo.pUserData, suballocType, strategy, pAllocation);
                 if (res == VK_SUCCESS)
                 {
-                    VMA_DEBUG_LOG("    Returned from existing block #%u", pCurrBlock->GetId());
+                    VMA_DEBUG_LOG_FORMAT("    Returned from existing block #%u", pCurrBlock->GetId());
                     IncrementallySortBlocks();
                     return VK_SUCCESS;
                 }
@@ -12618,7 +12622,7 @@ VkResult VmaBlockVector::AllocatePage(
                 pBlock, size, alignment, createInfo.flags, createInfo.pUserData, suballocType, strategy, pAllocation);
             if (res == VK_SUCCESS)
             {
-                VMA_DEBUG_LOG("    Created new block #%u Size=%llu", pBlock->GetId(), newBlockSize);
+                VMA_DEBUG_LOG_FORMAT("    Created new block #%u Size=%llu", pBlock->GetId(), newBlockSize);
                 IncrementallySortBlocks();
                 return VK_SUCCESS;
             }
@@ -12667,7 +12671,7 @@ void VmaBlockVector::Free(const VmaAllocation hAllocation)
         pBlock->PostFree(m_hAllocator);
         VMA_HEAVY_ASSERT(pBlock->Validate());
 
-        VMA_DEBUG_LOG("  Freed from MemoryTypeIndex=%u", m_MemoryTypeIndex);
+        VMA_DEBUG_LOG_FORMAT("  Freed from MemoryTypeIndex=%u", m_MemoryTypeIndex);
 
         const bool canDeleteBlock = m_Blocks.size() > m_MinBlockCount;
         // pBlock became empty after this deallocation.
@@ -12700,7 +12704,7 @@ void VmaBlockVector::Free(const VmaAllocation hAllocation)
     // lock, for performance reason.
     if (pBlockToDelete != VMA_NULL)
     {
-        VMA_DEBUG_LOG("    Deleted empty block #%u", pBlockToDelete->GetId());
+        VMA_DEBUG_LOG_FORMAT("    Deleted empty block #%u", pBlockToDelete->GetId());
         pBlockToDelete->Destroy(m_hAllocator);
         vma_delete(m_hAllocator, pBlockToDelete);
     }
@@ -14461,7 +14465,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     VmaAllocation* pAllocations)
 {
     VMA_ASSERT(pAllocations != VMA_NULL);
-    VMA_DEBUG_LOG("  AllocateMemory: MemoryTypeIndex=%u, AllocationCount=%zu, Size=%llu", memTypeIndex, allocationCount, size);
+    VMA_DEBUG_LOG_FORMAT("  AllocateMemory: MemoryTypeIndex=%u, AllocationCount=%zu, Size=%llu", memTypeIndex, allocationCount, size);
 
     VmaAllocationCreateInfo finalCreateInfo = createInfo;
     VkResult res = CalcMemTypeParams(
@@ -14706,7 +14710,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemory(
         {
             dedicatedAllocations.Register(pAllocations[allocIndex]);
         }
-        VMA_DEBUG_LOG("    Allocated DedicatedMemory Count=%zu, MemoryTypeIndex=#%u", allocationCount, memTypeIndex);
+        VMA_DEBUG_LOG_FORMAT("    Allocated DedicatedMemory Count=%zu, MemoryTypeIndex=#%u", allocationCount, memTypeIndex);
     }
     else
     {
@@ -15264,7 +15268,7 @@ void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationI
 
 VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool)
 {
-    VMA_DEBUG_LOG("  CreatePool: MemoryTypeIndex=%u, flags=%u", pCreateInfo->memoryTypeIndex, pCreateInfo->flags);
+    VMA_DEBUG_LOG_FORMAT("  CreatePool: MemoryTypeIndex=%u, flags=%u", pCreateInfo->memoryTypeIndex, pCreateInfo->flags);
 
     VmaPoolCreateInfo newCreateInfo = *pCreateInfo;
 
@@ -15743,7 +15747,7 @@ void VmaAllocator_T::FreeDedicatedMemory(const VmaAllocation allocation)
     m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex()), allocation->GetSize());
     m_AllocationObjectAllocator.Free(allocation);
 
-    VMA_DEBUG_LOG("    Freed DedicatedMemory MemoryTypeIndex=%u", memTypeIndex);
+    VMA_DEBUG_LOG_FORMAT("    Freed DedicatedMemory MemoryTypeIndex=%u", memTypeIndex);
 }
 
 uint32_t VmaAllocator_T::CalculateGpuDefragmentationMemoryTypeBits() const
