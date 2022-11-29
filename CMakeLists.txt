@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.9)
 
 project(VulkanMemoryAllocator)
 
+# https://cmake.org/cmake/help/latest/variable/PROJECT_IS_TOP_LEVEL.html
+string(COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR} PROJECT_IS_TOP_LEVEL)
+
 if(PROJECT_IS_TOP_LEVEL)
     find_package(Vulkan REQUIRED)
 endif()
