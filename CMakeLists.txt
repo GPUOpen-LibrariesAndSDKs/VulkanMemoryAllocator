@@ -7,8 +7,8 @@ string(COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR} PROJECT_IS_
 
 if(PROJECT_IS_TOP_LEVEL)
     find_package(Vulkan REQUIRED)
+    include_directories(${Vulkan_INCLUDE_DIR})
 endif()
-include_directories(${Vulkan_INCLUDE_DIR})
 
 # VulkanMemoryAllocator contains an sample application which is not built by default
 option(VMA_BUILD_SAMPLE "Build VulkanMemoryAllocator sample application" OFF)
@@ -35,12 +35,12 @@ if(VMA_BUILD_SAMPLE)
     set(VMA_BUILD_SAMPLE_SHADERS ON)
 endif(VMA_BUILD_SAMPLE)
 
-if(PROJECT_IS_TOP_LEVEL)
-    find_package(Doxygen)
-endif()
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
 if(BUILD_DOCUMENTATION)
+    if(PROJECT_IS_TOP_LEVEL)
+        find_package(Doxygen)
+    endif()
     if(DOXYGEN_FOUND)
         # set input and output files
         set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile)
