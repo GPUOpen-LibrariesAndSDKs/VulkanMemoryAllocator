@@ -8071,30 +8071,17 @@ void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
             {
                 const VmaSuballocation& suballoc = suballocations2nd[nextAlloc2ndIndex];
 
-                // 1. Process free space before this allocation.
-                if (lastOffset < suballoc.offset)
-                {
-                    // There is free space from lastOffset to suballoc.offset.
-                    const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                }
-
-                // 2. Process this allocation.
+                // Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
                 ++inoutStats.allocationCount;
 
-                // 3. Prepare for next iteration.
+                // Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
                 ++nextAlloc2ndIndex;
             }
             // We are at the end.
             else
             {
-                if (lastOffset < freeSpace2ndTo1stEnd)
-                {
-                    // There is free space from lastOffset to freeSpace2ndTo1stEnd.
-                    const VkDeviceSize unusedRangeSize = freeSpace2ndTo1stEnd - lastOffset;
-                }
-
                 // End of loop.
                 lastOffset = freeSpace2ndTo1stEnd;
             }
@@ -8118,30 +8105,17 @@ void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
         {
             const VmaSuballocation& suballoc = suballocations1st[nextAlloc1stIndex];
 
-            // 1. Process free space before this allocation.
-            if (lastOffset < suballoc.offset)
-            {
-                // There is free space from lastOffset to suballoc.offset.
-                const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-            }
-
-            // 2. Process this allocation.
+            // Process this allocation.
             // There is allocation with suballoc.offset, suballoc.size.
             ++inoutStats.allocationCount;
 
-            // 3. Prepare for next iteration.
+            // Prepare for next iteration.
             lastOffset = suballoc.offset + suballoc.size;
             ++nextAlloc1stIndex;
         }
         // We are at the end.
         else
         {
-            if (lastOffset < freeSpace1stTo2ndEnd)
-            {
-                // There is free space from lastOffset to freeSpace1stTo2ndEnd.
-                const VkDeviceSize unusedRangeSize = freeSpace1stTo2ndEnd - lastOffset;
-            }
-
             // End of loop.
             lastOffset = freeSpace1stTo2ndEnd;
         }
@@ -8164,30 +8138,17 @@ void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
             {
                 const VmaSuballocation& suballoc = suballocations2nd[nextAlloc2ndIndex];
 
-                // 1. Process free space before this allocation.
-                if (lastOffset < suballoc.offset)
-                {
-                    // There is free space from lastOffset to suballoc.offset.
-                    const VkDeviceSize unusedRangeSize = suballoc.offset - lastOffset;
-                }
-
-                // 2. Process this allocation.
+                // Process this allocation.
                 // There is allocation with suballoc.offset, suballoc.size.
                 ++inoutStats.allocationCount;
 
-                // 3. Prepare for next iteration.
+                // Prepare for next iteration.
                 lastOffset = suballoc.offset + suballoc.size;
                 --nextAlloc2ndIndex;
             }
             // We are at the end.
             else
             {
-                if (lastOffset < size)
-                {
-                    // There is free space from lastOffset to size.
-                    const VkDeviceSize unusedRangeSize = size - lastOffset;
-                }
-
                 // End of loop.
                 lastOffset = size;
             }
