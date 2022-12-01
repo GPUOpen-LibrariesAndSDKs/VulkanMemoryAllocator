@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(VulkanMemoryAllocator)
+project(VulkanMemoryAllocator LANGUAGES CXX)
 
 # https://cmake.org/cmake/help/latest/variable/PROJECT_IS_TOP_LEVEL.html
 string(COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR} PROJECT_IS_TOP_LEVEL)
@@ -33,7 +33,7 @@ message(STATUS "VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT = ${VMA_DEBUG_
 
 if(VMA_BUILD_SAMPLE)
     set(VMA_BUILD_SAMPLE_SHADERS ON)
-endif(VMA_BUILD_SAMPLE)
+endif()
 
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
