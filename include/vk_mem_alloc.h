@@ -4006,6 +4006,8 @@ template<typename AtomicT>
 struct AtomicTransactionalIncrement
 {
 public:
+    using T = decltype(AtomicT().load());
+
     ~AtomicTransactionalIncrement()
     {
         if(m_Atomic)
@@ -4013,7 +4015,7 @@ public:
     }
 
     void Commit() { m_Atomic = nullptr; }
-    typename AtomicT::value_type Increment(AtomicT* atomic)
+    T Increment(AtomicT* atomic)
     {
         m_Atomic = atomic;
         return m_Atomic->fetch_add(1);
