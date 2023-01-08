@@ -1912,9 +1912,25 @@ you should avoid calling it too often.
 You can retrieve same VmaAllocationInfo structure while creating your resource, from function
 vmaCreateBuffer(), vmaCreateImage(). You can remember it if you are sure parameters don't change
 (e.g. due to defragmentation).
+\note There is a new version of this function which no longer requires `allocator` - see vmaGetAllocationInfo2().
+`allocator` is ignored by this function.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo(
     VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    VmaAllocationInfo* VMA_NOT_NULL pAllocationInfo);
+
+/** \brief Returns current information about specified allocation.
+
+Current parameters of given allocation are returned in `pAllocationInfo`.
+
+Although this function doesn't lock any mutex, so it should be quite efficient,
+you should avoid calling it too often.
+You can retrieve same VmaAllocationInfo structure while creating your resource, from function
+vmaCreateBuffer(), vmaCreateImage(). You can remember it if you are sure parameters don't change
+(e.g. due to defragmentation).
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo2(
     VmaAllocation VMA_NOT_NULL allocation,
     VmaAllocationInfo* VMA_NOT_NULL pAllocationInfo);
 
@@ -6023,6 +6039,8 @@ public:
     void* GetUserData() const { return m_pUserData; }
     const char* GetName() const { return m_pName; }
     VmaSuballocationType GetSuballocationType() const { return (VmaSuballocationType)m_SuballocationType; }
+
+    void GetAllocationInfo(VmaAllocationInfo* pAllocationInfo) const;
 
     VmaDeviceMemoryBlock* GetBlock() const { VMA_ASSERT(m_Type == ALLOCATION_TYPE_BLOCK); return m_BlockAllocation.m_Block; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
@@ -11457,8 +11475,6 @@ public:
     void PrintDetailedMap(class VmaJsonWriter& json);
 #endif
 
-    void GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationInfo* pAllocationInfo);
-
     VkResult CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool);
     void DestroyPool(VmaPool pool);
     void GetPoolStatistics(VmaPool pool, VmaStatistics* pPoolStats);
@@ -12014,6 +12030,17 @@ void VmaAllocation_T::InitDedicatedAllocation(
     m_DedicatedAllocation.m_pMappedData = pMappedData;
     m_DedicatedAllocation.m_Prev = VMA_NULL;
     m_DedicatedAllocation.m_Next = VMA_NULL;
+}
+
+void VmaAllocation_T::GetAllocationInfo(VmaAllocationInfo* pAllocationInfo) const
+{
+    pAllocationInfo->memoryType = GetMemoryTypeIndex();
+    pAllocationInfo->deviceMemory = GetMemory();
+    pAllocationInfo->offset = GetOffset();
+    pAllocationInfo->size = GetSize();
+    pAllocationInfo->pMappedData = GetMappedData();
+    pAllocationInfo->pUserData = GetUserData();
+    pAllocationInfo->pName = GetName();
 }
 
 void VmaAllocation_T::SetName(VmaAllocator hAllocator, const char* pName)
@@ -15217,17 +15244,6 @@ void VmaAllocator_T::GetHeapBudgets(VmaBudget* outBudgets, uint32_t firstHeap, u
     }
 }
 
-void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationInfo* pAllocationInfo)
-{
-    pAllocationInfo->memoryType = hAllocation->GetMemoryTypeIndex();
-    pAllocationInfo->deviceMemory = hAllocation->GetMemory();
-    pAllocationInfo->offset = hAllocation->GetOffset();
-    pAllocationInfo->size = hAllocation->GetSize();
-    pAllocationInfo->pMappedData = hAllocation->GetMappedData();
-    pAllocationInfo->pUserData = hAllocation->GetUserData();
-    pAllocationInfo->pName = hAllocation->GetName();
-}
-
 VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPool* pPool)
 {
     VMA_DEBUG_LOG_FORMAT("  CreatePool: MemoryTypeIndex=%u, flags=%u", pCreateInfo->memoryTypeIndex, pCreateInfo->flags);
@@ -16521,7 +16537,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
 
     if(pAllocationInfo != VMA_NULL && result == VK_SUCCESS)
     {
-        allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+        (*pAllocation)->GetAllocationInfo(pAllocationInfo);
     }
 
     return result;
@@ -16562,7 +16578,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
     {
         for(size_t i = 0; i < allocationCount; ++i)
         {
-            allocator->GetAllocationInfo(pAllocations[i], pAllocationInfo + i);
+            pAllocations[i]->GetAllocationInfo(pAllocationInfo + i);
         }
     }
 
@@ -16603,7 +16619,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
 
     if(pAllocationInfo && result == VK_SUCCESS)
     {
-        allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+        (*pAllocation)->GetAllocationInfo(pAllocationInfo);
     }
 
     return result;
@@ -16642,7 +16658,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
 
     if(pAllocationInfo && result == VK_SUCCESS)
     {
-        allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+        (*pAllocation)->GetAllocationInfo(pAllocationInfo);
     }
 
     return result;
@@ -16688,15 +16704,22 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemoryPages(
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo(
-    VmaAllocator allocator,
+    VmaAllocator,
     VmaAllocation allocation,
     VmaAllocationInfo* pAllocationInfo)
 {
-    VMA_ASSERT(allocator && allocation && pAllocationInfo);
+    vmaGetAllocationInfo2(allocation, pAllocationInfo);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationInfo2(
+    VmaAllocation allocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    VMA_ASSERT(allocation && pAllocationInfo);
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    allocator->GetAllocationInfo(allocation, pAllocationInfo);
+    allocation->GetAllocationInfo(pAllocationInfo);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationUserData(
@@ -17046,7 +17069,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
                 #endif
                 if(pAllocationInfo != VMA_NULL)
                 {
-                    allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+                    (*pAllocation)->GetAllocationInfo(pAllocationInfo);
                 }
 
                 return VK_SUCCESS;
@@ -17141,7 +17164,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
                 #endif
                 if(pAllocationInfo != VMA_NULL)
                 {
-                    allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+                    (*pAllocation)->GetAllocationInfo(pAllocationInfo);
                 }
 
                 return VK_SUCCESS;
@@ -17317,7 +17340,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
                 #endif
                 if(pAllocationInfo != VMA_NULL)
                 {
-                    allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+                    (*pAllocation)->GetAllocationInfo(pAllocationInfo);
                 }
 
                 return VK_SUCCESS;
