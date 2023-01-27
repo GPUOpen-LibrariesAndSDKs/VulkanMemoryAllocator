@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['library_20initialization_0',['Library initialization',['../group__group__init.html',1,'']]]
+  ['buffer_20suballocation_0',['Buffer suballocation',['../group__group__buffer__suballocation.html',1,'']]]
 ];

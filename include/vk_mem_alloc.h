@@ -68,6 +68,7 @@ License: MIT
     - [Allocation user data](@ref allocation_user_data)
     - [Allocation names](@ref allocation_names)
   - \subpage virtual_allocator
+  - \subpage buffer_suballocation
   - \subpage debugging_memory_usage
     - [Memory initialization](@ref debugging_memory_usage_initialization)
     - [Margins](@ref debugging_memory_usage_margins)
@@ -114,6 +115,11 @@ Most basic ones being: vmaCreateBuffer(), vmaCreateImage().
 
 \brief API elements related to the mechanism of \ref virtual_allocator - using the core allocation algorithm
 for user-defined purpose without allocating any real GPU memory.
+
+\defgroup group_buffer_suballocation Buffer suballocation
+
+\brief API elements related to the mechanism of \ref buffer_suballocation - allocating parts of larger buffers
+that allocator can create implicitly.
 
 \defgroup group_stats Statistics
 
@@ -803,6 +809,76 @@ typedef VkFlags VmaVirtualAllocationCreateFlags;
 
 /** @} */
 
+/**
+\addtogroup group_buffer_suballocation
+@{
+*/
+
+/// Flags to be passed as VmaBufferAllocatorCreateInfo::flags.
+typedef enum VmaBufferAllocatorCreateFlagBits
+{
+    /** \brief Enables alternative, linear allocation algorithm in this virtual block.
+
+    Specify this flag to enable linear allocation algorithm, which always creates
+    new allocations after last one and doesn't reuse space from allocations freed in
+    between. It trades memory consumption for simplified algorithm and data
+    structure, which has better performance and uses less memory for metadata.
+
+    By using this flag, you can achieve behavior of free-at-once, stack,
+    ring buffer, and double stack.
+    For details, see documentation chapter \ref linear_algorithm.
+
+    Under the hood, it uses a \ref virtual_allocator with flag #VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT.
+
+    TODO implement!
+    */
+    VMA_BUFFER_ALLOCATOR_CREATE_LINEAR_ALGORITHM_BIT = 0x00000001,
+
+    /** \brief Bit mask to extract only `ALGORITHM` bits from entire set of flags.
+    */
+    VMA_BUFFER_ALLOCATOR_CREATE_ALGORITHM_MASK =
+        VMA_BUFFER_ALLOCATOR_CREATE_LINEAR_ALGORITHM_BIT,
+
+    VMA_BUFFER_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaBufferAllocatorCreateFlagBits;
+/// Flags to be passed as VmaBufferAllocatorCreateInfo::flags. See #VmaBufferAllocatorCreateFlagBits.
+typedef VkFlags VmaBufferAllocatorCreateFlags;
+
+/// Flags to be passed as VmaVirtualAllocationCreateInfo::flags.
+typedef enum VmaBufferSuballocationCreateFlagBits
+{
+    /** \brief TODO document! TODO implement!
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_DEDICATED_BUFFER_BIT = 0x00000001,
+    /** \brief TODO document! TODO implement!
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_NEVER_ALLOCATE_BIT = 0x00000002,
+    /** \brief TODO document! TODO implement!
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_WITHIN_BUDGET_BIT = 0x00000004,
+    /** \brief TODO document! TODO implement!
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT = 0x00010000,
+    /** \brief TODO document! TODO implement!
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT = 0x00020000,
+    /** \brief TODO document! TODO implement!
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT  = 0x00040000,
+    /** A bit mask to extract only `STRATEGY` bits from entire set of flags.
+    */
+    VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MASK =
+        VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT |
+        VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT |
+        VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT,
+
+    VMA_BUFFER_SUBALLOCATION_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VmaBufferSuballocationCreateFlagBits;
+/// Flags to be passed as VmaBufferSuballocationCreateInfo::flags. See #VmaBufferSuballocationCreateFlagBits.
+typedef VkFlags VmaBufferSuballocationCreateFlags;
+
+/** @} */
+
 #endif // _VMA_ENUM_DECLARATIONS
 
 #ifndef _VMA_DATA_TYPES_DECLARATIONS
@@ -886,13 +962,6 @@ Use value `VK_NULL_HANDLE` to represent a null/invalid allocation.
 */
 VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation)
 
-/** @} */
-
-/**
-\addtogroup group_virtual
-@{
-*/
-
 /** \struct VmaVirtualBlock
 \brief Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory.
 
@@ -902,6 +971,23 @@ For more information, see documentation chapter \ref virtual_allocator.
 This object is not thread-safe - should not be used from multiple threads simultaneously, must be synchronized externally.
 */
 VK_DEFINE_HANDLE(VmaVirtualBlock)
+
+/** @} */
+
+/**
+\addtogroup group_buffer_suballocation
+@{
+*/
+
+/** \struct VmaBufferSuballocation
+\brief TODO document!
+*/
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaBufferSuballocation)
+
+/** \struct VmaBufferAllocator
+\brief TODO document!
+*/
+VK_DEFINE_HANDLE(VmaBufferAllocator)
 
 /** @} */
 
@@ -1547,6 +1633,80 @@ typedef struct VmaVirtualAllocationInfo
     */
     void* VMA_NULLABLE pUserData;
 } VmaVirtualAllocationInfo;
+
+/** @} */
+
+/**
+\addtogroup group_buffer_suballocation
+@{
+*/
+
+/// Parameters of created #VmaBufferAllocator object to be passed to vmaCreateBufferAllocator().
+typedef struct VmaBufferAllocatorCreateInfo
+{
+    /** \brief TODO document! TODO implement!
+    */
+    VmaBufferAllocatorCreateFlags flags;
+    /** \brief TODO document! TODO implement!
+    */
+    VkBufferCreateInfo bufferCreateInfo;
+    /** \brief TODO document! TODO implement!
+    */
+    VmaAllocationCreateInfo allocationCreateInfo;
+    /** \brief TODO document! TODO implement!
+    */
+    size_t minBufferCount;
+    /** \brief TODO document! TODO implement!
+    */
+    size_t maxBufferCount;
+    /** \brief TODO document! TODO implement!
+    */
+    VkDeviceSize minSuballocationAlignment;
+} VmaBufferAllocatorCreateInfo;
+
+/// Parameters of created #VmaBufferSuballocation object to be passed to vmaBufferAllocatorAllocate().
+typedef struct VmaBufferSuballocationCreateInfo
+{
+    /** \brief TODO document! TODO implement!
+    */
+    VmaBufferSuballocationCreateFlags flags;
+    /** \brief TODO document! TODO implement!
+    */
+    VkDeviceSize size;
+    /** \brief TODO document! TODO implement!
+    */
+    VkDeviceSize alignment;
+    /** \brief Custom pointer to be associated with the suballocation. Optional.
+
+    It can be any value and can be used for user-defined purposes. It can be fetched or changed later.
+    */
+    void* VMA_NULLABLE pUserData;
+} VmaBufferSuballocationCreateInfo;
+
+/// Parameters of an existing buffer suballocation, returned by vmaGetBufferSuballocationInfo().
+typedef struct VmaBufferSuballocationInfo
+{
+    /** \brief TODO document! TODO implement!
+    */
+    VmaAllocation allocation;
+    /** \brief TODO document! TODO implement!
+    */
+    VkBuffer buffer;
+    /** \brief TODO document! TODO implement!
+    */
+    VkDeviceSize bufferLocalOffset;
+    /** \brief TODO document! TODO implement!
+    */
+    VkDeviceSize size;
+    /** \brief TODO document! TODO implement!
+    */
+    void* VMA_NULLABLE pMappedData;
+    /** \brief Custom pointer associated with the suballocation.
+
+    Same value as passed in VmaBufferSuballocationCreateInfo::pUserData or to vmaSetBufferSuballocationUserData().
+    */
+    void* VMA_NULLABLE pUserData;
+} VmaBufferSuballocationInfo;
 
 /** @} */
 
@@ -2533,6 +2693,101 @@ For less detailed statistics, see vmaGetVirtualBlockStatistics().
 VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStatistics(
     VmaVirtualBlock VMA_NOT_NULL virtualBlock,
     VmaDetailedStatistics* VMA_NOT_NULL pStats);
+
+/** @} */
+
+/**
+\addtogroup group_buffer_suballocation
+@{
+*/
+
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferAllocator(
+    VmaAllocator VMA_NOT_NULL allocator,
+    const VmaBufferAllocatorCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaBufferAllocator VMA_NULLABLE* VMA_NOT_NULL pBufferAllocator);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaDestroyBufferAllocator(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NULLABLE bufferAllocator);
+
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaBufferAllocatorAllocate(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NULLABLE bufferAllocator,
+    const VmaBufferSuballocationCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaBufferSuballocation VMA_NULLABLE* VMA_NOT_NULL pBufferSuballocation,
+    VmaBufferSuballocationInfo* VMA_NULLABLE pBufferSuballocationInfo);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaBufferAllocatorFree(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NULLABLE bufferSuballocation);
+
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaGetBufferSuballocationInfo(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    VmaBufferSuballocationInfo* VMA_NOT_NULL pBufferSuballocationInfo);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaSetBufferSuballocationUserData(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    void* VMA_NULLABLE pUserData);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    void* VMA_NULLABLE* VMA_NOT_NULL ppData);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaUnmapBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    VkDeviceSize offset,
+    VkDeviceSize size);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    VkDeviceSize offset,
+    VkDeviceSize size);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushBufferSuballocations(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    uint32_t bufferSuballocationCount,
+    const VmaBufferSuballocation VMA_NOT_NULL* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pBufferSuballocations,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffset,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pSizes);
+/** \brief TODO implement! TODO document!
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateBufferSuballocations(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    const VmaBufferSuballocation VMA_NOT_NULL* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pBufferSuballocations,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffset,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pSizes);
 
 /** @} */
 
@@ -18825,6 +19080,11 @@ See enum #VmaVirtualAllocationCreateFlagBits to learn how to specify them (e.g. 
 
 Following features are supported only by the allocator of the real GPU memory and not by virtual allocations:
 buffer-image granularity, `VMA_DEBUG_MARGIN`, `VMA_MIN_ALIGNMENT`.
+
+
+\page buffer_suballocation Buffer suballocation
+
+TODO document!
 
 
 \page debugging_memory_usage Debugging incorrect memory usage

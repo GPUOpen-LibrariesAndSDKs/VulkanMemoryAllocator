@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['statistics_0',['Statistics',['../group__group__stats.html',1,'']]]
+  ['memory_20allocation_0',['Memory allocation',['../group__group__alloc.html',1,'']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['virtual_20allocator_0',['Virtual allocator',['../group__group__virtual.html',1,'']]]
+  ['statistics_0',['Statistics',['../group__group__stats.html',1,'']]]
 ];

@@ -72,7 +72,6 @@ $(function() {
 &#160;
 
 <h3><a id="index_v" name="index_v"></a>- v -</h3><ul>
-<li>VK_DEFINE_NON_DISPATCHABLE_HANDLE()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga565936f8d98d225b536a2d9703bc7676">vk_mem_alloc.h</a></li>
 <li>vmaAllocateMemory()&#160;:&#160;<a class="el" href="group__group__alloc.html#gabf28077dbf82d0908b8acbe8ee8dd9b8">vk_mem_alloc.h</a></li>
 <li>vmaAllocateMemoryForBuffer()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga7fdf64415b6c3d83c454f28d2c53df7b">vk_mem_alloc.h</a></li>
 <li>vmaAllocateMemoryForImage()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga0faa3f9e5fb233d29d1e00390650febb">vk_mem_alloc.h</a></li>
@@ -83,6 +82,8 @@ $(function() {
 <li>vmaBindBufferMemory2()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga927c944f45e0f2941182abb6f608e64a">vk_mem_alloc.h</a></li>
 <li>vmaBindImageMemory()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga3d3ca45799923aa5d138e9e5f9eb2da5">vk_mem_alloc.h</a></li>
 <li>vmaBindImageMemory2()&#160;:&#160;<a class="el" href="group__group__alloc.html#gaa8251ee81b0045a443e35b8e8aa021bc">vk_mem_alloc.h</a></li>
+<li>vmaBufferAllocatorAllocate()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga40f2d170f68291d7b9dc32c130b60c39">vk_mem_alloc.h</a></li>
+<li>vmaBufferAllocatorFree()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#gaffeae9a3b55e1f1ccaf4dd97d9e74a5f">vk_mem_alloc.h</a></li>
 <li>vmaCalculatePoolStatistics()&#160;:&#160;<a class="el" href="group__group__stats.html#ga50ba0eb25d2b363b792be4645ca7a380">vk_mem_alloc.h</a></li>
 <li>vmaCalculateStatistics()&#160;:&#160;<a class="el" href="group__group__stats.html#ga36f3484de7aa6cd6edc4de9edfa0ff59">vk_mem_alloc.h</a></li>
 <li>vmaCalculateVirtualBlockStatistics()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098">vk_mem_alloc.h</a></li>
@@ -95,12 +96,14 @@ $(function() {
 <li>vmaCreateAliasingImage2()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga69ac829f5bb0737449fa92c2d971f1bb">vk_mem_alloc.h</a></li>
 <li>vmaCreateAllocator()&#160;:&#160;<a class="el" href="group__group__init.html#ga200692051ddb34240248234f5f4c17bb">vk_mem_alloc.h</a></li>
 <li>vmaCreateBuffer()&#160;:&#160;<a class="el" href="group__group__alloc.html#gac72ee55598617e8eecca384e746bab51">vk_mem_alloc.h</a></li>
+<li>vmaCreateBufferAllocator()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga03c157c99d4505b0c753c68e636dca66">vk_mem_alloc.h</a></li>
 <li>vmaCreateBufferWithAlignment()&#160;:&#160;<a class="el" href="group__group__alloc.html#gaa06a690013a0d01e60894ac378083834">vk_mem_alloc.h</a></li>
 <li>vmaCreateImage()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga02a94f25679275851a53e82eacbcfc73">vk_mem_alloc.h</a></li>
 <li>vmaCreatePool()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga5c8770ded7c59c8caac6de0c2cb00b50">vk_mem_alloc.h</a></li>
 <li>vmaCreateVirtualBlock()&#160;:&#160;<a class="el" href="group__group__virtual.html#gab585754076877265fdae33e5c40ef13b">vk_mem_alloc.h</a></li>
 <li>vmaDestroyAllocator()&#160;:&#160;<a class="el" href="group__group__init.html#gaa8d164061c88f22fb1fd3c8f3534bc1d">vk_mem_alloc.h</a></li>
 <li>vmaDestroyBuffer()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga0d9f4e4ba5bf9aab1f1c746387753d77">vk_mem_alloc.h</a></li>
+<li>vmaDestroyBufferAllocator()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga0583fc4a16f1b38d02b2d57a46a20183">vk_mem_alloc.h</a></li>
 <li>vmaDestroyImage()&#160;:&#160;<a class="el" href="group__group__alloc.html#gae50d2cb3b4a3bfd4dd40987234e50e7e">vk_mem_alloc.h</a></li>
 <li>vmaDestroyPool()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga5485779c8f1948238fc4e92232fa65e1">vk_mem_alloc.h</a></li>
 <li>vmaDestroyVirtualBlock()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga3795f7783ae2c182cede067d656f66a5">vk_mem_alloc.h</a></li>
@@ -111,11 +114,14 @@ $(function() {
 <li>vmaFindMemoryTypeIndexForImageInfo()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472">vk_mem_alloc.h</a></li>
 <li>vmaFlushAllocation()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga30c37c1eec6025f397be41644f48490f">vk_mem_alloc.h</a></li>
 <li>vmaFlushAllocations()&#160;:&#160;<a class="el" href="group__group__alloc.html#gac3dd00da721875ed99fa8a881922bdfc">vk_mem_alloc.h</a></li>
+<li>vmaFlushBufferSuballocation()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#gae20326d64236fe7ea9332483b83cab0d">vk_mem_alloc.h</a></li>
+<li>vmaFlushBufferSuballocations()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga199d3aa9d77cd58670c06da2b6c5f53c">vk_mem_alloc.h</a></li>
 <li>vmaFreeMemory()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f">vk_mem_alloc.h</a></li>
 <li>vmaFreeMemoryPages()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga834b1e4aef395c0a1d56a28e69a4a17e">vk_mem_alloc.h</a></li>
 <li>vmaGetAllocationInfo()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga86dd08aba8633bfa4ad0df2e76481d8b">vk_mem_alloc.h</a></li>
 <li>vmaGetAllocationMemoryProperties()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga571e87dd38e552249b56b1b0b982fad1">vk_mem_alloc.h</a></li>
 <li>vmaGetAllocatorInfo()&#160;:&#160;<a class="el" href="group__group__init.html#gafa02231a791b37255720d566a52683e7">vk_mem_alloc.h</a></li>
+<li>vmaGetBufferSuballocationInfo()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga8fd69c9c2dc254b99875604d6a08cea6">vk_mem_alloc.h</a></li>
 <li>vmaGetHeapBudgets()&#160;:&#160;<a class="el" href="group__group__stats.html#ga9f88db9d46a432c0ad7278cecbc5eaa7">vk_mem_alloc.h</a></li>
 <li>vmaGetMemoryProperties()&#160;:&#160;<a class="el" href="group__group__init.html#gab88db292a17974f911182543fda52d19">vk_mem_alloc.h</a></li>
 <li>vmaGetMemoryTypeProperties()&#160;:&#160;<a class="el" href="group__group__init.html#ga8701444752eb5de4464adb5a2b514bca">vk_mem_alloc.h</a></li>
@@ -126,13 +132,18 @@ $(function() {
 <li>vmaGetVirtualBlockStatistics()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga2902aa3130866afcc64bb5f984113db3">vk_mem_alloc.h</a></li>
 <li>vmaInvalidateAllocation()&#160;:&#160;<a class="el" href="group__group__alloc.html#gaaa8412919139ef413a4215ac6a290fae">vk_mem_alloc.h</a></li>
 <li>vmaInvalidateAllocations()&#160;:&#160;<a class="el" href="group__group__alloc.html#gab25b558d75f7378ec944a1522fdcc3c5">vk_mem_alloc.h</a></li>
+<li>vmaInvalidateBufferSuballocation()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#gaa6da44bb7c952e31ee908b06dcaeaa1b">vk_mem_alloc.h</a></li>
+<li>vmaInvalidateBufferSuballocations()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga90de24bda8b9156113cfdc6b3e515191">vk_mem_alloc.h</a></li>
 <li>vmaIsVirtualBlockEmpty()&#160;:&#160;<a class="el" href="group__group__virtual.html#gacd53b5b1d23f8fcbad692ccfdc1811f1">vk_mem_alloc.h</a></li>
+<li>vmaMapBufferSuballocation()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga5559d88f4181d96baa2671a9b5bbb195">vk_mem_alloc.h</a></li>
 <li>vmaMapMemory()&#160;:&#160;<a class="el" href="group__group__alloc.html#gad5bd1243512d099706de88168992f069">vk_mem_alloc.h</a></li>
 <li>vmaSetAllocationName()&#160;:&#160;<a class="el" href="group__group__alloc.html#gabe02cbb0cd913b3f125958179f2020fc">vk_mem_alloc.h</a></li>
 <li>vmaSetAllocationUserData()&#160;:&#160;<a class="el" href="group__group__alloc.html#gaf9147d31ffc11d62fc187bde283ed14f">vk_mem_alloc.h</a></li>
+<li>vmaSetBufferSuballocationUserData()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#ga859ffc45110bced385384044572b227c">vk_mem_alloc.h</a></li>
 <li>vmaSetCurrentFrameIndex()&#160;:&#160;<a class="el" href="group__group__init.html#gade56bf8dc9f5a5eaddf5f119ed525236">vk_mem_alloc.h</a></li>
 <li>vmaSetPoolName()&#160;:&#160;<a class="el" href="group__group__alloc.html#gadbae3a0b4ab078024462fc85c37f3b58">vk_mem_alloc.h</a></li>
 <li>vmaSetVirtualAllocationUserData()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga001ea1850458a4062b829e09c303fca2">vk_mem_alloc.h</a></li>
+<li>vmaUnmapBufferSuballocation()&#160;:&#160;<a class="el" href="group__group__buffer__suballocation.html#gabd39fc17fc5c76e1dc4f95a3753446d4">vk_mem_alloc.h</a></li>
 <li>vmaUnmapMemory()&#160;:&#160;<a class="el" href="group__group__alloc.html#ga9bc268595cb33f6ec4d519cfce81ff45">vk_mem_alloc.h</a></li>
 <li>vmaVirtualAllocate()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga6b7cdcc1c3e5103c323fedc4e1319e01">vk_mem_alloc.h</a></li>
 <li>vmaVirtualFree()&#160;:&#160;<a class="el" href="group__group__virtual.html#ga09fc688c0c3653ff23723b037e5d5033">vk_mem_alloc.h</a></li>

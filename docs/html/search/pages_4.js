@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['general_20considerations_0',['General considerations',['../general_considerations.html',1,'index']]]
+  ['enabling_20buffer_20device_20address_0',['Enabling buffer device address',['../enabling_buffer_device_address.html',1,'index']]]
 ];

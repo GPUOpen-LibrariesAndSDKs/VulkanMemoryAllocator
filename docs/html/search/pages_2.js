@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['debugging_20incorrect_20memory_20usage_0',['Debugging incorrect memory usage',['../debugging_memory_usage.html',1,'index']]],
-  ['defragmentation_1',['Defragmentation',['../defragmentation.html',1,'index']]],
-  ['deprecated_20list_2',['Deprecated List',['../deprecated.html',1,'']]]
+  ['choosing_20memory_20type_0',['Choosing memory type',['../choosing_memory_type.html',1,'index']]],
+  ['configuration_1',['Configuration',['../configuration.html',1,'index']]],
+  ['custom_20memory_20pools_2',['Custom memory pools',['../custom_memory_pools.html',1,'index']]]
 ];
