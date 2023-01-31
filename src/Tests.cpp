@@ -7676,6 +7676,102 @@ static void BasicTestAllocatePages()
     vmaDestroyPool(g_hAllocator, pool);
 }
 
+static void TestBufferAllocator()
+{
+    wprintf(L"Test buffer allocator\n");
+    VkResult res;
+    RandomNumberGenerator rand{1242134};
+
+    VmaBufferAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    allocatorCreateInfo.bufferCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    allocatorCreateInfo.bufferCreateInfo.size = 8ull * 1024 * 1024; // TODO also test 0 - auto size.
+    allocatorCreateInfo.allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocatorCreateInfo.allocationCreateInfo.flags =
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+        VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    // Create BufferAllocator.
+    VmaBufferAllocator bufferAllocator = VK_NULL_HANDLE;
+    res = vmaCreateBufferAllocator(g_hAllocator, &allocatorCreateInfo, &bufferAllocator);
+    TEST(res == VK_SUCCESS && bufferAllocator);
+
+    std::vector<VmaBufferSuballocation> suballocs;
+    for(size_t i = 0; i < 10; ++i)
+    {
+        // Create test BufferSuballocation.
+        void* const userData = (void*)(uintptr_t)245342345;
+        constexpr VkDeviceSize suballocSize = 1024;
+        VmaBufferSuballocationCreateInfo suballocCreateInfo = {};
+        suballocCreateInfo.size = suballocSize;
+        suballocCreateInfo.pUserData = userData;
+        VmaBufferSuballocation suballoc = VK_NULL_HANDLE;
+        VmaBufferSuballocationInfo suballocInfo = {};
+        // TODO test also with last parameter = null.
+        res = vmaBufferAllocatorAllocate(g_hAllocator, bufferAllocator, &suballocCreateInfo, &suballoc, &suballocInfo);
+        TEST(res == VK_SUCCESS && suballoc != VK_NULL_HANDLE);
+
+        TEST(suballocInfo.allocation != VK_NULL_HANDLE);
+        TEST(suballocInfo.buffer != VK_NULL_HANDLE);
+        TEST(suballocInfo.bufferLocalOffset == 0);
+        TEST(suballocInfo.pUserData = userData);
+        TEST(suballocInfo.size == suballocSize);
+    
+        // Testing mapped ptr
+        VmaAllocationInfo allocInfo = {};
+        vmaGetAllocationInfo(g_hAllocator, suballocInfo.allocation, &allocInfo);
+        TEST(suballocInfo.pMappedData != nullptr);
+        TEST(suballocInfo.pMappedData == (char*)allocInfo.pMappedData + suballocInfo.bufferLocalOffset);
+
+        // Test vmaGetBufferSuballocationInfo.
+        VmaBufferSuballocationInfo suballocInfo2 = {};
+        vmaGetBufferSuballocationInfo(g_hAllocator, bufferAllocator, suballoc, &suballocInfo2);
+        TEST(suballocInfo2.allocation == suballocInfo.allocation &&
+            suballocInfo2.buffer == suballocInfo.buffer &&
+            suballocInfo2.bufferLocalOffset == suballocInfo.bufferLocalOffset &&
+            suballocInfo2.size == suballocInfo.size &&
+            suballocInfo2.pMappedData == suballocInfo.pMappedData &&
+            suballocInfo2.pUserData == suballocInfo.pUserData);
+
+        // Test changing pUserData.
+        void* const userData2 = (void*)(uintptr_t)57632234;
+        vmaSetBufferSuballocationUserData(g_hAllocator, bufferAllocator, suballoc, userData2);
+        vmaGetBufferSuballocationInfo(g_hAllocator, bufferAllocator, suballoc, &suballocInfo2);
+        TEST(suballocInfo2.pUserData == userData2);
+
+        // Random calls to flush/invalidate just to test they don't crash.
+        vmaFlushBufferSuballocation(g_hAllocator, bufferAllocator, suballoc, 0, suballocSize);
+        vmaInvalidateBufferSuballocation(g_hAllocator, bufferAllocator, suballoc, 0, suballocSize);
+        const VkDeviceSize zero = 0;
+        vmaFlushBufferSuballocations(g_hAllocator, bufferAllocator, 1, &suballoc, &zero, &suballocSize);
+        vmaInvalidateBufferSuballocations(g_hAllocator, bufferAllocator, 1, &suballoc, &zero, &suballocSize);
+
+        // Testing map/unmap, on the already mapped suballocation.
+        void* mappedPtr;
+        res = vmaMapBufferSuballocation(g_hAllocator, bufferAllocator, suballoc, &mappedPtr);
+        TEST(res == VK_SUCCESS);
+        TEST(mappedPtr == suballocInfo.pMappedData);
+        res = vmaMapBufferSuballocation(g_hAllocator, bufferAllocator, suballoc, &mappedPtr);
+        TEST(res == VK_SUCCESS);
+        TEST(mappedPtr == suballocInfo.pMappedData);
+        vmaUnmapBufferSuballocation(g_hAllocator, bufferAllocator, suballoc);
+        vmaUnmapBufferSuballocation(g_hAllocator, bufferAllocator, suballoc);
+
+        suballocs.push_back(suballoc);
+    }
+
+    // Free the BufferSuballocations, in random order.
+    while(!suballocs.empty())
+    {
+        const size_t indexToFree = rand.Generate() % suballocs.size();
+        vmaBufferAllocatorFree(g_hAllocator, bufferAllocator, suballocs[indexToFree]);
+        suballocs.erase(suballocs.begin() + indexToFree);
+    }
+
+    // Destroy BufferAllocator.
+    vmaDestroyBufferAllocator(g_hAllocator, bufferAllocator);
+}
+
 // Test the testing environment.
 static void TestGpuData()
 {
@@ -7978,8 +8074,10 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(false)
+    if(true)
     {
+        TestBufferAllocator();
+
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
         return;
@@ -8022,6 +8120,7 @@ void Test()
 
     BasicTestTLSF();
     BasicTestAllocatePages();
+    TestBufferAllocator();
 
     if (VK_KHR_buffer_device_address_enabled)
         TestBufferDeviceAddress();

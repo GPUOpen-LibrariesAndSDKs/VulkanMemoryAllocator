@@ -2781,15 +2781,16 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushBufferSuballocations(
     VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
     uint32_t bufferSuballocationCount,
     const VmaBufferSuballocation VMA_NOT_NULL* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pBufferSuballocations,
-    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffset,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffsets,
     const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pSizes);
 /** \brief TODO implement! TODO document!
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateBufferSuballocations(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    uint32_t bufferSuballocationCount,
     const VmaBufferSuballocation VMA_NOT_NULL* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pBufferSuballocations,
-    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffset,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffsets,
     const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pSizes);
 
 /** @} */
@@ -11591,6 +11592,98 @@ void VmaVirtualBlock_T::BuildStatsString(bool detailedMap, VmaStringBuilder& sb)
 #endif // _VMA_VIRTUAL_BLOCK_T_FUNCTIONS
 #endif // _VMA_VIRTUAL_BLOCK_T
 
+#ifndef _VMA_BUFFER_ALLOCATOR_T
+
+struct VmaBufferAllocation_T;
+
+struct VmaBufferSuballocation_T
+{
+    VmaBufferAllocation_T* m_BufferAllocation = nullptr;
+    VmaVirtualAllocation m_VirtualAllocation = VK_NULL_HANDLE;
+    VkDeviceSize m_BufferLocalOffset = 0; // Cached for optimization.
+};
+
+// Represents a single buffer managed by VmaBufferAllocator:
+// VmaAllocation + VkBuffer + VmaVirtualBlock.
+struct VmaBufferAllocation_T
+{
+    VMA_CLASS_NO_COPY(VmaBufferAllocation_T);
+public:
+    VmaBufferAllocation_T(VmaBufferAllocator parentBufferAllocator);
+    VkResult Init(
+        const VkBufferCreateInfo& bufferCreateInfo,
+        const VmaAllocationCreateInfo& allocationCreateInfo,
+        bool linearAlgorithm);
+    ~VmaBufferAllocation_T();
+
+    VkResult Allocate(
+        const VmaBufferSuballocationCreateInfo& createInfo,
+        VmaBufferSuballocation_T*& outBufferSuballocation,
+        VmaBufferSuballocationInfo* outBufferSuballocationInfo);
+    void Free(VmaBufferSuballocation_T* bufferSuballocation);
+
+    void GetSuballocationInfo(
+        const VmaBufferSuballocation_T& bufferSuballocation,
+        VmaBufferSuballocationInfo& outBufferSuballocationInfo) const;
+    void SetSuballocationUserData(
+        const VmaBufferSuballocation_T& bufferSuballocation, void* pUserData);
+    VkResult MapSuballocation(
+        const VmaBufferSuballocation_T& bufferSuballocation,
+        void*& outData);
+    void UnmapSuballocation(const VmaBufferSuballocation_T& bufferSuballocation);
+    VkResult FlushOrInvalidateSuballocation(
+        const VmaBufferSuballocation_T& bufferSuballocation,
+        VkDeviceSize suballocLocalOffset, VkDeviceSize size, VMA_CACHE_OPERATION op) const;
+
+private:
+    VmaBufferAllocator const m_ParentBufferAllocator;
+    VmaAllocation m_Allocation = VK_NULL_HANDLE;
+    VkBuffer m_Buffer = VK_NULL_HANDLE;
+    VmaVirtualBlock m_VirtualBlock = VK_NULL_HANDLE;
+    // We want to cache mapping of individual suballocations so we don't overflow
+    // the 8-bit VmaAllocation_T::m_MapCount when having many small buffers.
+    uint32_t m_MapCounter = 0;
+};
+
+struct VmaBufferAllocator_T
+{
+    VMA_CLASS_NO_COPY(VmaBufferAllocator_T);
+public:
+    VmaBufferAllocator_T(VmaAllocator allocator, const VmaBufferAllocatorCreateInfo& createInfo);
+    VkResult Init();
+    ~VmaBufferAllocator_T();
+
+    VmaAllocator GetAllocator() const { return m_Allocator; }
+
+    VkResult Allocate(
+        const VmaBufferSuballocationCreateInfo& createInfo,
+        VmaBufferSuballocation& outBufferSuballocation,
+        VmaBufferSuballocationInfo* outBufferSuballocationInfo);
+    void Free(VmaBufferSuballocation bufferSuballocation);
+
+    void GetSuballocationInfo(
+        const VmaBufferSuballocation bufferSuballocation,
+        VmaBufferSuballocationInfo& outBufferSuballocationInfo) const;
+    void SetSuballocationUserData(
+        const VmaBufferSuballocation bufferSuballocation, void* pUserData);
+    VkResult MapSuballocation(
+        const VmaBufferSuballocation bufferSuballocation,
+        void*& outData);
+    void UnmapSuballocation(const VmaBufferSuballocation bufferSuballocation);
+    VkResult FlushOrInvalidateSuballocations(
+        uint32_t count, const VmaBufferSuballocation* bufferSuballocations,
+        const VkDeviceSize* offsets, const VkDeviceSize* sizes, VMA_CACHE_OPERATION op) const;
+
+private:
+    VmaAllocator m_Allocator = VK_NULL_HANDLE;
+    VmaBufferAllocatorCreateInfo m_CreateInfo = {};
+    typedef VmaVector<VmaBufferAllocation_T*, VmaStlAllocator<VmaBufferAllocation_T*>> BufferAllocationVectorType;
+    BufferAllocationVectorType m_BufferAllocations;
+
+    VkResult CreateBufferAllocation(VkDeviceSize size);
+};
+
+#endif // _VMA_BUFFER_ALLOCATOR_T
 
 // Main allocator object.
 struct VmaAllocator_T
@@ -16247,6 +16340,327 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 #endif // VMA_STATS_STRING_ENABLED
 #endif // _VMA_ALLOCATOR_T_FUNCTIONS
 
+#ifndef _VMA_BUFFER_ALLOCATOR_T_FUNCTIONS
+
+VmaBufferAllocation_T::VmaBufferAllocation_T(VmaBufferAllocator parentBufferAllocator) :
+    m_ParentBufferAllocator(parentBufferAllocator)
+{
+}
+
+VkResult VmaBufferAllocation_T::Init(
+    const VkBufferCreateInfo& bufferCreateInfo,
+    const VmaAllocationCreateInfo& allocationCreateInfo,
+    bool linearAlgorithm)
+{
+    VmaAllocator const allocator = m_ParentBufferAllocator->GetAllocator();
+
+    // Create VkBuffer and VmaAllocation.
+    VmaAllocationInfo allocInfo = {};
+    VkResult res = vmaCreateBuffer(allocator, &bufferCreateInfo, &allocationCreateInfo,
+        &m_Buffer, &m_Allocation, &allocInfo);
+    if(res == VK_SUCCESS)
+    {
+        VMA_ASSERT(m_Buffer != VK_NULL_HANDLE && m_Allocation != VK_NULL_HANDLE);
+
+        // Create VmaVirtualBlock.
+        VmaVirtualBlockCreateInfo virtualBlockCreateInfo = {};
+        virtualBlockCreateInfo.size = bufferCreateInfo.size;
+        virtualBlockCreateInfo.flags = linearAlgorithm ? VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT : 0;
+        virtualBlockCreateInfo.pAllocationCallbacks = allocator->GetAllocationCallbacks();
+        res = vmaCreateVirtualBlock(&virtualBlockCreateInfo, &m_VirtualBlock);
+        if(res == VK_SUCCESS)
+        {
+            VMA_ASSERT(m_VirtualBlock != VK_NULL_HANDLE);
+        }
+    }
+    return res;
+}
+
+VmaBufferAllocation_T::~VmaBufferAllocation_T()
+{
+    vmaDestroyVirtualBlock(m_VirtualBlock);
+    vmaDestroyBuffer(m_ParentBufferAllocator->GetAllocator(), m_Buffer, m_Allocation);
+}
+
+VkResult VmaBufferAllocation_T::Allocate(
+    const VmaBufferSuballocationCreateInfo& createInfo,
+    VmaBufferSuballocation_T*& outBufferSuballocation,
+    VmaBufferSuballocationInfo* outBufferSuballocationInfo)
+{
+    VmaVirtualAllocationCreateInfo virtualAllocCreateInfo = {};
+    virtualAllocCreateInfo.size = createInfo.size; // TODO check size if it fits, early return if not.
+    virtualAllocCreateInfo.alignment = createInfo.alignment;
+    virtualAllocCreateInfo.pUserData = createInfo.pUserData;
+    if(createInfo.flags & VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT)
+        virtualAllocCreateInfo.flags |= VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT;
+    if(createInfo.flags & VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT)
+        virtualAllocCreateInfo.flags |= VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
+    if(createInfo.flags & VMA_BUFFER_SUBALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT)
+        virtualAllocCreateInfo.flags |= VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT;
+
+    VmaAllocationInfo allocInfo = {};
+    vmaGetAllocationInfo(m_ParentBufferAllocator->GetAllocator(), m_Allocation, &allocInfo);
+
+    // Create VmaVirtualAllocation.
+    VmaVirtualAllocation virtualAlloc = VK_NULL_HANDLE;
+    VkDeviceSize bufferLocalOffset = 0;
+    VkResult res = vmaVirtualAllocate(m_VirtualBlock, &virtualAllocCreateInfo,
+        &virtualAlloc, &bufferLocalOffset);
+    if(res == VK_SUCCESS)
+    {
+        VMA_ASSERT(virtualAlloc != VK_NULL_HANDLE);
+
+        // Create VmaBufferSuballocation structure.
+        outBufferSuballocation = vma_new(
+            m_ParentBufferAllocator->GetAllocator()->GetAllocationCallbacks(), VmaBufferSuballocation_T);
+        outBufferSuballocation->m_BufferAllocation = this;
+        outBufferSuballocation->m_VirtualAllocation = virtualAlloc;
+        outBufferSuballocation->m_BufferLocalOffset = bufferLocalOffset;
+
+        // Fetch VmaBufferSuballocationInfo.
+        if(outBufferSuballocationInfo)
+        {
+            outBufferSuballocationInfo->allocation = m_Allocation;
+            outBufferSuballocationInfo->buffer = m_Buffer;
+            outBufferSuballocationInfo->bufferLocalOffset = bufferLocalOffset;
+            outBufferSuballocationInfo->size = createInfo.size;
+            outBufferSuballocationInfo->pMappedData = allocInfo.pMappedData ?
+                (void*)((char*)allocInfo.pMappedData + bufferLocalOffset) : nullptr;
+            outBufferSuballocationInfo->pUserData = createInfo.pUserData;
+        }
+    }
+
+    return res;
+}
+
+void VmaBufferAllocation_T::Free(VmaBufferSuballocation_T* bufferSuballocation)
+{
+    VMA_ASSERT(bufferSuballocation->m_BufferAllocation == this);
+    
+    vmaVirtualFree(m_VirtualBlock, bufferSuballocation->m_VirtualAllocation);
+    vma_delete(m_ParentBufferAllocator->GetAllocator()->GetAllocationCallbacks(), bufferSuballocation);
+}
+
+void VmaBufferAllocation_T::GetSuballocationInfo(
+    const VmaBufferSuballocation_T& bufferSuballocation,
+    VmaBufferSuballocationInfo& outBufferSuballocationInfo) const
+{
+    VMA_ASSERT(bufferSuballocation.m_BufferAllocation == this);
+
+    VmaAllocationInfo allocInfo = {};
+    vmaGetAllocationInfo(m_ParentBufferAllocator->GetAllocator(), m_Allocation, &allocInfo);
+
+    VmaVirtualAllocationInfo virtualAllocInfo = {};
+    vmaGetVirtualAllocationInfo(m_VirtualBlock, bufferSuballocation.m_VirtualAllocation, &virtualAllocInfo);
+
+    outBufferSuballocationInfo.allocation = m_Allocation;
+    outBufferSuballocationInfo.buffer = m_Buffer;
+    outBufferSuballocationInfo.bufferLocalOffset = virtualAllocInfo.offset;
+    outBufferSuballocationInfo.size = virtualAllocInfo.size;
+    outBufferSuballocationInfo.pMappedData = allocInfo.pMappedData ?
+        (void*)((char*)allocInfo.pMappedData + virtualAllocInfo.offset) : nullptr;
+    outBufferSuballocationInfo.pUserData = virtualAllocInfo.pUserData;
+}
+
+void VmaBufferAllocation_T::SetSuballocationUserData(
+    const VmaBufferSuballocation_T& bufferSuballocation, void* pUserData)
+{
+    VMA_ASSERT(bufferSuballocation.m_BufferAllocation == this);
+
+    vmaSetVirtualAllocationUserData(m_VirtualBlock, bufferSuballocation.m_VirtualAllocation,
+        pUserData);
+}
+
+VkResult VmaBufferAllocation_T::MapSuballocation(
+    const VmaBufferSuballocation_T& bufferSuballocation,
+    void*& outData)
+{
+    void* allocMappedPtr = nullptr;
+    if(m_MapCounter == 0)
+    {
+        VkResult res = vmaMapMemory(m_ParentBufferAllocator->GetAllocator(), m_Allocation, &allocMappedPtr);
+        if(res == VK_SUCCESS)
+        {
+            outData = (void*)((char*)allocMappedPtr + bufferSuballocation.m_BufferLocalOffset);
+            m_MapCounter = 1;
+            return VK_SUCCESS;
+        }
+        return res;
+    }
+    else
+    {
+        VmaAllocationInfo allocInfo = {};
+        vmaGetAllocationInfo(m_ParentBufferAllocator->GetAllocator(), m_Allocation, &allocInfo);
+        VMA_ASSERT(allocInfo.pMappedData);
+        outData = (void*)((char*)allocInfo.pMappedData + bufferSuballocation.m_BufferLocalOffset);
+        ++m_MapCounter;
+        return VK_SUCCESS;
+    }
+}
+
+void VmaBufferAllocation_T::UnmapSuballocation(const VmaBufferSuballocation_T& bufferSuballocation)
+{
+    VMA_ASSERT(m_MapCounter > 0);
+    if(m_MapCounter == 1)
+    {
+        vmaUnmapMemory(m_ParentBufferAllocator->GetAllocator(), m_Allocation);
+        m_MapCounter = 0;
+    }
+    else
+    {
+        --m_MapCounter;
+    }
+}
+
+VkResult VmaBufferAllocation_T::FlushOrInvalidateSuballocation(
+    const VmaBufferSuballocation_T& bufferSuballocation,
+    VkDeviceSize suballocLocalOffset, VkDeviceSize size, VMA_CACHE_OPERATION op) const
+{
+    VMA_ASSERT(bufferSuballocation.m_BufferAllocation == this);
+
+    // VkBuffer-local offset is the same thing as VmaAllocation-local offset.
+    const VkDeviceSize allocOffset = bufferSuballocation.m_BufferLocalOffset + suballocLocalOffset;
+
+    if(op == VMA_CACHE_FLUSH)
+        return vmaFlushAllocation(m_ParentBufferAllocator->GetAllocator(), m_Allocation, allocOffset, size);
+    else
+        return vmaInvalidateAllocation(m_ParentBufferAllocator->GetAllocator(), m_Allocation, allocOffset, size);
+}
+
+VmaBufferAllocator_T::VmaBufferAllocator_T(VmaAllocator allocator, const VmaBufferAllocatorCreateInfo& createInfo) :
+    m_Allocator(allocator),
+    m_CreateInfo(createInfo),
+    m_BufferAllocations(VmaStlAllocator<VmaBufferAllocation_T*>(allocator->GetAllocationCallbacks()))
+{
+}
+
+VkResult VmaBufferAllocator_T::Init()
+{
+    // TODO create minBufferCount
+    return VK_SUCCESS;
+}
+
+VmaBufferAllocator_T::~VmaBufferAllocator_T()
+{
+    const VkAllocationCallbacks* const allocationCallbacks = m_Allocator->GetAllocationCallbacks();
+    
+    for(size_t i = m_BufferAllocations.size(); i--; )
+        vma_delete(allocationCallbacks, m_BufferAllocations[i]);
+}
+
+VkResult VmaBufferAllocator_T::Allocate(
+    const VmaBufferSuballocationCreateInfo& createInfo,
+    VmaBufferSuballocation& outBufferSuballocation,
+    VmaBufferSuballocationInfo* outBufferSuballocationInfo)
+{
+    // TODO find existing BufferAllocation to allocate if possible.
+    // TODO respect VMA_BUFFER_SUBALLOCATION_CREATE_DEDICATED_BUFFER_BIT
+    // TODO respect VMA_BUFFER_SUBALLOCATION_CREATE_NEVER_CREATE_BUFFER_BIT and VMA_BUFFER_SUBALLOCATION_CREATE_NEVER_ALLOCATE_BIT.
+    // TODO respect VMA_BUFFER_SUBALLOCATION_CREATE_WITHIN_BUDGET_BIT.
+    // TODO manage BufferAllocation sizes
+    
+    VkResult res = CreateBufferAllocation(createInfo.size);
+    if(res == VK_SUCCESS)
+    {
+        VmaBufferSuballocation_T* suballocStruct = nullptr;
+        res = m_BufferAllocations.back()->Allocate(createInfo, suballocStruct, outBufferSuballocationInfo);
+        outBufferSuballocation = (VmaBufferSuballocation)suballocStruct;
+    }
+    return res;
+}
+
+void VmaBufferAllocator_T::Free(VmaBufferSuballocation bufferSuballocation)
+{
+    VmaBufferSuballocation_T* const suballocStruct = (VmaBufferSuballocation_T*)bufferSuballocation;
+
+    // Find BufferAllocation. TODO any faster than linear search to use?
+    for(size_t i = 0, count = m_BufferAllocations.size(); i < count; ++i)
+    {
+        VmaBufferAllocation_T* bufferAllocation = m_BufferAllocations[i];
+        if(suballocStruct->m_BufferAllocation == bufferAllocation)
+        {
+            bufferAllocation->Free(suballocStruct);
+            vma_delete(m_Allocator->GetAllocationCallbacks(), bufferAllocation);
+            m_BufferAllocations.remove(i);
+            return;
+        }
+    }
+    VMA_ASSERT(0 && "BufferSuballocation doesn't belong to this BufferAllocator!");
+}
+
+void VmaBufferAllocator_T::GetSuballocationInfo(
+    const VmaBufferSuballocation bufferSuballocation,
+    VmaBufferSuballocationInfo& outBufferSuballocationInfo) const
+{
+    VmaBufferSuballocation_T* const suballocStruct = (VmaBufferSuballocation_T*)bufferSuballocation;
+    VMA_ASSERT(suballocStruct->m_BufferAllocation);
+    suballocStruct->m_BufferAllocation->GetSuballocationInfo(
+        *suballocStruct, outBufferSuballocationInfo);
+}
+
+void VmaBufferAllocator_T::SetSuballocationUserData(
+    const VmaBufferSuballocation bufferSuballocation, void* pUserData)
+{
+    VmaBufferSuballocation_T* const suballocStruct = (VmaBufferSuballocation_T*)bufferSuballocation;
+    VMA_ASSERT(suballocStruct->m_BufferAllocation);
+    suballocStruct->m_BufferAllocation->SetSuballocationUserData(
+        *suballocStruct, pUserData);
+}
+
+VkResult VmaBufferAllocator_T::MapSuballocation(
+    const VmaBufferSuballocation bufferSuballocation,
+    void*& outData)
+{
+    VmaBufferSuballocation_T* const suballocStruct = (VmaBufferSuballocation_T*)bufferSuballocation;
+    VMA_ASSERT(suballocStruct->m_BufferAllocation);
+    return suballocStruct->m_BufferAllocation->MapSuballocation(*suballocStruct, outData);
+}
+
+void VmaBufferAllocator_T::UnmapSuballocation(const VmaBufferSuballocation bufferSuballocation)
+{
+    VmaBufferSuballocation_T* const suballocStruct = (VmaBufferSuballocation_T*)bufferSuballocation;
+    VMA_ASSERT(suballocStruct->m_BufferAllocation);
+    suballocStruct->m_BufferAllocation->UnmapSuballocation(*suballocStruct);
+}
+
+VkResult VmaBufferAllocator_T::FlushOrInvalidateSuballocations(
+    uint32_t count, const VmaBufferSuballocation* bufferSuballocations,
+    const VkDeviceSize* offsets, const VkDeviceSize* sizes, VMA_CACHE_OPERATION op) const
+{
+    VkResult res = VK_SUCCESS;
+    for(uint32_t i = 0; i < count; ++i)
+    {
+        const VmaBufferSuballocation_T* const suballocStruct = (const VmaBufferSuballocation_T*)bufferSuballocations[i];
+        VMA_ASSERT(suballocStruct->m_BufferAllocation);
+        const VkResult localRes = suballocStruct->m_BufferAllocation->FlushOrInvalidateSuballocation(
+            *suballocStruct, offsets[i], sizes[i], op);
+        if(res == VK_SUCCESS)
+            res = localRes;
+    }
+    return res;
+}
+
+VkResult VmaBufferAllocator_T::CreateBufferAllocation(VkDeviceSize size)
+{
+    const VkAllocationCallbacks* const allocationCallbacks = m_Allocator->GetAllocationCallbacks();
+    
+    VmaBufferAllocation_T* bufferAllocation = vma_new(allocationCallbacks, VmaBufferAllocation_T)(this);
+    VkBufferCreateInfo bufCreateInfo = m_CreateInfo.bufferCreateInfo;
+    bufCreateInfo.size = size;
+    VkResult res = bufferAllocation->Init(
+        bufCreateInfo,
+        m_CreateInfo.allocationCreateInfo,
+        (m_CreateInfo.flags & VMA_BUFFER_ALLOCATOR_CREATE_LINEAR_ALGORITHM_BIT) != 0);
+    if(res == VK_SUCCESS)
+    {
+        m_BufferAllocations.push_back(bufferAllocation); // TODO where to insert?
+    }
+    else
+        vma_delete(allocationCallbacks, bufferAllocation);
+    return res;
+}
+
+#endif // _VMA_BUFFER_ALLOCATOR_T_FUNCTIONS
 
 #ifndef _VMA_PUBLIC_INTERFACE
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
@@ -17805,6 +18219,208 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock V
     }
 }
 #endif // VMA_STATS_STRING_ENABLED
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferAllocator(
+    VmaAllocator VMA_NOT_NULL allocator,
+    const VmaBufferAllocatorCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaBufferAllocator VMA_NULLABLE* VMA_NOT_NULL pBufferAllocator)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && pCreateInfo);
+    VMA_ASSERT(pCreateInfo->bufferCreateInfo.sType == VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
+    VMA_ASSERT(pCreateInfo->maxBufferCount >= pCreateInfo->minBufferCount);
+    VMA_ASSERT(VmaIsPow2(pCreateInfo->minSuballocationAlignment));
+
+    VMA_DEBUG_LOG("vmaCreateBufferAllocator");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+    
+    *pBufferAllocator = vma_new(allocator->GetAllocationCallbacks(), VmaBufferAllocator_T)(allocator, *pCreateInfo);
+    VkResult res = (*pBufferAllocator)->Init();
+    if(res < 0)
+    {
+        vma_delete(allocator->GetAllocationCallbacks(), *pBufferAllocator);
+        *pBufferAllocator = VK_NULL_HANDLE;
+    }
+    return res;
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaDestroyBufferAllocator(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NULLABLE bufferAllocator)
+{
+    if(bufferAllocator != VK_NULL_HANDLE)
+    {
+        VMA_DEBUG_LOG("vmaDestroyBufferAllocator");
+        //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+        vma_delete(allocator->GetAllocationCallbacks(), bufferAllocator);
+    }
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaBufferAllocatorAllocate(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NULLABLE bufferAllocator,
+    const VmaBufferSuballocationCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VmaBufferSuballocation VMA_NULLABLE* VMA_NOT_NULL pBufferSuballocation,
+    VmaBufferSuballocationInfo* VMA_NULLABLE pBufferSuballocationInfo)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+        pCreateInfo && pBufferSuballocation);
+    VMA_ASSERT(pCreateInfo->size > 0 && VmaIsPow2(pCreateInfo->alignment));
+
+    VMA_DEBUG_LOG("vmaBufferAllocatorAllocate");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    return bufferAllocator->Allocate(*pCreateInfo, *pBufferSuballocation, pBufferSuballocationInfo);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaBufferAllocatorFree(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NULLABLE bufferSuballocation)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaBufferAllocatorFree");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    if(bufferSuballocation != VK_NULL_HANDLE)
+    {
+        bufferAllocator->Free(bufferSuballocation);
+    }
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaGetBufferSuballocationInfo(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    VmaBufferSuballocationInfo* VMA_NOT_NULL pBufferSuballocationInfo)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+    bufferSuballocation != VK_NULL_HANDLE && pBufferSuballocationInfo);
+
+    VMA_DEBUG_LOG("vmaGetBufferSuballocationInfo");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    bufferAllocator->GetSuballocationInfo(bufferSuballocation, *pBufferSuballocationInfo);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaSetBufferSuballocationUserData(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    void* VMA_NULLABLE pUserData)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+        bufferSuballocation != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaSetBufferSuballocationUserData");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    bufferAllocator->SetSuballocationUserData(bufferSuballocation, pUserData);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaMapBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    void* VMA_NULLABLE* VMA_NOT_NULL ppData)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+        bufferSuballocation != VK_NULL_HANDLE && ppData);
+
+    VMA_DEBUG_LOG("vmaMapBufferSuballocation");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    return bufferAllocator->MapSuballocation(bufferSuballocation, *ppData);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaUnmapBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+        bufferSuballocation != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaMapBufferSuballocation");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    bufferAllocator->UnmapSuballocation(bufferSuballocation);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    VkDeviceSize offset,
+    VkDeviceSize size)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+        bufferSuballocation != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaFlushBufferSuballocation");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    return bufferAllocator->FlushOrInvalidateSuballocations(1, &bufferSuballocation, &offset, &size, VMA_CACHE_FLUSH);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateBufferSuballocation(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    VmaBufferSuballocation VMA_NOT_NULL bufferSuballocation,
+    VkDeviceSize offset,
+    VkDeviceSize size)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE &&
+        bufferSuballocation != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaInvalidateBufferSuballocation");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    return bufferAllocator->FlushOrInvalidateSuballocations(1, &bufferSuballocation, &offset, &size, VMA_CACHE_INVALIDATE);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushBufferSuballocations(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    uint32_t bufferSuballocationCount,
+    const VmaBufferSuballocation VMA_NOT_NULL* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pBufferSuballocations,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffsets,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pSizes)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaFlushBufferSuballocations");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    if(bufferSuballocationCount > 0)
+    {
+        VMA_ASSERT(pBufferSuballocations && pOffsets && pSizes);
+        return bufferAllocator->FlushOrInvalidateSuballocations(bufferSuballocationCount, pBufferSuballocations, pOffsets, pSizes, VMA_CACHE_FLUSH);
+    }
+    return VK_SUCCESS;
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateBufferSuballocations(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaBufferAllocator VMA_NOT_NULL bufferAllocator,
+    uint32_t bufferSuballocationCount,
+    const VmaBufferSuballocation VMA_NOT_NULL* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pBufferSuballocations,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pOffsets,
+    const VkDeviceSize* VMA_NULLABLE VMA_LEN_IF_NOT_NULL(bufferSuballocationCount) pSizes)
+{
+    VMA_ASSERT(allocator != VK_NULL_HANDLE && bufferAllocator != VK_NULL_HANDLE);
+
+    VMA_DEBUG_LOG("vmaInvalidateBufferSuballocations");
+    //VMA_DEBUG_GLOBAL_MUTEX_LOCK; // Not using, as this is a higher-level API that uses public VMA functions with this lock under the hood.
+
+    if(bufferSuballocationCount > 0)
+    {
+        VMA_ASSERT(pBufferSuballocations && pOffsets && pSizes);
+        return bufferAllocator->FlushOrInvalidateSuballocations(bufferSuballocationCount, pBufferSuballocations, pOffsets, pSizes, VMA_CACHE_INVALIDATE);
+    }
+    return VK_SUCCESS;
+}
+
 #endif // _VMA_PUBLIC_INTERFACE
 #endif // VMA_IMPLEMENTATION
 
