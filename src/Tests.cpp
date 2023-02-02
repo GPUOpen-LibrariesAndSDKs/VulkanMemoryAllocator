@@ -7742,9 +7742,6 @@ static void TestBufferAllocator()
         // Random calls to flush/invalidate just to test they don't crash.
         vmaFlushBufferSuballocation(g_hAllocator, bufferAllocator, suballoc, 0, suballocSize);
         vmaInvalidateBufferSuballocation(g_hAllocator, bufferAllocator, suballoc, 0, suballocSize);
-        const VkDeviceSize zero = 0;
-        vmaFlushBufferSuballocations(g_hAllocator, bufferAllocator, 1, &suballoc, &zero, &suballocSize);
-        vmaInvalidateBufferSuballocations(g_hAllocator, bufferAllocator, 1, &suballoc, &zero, &suballocSize);
 
         // Testing map/unmap, on the already mapped suballocation.
         void* mappedPtr;
