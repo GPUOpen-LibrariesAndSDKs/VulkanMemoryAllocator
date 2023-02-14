@@ -8,6 +8,25 @@ add_library(VulkanMemoryAllocator
     ${PROJECT_SOURCE_DIR}/include/vk_mem_alloc.h
 )
 
+option(VMA_BUILD_WERROR "Treat compiler warnings as errors")
+if (VMA_BUILD_WERROR)
+    target_compile_options(VulkanMemoryAllocator PRIVATE
+        "$<IF:$<CXX_COMPILER_ID:MSVC>,/WX,-Werror>"
+    )
+endif()
+
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "(GNU|Clang)")
+    target_compile_options(VulkanMemoryAllocator PRIVATE
+        -Wpedantic
+        -Wall
+        -Wextra
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-missing-field-initializers
+        -Wno-implicit-fallthrough
+    )
+endif()
+
 if (MSVC)
     # Provides MSVC users nicer debugging support
     target_sources(VulkanMemoryAllocator PRIVATE ${CMAKE_CURRENT_LIST_DIR}/vk_mem_alloc.natvis)

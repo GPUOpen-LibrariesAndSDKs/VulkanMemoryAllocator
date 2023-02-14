@@ -23,6 +23,6 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
       - name: Configure VMA
-        run: cmake -S . -B build -G "Ninja" -D CMAKE_BUILD_TYPE=${{matrix.config}}
+        run: cmake -S . -B build -G "Ninja" -D CMAKE_BUILD_TYPE=${{matrix.config}} -D VMA_BUILD_WERROR=ON
       - name: Build VMA
         run: cmake --build build
