@@ -13781,6 +13781,7 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             vectorState.operation = StateExtensive::Operation::MoveBuffers;
             bufferPresent = false;
             otherPresent = false;
+            break;
         }
         else
             break;
@@ -13805,6 +13806,7 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             // No more buffers to move, check all others
             vectorState.operation = StateExtensive::Operation::MoveAll;
             otherPresent = false;
+            break;
         }
         else
             break;
