@@ -14205,6 +14205,12 @@ void VmaAllocator_T::ImportVulkanFunctions_Static()
         m_VulkanFunctions.vkGetImageMemoryRequirements2KHR = (PFN_vkGetImageMemoryRequirements2)vkGetImageMemoryRequirements2;
         m_VulkanFunctions.vkBindBufferMemory2KHR = (PFN_vkBindBufferMemory2)vkBindBufferMemory2;
         m_VulkanFunctions.vkBindImageMemory2KHR = (PFN_vkBindImageMemory2)vkBindImageMemory2;
+    }
+#endif
+
+#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
+    {
         m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = (PFN_vkGetPhysicalDeviceMemoryProperties2)vkGetPhysicalDeviceMemoryProperties2;
     }
 #endif
@@ -14312,7 +14318,17 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
         VMA_FETCH_DEVICE_FUNC(vkGetImageMemoryRequirements2KHR, PFN_vkGetImageMemoryRequirements2, "vkGetImageMemoryRequirements2");
         VMA_FETCH_DEVICE_FUNC(vkBindBufferMemory2KHR, PFN_vkBindBufferMemory2, "vkBindBufferMemory2");
         VMA_FETCH_DEVICE_FUNC(vkBindImageMemory2KHR, PFN_vkBindImageMemory2, "vkBindImageMemory2");
+    }
+#endif
+
+#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
+    {
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2, "vkGetPhysicalDeviceMemoryProperties2");
+    }
+    else if(m_UseExtMemoryBudget)
+    {
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2, "vkGetPhysicalDeviceMemoryProperties2KHR");
     }
 #endif
 
@@ -14332,8 +14348,12 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
     }
 #endif // #if VMA_BIND_MEMORY2
 
-#if VMA_MEMORY_BUDGET
-    if(m_UseExtMemoryBudget)
+#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
+    {
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2");
+    }
+    else if(m_UseExtMemoryBudget)
     {
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2KHR");
     }
