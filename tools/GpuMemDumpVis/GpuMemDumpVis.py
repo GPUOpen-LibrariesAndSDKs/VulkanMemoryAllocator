@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2022 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (c) 2018-2023 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ import json
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROGRAM_VERSION = 'Vulkan/D3D12 Memory Allocator Dump Visualization 3.0.1'
+PROGRAM_VERSION = 'Vulkan/D3D12 Memory Allocator Dump Visualization 3.0.2'
 IMG_WIDTH = 1200
 IMG_MARGIN = 8
 TEXT_MARGIN = 4
