@@ -81,16 +81,17 @@ def IsDataEmpty():
 def RemoveEmptyType():
     global data
     for poolType in list(data.keys()):
-        if len(data[poolType]['DedicatedAllocations']) > 0:
+        pool = data[poolType]
+        if len(pool['DedicatedAllocations']) > 0:
            continue
-        if len(data[poolType]['Blocks']) > 0:
+        if len(pool['Blocks']) > 0:
             continue
         empty = True
-        for customPool in data[poolType]['CustomPools'].values():
-            if len(data[poolType]['Blocks']) > 0:
+        for customPool in pool['CustomPools'].values():
+            if len(customPool['Blocks']) > 0:
                 empty = False
                 break
-            if len(data[poolType]['DedicatedAllocations']) > 0:
+            if len(customPool['DedicatedAllocations']) > 0:
                 empty = False
                 break
         if empty:
