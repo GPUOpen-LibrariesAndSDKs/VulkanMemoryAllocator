@@ -2651,8 +2651,7 @@ VmaAllocatorCreateInfo::pVulkanFunctions. Other members can be null.
 #endif
 
 #ifndef VMA_USE_STL_SHARED_MUTEX
-    // Compiler conforms to C++17.
-    #if __cplusplus >= 201703L
+    #if __cplusplus >= 201703L || _MSVC_LANG >= 201703L // C++17
         #define VMA_USE_STL_SHARED_MUTEX 1
     // Visual studio defines __cplusplus properly only when passed additional parameter: /Zc:__cplusplus
     // Otherwise it is always 199711L, despite shared_mutex works since Visual Studio 2015 Update 2.
@@ -2695,6 +2694,14 @@ remove them if not needed.
 #ifndef VMA_NULL
    // Value used as null pointer. Define it to e.g.: nullptr, NULL, 0, (void*)0.
    #define VMA_NULL   nullptr
+#endif
+
+#ifndef VMA_FALLTHROUGH
+    #if __cplusplus >= 201703L || _MSVC_LANG >= 201703L // C++17
+        #define VMA_FALLTHROUGH [[fallthrough]]
+    #else
+        #define VMA_FALLTHROUGH
+    #endif
 #endif
 
 // Normal assert to check for programmer's errors, especially in Debug configuration.
@@ -2773,7 +2780,7 @@ static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     return _aligned_malloc(size, alignment);
 }
-#elif __cplusplus >= 201703L // Compiler conforms to C++17.
+#elif __cplusplus >= 201703L || _MSVC_LANG >= 201703L // C++17
 static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     return aligned_alloc(alignment, size);
@@ -5663,7 +5670,6 @@ void VmaJsonWriter::ContinueString(const char* pStr)
             break;
         default:
             VMA_ASSERT(0 && "Character not currently supported.");
-            break;
         }
     }
 }
@@ -13216,28 +13222,23 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
             m_PassStats.bytesFreed += freedBlockSize;
         }
 
-        switch (m_Algorithm)
+        if(m_Algorithm == VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT &&
+            m_AlgorithmState != VMA_NULL)
         {
-        case VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT:
-        {
-            if (m_AlgorithmState != VMA_NULL)
+            // Avoid unnecessary tries to allocate when new free block is available
+            StateExtensive& state = reinterpret_cast<StateExtensive*>(m_AlgorithmState)[vectorIndex];
+            if (state.firstFreeBlock != SIZE_MAX)
             {
-                // Avoid unnecessary tries to allocate when new free block is available
-                StateExtensive& state = reinterpret_cast<StateExtensive*>(m_AlgorithmState)[vectorIndex];
-                if (state.firstFreeBlock != SIZE_MAX)
+                const size_t diff = prevCount - currentCount;
+                if (state.firstFreeBlock >= diff)
                 {
-                    const size_t diff = prevCount - currentCount;
-                    if (state.firstFreeBlock >= diff)
-                    {
-                        state.firstFreeBlock -= diff;
-                        if (state.firstFreeBlock != 0)
-                            state.firstFreeBlock -= vector->GetBlock(state.firstFreeBlock - 1)->m_pMetadata->IsEmpty();
-                    }
-                    else
-                        state.firstFreeBlock = 0;
+                    state.firstFreeBlock -= diff;
+                    if (state.firstFreeBlock != 0)
+                        state.firstFreeBlock -= vector->GetBlock(state.firstFreeBlock - 1)->m_pMetadata->IsEmpty();
                 }
+                else
+                    state.firstFreeBlock = 0;
             }
-        }
         }
     }
     moveInfo.moveCount = 0;
@@ -13796,6 +13797,8 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             vectorState.operation = StateExtensive::Operation::MoveBuffers;
             bufferPresent = false;
             otherPresent = false;
+            
+            VMA_FALLTHROUGH; // Fallthrough
         }
         else
             break;
@@ -13820,6 +13823,8 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             // No more buffers to move, check all others
             vectorState.operation = StateExtensive::Operation::MoveAll;
             otherPresent = false;
+            
+            VMA_FALLTHROUGH; // Fallthrough
         }
         else
             break;
@@ -15570,6 +15575,7 @@ VkResult VmaAllocator_T::Map(VmaAllocation hAllocation, void** ppData)
             }
             return res;
         }
+        VMA_FALLTHROUGH; // Fallthrough
     case VmaAllocation_T::ALLOCATION_TYPE_DEDICATED:
         return hAllocation->DedicatedAllocMap(this, ppData);
     default:
