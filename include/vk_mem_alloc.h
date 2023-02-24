@@ -13797,11 +13797,10 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             vectorState.operation = StateExtensive::Operation::MoveBuffers;
             bufferPresent = false;
             otherPresent = false;
-            
-            VMA_FALLTHROUGH; // Fallthrough
         }
         else
             break;
+        VMA_FALLTHROUGH; // Fallthrough
     }
     case StateExtensive::Operation::MoveBuffers:
     {
@@ -13823,11 +13822,10 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             // No more buffers to move, check all others
             vectorState.operation = StateExtensive::Operation::MoveAll;
             otherPresent = false;
-            
-            VMA_FALLTHROUGH; // Fallthrough
         }
         else
             break;
+        VMA_FALLTHROUGH; // Fallthrough
     }
     case StateExtensive::Operation::MoveAll:
     {
