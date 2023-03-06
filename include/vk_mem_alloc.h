@@ -18208,6 +18208,12 @@ vkDestroyImage(allocator, img2, nullptr);
 vkDestroyImage(allocator, img1, nullptr);
 \endcode
 
+VMA also provides convenience functions that create a buffer or image and bind it to memory
+represented by an existing #VmaAllocation:
+vmaCreateAliasingBuffer(), vmaCreateAliasingBuffer2(),
+vmaCreateAliasingImage(), vmaCreateAliasingImage2().
+Versions with "2" offer additional parameter `allocationLocalOffset`.
+
 Remember that using resources that alias in memory requires proper synchronization.
 You need to issue a memory barrier to make sure commands that use `img1` and `img2`
 don't overlap on GPU timeline.
