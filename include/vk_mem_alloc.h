@@ -13371,6 +13371,8 @@ VmaDefragmentationContext_T::CounterStatus VmaDefragmentationContext_T::CheckCou
         else
             return CounterStatus::End;
     }
+    else
+        m_IgnoredAllocs = 0;
     return CounterStatus::Pass;
 }
 
