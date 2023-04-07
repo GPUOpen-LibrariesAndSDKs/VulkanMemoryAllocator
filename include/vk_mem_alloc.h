@@ -13732,7 +13732,7 @@ bool VmaDefragmentationContext_T::ComputeDefragmentation_Extensive(VmaBlockVecto
             {
                 // Full clear performed already
                 if (prevMoveCount != m_Moves.size() && freeMetadata->GetNextAllocation(handle) == VK_NULL_HANDLE)
-                    reinterpret_cast<size_t*>(m_AlgorithmState)[index] = last;
+                    vectorState.firstFreeBlock = last;
                 return true;
             }
         }
