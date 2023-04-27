@@ -2687,6 +2687,7 @@ remove them if not needed.
     #include <cassert> // for assert
     #include <algorithm> // for min, max
     #include <mutex>
+    #include <cstdio>
 #else
     #include VMA_CONFIGURATION_USER_INCLUDES_H
 #endif
