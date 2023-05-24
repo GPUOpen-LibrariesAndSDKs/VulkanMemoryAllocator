@@ -1365,6 +1365,13 @@ typedef struct VmaAllocationInfo
     `vkCmdCopyBuffer` must be limited to the size of the resource.
     */
     VkDeviceSize size;
+    /** \brief Size of this actual allocation (as made to vkAllocateMemory), in bytes.
+
+    It never changes.
+
+    \note Allocation size returned in this variable is always larger or equal to VmaAllocationInfo::size.
+    */
+    VkDeviceSize allocationSize;
     /** \brief Pointer to the beginning of this allocation as mapped data.
 
     If the allocation hasn't been mapped using vmaMapMemory() and hasn't been
@@ -6055,6 +6062,7 @@ public:
     uint8_t SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocation allocation);
     VmaAllocHandle GetAllocHandle() const;
     VkDeviceSize GetOffset() const;
+    VkDeviceSize GetAllocationSize() const;
     VmaPool GetParentPool() const;
     VkDeviceMemory GetMemory() const;
     void* GetMappedData() const;
@@ -12098,6 +12106,20 @@ VkDeviceSize VmaAllocation_T::GetOffset() const
     }
 }
 
+VkDeviceSize VmaAllocation_T::GetAllocationSize() const
+{
+	switch (m_Type)
+	{
+	case ALLOCATION_TYPE_BLOCK:
+		return m_BlockAllocation.m_Block->m_pMetadata->GetSize();
+	case ALLOCATION_TYPE_DEDICATED:
+		return GetSize();
+	default:
+		VMA_ASSERT(0);
+		return 0;
+	}
+}
+
 VmaPool VmaAllocation_T::GetParentPool() const
 {
     switch (m_Type)
@@ -15267,6 +15289,7 @@ void VmaAllocator_T::GetAllocationInfo(VmaAllocation hAllocation, VmaAllocationI
     pAllocationInfo->deviceMemory = hAllocation->GetMemory();
     pAllocationInfo->offset = hAllocation->GetOffset();
     pAllocationInfo->size = hAllocation->GetSize();
+    pAllocationInfo->allocationSize = hAllocation->GetAllocationSize();
     pAllocationInfo->pMappedData = hAllocation->GetMappedData();
     pAllocationInfo->pUserData = hAllocation->GetUserData();
     pAllocationInfo->pName = hAllocation->GetName();
