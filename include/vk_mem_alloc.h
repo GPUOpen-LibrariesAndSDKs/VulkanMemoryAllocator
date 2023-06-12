@@ -10295,8 +10295,8 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
     else
         sizeForNextList += smallSizeStep;
 
-    uint32_t nextListIndex = 0;
-    uint32_t prevListIndex = 0;
+    uint32_t nextListIndex = m_ListsCount;
+    uint32_t prevListIndex = m_ListsCount;
     Block* nextListBlock = VMA_NULL;
     Block* prevListBlock = VMA_NULL;
 
