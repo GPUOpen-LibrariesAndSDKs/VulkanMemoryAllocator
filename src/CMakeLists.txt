@@ -17,8 +17,7 @@ set_target_properties(
     VulkanMemoryAllocator PROPERTIES
 
     CXX_EXTENSIONS OFF
-    # Use C++14
-    CXX_STANDARD 14
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
 )
 
@@ -85,8 +84,7 @@ if(VMA_BUILD_SAMPLE)
             VmaSample PROPERTIES
 
             CXX_EXTENSIONS OFF
-            # Use C++14
-            CXX_STANDARD 14
+            CXX_STANDARD 17
             CXX_STANDARD_REQUIRED ON
         )
 
