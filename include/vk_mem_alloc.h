@@ -234,6 +234,8 @@ extern "C" {
     #define VMA_CALL_POST
 #endif
 
+// Define this macro to decorate pNext pointers with an attribute specifying the Vulkan
+// structure that will be extended via the pNext chain.
 #ifndef VMA_EXTENDS_VK_STRUCT
     #define VMA_EXTENDS_VK_STRUCT(vkStruct)
 #endif
