@@ -234,6 +234,10 @@ extern "C" {
     #define VMA_CALL_POST
 #endif
 
+#ifndef VMA_EXTENDS_VK_STRUCT
+    #define VMA_EXTENDS_VK_STRUCT(vkStruct)
+#endif
+
 // Define this macro to decorate pointers with an attribute specifying the
 // length of the array they point to if they are not null.
 //
@@ -1319,7 +1323,7 @@ typedef struct VmaPoolCreateInfo
     Please note that some structures, e.g. `VkMemoryPriorityAllocateInfoEXT`, `VkMemoryDedicatedAllocateInfoKHR`,
     can be attached automatically by this library when using other, more convenient of its features.
     */
-    void* VMA_NULLABLE pMemoryAllocateNext;
+    void* VMA_NULLABLE VMA_EXTENDS_VK_STRUCT(VkMemoryAllocateInfo) pMemoryAllocateNext;
 } VmaPoolCreateInfo;
 
 /** @} */
@@ -2227,7 +2231,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindBufferMemory2(
     VmaAllocation VMA_NOT_NULL allocation,
     VkDeviceSize allocationLocalOffset,
     VkBuffer VMA_NOT_NULL_NON_DISPATCHABLE buffer,
-    const void* VMA_NULLABLE pNext);
+    const void* VMA_NULLABLE VMA_EXTENDS_VK_STRUCT(VkBindBufferMemoryInfoKHR) pNext);
 
 /** \brief Binds image to allocation.
 
@@ -2264,7 +2268,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory2(
     VmaAllocation VMA_NOT_NULL allocation,
     VkDeviceSize allocationLocalOffset,
     VkImage VMA_NOT_NULL_NON_DISPATCHABLE image,
-    const void* VMA_NULLABLE pNext);
+    const void* VMA_NULLABLE VMA_EXTENDS_VK_STRUCT(VkBindImageMemoryInfoKHR) pNext);
 
 /** \brief Creates a new `VkBuffer`, allocates and binds memory for it.
 
