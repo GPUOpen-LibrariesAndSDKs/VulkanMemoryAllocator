@@ -27,6 +27,7 @@ install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/VulkanMemoryAllocatorConfig.cmake"
          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/VulkanMemoryAllocator
 )
+add_library(VulkanMemoryAllocator::VulkanMemoryAllocator ALIAS VulkanMemoryAllocator)
 
 
 

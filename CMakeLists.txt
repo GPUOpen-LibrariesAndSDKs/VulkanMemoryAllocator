@@ -2,14 +2,6 @@ cmake_minimum_required(VERSION 3.9)
 
 project(VulkanMemoryAllocator LANGUAGES CXX)
 
-# https://cmake.org/cmake/help/latest/variable/PROJECT_IS_TOP_LEVEL.html
-string(COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR} PROJECT_IS_TOP_LEVEL)
-
-if(PROJECT_IS_TOP_LEVEL)
-    find_package(Vulkan REQUIRED)
-    include_directories(${Vulkan_INCLUDE_DIR})
-endif()
-
 # VulkanMemoryAllocator contains an sample application which is not built by default
 option(VMA_BUILD_SAMPLE "Build VulkanMemoryAllocator sample application" OFF)
 option(VMA_BUILD_SAMPLE_SHADERS "Build VulkanMemoryAllocator sample application's shaders" OFF)
@@ -30,6 +22,12 @@ message(STATUS "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY = ${VMA_DEBUG_ALWAYS_DEDICATED
 message(STATUS "VMA_DEBUG_INITIALIZE_ALLOCATIONS = ${VMA_DEBUG_INITIALIZE_ALLOCATIONS}")
 message(STATUS "VMA_DEBUG_GLOBAL_MUTEX = ${VMA_DEBUG_GLOBAL_MUTEX}")
 message(STATUS "VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT = ${VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT}")
+
+if(VMA_STATIC_VULKAN_FUNCTIONS OR VMA_BUILD_SAMPLE)
+    find_package(Vulkan REQUIRED)
+else()
+    find_package(VulkanHeaders REQUIRED)
+endif()
 
 if(VMA_BUILD_SAMPLE)
     set(VMA_BUILD_SAMPLE_SHADERS ON)

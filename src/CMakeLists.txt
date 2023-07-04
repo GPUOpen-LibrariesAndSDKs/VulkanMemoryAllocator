@@ -25,9 +25,11 @@ target_include_directories(VulkanMemoryAllocator PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
 )
 
-# Only link to Vulkan if static linking is used
-if(${VMA_STATIC_VULKAN_FUNCTIONS})
+# Only link to Vulkan library if static linking is used, but always add Vulkan headers directory
+if(VMA_STATIC_VULKAN_FUNCTIONS)
     target_link_libraries(VulkanMemoryAllocator PUBLIC Vulkan::Vulkan)
+else()
+    target_link_libraries(VulkanMemoryAllocator PUBLIC Vulkan::Headers)
 endif()
 
 target_compile_definitions(
