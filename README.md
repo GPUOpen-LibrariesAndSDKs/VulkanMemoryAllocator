@@ -99,38 +99,37 @@ With this one function call:
 
 # How to build
 
-On Windows it is recommended to use [CMake UI](https://cmake.org/runningcmake/). Alternatively you can generate a Visual Studio project map using CMake in command line: `cmake -B./build/ -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 16 2019" -A x64 ./`
+On Windows it is recommended to use [CMake GUI](https://cmake.org/runningcmake/).
+
+Alternatively you can generate/open a Visual Studio from the command line:
+
+```sh
+# By default CMake picks the newest version of Visual Studio it can use
+cmake -S .  -B build -D VMA_BUILD_SAMPLES=ON
+cmake --open build
+```
 
 On Linux:
 
+```sh
+cmake -S . -B build
+# Since VMA has no source files, you can skip to installation immediately
+cmake --install build --prefix build/install
 ```
-mkdir build
-cd build
-cmake ..
-make
+
+## How to use
+
+After calling either `find_package` or `add_subdirectory` simply link the library.
+This automatically handles configuring the include directory.
+
+EX:
+
+```cmake
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+target_link_libraries(YourGameEngine PRIVATE GPUOpen::VulkanMemoryAllocator)
 ```
 
-The following targets are available
-
-| Target | Description | CMake option | Default setting |
-| ------------- | ------------- | ------------- | ------------- |
-| VmaSample | VMA sample application | `VMA_BUILD_SAMPLE` | `OFF` |
-| VmaBuildSampleShaders | Shaders for VmaSample | `VMA_BUILD_SAMPLE_SHADERS` | `OFF` |
-
-Please note that while VulkanMemoryAllocator library is supported on other platforms besides Windows, VmaSample is not.
-
-These CMake options are available
-
-| CMake option | Description | Default setting |
-| ------------- | ------------- | ------------- |
-| `VMA_RECORDING_ENABLED` | Enable VMA memory recording for debugging | `OFF` |
-| `VMA_USE_STL_CONTAINERS` | Use C++ STL containers instead of VMA's containers | `OFF` |
-| `VMA_STATIC_VULKAN_FUNCTIONS` | Link statically with Vulkan API | `OFF` |
-| `VMA_DYNAMIC_VULKAN_FUNCTIONS` | Fetch pointers to Vulkan functions internally (no static linking) | `ON` |
-| `VMA_DEBUG_ALWAYS_DEDICATED_MEMORY` | Every allocation will have its own memory block | `OFF` |
-| `VMA_DEBUG_INITIALIZE_ALLOCATIONS` | Automatically fill new allocations and destroyed allocations with some bit pattern | `OFF` |
-| `VMA_DEBUG_GLOBAL_MUTEX` | Enable single mutex protecting all entry calls to the library | `OFF` |
-| `VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT` | Never exceed [VkPhysicalDeviceLimits::maxMemoryAllocationCount](https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#limits-maxMemoryAllocationCount) and return error | `OFF` |
+For more info on using CMake visit the official [CMake documentation](https://cmake.org/cmake/help/latest/index.html).
 
 ## Building using vcpkg
 
