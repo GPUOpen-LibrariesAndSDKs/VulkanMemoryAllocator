@@ -767,7 +767,7 @@ static void CreateTexture(uint32_t sizeX, uint32_t sizeY)
     for(uint32_t y = 0; y < sizeY; ++y)
     {
         uint32_t* pPixelData = (uint32_t*)pRowData;
-        for(uint32_t x = 0; x < sizeY; ++x)
+        for(uint32_t x = 0; x < sizeX; ++x)
         {
             *pPixelData =
                 ((x & 0x18) == 0x08 ? 0x000000FF : 0x00000000) |
