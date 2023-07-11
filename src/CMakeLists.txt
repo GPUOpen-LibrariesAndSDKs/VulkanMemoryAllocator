@@ -44,6 +44,8 @@ else()
     target_link_libraries(VmaSample PUBLIC Vulkan::Headers)
 endif()
 
+target_link_libraries(VmaSample PRIVATE GPUOpen::VulkanMemoryAllocator)
+
 target_compile_definitions(VmaSample PUBLIC
     VMA_STATIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_STATIC_VULKAN_FUNCTIONS}>
     VMA_DYNAMIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_DYNAMIC_VULKAN_FUNCTIONS}>
