@@ -1,107 +1,76 @@
-set(CMAKE_DEBUG_POSTFIX d)
-set(CMAKE_RELWITHDEBINFO_POSTFIX rd)
-set(CMAKE_MINSIZEREL_POSTFIX s)
-
-add_library(VulkanMemoryAllocator
-    VmaUsage.cpp
-    VmaUsage.h
-    ${PROJECT_SOURCE_DIR}/include/vk_mem_alloc.h
-)
-
-if (MSVC)
-    # Provides MSVC users nicer debugging support
-    target_sources(VulkanMemoryAllocator PRIVATE ${CMAKE_CURRENT_LIST_DIR}/vk_mem_alloc.natvis)
+if (NOT WIN32)
+    message(STATUS "VmaSample application is only supported on Windows")
+    return()
 endif()
 
-set_target_properties(
-    VulkanMemoryAllocator PROPERTIES
+option(VMA_STATIC_VULKAN_FUNCTIONS "Link statically with Vulkan API" ON)
+option(VMA_DYNAMIC_VULKAN_FUNCTIONS "Fetch pointers to Vulkan functions internally (no static linking)" OFF)
+option(VMA_DEBUG_ALWAYS_DEDICATED_MEMORY "Every allocation will have its own memory block" OFF)
+option(VMA_DEBUG_INITIALIZE_ALLOCATIONS "Automatically fill new allocations and destroyed allocations with some bit pattern" OFF)
+option(VMA_DEBUG_GLOBAL_MUTEX "Enable single mutex protecting all entry calls to the library" OFF)
+option(VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT "Never exceed VkPhysicalDeviceLimits::maxMemoryAllocationCount and return error" OFF)
 
-    CXX_EXTENSIONS OFF
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
+message(STATUS "VMA_STATIC_VULKAN_FUNCTIONS = ${VMA_STATIC_VULKAN_FUNCTIONS}")
+message(STATUS "VMA_DYNAMIC_VULKAN_FUNCTIONS = ${VMA_DYNAMIC_VULKAN_FUNCTIONS}")
+message(STATUS "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY = ${VMA_DEBUG_ALWAYS_DEDICATED_MEMORY}")
+message(STATUS "VMA_DEBUG_INITIALIZE_ALLOCATIONS = ${VMA_DEBUG_INITIALIZE_ALLOCATIONS}")
+message(STATUS "VMA_DEBUG_GLOBAL_MUTEX = ${VMA_DEBUG_GLOBAL_MUTEX}")
+message(STATUS "VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT = ${VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT}")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_library(VmaUsage STATIC)
+target_sources(VmaUsage PRIVATE
+    VmaUsage.cpp
+    VmaUsage.h
 )
 
-target_include_directories(VulkanMemoryAllocator PUBLIC 
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-)
+target_link_libraries(VmaUsage PUBLIC GPUOpen::VulkanMemoryAllocator)
+
+# Provides MSVC users nicer debugging support
+target_sources(VmaUsage PRIVATE vk_mem_alloc.natvis)
+
+find_package(Vulkan REQUIRED)
 
 # Only link to Vulkan library if static linking is used, but always add Vulkan headers directory
 if(VMA_STATIC_VULKAN_FUNCTIONS)
-    target_link_libraries(VulkanMemoryAllocator PUBLIC Vulkan::Vulkan)
+    target_link_libraries(VmaUsage PUBLIC Vulkan::Vulkan)
 else()
-    target_link_libraries(VulkanMemoryAllocator PUBLIC Vulkan::Headers)
+    target_link_libraries(VmaUsage PUBLIC Vulkan::Headers)
 endif()
 
-target_compile_definitions(
-    VulkanMemoryAllocator
-
-    PUBLIC
+target_compile_definitions(VmaUsage PUBLIC
     VMA_STATIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_STATIC_VULKAN_FUNCTIONS}>
     VMA_DYNAMIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_DYNAMIC_VULKAN_FUNCTIONS}>
     VMA_DEBUG_ALWAYS_DEDICATED_MEMORY=$<BOOL:${VMA_DEBUG_ALWAYS_DEDICATED_MEMORY}>
     VMA_DEBUG_INITIALIZE_ALLOCATIONS=$<BOOL:${VMA_DEBUG_INITIALIZE_ALLOCATIONS}>
     VMA_DEBUG_GLOBAL_MUTEX=$<BOOL:${VMA_DEBUG_GLOBAL_MUTEX}>
     VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT=$<BOOL:${VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT}>
-    VMA_RECORDING_ENABLED=$<BOOL:${VMA_RECORDING_ENABLED}>
 )
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_target.cmake)
+add_executable(VmaSample)
+target_sources(VmaSample PRIVATE
+    Common.cpp
+    Common.h
+    SparseBindingTest.cpp
+    SparseBindingTest.h
+    Tests.cpp
+    Tests.h
+    VulkanSample.cpp
+)
 
-if(VMA_BUILD_SAMPLE)
-    if(WIN32)
-        set(VMA_SAMPLE_SOURCE_FILES
-            Common.cpp
-            Common.h
-            SparseBindingTest.cpp
-            SparseBindingTest.h
-            Tests.cpp
-            Tests.h
-            VulkanSample.cpp
-        )
+target_link_libraries(VmaSample PRIVATE VmaUsage)
 
-        add_executable(VmaSample ${VMA_SAMPLE_SOURCE_FILES})
-		add_dependencies(VmaSample VulkanMemoryAllocator VmaSampleShaders)
-		
-        if(MSVC)
-            # Use Unicode instead of multibyte set
-            add_compile_definitions(UNICODE _UNICODE)
-            
-            # Add C++ warnings and security checks
-            add_compile_options(/permissive- /sdl /W3)
-            
-            # Enable multithreaded compiling
-            target_compile_options(VmaSample PRIVATE "/MP")
+add_subdirectory(Shaders)
+add_dependencies(VmaSample VmaSampleShaders)
 
-            # Set VmaSample as startup project
-            set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT "VmaSample")
+# Use Unicode instead of multibyte set
+add_compile_definitions(UNICODE _UNICODE)
 
-            # Set working directory for Visual Studio debugger
-            set_target_properties(
-                VmaSample
-                PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
-            )
-        endif()
+# Add C++ warnings and security checks
+add_compile_options(/permissive- /sdl /W3)
 
-        set_target_properties(
-            VmaSample PROPERTIES
-
-            CXX_EXTENSIONS OFF
-            CXX_STANDARD 17
-            CXX_STANDARD_REQUIRED ON
-        )
-
-        target_link_libraries(
-            VmaSample
-            PRIVATE
-            
-            VulkanMemoryAllocator
-            Vulkan::Vulkan
-        )
-    else()
-        message(STATUS "VmaSample application is not supported to Linux")
-    endif()
-endif()
-
-if(VMA_BUILD_SAMPLE_SHADERS)
-    add_subdirectory(Shaders)
-endif()
+# Set VmaSample as startup project
+set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT "VmaSample")
