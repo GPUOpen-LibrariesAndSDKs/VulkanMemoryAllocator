@@ -21,34 +21,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(VmaUsage STATIC)
-target_sources(VmaUsage PRIVATE
-    VmaUsage.cpp
-    VmaUsage.h
-)
-
-target_link_libraries(VmaUsage PUBLIC GPUOpen::VulkanMemoryAllocator)
-
-# Provides MSVC users nicer debugging support
-target_sources(VmaUsage PRIVATE vk_mem_alloc.natvis)
-
 find_package(Vulkan REQUIRED)
-
-# Only link to Vulkan library if static linking is used, but always add Vulkan headers directory
-if(VMA_STATIC_VULKAN_FUNCTIONS)
-    target_link_libraries(VmaUsage PUBLIC Vulkan::Vulkan)
-else()
-    target_link_libraries(VmaUsage PUBLIC Vulkan::Headers)
-endif()
-
-target_compile_definitions(VmaUsage PUBLIC
-    VMA_STATIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_STATIC_VULKAN_FUNCTIONS}>
-    VMA_DYNAMIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_DYNAMIC_VULKAN_FUNCTIONS}>
-    VMA_DEBUG_ALWAYS_DEDICATED_MEMORY=$<BOOL:${VMA_DEBUG_ALWAYS_DEDICATED_MEMORY}>
-    VMA_DEBUG_INITIALIZE_ALLOCATIONS=$<BOOL:${VMA_DEBUG_INITIALIZE_ALLOCATIONS}>
-    VMA_DEBUG_GLOBAL_MUTEX=$<BOOL:${VMA_DEBUG_GLOBAL_MUTEX}>
-    VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT=$<BOOL:${VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT}>
-)
 
 add_executable(VmaSample)
 target_sources(VmaSample PRIVATE
@@ -58,10 +31,30 @@ target_sources(VmaSample PRIVATE
     SparseBindingTest.h
     Tests.cpp
     Tests.h
+    VmaUsage.cpp
+    VmaUsage.h
     VulkanSample.cpp
+    ../include/vk_mem_alloc.h
 )
 
-target_link_libraries(VmaSample PRIVATE VmaUsage)
+# Only link to Vulkan library if static linking is used, but always add Vulkan headers directory
+if(VMA_STATIC_VULKAN_FUNCTIONS)
+    target_link_libraries(VmaSample PUBLIC Vulkan::Vulkan)
+else()
+    target_link_libraries(VmaSample PUBLIC Vulkan::Headers)
+endif()
+
+target_compile_definitions(VmaSample PUBLIC
+    VMA_STATIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_STATIC_VULKAN_FUNCTIONS}>
+    VMA_DYNAMIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_DYNAMIC_VULKAN_FUNCTIONS}>
+    VMA_DEBUG_ALWAYS_DEDICATED_MEMORY=$<BOOL:${VMA_DEBUG_ALWAYS_DEDICATED_MEMORY}>
+    VMA_DEBUG_INITIALIZE_ALLOCATIONS=$<BOOL:${VMA_DEBUG_INITIALIZE_ALLOCATIONS}>
+    VMA_DEBUG_GLOBAL_MUTEX=$<BOOL:${VMA_DEBUG_GLOBAL_MUTEX}>
+    VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT=$<BOOL:${VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT}>
+)
+
+# Provides MSVC users nicer debugging support
+target_sources(VmaSample PRIVATE vk_mem_alloc.natvis)
 
 add_subdirectory(Shaders)
 add_dependencies(VmaSample VmaSampleShaders)
@@ -74,3 +67,5 @@ add_compile_options(/permissive- /sdl /W3)
 
 # Set VmaSample as startup project
 set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT "VmaSample")
+
+set_target_properties(VmaSample PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")

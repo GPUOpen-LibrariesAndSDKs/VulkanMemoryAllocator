@@ -120,9 +120,7 @@ cmake --install build --prefix build/install
 ## How to use
 
 After calling either `find_package` or `add_subdirectory` simply link the library.
-This automatically handles configuring the include directory.
-
-EX:
+This automatically handles configuring the include directory. Example:
 
 ```cmake
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
