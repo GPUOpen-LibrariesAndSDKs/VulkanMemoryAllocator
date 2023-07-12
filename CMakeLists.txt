@@ -17,7 +17,7 @@ if (PROJECT_IS_TOP_LEVEL)
 
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(TARGETS VulkanMemoryAllocator EXPORT VulkanMemoryAllocatorConfig INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-    install(EXPORT VulkanMemoryAllocatorConfig NAMESPACE "GPUOpen::" DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/VulkanMemoryAllocator")
+    install(EXPORT VulkanMemoryAllocatorConfig NAMESPACE "GPUOpen::" DESTINATION "share/cmake/VulkanMemoryAllocator")
 
     option(VMA_BUILD_DOCUMENTATION "Create and install the HTML based API documentation")
     if(VMA_BUILD_DOCUMENTATION)
