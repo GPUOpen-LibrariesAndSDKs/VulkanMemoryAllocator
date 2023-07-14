@@ -3754,19 +3754,18 @@ static bool FindMemoryPreferences(
         // No CPU access
         else
         {
-            // GPU access, no CPU access (e.g. a color attachment image) - prefer GPU memory
-            if(deviceAccess)
-            {
-                // ...unless there is a clear preference from the user not to do so.
-                if(preferHost)
-                    outNotPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-                else
-                    outPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-            }
+            // if(deviceAccess)
+            //
+            // GPU access, no CPU access (e.g. a color attachment image) - prefer GPU memory,
+            // unless there is a clear preference from the user not to do so.
+            //
+            // else:
+            //
             // No direct GPU access, no CPU access, just transfers.
             // It may be staging copy intended for e.g. preserving image for next frame (then better GPU memory) or
             // a "swap file" copy to free some GPU memory (then better CPU memory).
             // Up to the user to decide. If no preferece, assume the former and choose GPU memory.
+
             if(preferHost)
                 outNotPreferredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
             else
