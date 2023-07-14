@@ -1393,6 +1393,12 @@ typedef struct VmaAllocationInfo
     const char* VMA_NULLABLE pName;
 } VmaAllocationInfo;
 
+/** Callback function called during vmaBeginDefragmentation() to check custom criterion about ending current defragmentation pass.
+
+Should return true if the defragmentation needs to stop current pass.
+*/
+typedef VkBool32 (VKAPI_PTR* PFN_vmaCheckDefragmentationBreakFunction)(void* VMA_NULLABLE pUserData);
+
 /** \brief Parameters for defragmentation.
 
 To be used with function vmaBeginDefragmentation().
@@ -1416,6 +1422,13 @@ typedef struct VmaDefragmentationInfo
     `0` means no limit.
     */
     uint32_t maxAllocationsPerPass;
+    /** \brief Optional custom callback for stopping vmaBeginDefragmentation().
+
+    Have to return true for breaking current defragmentation pass.
+    */
+    PFN_vmaCheckDefragmentationBreakFunction VMA_NULLABLE pfnBreakCallback;
+    /// \brief Optional data to pass to custom callback for stopping pass of defragmentation.
+    void* VMA_NULLABLE pBreakCallbackUserData;
 } VmaDefragmentationInfo;
 
 /// Single move of an allocation to be done for defragmentation.
@@ -11042,6 +11055,8 @@ private:
 
     const VkDeviceSize m_MaxPassBytes;
     const uint32_t m_MaxPassAllocations;
+    const PFN_vmaCheckDefragmentationBreakFunction m_BreakCallback;
+    void* m_BreakCallbackUserData;
 
     VmaStlAllocator<VmaDefragmentationMove> m_MoveAllocator;
     VmaVector<VmaDefragmentationMove, VmaStlAllocator<VmaDefragmentationMove>> m_Moves;
@@ -12972,6 +12987,8 @@ VmaDefragmentationContext_T::VmaDefragmentationContext_T(
     const VmaDefragmentationInfo& info)
     : m_MaxPassBytes(info.maxBytesPerPass == 0 ? VK_WHOLE_SIZE : info.maxBytesPerPass),
     m_MaxPassAllocations(info.maxAllocationsPerPass == 0 ? UINT32_MAX : info.maxAllocationsPerPass),
+    m_BreakCallback(info.pfnBreakCallback),
+    m_BreakCallbackUserData(info.pBreakCallbackUserData),
     m_MoveAllocator(hAllocator->GetAllocationCallbacks()),
     m_Moves(m_MoveAllocator)
 {
@@ -13367,6 +13384,10 @@ VmaDefragmentationContext_T::MoveAllocationData VmaDefragmentationContext_T::Get
 
 VmaDefragmentationContext_T::CounterStatus VmaDefragmentationContext_T::CheckCounters(VkDeviceSize bytes)
 {
+    // Check custom criteria if exists
+    if (m_BreakCallback && m_BreakCallback(m_BreakCallbackUserData))
+        return CounterStatus::End;
+
     // Ignore allocation if will exceed max size for copy
     if (m_PassStats.bytesMoved + bytes > m_MaxPassBytes)
     {
