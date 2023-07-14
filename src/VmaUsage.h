@@ -95,7 +95,7 @@ include all public interface declarations. Example:
     #pragma clang diagnostic ignored "-Wnullability-completeness"
 #endif
 
-#include "../include/vk_mem_alloc.h"
+#include "vk_mem_alloc.h"
 
 #ifdef __clang__
     #pragma clang diagnostic pop
