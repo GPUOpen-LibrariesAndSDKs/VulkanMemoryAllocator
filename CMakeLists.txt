@@ -34,6 +34,7 @@ if (PROJECT_IS_TOP_LEVEL)
             COMMENT "Generating API documentation with Doxygen"
             VERBATIM
         )
+        install(DIRECTORY docs/ DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/VulkanMemoryAllocator" PATTERN ".nojekyll" EXCLUDE)
     endif()
 
     option(VMA_BUILD_SAMPLES "Build samples")
