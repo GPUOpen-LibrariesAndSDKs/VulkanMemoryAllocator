@@ -12692,17 +12692,6 @@ void VmaBlockVector::Free(const VmaAllocation hAllocation)
             }
             // else: We now have one empty block - leave it. A hysteresis to avoid allocating whole block back and forth.
         }
-        // pBlock didn't become empty, but we have another empty block - find and free that one.
-        // (This is optional, heuristics.)
-        else if (hadEmptyBlockBeforeFree && canDeleteBlock)
-        {
-            VmaDeviceMemoryBlock* pLastBlock = m_Blocks.back();
-            if (pLastBlock->m_pMetadata->IsEmpty())
-            {
-                pBlockToDelete = pLastBlock;
-                m_Blocks.pop_back();
-            }
-        }
 
         IncrementallySortBlocks();
     }
