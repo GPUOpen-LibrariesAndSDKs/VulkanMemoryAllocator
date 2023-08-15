@@ -169,6 +169,7 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 - **[Vulkan Best Practice for Mobile Developers](https://github.com/ARM-software/vulkan_best_practice_for_mobile_developers)** from ARM. License: MIT.
 - **[RPCS3](https://github.com/RPCS3/rpcs3)** - PlayStation 3 emulator/debugger. License: GNU GPLv2.
 - **[PPSSPP](https://github.com/hrydgard/ppsspp)** - Playstation Portable emulator/debugger. License: GNU GPLv2+.
+- **[Wicked Engine<img src="https://github.com/turanszkij/WickedEngine/blob/master/Content/logo_small.png" width="28px" align="center"/>](https://github.com/turanszkij/WickedEngine)** - 3D engine with modern graphics 
 
 [Many other projects on GitHub](https://github.com/search?q=AMD_VULKAN_MEMORY_ALLOCATOR_H&type=Code) and some game development studios that use Vulkan in their games.
 
