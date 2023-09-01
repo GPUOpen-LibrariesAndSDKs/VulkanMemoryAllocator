@@ -2624,10 +2624,18 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
 #include <utility>
 #include <type_traits>
 
+#if !defined(VMA_CPP20)
+    #if __cplusplus >= 202002L || _MSVC_LANG >= 202002L // C++20
+        #define VMA_CPP20 1
+    #else
+        #define VMA_CPP20 0
+    #endif
+#endif
+
 #ifdef _MSC_VER
     #include <intrin.h> // For functions like __popcnt, _BitScanForward etc.
 #endif
-#if __cplusplus >= 202002L || _MSVC_LANG >= 202002L // C++20
+#if VMA_CPP20
     #include <bit> // For std::popcount
 #endif
 
@@ -3263,7 +3271,7 @@ But you need to check in runtime whether user's CPU supports these, as some old 
 */
 static inline uint32_t VmaCountBitsSet(uint32_t v)
 {
-#if __cplusplus >= 202002L || _MSVC_LANG >= 202002L // C++20
+#if VMA_CPP20
     return std::popcount(v);
 #else
     uint32_t c = v - ((v >> 1) & 0x55555555);
