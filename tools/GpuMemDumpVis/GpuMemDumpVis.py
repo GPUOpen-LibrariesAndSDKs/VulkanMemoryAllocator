@@ -25,7 +25,7 @@ import json
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROGRAM_VERSION = 'Vulkan/D3D12 Memory Allocator Dump Visualization 3.0.2'
+PROGRAM_VERSION = 'Vulkan/D3D12 Memory Allocator Dump Visualization 3.0.3'
 IMG_WIDTH = 1200
 IMG_MARGIN = 8
 TEXT_MARGIN = 4
@@ -277,8 +277,8 @@ if __name__ == '__main__':
             draw.text((x + IMG_MARGIN + TEXT_MARGIN, y), "0", fill=COLOR_TEXT_H2, font=font)
         else:
             text = BytesToStr(byte)
-            textSize = draw.textsize(text, font=font)
-            draw.text((x + IMG_MARGIN - textSize[0] - TEXT_MARGIN, y), text, fill=COLOR_TEXT_H2, font=font)
+            textLength = draw.textlength(text, font=font)
+            draw.text((x + IMG_MARGIN - textLength - TEXT_MARGIN, y), text, fill=COLOR_TEXT_H2, font=font)
         byte += bytesBetweenGridLines
     y += FONT_SIZE + IMG_MARGIN
     
