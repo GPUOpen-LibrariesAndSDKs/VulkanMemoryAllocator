@@ -5674,7 +5674,7 @@ void VmaJsonWriter::ContinueString(const char* pStr)
         {
             m_SB.Add("\\\"");
         }
-        else if (ch >= 32)
+        else if ((uint8_t)ch >= 32)
         {
             m_SB.Add(ch);
         }
