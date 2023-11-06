@@ -43,3 +43,7 @@ You can also use typical options:
 * ![Image Unknown](README_files/Legend_Image_Unknown.png "Image Unknown") Image with tiling unknown to the allocator (Vulkan).
 * ![Unknown](README_files/Legend_Unknown.png "Unknown") Allocation of unknown type.
 * ![Details](README_files/Legend_Details.png "Details") Black bar - one or more allocations of any kind too small to be visualized as filled rectangles.
+
+## Additional notes
+
+Warning! Current version of the tool shows incorrect result when allocations alias (overlap) in memory, as it only looks at sizes of the allocations, not their offsets.
