@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['offset_0',['offset',['../struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268',1,'VmaAllocationInfo::offset()'],['../struct_vma_virtual_allocation_info.html#accb40a8205f49ccca3de975da7d1a2b5',1,'VmaVirtualAllocationInfo::offset()']]],
-  ['opengl_20interop_1',['OpenGL Interop',['../opengl_interop.html',1,'index']]],
-  ['operation_2',['operation',['../struct_vma_defragmentation_move.html#a20996a4686c9246dff77b375ac4a91e2',1,'VmaDefragmentationMove']]]
+  ['layer_20warnings_0',['Validation layer warnings',['../general_considerations.html#general_considerations_validation_layer_warnings',1,'']]],
+  ['library_20initialization_1',['Library initialization',['../group__group__init.html',1,'']]],
+  ['limit_2',['Device heap memory limit',['../configuration.html#heap_memory_limit',1,'']]],
+  ['linear_20allocation_20algorithm_3',['Linear allocation algorithm',['../custom_memory_pools.html#linear_algorithm',1,'']]],
+  ['list_4',['Deprecated List',['../deprecated.html',1,'']]]
 ];

@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['library_20initialization_0',['Library initialization',['../group__group__init.html',1,'']]]
+  ['allocation_0',['Memory allocation',['../group__group__alloc.html',1,'']]],
+  ['allocator_1',['Virtual allocator',['../group__group__virtual.html',1,'']]]
 ];

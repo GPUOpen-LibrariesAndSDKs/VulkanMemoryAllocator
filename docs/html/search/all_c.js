@@ -1,4 +1,7 @@
 var searchData=
 [
-  ['quick_20start_0',['Quick start',['../quick_start.html',1,'index']]]
+  ['names_0',['Allocation names',['../allocation_annotation.html#allocation_names',1,'']]],
+  ['names_20and_20user_20data_1',['Allocation names and user data',['../allocation_annotation.html',1,'index']]],
+  ['not_20supported_2',['Features not supported',['../general_considerations.html#general_considerations_features_not_supported',1,'']]],
+  ['numeric_20statistics_3',['Numeric statistics',['../statistics.html#statistics_numeric_statistics',1,'']]]
 ];

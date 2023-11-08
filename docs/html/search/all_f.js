@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['total_0',['total',['../struct_vma_total_statistics.html#a76f1935f7101883f5bb2a03b6c5649d2',1,'VmaTotalStatistics']]]
+  ['querying_20for_20budget_0',['Querying for budget',['../staying_within_budget.html#staying_within_budget_querying_for_budget',1,'']]],
+  ['quick_20start_1',['Quick start',['../quick_start.html',1,'index']]]
 ];

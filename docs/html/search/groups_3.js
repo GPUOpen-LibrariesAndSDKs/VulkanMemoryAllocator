@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['virtual_20allocator_0',['Virtual allocator',['../group__group__virtual.html',1,'']]]
+  ['memory_20allocation_0',['Memory allocation',['../group__group__alloc.html',1,'']]]
 ];

@@ -3555,7 +3555,8 @@ static void TestAllocationVersusResourceSize()
 
     for(uint32_t i = 0; i < 2; ++i)
     {
-        if(i == 1)
+        const bool isDedicated = i == 1;
+        if(isDedicated)
             allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
         else
             allocCreateInfo.flags &= ~VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -3563,8 +3564,8 @@ static void TestAllocationVersusResourceSize()
         AllocInfo info;
         info.CreateBuffer(bufCreateInfo, allocCreateInfo);
 
-        VmaAllocationInfo allocInfo = {};
-        vmaGetAllocationInfo(g_hAllocator, info.m_Allocation, &allocInfo);
+        VmaAllocationInfo2 allocInfo = {};
+        vmaGetAllocationInfo2(g_hAllocator, info.m_Allocation, &allocInfo);
         //wprintf(L"  Buffer size = %llu, allocation size = %llu\n", bufCreateInfo.size, allocInfo.size);
 
         // Map and test accessing entire area of the allocation, not only the buffer.
@@ -3572,9 +3573,21 @@ static void TestAllocationVersusResourceSize()
         VkResult res = vmaMapMemory(g_hAllocator, info.m_Allocation, &mappedPtr);
         TEST(res == VK_SUCCESS);
 
-        memset(mappedPtr, 0xCC, (size_t)allocInfo.size);
+        memset(mappedPtr, 0xCC, (size_t)allocInfo.allocationInfo.size);
 
         vmaUnmapMemory(g_hAllocator, info.m_Allocation);
+
+        // Test new information returned by VmaAllocationInfo2.
+        if (isDedicated)
+        {
+            TEST(allocInfo.dedicatedMemory);
+            TEST(allocInfo.blockSize == allocInfo.allocationInfo.size);
+        }
+        else
+        {
+            TEST(!allocInfo.dedicatedMemory);
+            TEST(allocInfo.blockSize > allocInfo.allocationInfo.size);
+        }
 
         info.Destroy();
     }

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['statistics_0',['Statistics',['../group__group__stats.html',1,'']]]
+  ['library_20initialization_0',['Library initialization',['../group__group__init.html',1,'']]]
 ];
