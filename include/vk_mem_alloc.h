@@ -2788,6 +2788,11 @@ remove them if not needed.
    #endif
 #endif
 
+// Assert used for reporting memory leaks - unfreed allocations.
+#ifndef VMA_ASSERT_LEAK
+    #define VMA_ASSERT_LEAK(expr)   VMA_ASSERT(expr)
+#endif
+
 // If your compiler is not compatible with C++17 and definition of
 // aligned_alloc() function is missing, uncommenting following line may help:
 
@@ -6248,7 +6253,7 @@ VmaDedicatedAllocationList::~VmaDedicatedAllocationList()
 
     if (!m_AllocationList.IsEmpty())
     {
-        VMA_ASSERT(false && "Unfreed dedicated allocations found!");
+        VMA_ASSERT_LEAK(false && "Unfreed dedicated allocations found!");
     }
 }
 
@@ -11344,7 +11349,7 @@ VmaVirtualBlock_T::~VmaVirtualBlock_T()
         m_Metadata->DebugLogAllAllocations();
     // This is the most important assert in the entire library.
     // Hitting it means you have some memory leak - unreleased virtual allocations.
-    VMA_ASSERT(m_Metadata->IsEmpty() && "Some virtual allocations were not freed before destruction of this virtual block!");
+    VMA_ASSERT_LEAK(m_Metadata->IsEmpty() && "Some virtual allocations were not freed before destruction of this virtual block!");
 
     vma_delete(GetAllocationCallbacks(), m_Metadata);
 }
@@ -11793,7 +11798,7 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
 
 VmaDeviceMemoryBlock::~VmaDeviceMemoryBlock()
 {
-    VMA_ASSERT(m_MapCount == 0 && "VkDeviceMemory block is being destroyed while it is still mapped.");
+    VMA_ASSERT_LEAK(m_MapCount == 0 && "VkDeviceMemory block is being destroyed while it is still mapped.");
     VMA_ASSERT(m_hMemory == VK_NULL_HANDLE);
 }
 
@@ -11839,7 +11844,7 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
         m_pMetadata->DebugLogAllAllocations();
     // This is the most important assert in the entire library.
     // Hitting it means you have some memory leak - unreleased VmaAllocation objects.
-    VMA_ASSERT(m_pMetadata->IsEmpty() && "Some allocations were not freed before destruction of this memory block!");
+    VMA_ASSERT_LEAK(m_pMetadata->IsEmpty() && "Some allocations were not freed before destruction of this memory block!");
 
     VMA_ASSERT(m_hMemory != VK_NULL_HANDLE);
     allocator->FreeVulkanMemory(m_MemoryTypeIndex, m_pMetadata->GetSize(), m_hMemory);
@@ -12053,7 +12058,7 @@ VmaAllocation_T::VmaAllocation_T(bool mappingAllowed)
 
 VmaAllocation_T::~VmaAllocation_T()
 {
-    VMA_ASSERT(m_MapCount == 0 && "Allocation was not unmapped before destruction.");
+    VMA_ASSERT_LEAK(m_MapCount == 0 && "Allocation was not unmapped before destruction.");
 
     // Check if owned string was freed.
     VMA_ASSERT(m_pName == VMA_NULL);
