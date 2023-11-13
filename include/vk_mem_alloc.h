@@ -888,7 +888,7 @@ Use it as a unique identifier to virtual allocation within the single block.
 
 Use value `VK_NULL_HANDLE` to represent a null/invalid allocation.
 */
-VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation)
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation);
 
 /** @} */
 
@@ -3221,7 +3221,7 @@ enum class VmaAllocationRequestType
 
 #ifndef _VMA_FORWARD_DECLARATIONS
 // Opaque handle used by allocation algorithms to identify single allocation in any conforming way.
-VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaAllocHandle)
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaAllocHandle);
 
 struct VmaMutexLock;
 struct VmaMutexLockRead;
@@ -11799,7 +11799,7 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
 VmaDeviceMemoryBlock::~VmaDeviceMemoryBlock()
 {
     VMA_ASSERT_LEAK(m_MapCount == 0 && "VkDeviceMemory block is being destroyed while it is still mapped.");
-    VMA_ASSERT(m_hMemory == VK_NULL_HANDLE);
+    VMA_ASSERT_LEAK(m_hMemory == VK_NULL_HANDLE);
 }
 
 void VmaDeviceMemoryBlock::Init(
@@ -11846,7 +11846,7 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
     // Hitting it means you have some memory leak - unreleased VmaAllocation objects.
     VMA_ASSERT_LEAK(m_pMetadata->IsEmpty() && "Some allocations were not freed before destruction of this memory block!");
 
-    VMA_ASSERT(m_hMemory != VK_NULL_HANDLE);
+    VMA_ASSERT_LEAK(m_hMemory != VK_NULL_HANDLE);
     allocator->FreeVulkanMemory(m_MemoryTypeIndex, m_pMetadata->GetSize(), m_hMemory);
     m_hMemory = VK_NULL_HANDLE;
 
