@@ -151,6 +151,7 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 
 # Software using this library
 
+- **[Blender](https://www.blender.org)**
 - **[X-Plane](https://x-plane.com/)**
 - **[Detroit: Become Human](https://gpuopen.com/learn/porting-detroit-3/)**
 - **[Vulkan Samples](https://github.com/LunarG/VulkanSamples)** - official Khronos Vulkan samples. License: Apache-style.
