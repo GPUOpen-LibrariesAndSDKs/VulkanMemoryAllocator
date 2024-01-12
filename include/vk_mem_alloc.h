@@ -9088,7 +9088,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
     // beginning of 1st vector as the end of free space.
     if (m_2ndVectorMode == SECOND_VECTOR_EMPTY || m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
     {
-        VMA_ASSERT(!suballocations1st.empty());
+        VMA_ASSERT(suballocations1st.data() != nullptr);
 
         VkDeviceSize resultBaseOffset = 0;
         if (!suballocations2nd.empty())
