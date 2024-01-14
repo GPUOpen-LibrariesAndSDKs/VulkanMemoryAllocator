@@ -55,6 +55,7 @@ License: MIT
   - \subpage resource_aliasing
   - \subpage custom_memory_pools
     - [Choosing memory type index](@ref custom_memory_pools_MemTypeIndex)
+    - [When not to use custom pools](@ref custom_memory_pools_when_not_use)
     - [Linear allocation algorithm](@ref linear_algorithm)
       - [Free-at-once](@ref linear_algorithm_free_at_once)
       - [Stack](@ref linear_algorithm_stack)
@@ -18370,6 +18371,7 @@ A memory pool contains a number of `VkDeviceMemory` blocks.
 The library automatically creates and manages default pool for each memory type available on the device.
 Default memory pool automatically grows in size.
 Size of allocated blocks is also variable and managed automatically.
+You are using default pools whenever you leave VmaAllocationCreateInfo::pool = null.
 
 You can create custom pool and allocate memory out of it.
 It can be useful if you want to:
@@ -18441,13 +18443,6 @@ It is supported only when VmaPoolCreateInfo::blockSize = 0.
 To use this feature, set VmaAllocationCreateInfo::pool to the pointer to your custom pool and
 VmaAllocationCreateInfo::flags to #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
 
-\note Excessive use of custom pools is a common mistake when using this library.
-Custom pools may be useful for special purposes - when you want to
-keep certain type of resources separate e.g. to reserve minimum amount of memory
-for them or limit maximum amount of memory they can occupy. For most
-resources this is not needed and so it is not recommended to create #VmaPool
-objects and allocations out of them. Allocating from the default pool is sufficient.
-
 
 \section custom_memory_pools_MemTypeIndex Choosing memory type index
 
@@ -18481,6 +18476,51 @@ When creating buffers/images allocated in that pool, provide following parameter
   or the other way around.
 - VmaAllocationCreateInfo: You don't need to pass same parameters. Fill only `pool` member.
   Other members are ignored anyway.
+
+
+\section custom_memory_pools_when_not_use When not to use custom pools
+
+Custom pools are commonly overused by VMA users.
+While it may feel natural to keep some logical groups of resources separate in memory,
+in most cases it does more harm than good.
+Using custom pool shouldn't be your first choice.
+Instead, please make all allocations from default pools first and only use custom pools
+if you can prove and measure that it is beneficial in some way,
+e.g. it results in lower memory usage, better performance, etc.
+
+Using custom pools has disadvantages:
+
+- Each pool has its own collection of `VkDeviceMemory` blocks.
+  Some of them may be partially or even completely empty.
+  Spreading allocations across multiple pools increases the amount of wasted (allocated but unbound) memory.
+- You must manually choose specific memory type to be used by a custom pool (set as VmaPoolCreateInfo::memoryTypeIndex).
+  When using default pools, best memory type for each of your allocations can be selected automatically
+  using a carefully design algorithm that works across all kinds of GPUs.
+- If an allocation from a custom pool at specific memory type fails, entire allocation operation returns failure.
+  When using default pools, VMA tries another compatible memory type.
+- If you set VmaPoolCreateInfo::blockSize != 0, each memory block has the same size,
+  while default pools start from small blocks and only allocate next blocks larger and larger
+  up to the preferred block size.
+
+Many of the common concerns can be addressed in a different way than using custom pools:
+
+- If you want to keep your allocations of certain size (small versus large) or certain lifetime (transient versus long lived)
+  separate, you likely don't need to.
+  VMA uses a high quality allocation algorithm that manages memory well in various cases.
+  Please mesure and check if using custom pools provides a benefit.
+- If you want to keep your images and buffers separate, you don't need to.
+  VMA respects `bufferImageGranularity` limit automatically.
+- If you want to keep your mapped and not mapped allocations separate, you don't need to.
+  VMA respects `nonCoherentAtomSize` limit automatically.
+  It also maps only those `VkDeviceMemory` blocks that need to map any allocation.
+  It even tries to keep mappable and non-mappable allocations in separate blocks to minimize the amount of mapped memory.
+- If you want to choose a custom size for the default memory block, you can set it globally instead
+  using VmaAllocatorCreateInfo::preferredLargeHeapBlockSize.
+- If you want to select specific memory type for your allocation,
+  you can set VmaAllocationCreateInfo::memoryTypeBits to `(1u << myMemoryTypeIndex)` instead.
+- If you need to create a buffer with certain minimum alignment, you can still do it
+  using default pools with dedicated function vmaCreateBufferWithAlignment().
+
 
 \section linear_algorithm Linear allocation algorithm
 
