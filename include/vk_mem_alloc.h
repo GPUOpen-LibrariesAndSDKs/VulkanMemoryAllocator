@@ -2661,6 +2661,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cinttypes>
 #include <utility>
 #include <type_traits>
 
@@ -2960,7 +2961,7 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
     }
     static inline void VmaUint64ToStr(char* VMA_NOT_NULL outStr, size_t strLen, uint64_t num)
     {
-        snprintf(outStr, strLen, "%llu", static_cast<unsigned long long>(num));
+        snprintf(outStr, strLen, "%" PRIu64, static_cast<unsigned long long>(num));
     }
     static inline void VmaPtrToStr(char* VMA_NOT_NULL outStr, size_t strLen, const void* ptr)
     {
@@ -6507,7 +6508,7 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
 {
     if (IsVirtual())
     {
-        VMA_DEBUG_LOG_FORMAT("UNFREED VIRTUAL ALLOCATION; Offset: %llu; Size: %llu; UserData: %p", offset, size, userData);
+        VMA_DEBUG_LOG_FORMAT("UNFREED VIRTUAL ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p", offset, size, userData);
     }
     else
     {
@@ -6518,12 +6519,12 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
         const char* name = allocation->GetName();
 
 #if VMA_STATS_STRING_ENABLED
-        VMA_DEBUG_LOG_FORMAT("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Name: %s; Type: %s; Usage: %u",
+        VMA_DEBUG_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %s; Usage: %u",
             offset, size, userData, name ? name : "vma_empty",
             VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()],
             allocation->GetBufferImageUsage());
 #else
-        VMA_DEBUG_LOG_FORMAT("UNFREED ALLOCATION; Offset: %llu; Size: %llu; UserData: %p; Name: %s; Type: %u",
+        VMA_DEBUG_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %u",
             offset, size, userData, name ? name : "vma_empty",
             (uint32_t)allocation->GetSuballocationType());
 #endif // VMA_STATS_STRING_ENABLED
@@ -12686,7 +12687,7 @@ VkResult VmaBlockVector::AllocatePage(
                 pBlock, size, alignment, createInfo.flags, createInfo.pUserData, suballocType, strategy, pAllocation);
             if (res == VK_SUCCESS)
             {
-                VMA_DEBUG_LOG_FORMAT("    Created new block #%u Size=%llu", pBlock->GetId(), newBlockSize);
+                VMA_DEBUG_LOG_FORMAT("    Created new block #%u Size=%" PRIu64, pBlock->GetId(), newBlockSize);
                 IncrementallySortBlocks();
                 return VK_SUCCESS;
             }
@@ -14554,7 +14555,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     VmaAllocation* pAllocations)
 {
     VMA_ASSERT(pAllocations != VMA_NULL);
-    VMA_DEBUG_LOG_FORMAT("  AllocateMemory: MemoryTypeIndex=%u, AllocationCount=%zu, Size=%llu", memTypeIndex, allocationCount, size);
+    VMA_DEBUG_LOG_FORMAT("  AllocateMemory: MemoryTypeIndex=%u, AllocationCount=%zu, Size=%" PRIu64, memTypeIndex, allocationCount, size);
 
     VmaAllocationCreateInfo finalCreateInfo = createInfo;
     VkResult res = CalcMemTypeParams(
