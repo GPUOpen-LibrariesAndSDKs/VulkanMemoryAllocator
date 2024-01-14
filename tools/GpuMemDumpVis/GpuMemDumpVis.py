@@ -159,7 +159,7 @@ def TypeToColor(type, usage):
         elif type == 'IMAGE_OPTIMAL':
             if (usage & 0x20) != 0: # DEPTH_STENCIL_ATTACHMENT
                 return 246, 128, 255, 255 # Pink
-            elif (usage & 0xD0) != 0: # INPUT_ATTACHMENT | TRANSIENT_ATTACHMENT | COLOR_ATTACHMENT
+            elif (usage & 0xD8) != 0: # INPUT_ATTACHMENT | TRANSIENT_ATTACHMENT | COLOR_ATTACHMENT | STORAGE
                 return 179, 179, 255, 255 # Blue
             elif (usage & 0x4) != 0: # SAMPLED
                 return 0, 255, 255, 255 # Aqua
