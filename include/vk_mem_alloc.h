@@ -212,6 +212,16 @@ extern "C" {
     #endif
 #endif
 
+// Defined to 1 when VK_KHR_maintenance4 device extension is defined in Vulkan headers.
+#if !defined(VMA_KHR_MAINTENANCE4)
+    #if VK_KHR_maintenance4
+        #define VMA_KHR_MAINTENANCE4 1
+    #else
+        #define VMA_KHR_MAINTENANCE4 0
+    #endif
+#endif
+
+
 // Defined to 1 when VK_KHR_external_memory device extension is defined in Vulkan headers.
 #if !defined(VMA_EXTERNAL_MEMORY)
     #if VK_KHR_external_memory
@@ -425,6 +435,13 @@ typedef enum VmaAllocatorCreateFlagBits
     For more details, see the documentation of the VK_EXT_memory_priority extension.
     */
     VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT = 0x00000040,
+    /**
+    Enables usage of VK_KHR_maintenance4 extension in the library.
+
+    You may set this flag only if you found available and enabled this device extension,
+    while creating Vulkan device passed as VmaAllocatorCreateInfo::device.
+    */
+    VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT = 0x00000080,
 
     VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocatorCreateFlagBits;
@@ -993,11 +1010,11 @@ typedef struct VmaVulkanFunctions
 #if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
     PFN_vkGetPhysicalDeviceMemoryProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties2KHR;
 #endif
-#if VMA_VULKAN_VERSION >= 1003000
+#if VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     /// Fetch from "vkGetDeviceBufferMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceBufferMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
-    PFN_vkGetDeviceBufferMemoryRequirements VMA_NULLABLE vkGetDeviceBufferMemoryRequirements;
+    PFN_vkGetDeviceBufferMemoryRequirementsKHR VMA_NULLABLE vkGetDeviceBufferMemoryRequirements;
     /// Fetch from "vkGetDeviceImageMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceImageMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
-    PFN_vkGetDeviceImageMemoryRequirements VMA_NULLABLE vkGetDeviceImageMemoryRequirements;
+    PFN_vkGetDeviceImageMemoryRequirementsKHR VMA_NULLABLE vkGetDeviceImageMemoryRequirements;
 #endif
 } VmaVulkanFunctions;
 
@@ -11452,6 +11469,7 @@ public:
     bool m_UseAmdDeviceCoherentMemory;
     bool m_UseKhrBufferDeviceAddress;
     bool m_UseExtMemoryPriority;
+    bool m_UseKhrMaintenance4;
     VkDevice m_hDevice;
     VkInstance m_hInstance;
     bool m_AllocationCallbacksSpecified;
@@ -14083,6 +14101,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_UseAmdDeviceCoherentMemory((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT) != 0),
     m_UseKhrBufferDeviceAddress((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT) != 0),
     m_UseExtMemoryPriority((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT) != 0),
+    m_UseKhrMaintenance4((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT) != 0),
     m_hDevice(pCreateInfo->device),
     m_hInstance(pCreateInfo->instance),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
@@ -14160,6 +14179,12 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     if(m_UseExtMemoryPriority)
     {
         VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT is set but required extension is not available in your Vulkan header or its support in VMA has been disabled by a preprocessor macro.");
+    }
+#endif
+#if !(VMA_KHR_MAINTENANCE4)
+    if(m_UseKhrMaintenance4)
+    {
+        VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT is set but required extension is not available in your Vulkan header or its support in VMA has been disabled by a preprocessor macro.");
     }
 #endif
 
@@ -14382,7 +14407,7 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
     VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties2KHR);
 #endif
 
-#if VMA_VULKAN_VERSION >= 1003000
+#if VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     VMA_COPY_IF_NOT_NULL(vkGetDeviceBufferMemoryRequirements);
     VMA_COPY_IF_NOT_NULL(vkGetDeviceImageMemoryRequirements);
 #endif
@@ -14481,6 +14506,13 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
         VMA_FETCH_DEVICE_FUNC(vkGetDeviceImageMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirements, "vkGetDeviceImageMemoryRequirements");
     }
 #endif
+#if VMA_KHR_MAINTENANCE4
+    if(m_UseKhrMaintenance4)
+    {
+        VMA_FETCH_DEVICE_FUNC(vkGetDeviceBufferMemoryRequirements, PFN_vkGetDeviceBufferMemoryRequirementsKHR, "vkGetDeviceBufferMemoryRequirementsKHR");
+        VMA_FETCH_DEVICE_FUNC(vkGetDeviceImageMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirementsKHR, "vkGetDeviceImageMemoryRequirementsKHR");
+    }
+#endif
 
 #undef VMA_FETCH_DEVICE_FUNC
 #undef VMA_FETCH_INSTANCE_FUNC
@@ -14531,13 +14563,12 @@ void VmaAllocator_T::ValidateVulkanFunctions()
     }
 #endif
 
-#if VMA_VULKAN_VERSION >= 1003000
-    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 3, 0))
-    {
-        VMA_ASSERT(m_VulkanFunctions.vkGetDeviceBufferMemoryRequirements != VMA_NULL);
-        VMA_ASSERT(m_VulkanFunctions.vkGetDeviceImageMemoryRequirements != VMA_NULL);
-    }
-#endif
+    // Not validating these due to suspected driver bugs with these function
+    // pointers being null despite correct extension or Vulkan version is enabled.
+    // See issue #397. Their usage in VMA is optional anyway.
+    //
+    // VMA_ASSERT(m_VulkanFunctions.vkGetDeviceBufferMemoryRequirements != VMA_NULL);
+    // VMA_ASSERT(m_VulkanFunctions.vkGetDeviceImageMemoryRequirements != VMA_NULL);
 }
 
 VkDeviceSize VmaAllocator_T::CalcPreferredBlockSize(uint32_t memTypeIndex)
@@ -16471,7 +16502,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
     const VmaVulkanFunctions* funcs = &allocator->GetVulkanFunctions();
     VkResult res;
 
-#if VMA_VULKAN_VERSION >= 1003000
+#if VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     if(funcs->vkGetDeviceBufferMemoryRequirements)
     {
         // Can query straight from VkBufferCreateInfo :)
@@ -16485,7 +16516,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
             memReq.memoryRequirements.memoryTypeBits, pAllocationCreateInfo, pBufferCreateInfo->usage, pMemoryTypeIndex);
     }
     else
-#endif // #if VMA_VULKAN_VERSION >= 1003000
+#endif // VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     {
         // Must create a dummy buffer to query :(
         VkBuffer hBuffer = VK_NULL_HANDLE;
@@ -16521,7 +16552,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
     const VmaVulkanFunctions* funcs = &allocator->GetVulkanFunctions();
     VkResult res;
 
-#if VMA_VULKAN_VERSION >= 1003000
+#if VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     if(funcs->vkGetDeviceImageMemoryRequirements)
     {
         // Can query straight from VkImageCreateInfo :)
@@ -16537,7 +16568,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
             memReq.memoryRequirements.memoryTypeBits, pAllocationCreateInfo, pImageCreateInfo->usage, pMemoryTypeIndex);
     }
     else
-#endif // #if VMA_VULKAN_VERSION >= 1003000
+#endif // VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     {
         // Must create a dummy image to query :(
         VkImage hImage = VK_NULL_HANDLE;
@@ -17815,7 +17846,23 @@ You may need to configure importing Vulkan functions. There are 3 ways to do thi
    - Define `VMA_STATIC_VULKAN_FUNCTIONS` and `VMA_DYNAMIC_VULKAN_FUNCTIONS` to 0.
    - Pass these pointers via structure #VmaVulkanFunctions.
 
-Example for case 2:
+\subsection quick_start_initialization_enabling_extensions Enabling extensions
+
+VMA can automatically use following Vulkan extensions.
+If you found them availeble on the selected physical device and you enabled them
+while creating `VkInstance` / `VkDevice` object, inform VMA about their availability
+by setting appropriate flags in VmaAllocatorCreateInfo::flags.
+
+Vulkan extension              | VMA flag
+------------------------------|-----------------------------------------------------
+VK_KHR_dedicated_allocation   | #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT
+VK_KHR_bind_memory2           | #VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT
+VK_KHR_maintenance4           | #VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT
+VK_EXT_memory_budget          | #VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT
+VK_EXT_memory_priority        | #VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT
+VK_AMD_device_coherent_memory | #VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT
+
+Example with fetching pointers to Vulkan functions dynamically:
 
 \code
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
@@ -17829,6 +17876,7 @@ vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
 vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 
 VmaAllocatorCreateInfo allocatorCreateInfo = {};
+allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
 allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
 allocatorCreateInfo.physicalDevice = physicalDevice;
 allocatorCreateInfo.device = device;
