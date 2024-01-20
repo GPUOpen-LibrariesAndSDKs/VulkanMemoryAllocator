@@ -1074,13 +1074,15 @@ typedef struct VmaAllocatorCreateInfo
     Starting from version 3.0.0 this member is no longer optional, it must be set!
     */
     VkInstance VMA_NOT_NULL instance;
-    /** \brief Optional. The highest version of Vulkan that the application is designed to use.
+    /** \brief Optional. Vulkan version that the application uses.
 
     It must be a value in the format as created by macro `VK_MAKE_VERSION` or a constant like: `VK_API_VERSION_1_1`, `VK_API_VERSION_1_0`.
     The patch version number specified is ignored. Only the major and minor versions are considered.
-    It must be less or equal (preferably equal) to value as passed to `vkCreateInstance` as `VkApplicationInfo::apiVersion`.
     Only versions 1.0, 1.1, 1.2, 1.3 are supported by the current implementation.
     Leaving it initialized to zero is equivalent to `VK_API_VERSION_1_0`.
+    It must match the Vulkan version used by the application and supported on the selected physical device,
+    so it must be no higher than `VkApplicationInfo::apiVersion` passed to `vkCreateInstance`
+    and no higher than `VkPhysicalDeviceProperties::apiVersion` found on the physical device used.
     */
     uint32_t vulkanApiVersion;
 #if VMA_EXTERNAL_MEMORY
