@@ -2700,7 +2700,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
     #include <intrin.h> // For functions like __popcnt, _BitScanForward etc.
 #endif
 #if VMA_CPP20
-    #include <bit> // For std::popcount
+    #include <bit>
 #endif
 
 #if VMA_STATS_STRING_ENABLED
@@ -3352,6 +3352,10 @@ static inline uint8_t VmaBitScanLSB(uint64_t mask)
     if (_BitScanForward64(&pos, mask))
         return static_cast<uint8_t>(pos);
     return UINT8_MAX;
+#elif VMA_CPP20
+    if(mask)
+        return static_cast<uint8_t>(std::countr_zero(mask));
+    return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
     return static_cast<uint8_t>(__builtin_ffsll(mask)) - 1U;
 #else
@@ -3374,6 +3378,10 @@ static inline uint8_t VmaBitScanLSB(uint32_t mask)
     if (_BitScanForward(&pos, mask))
         return static_cast<uint8_t>(pos);
     return UINT8_MAX;
+#elif VMA_CPP20
+    if(mask)
+        return static_cast<uint8_t>(std::countr_zero(mask));
+    return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
     return static_cast<uint8_t>(__builtin_ffs(mask)) - 1U;
 #else
@@ -3395,6 +3403,9 @@ static inline uint8_t VmaBitScanMSB(uint64_t mask)
     unsigned long pos;
     if (_BitScanReverse64(&pos, mask))
         return static_cast<uint8_t>(pos);
+#elif VMA_CPP20
+    if(mask)
+        return 63 - static_cast<uint8_t>(std::countl_zero(mask));
 #elif defined __GNUC__ || defined __clang__
     if (mask)
         return 63 - static_cast<uint8_t>(__builtin_clzll(mask));
@@ -3417,6 +3428,9 @@ static inline uint8_t VmaBitScanMSB(uint32_t mask)
     unsigned long pos;
     if (_BitScanReverse(&pos, mask))
         return static_cast<uint8_t>(pos);
+#elif VMA_CPP20
+    if(mask)
+        return 31 - static_cast<uint8_t>(std::countl_zero(mask));
 #elif defined __GNUC__ || defined __clang__
     if (mask)
         return 31 - static_cast<uint8_t>(__builtin_clz(mask));
