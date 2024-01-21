@@ -4,6 +4,7 @@ This release gathers fixes and improvements made during many months of continuou
 
 Additions to the library API:
 
+- Added convenience functions `vmaCopyMemoryToAllocation`, `vmaCopyAllocationToMemory`.
 - Added functions `vmaCreateAliasingBuffer2`, `vmaCreateAliasingImage2` that offer creating a buffer/image in an existing allocation with additional `allocationLocalOffset`.
 - Added function `vmaGetAllocationInfo2`, structure `VmaAllocationInfo2` that return additional information about an allocation, useful for interop with other APIs (#383, #340).
 - Added callback `VmaDefragmentationInfo::pfnBreakCallback` that allows breaking long execution of `vmaBeginDefragmentation`.
@@ -16,7 +17,7 @@ Other changes:
   - Split macros into separate `VMA_DEBUG_LOG` and `VMA_DEBUG_LOG_FORMAT` (#297).
   - Added macros `VMA_ASSERT_LEAK`, `VMA_LEAK_LOG_FORMAT` separate from normal `VMA_ASSERT`, `VMA_DEBUG_LOG_FORMAT` (#379, #385).
   - Added macro `VMA_EXTENDS_VK_STRUCT` (#347).
-- Countless bug fixes and improvements in the code and documentation, mostly to improve compatibility with various platforms, compilers, and GPUs, including:
+- Countless bug fixes and improvements in the code and documentation, mostly to improve compatibility with various compilers and GPUs, including:
   - Fixed missing `#include` that resulted in compilation error about `snprintf` not declared on some compilers (#312).
   - Fixed main memory type selection algorithm for GPUs that have no `HOST_CACHED` memory type, like Raspberry Pi (#362).
 - Major changes in Cmake script.

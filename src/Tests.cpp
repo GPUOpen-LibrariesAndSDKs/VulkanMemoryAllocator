@@ -6583,6 +6583,100 @@ static void TestMapping()
     }
 }
 
+static void TestAllocationMemoryCopy()
+{
+    wprintf(L"Testing allocation-memory copy...\n");
+
+    VkResult res;
+
+    constexpr size_t bufSize = 128 * KILOBYTE;
+    constexpr size_t bufFragmentSize = 1792;
+    constexpr size_t bufFragmentOffset = 14080;
+    std::vector<uint8_t> origBufVector = std::vector<uint8_t>(bufSize);
+    std::vector<uint8_t> newBufVector = std::vector<uint8_t>(bufSize);
+    uint8_t* const origBufData = origBufVector.data();
+    uint8_t* const newBufData = newBufVector.data();
+    for(size_t i = 0; i < bufSize; ++i)
+    {
+        origBufData[i] = (uint8_t)(i * 13 + 7);
+    }
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = bufSize;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    enum TEST
+    {
+        TEST_HOST_ACCESS_SEQUENTIAL_WRITE,
+        TEST_HOST_ACCESS_SEQUENTIAL_WRITE_PERSISTENTLY_MAPPED,
+        TEST_HOST_ACCESS_RANDOM,
+        TEST_HOST_ACCESS_RANDOM_PERSISTENTLY_MAPPED,
+        TEST_COUNT
+    };
+    for(size_t test = 0; test < TEST_COUNT; ++test)
+    {
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+
+        switch(test)
+        {
+        case TEST_HOST_ACCESS_SEQUENTIAL_WRITE:
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            break;
+        case TEST_HOST_ACCESS_SEQUENTIAL_WRITE_PERSISTENTLY_MAPPED:
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                VMA_ALLOCATION_CREATE_MAPPED_BIT;
+            break;
+        case TEST_HOST_ACCESS_RANDOM:
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+            break;
+        case TEST_HOST_ACCESS_RANDOM_PERSISTENTLY_MAPPED:
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
+                VMA_ALLOCATION_CREATE_MAPPED_BIT;
+            break;
+        }
+
+        res = vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
+        TEST(res == VK_SUCCESS && buf && alloc);
+
+        // Test entire allocation (allocationLocalOffset = 0).
+        // First, try to write.
+        res = vmaCopyMemoryToAllocation(g_hAllocator, origBufData, alloc, 0, bufSize);
+        TEST(res == VK_SUCCESS);
+
+        // If HOST_ACCESS_RANDOM, read back and compare.
+        if(test == TEST_HOST_ACCESS_RANDOM ||
+            test == TEST_HOST_ACCESS_RANDOM_PERSISTENTLY_MAPPED)
+        {
+            ZeroMemory(newBufData, bufSize);
+            res = vmaCopyAllocationToMemory(g_hAllocator, alloc, 0, newBufData, bufSize);
+            TEST(res == VK_SUCCESS);
+            TEST(memcmp(origBufData, newBufData, bufSize) == 0);
+        }
+
+        // Test fragment (allocationLocalOffset > 0).
+        // Using host data from the beginning, but placing them in the allocation at bufFragmentOffset.
+        // First, try to write.
+        res = vmaCopyMemoryToAllocation(g_hAllocator, origBufData, alloc, bufFragmentOffset, bufFragmentSize);
+        TEST(res == VK_SUCCESS);
+
+        // If HOST_ACCESS_RANDOM, read back and compare.
+        if(test == TEST_HOST_ACCESS_RANDOM ||
+            test == TEST_HOST_ACCESS_RANDOM_PERSISTENTLY_MAPPED)
+        {
+            ZeroMemory(newBufData, bufFragmentSize);
+            res = vmaCopyAllocationToMemory(g_hAllocator, alloc, bufFragmentOffset, newBufData, bufFragmentSize);
+            TEST(res == VK_SUCCESS);
+            TEST(memcmp(origBufData, newBufData, bufFragmentSize) == 0);
+        }
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+    }
+}
+
 // Test CREATE_MAPPED with required DEVICE_LOCAL. There was a bug with it.
 static void TestDeviceLocalMapped()
 {
@@ -8025,6 +8119,7 @@ void Test()
     TestAliasing();
     TestAllocationAliasing();
     TestMapping();
+    TestAllocationMemoryCopy();
     TestMappingHysteresis();
     TestDeviceLocalMapped();
     TestMappingMultithreaded();
