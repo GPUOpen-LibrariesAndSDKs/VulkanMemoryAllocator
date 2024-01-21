@@ -28,11 +28,14 @@
 <b>Version 3.1.0-development</b>
 
 Copyright (c) 2017-2024 Advanced Micro Devices, Inc. All rights reserved. \n
-License: MIT
+License: MIT \n
+See also: [product page on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/),
+[repository on GitHub](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
-<b>API documentation divided into groups:</b> [Modules](modules.html)
 
-\section main_table_of_contents Table of contents
+<b>API documentation divided into groups:</b> [Topics](topics.html)
+
+<b>General documentation chapters:</b>
 
 - <b>User guide</b>
   - \subpage quick_start
@@ -96,11 +99,6 @@ License: MIT
   - [Validation layer warnings](@ref general_considerations_validation_layer_warnings)
   - [Allocation algorithm](@ref general_considerations_allocation_algorithm)
   - [Features not supported](@ref general_considerations_features_not_supported)
-
-\section main_see_also See also
-
-- [**Product page on GPUOpen**](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
-- [**Source repository on GitHub**](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 \defgroup group_init Library initialization
 
@@ -16195,13 +16193,14 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock V
 \section quick_start_project_setup Project setup
 
 Vulkan Memory Allocator comes in form of a "stb-style" single header file.
-You don't need to build it as a separate library project.
-You can add this file directly to your project and submit it to code repository next to your other source files.
+While you can pull the entire repository e.g. as Git module, there is also Cmake script provided,
+you don't need to build it as a separate library project.
+You can add file "vk_mem_alloc.h" directly to your project and submit it to code repository next to your other source files.
 
 "Single header" doesn't mean that everything is contained in C/C++ declarations,
 like it tends to be in case of inline functions or C++ templates.
 It means that implementation is bundled with interface in a single file and needs to be extracted using preprocessor macro.
-If you don't do it properly, you will get linker errors.
+If you don't do it properly, it will result in linker errors.
 
 To do it properly:
 
@@ -16215,33 +16214,46 @@ To do it properly:
 #include "vk_mem_alloc.h"
 \endcode
 
-It may be a good idea to create dedicated CPP file just for this purpose.
+It may be a good idea to create dedicated CPP file just for this purpose, e.g. "VmaUsage.cpp".
 
 This library includes header `<vulkan/vulkan.h>`, which in turn
 includes `<windows.h>` on Windows. If you need some specific macros defined
 before including these headers (like `WIN32_LEAN_AND_MEAN` or
 `WINVER` for Windows, `VK_USE_PLATFORM_WIN32_KHR` for Vulkan), you must define
 them before every `#include` of this library.
+It may be a good idea to create a dedicate header file for this purpose, e.g. "VmaUsage.h",
+that will be included in other source files instead of VMA header directly.
 
 This library is written in C++, but has C-compatible interface.
-Thus you can include and use vk_mem_alloc.h in C or C++ code, but full
+Thus, you can include and use "vk_mem_alloc.h" in C or C++ code, but full
 implementation with `VMA_IMPLEMENTATION` macro must be compiled as C++, NOT as C.
-Some features of C++14 are used. STL containers, RTTI, or C++ exceptions are not used.
+Some features of C++14 are used and required. Features of C++20 are used optionally when available.
+Some headers of standard C and C++ library are used, but STL containers, RTTI, or C++ exceptions are not used.
 
 
 \section quick_start_initialization Initialization
 
+VMA offers library interface in a style similar to Vulkan, with object handles like #VmaAllocation,
+structures describing parameters of objects to be created like #VmaAllocationCreateInfo,
+and errors codes returned from functions using `VkResult` type.
+
+The first and the main object that needs to be created is #VmaAllocator.
+It represents the initialization of the entire library.
+Only one such object should be created per `VkDevice`.
+You should create it at program startup, after `VkDevice` was created, and before any device memory allocator needs to be made.
+It must be destroyed before `VkDevice` is destroyed.
+
 At program startup:
 
--# Initialize Vulkan to have `VkPhysicalDevice`, `VkDevice` and `VkInstance` object.
--# Fill VmaAllocatorCreateInfo structure and create #VmaAllocator object by
-   calling vmaCreateAllocator().
+-# Initialize Vulkan to have `VkInstance`, `VkPhysicalDevice`, `VkDevice` object.
+-# Fill VmaAllocatorCreateInfo structure and call vmaCreateAllocator() to create #VmaAllocator object.
 
 Only members `physicalDevice`, `device`, `instance` are required.
 However, you should inform the library which Vulkan version do you use by setting
 VmaAllocatorCreateInfo::vulkanApiVersion and which extensions did you enable
-by setting VmaAllocatorCreateInfo::flags (like #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT for VK_KHR_buffer_device_address).
+by setting VmaAllocatorCreateInfo::flags.
 Otherwise, VMA would use only features of Vulkan 1.0 core with no extensions.
+See below for details.
 
 \subsection quick_start_initialization_selecting_vulkan_version Selecting Vulkan version
 
@@ -16326,7 +16338,22 @@ allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
 VmaAllocator allocator;
 vmaCreateAllocator(&allocatorCreateInfo, &allocator);
+
+// Entire program...
+
+// At the end, don't forget to:
+vmaDestroyAllocator(allocator);
 \endcode
+
+
+\subsection quick_start_initialization_other_config Other configuration options
+
+There are additional configuration options available through preprocessor macros that you can define
+before including VMA header and through parameters passed in #VmaAllocatorCreateInfo.
+They include a possibility to use your own callbacks for host memory allocations (`VkAllocationCallbacks`),
+callbacks for device memory allocations (instead of `vkAllocateMemory`, `vkFreeMemory`),
+or your custom `VMA_ASSERT` macro, among others.
+For more information, see: @ref configuration.
 
 
 \section quick_start_resource_allocation Resource allocation
@@ -16351,12 +16378,18 @@ VmaAllocation allocation;
 vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
 \endcode
 
-Don't forget to destroy your objects when no longer needed:
+Don't forget to destroy your buffer and allocation objects when no longer needed:
 
 \code
 vmaDestroyBuffer(allocator, buffer, allocation);
-vmaDestroyAllocator(allocator);
 \endcode
+
+If you need to map the buffer, you must set flag
+#VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+in VmaAllocationCreateInfo::flags.
+There are many additional parameters that can control the choice of memory type to be used for the allocation
+and other features.
+For more information, see documentation chapters: @ref choosing_memory_type, @ref memory_mapping.
 
 
 \page choosing_memory_type Choosing memory type
@@ -16380,10 +16413,10 @@ You can also combine multiple methods.
    vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage().
    For binding you should use functions: vmaBindBufferMemory(), vmaBindImageMemory()
    or their extended versions: vmaBindBufferMemory2(), vmaBindImageMemory2().
--# **This is the easiest and recommended way to use this library:**
-   If you want to create a buffer or an image, allocate memory for it and bind
+-# If you want to create a buffer or an image, allocate memory for it, and bind
    them together, all in one call, you can use function vmaCreateBuffer(),
    vmaCreateImage().
+   <b>This is the easiest and recommended way to use this library!</b>
 
 When using 3. or 4., the library internally queries Vulkan for memory types
 supported for that buffer or image (function `vkGetBufferMemoryRequirements()`)
@@ -16451,6 +16484,7 @@ vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer
 \endcode
 
 For more examples of creating different kinds of resources, see chapter \ref usage_patterns.
+See also: @ref memory_mapping.
 
 Usage values `VMA_MEMORY_USAGE_AUTO*` are legal to use only when the library knows
 about the resource being created by having `VkBufferCreateInfo` / `VkImageCreateInfo` passed,
@@ -16462,7 +16496,7 @@ memory type, as described below.
 Old usage values (`VMA_MEMORY_USAGE_GPU_ONLY`, `VMA_MEMORY_USAGE_CPU_ONLY`,
 `VMA_MEMORY_USAGE_CPU_TO_GPU`, `VMA_MEMORY_USAGE_GPU_TO_CPU`, `VMA_MEMORY_USAGE_CPU_COPY`)
 are still available and work same way as in previous versions of the library
-for backward compatibility, but they are not recommended.
+for backward compatibility, but they are deprecated.
 
 \section choosing_memory_type_required_preferred_flags Required and preferred flags
 
@@ -16492,8 +16526,8 @@ plus some extra "magic" (heuristics).
 
 \section choosing_memory_type_explicit_memory_types Explicit memory types
 
-If you inspected memory types available on the physical device and you have
-a preference for memory types that you want to use, you can fill member
+If you inspected memory types available on the physical device and <b>you have
+a preference for memory types that you want to use</b>, you can fill member
 VmaAllocationCreateInfo::memoryTypeBits. It is a bit mask, where each bit set
 means that a memory type with that index is allowed to be used for the
 allocation. Special value 0, just like `UINT32_MAX`, means there are no
@@ -16513,6 +16547,21 @@ allocInfo.memoryTypeBits = 1u << memoryTypeIndex;
 VkBuffer buffer;
 VmaAllocation allocation;
 vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+\endcode
+
+You can also use this parameter to <b>exclude some memory types</b>.
+If you inspect memory heaps and types available on the current physical device and
+you determine that for some reason you don't want to use a specific memory type for the allocation,
+you can enable automatic memory type selection but exclude certain memory type or types
+by setting all bits of `memoryTypeBits` to 1 except the ones you choose.
+
+\code
+// ...
+uint32_t excludedMemoryTypeIndex = 2;
+VmaAllocationCreateInfo allocInfo = {};
+allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+allocInfo.memoryTypeBits = ~(1u << excludedMemoryTypeIndex);
+// ...
 \endcode
 
 
