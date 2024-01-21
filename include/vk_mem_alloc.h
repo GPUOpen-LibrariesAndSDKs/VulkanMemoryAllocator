@@ -626,7 +626,7 @@ typedef enum VmaAllocationCreateFlagBits
       This includes allocations created in \ref custom_memory_pools.
 
     Declares that mapped memory can be read, written, and accessed in random order,
-    so a `HOST_CACHED` memory type is required.
+    so a `HOST_CACHED` memory type is preferred.
     */
     VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT = 0x00000800,
     /**
