@@ -3042,7 +3042,7 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
     }
     static inline void VmaUint64ToStr(char* VMA_NOT_NULL outStr, size_t strLen, uint64_t num)
     {
-        snprintf(outStr, strLen, "%" PRIu64, static_cast<unsigned long long>(num));
+        snprintf(outStr, strLen, "%" PRIu64, num);
     }
     static inline void VmaPtrToStr(char* VMA_NOT_NULL outStr, size_t strLen, const void* ptr)
     {
