@@ -3247,6 +3247,20 @@ static const uint32_t VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET = 0x10000000u;
 static const uint32_t VMA_ALLOCATION_TRY_COUNT = 32;
 static const uint32_t VMA_VENDOR_ID_AMD = 4098;
 
+// VK_API_VERSION definitions for compatibility with older Vulkan headers.
+#ifndef VK_API_VERSION_VARIANT
+#define VK_API_VERSION_VARIANT(version) ((uint32_t)(version) >> 29U)
+#endif
+#ifndef VK_API_VERSION_MAJOR
+#define VK_API_VERSION_MAJOR(version) (((uint32_t)(version) >> 22U) & 0x7FU)
+#endif
+#ifndef VK_API_VERSION_MINOR
+#define VK_API_VERSION_MINOR(version) (((uint32_t)(version) >> 12U) & 0x3FFU)
+#endif
+#ifndef VK_API_VERSION_PATCH
+#define VK_API_VERSION_PATCH(version) ((uint32_t)(version) & 0xFFFU)
+#endif
+
 // This one is tricky. Vulkan specification defines this code as available since
 // Vulkan 1.0, but doesn't actually define it in Vulkan SDK earlier than 1.2.131.
 // See pull request #207.
