@@ -908,7 +908,7 @@ Use it as a unique identifier to virtual allocation within the single block.
 
 Use value `VK_NULL_HANDLE` to represent a null/invalid allocation.
 */
-VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation);
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VmaVirtualAllocation)
 
 /** @} */
 
