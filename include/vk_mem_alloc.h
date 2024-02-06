@@ -2204,7 +2204,7 @@ Do not pass allocation's offset within device memory block this parameter!
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCopyMemoryToAllocation(
     VmaAllocator VMA_NOT_NULL allocator,
-    const void* VMA_NOT_NULL pSrcHostPointer,
+    const void* VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(size) pSrcHostPointer,
     VmaAllocation VMA_NOT_NULL dstAllocation,
     VkDeviceSize dstAllocationLocalOffset,
     VkDeviceSize size);
@@ -2234,7 +2234,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCopyAllocationToMemory(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL srcAllocation,
     VkDeviceSize srcAllocationLocalOffset,
-    void* VMA_NOT_NULL pDstHostPointer,
+    void* VMA_NOT_NULL VMA_LEN_IF_NOT_NULL(size) pDstHostPointer,
     VkDeviceSize size);
 
 /** \brief Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions.
