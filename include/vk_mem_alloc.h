@@ -3019,6 +3019,29 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
     #define VMA_LEAK_LOG_FORMAT(format, ...)   VMA_DEBUG_LOG_FORMAT(format, __VA_ARGS__)
 #endif
 
+#ifndef VMA_LEAK_LOG_UNFREED_VIRTUAL
+    /* Report unfreed virtual allocation.
+     * Define to fully customize output.
+     * By default, uses VMA_LEAK_LOG_FORMAT */
+    #define VMA_LEAK_LOG_UNFREED_VIRTUAL(offset, size, userData)    \
+        VMA_LEAK_LOG_FORMAT("UNFREED VIRTUAL ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p", offset, size, userData)
+#endif
+
+#ifndef VMA_LEAK_LOG_UNFREED
+    /* Report unfreed allocation.
+     * Define to fully customize output.
+     * By default, uses VMA_LEAK_LOG_FORMAT */
+    #if VMA_STATS_STRING_ENABLED
+        #define VMA_LEAK_LOG_UNFREED(offset, size, userData, name, suballocation_type, suballocation_type_str, buffer_image_usage)                  \
+            VMA_LEAK_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %s; Usage: %" PRIu32,    \
+                offset, size, userData, name ? name : "vma_empty", suballocation_type_str, buffer_image_usage)
+    #else
+        #define VMA_LEAK_LOG_UNFREED(offset, size, userData, name, suballocation_type, suballocation_type_str, buffer_image_usage)                  \
+            VMA_LEAK_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %u",                     \
+                offset, size, userData, name ? name : "vma_empty", suballocation_type)
+    #endif // VMA_STATS_STRING_ENABLED
+#endif
+
 #ifndef VMA_CLASS_NO_COPY
     #define VMA_CLASS_NO_COPY(className) \
         private: \
@@ -6499,7 +6522,7 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
 {
     if (IsVirtual())
     {
-        VMA_LEAK_LOG_FORMAT("UNFREED VIRTUAL ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p", offset, size, userData);
+        VMA_LEAK_LOG_UNFREED_VIRTUAL(offset, size, userData);
     }
     else
     {
@@ -6510,15 +6533,14 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
         const char* name = allocation->GetName();
 
 #if VMA_STATS_STRING_ENABLED
-        VMA_LEAK_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %s; Usage: %" PRIu32,
-            offset, size, userData, name ? name : "vma_empty",
-            VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()],
-            allocation->GetBufferImageUsage());
+        const char* suballocation_type_str = VMA_SUBALLOCATION_TYPE_NAMES[allocation->GetSuballocationType()];
+        uint32_t buffer_image_usage = allocation->GetBufferImageUsage();
 #else
-        VMA_LEAK_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %u",
-            offset, size, userData, name ? name : "vma_empty",
-            (unsigned)allocation->GetSuballocationType());
-#endif // VMA_STATS_STRING_ENABLED
+        const char* suballocation_type_str = VMA_NULL;
+        uint32_t buffer_image_usage = 0;
+#endif
+        VMA_LEAK_LOG_UNFREED(offset, size, userData, name, allocation->GetSuballocationType(), suballocation_type_str,
+                             buffer_image_usage);
     }
 
 }
