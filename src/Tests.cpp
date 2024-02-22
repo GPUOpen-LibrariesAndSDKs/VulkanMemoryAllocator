@@ -117,6 +117,23 @@ static const wchar_t* DefragmentationAlgorithmToStr(uint32_t algorithm)
     }
 }
 
+static inline bool operator==(const VmaStatistics& lhs, const VmaStatistics& rhs)
+{
+    return lhs.allocationBytes == rhs.allocationBytes &&
+        lhs.allocationCount == rhs.allocationCount &&
+        lhs.blockBytes == rhs.blockBytes &&
+        lhs.blockCount == rhs.blockCount;
+}
+static inline bool operator==(const VmaDetailedStatistics& lhs, const VmaDetailedStatistics& rhs)
+{
+    return lhs.statistics == rhs.statistics &&
+        lhs.unusedRangeCount == rhs.unusedRangeCount &&
+        lhs.allocationSizeMax == rhs.allocationSizeMax &&
+        lhs.allocationSizeMin == rhs.allocationSizeMin &&
+        lhs.unusedRangeSizeMax == rhs.unusedRangeSizeMax &&
+        lhs.unusedRangeSizeMin == rhs.unusedRangeSizeMin;
+}
+
 struct AllocationSize
 {
     uint32_t Probability;
@@ -6213,22 +6230,70 @@ static void TestDeviceCoherentMemory()
     vmaDestroyAllocator(localAllocator);
 }
 
-static void TestBudget()
+static void InitEmptyDetailedStatistics(VmaDetailedStatistics& outStats)
 {
-    wprintf(L"Testing budget...\n");
+    outStats = {};
+    outStats.allocationSizeMin = VK_WHOLE_SIZE;
+    outStats.unusedRangeSizeMin = VK_WHOLE_SIZE;
+}
 
-    static const VkDeviceSize BUF_SIZE = 10ull * 1024 * 1024;
-    static const uint32_t BUF_COUNT = 4;
+static void AddDetailedStatistics(VmaDetailedStatistics& inoutSum, const VmaDetailedStatistics& stats)
+{
+    inoutSum.statistics.allocationBytes += stats.statistics.allocationBytes;
+    inoutSum.statistics.allocationCount += stats.statistics.allocationCount;
+    inoutSum.statistics.blockBytes += stats.statistics.blockBytes;
+    inoutSum.statistics.blockCount += stats.statistics.blockCount;
+    inoutSum.unusedRangeCount += stats.unusedRangeCount;
+    inoutSum.allocationSizeMax = std::max(inoutSum.allocationSizeMax, stats.allocationSizeMax);
+    inoutSum.allocationSizeMin = std::min(inoutSum.allocationSizeMin, stats.allocationSizeMin);
+    inoutSum.unusedRangeSizeMax = std::max(inoutSum.unusedRangeSizeMax, stats.unusedRangeSizeMax);
+    inoutSum.unusedRangeSizeMin = std::min(inoutSum.unusedRangeSizeMin, stats.unusedRangeSizeMin);
+}
+
+static void ValidateTotalStatistics(const VmaTotalStatistics& stats)
+{
+    const VkPhysicalDeviceMemoryProperties* memProps = nullptr;
+    vmaGetMemoryProperties(g_hAllocator, &memProps);
+
+    VmaDetailedStatistics sum;
+    InitEmptyDetailedStatistics(sum);
+    for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
+        AddDetailedStatistics(sum, stats.memoryHeap[i]);
+    TEST(sum == stats.total);
+
+    InitEmptyDetailedStatistics(sum);
+    for(uint32_t i = 0; i < memProps->memoryTypeCount; ++i)
+        AddDetailedStatistics(sum, stats.memoryType[i]);
+    TEST(sum == stats.total);
+}
+
+static void TestStatistics()
+{
+    wprintf(L"Testing statistics...\n");
+
+    constexpr VkDeviceSize BUF_SIZE = 10ull * 1024 * 1024;
+    constexpr uint32_t BUF_COUNT = 4;
+    constexpr VkDeviceSize PREALLOCATED_BLOCK_SIZE = BUF_SIZE * (BUF_COUNT + 1);
 
     const VkPhysicalDeviceMemoryProperties* memProps = {};
     vmaGetMemoryProperties(g_hAllocator, &memProps);
 
-    for(uint32_t testIndex = 0; testIndex < 2; ++testIndex)
+    /*
+    Test 0: VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
+    Test 1: normal allocations.
+    Test 2: allocations in a custom pool.
+    Test 3: allocations in a custom pool, DEDICATED_MEMORY.
+    Test 4: allocations in a custom pool with preallocated memory.
+    */
+    uint32_t memTypeIndex = UINT32_MAX;
+    for(uint32_t testIndex = 0; testIndex < 5; ++testIndex)
     {
         vmaSetCurrentFrameIndex(g_hAllocator, ++g_FrameIndex);
 
         VmaBudget budgetBeg[VK_MAX_MEMORY_HEAPS] = {};
         vmaGetHeapBudgets(g_hAllocator, budgetBeg);
+        VmaTotalStatistics statsBeg = {};
+        vmaCalculateStatistics(g_hAllocator, &statsBeg);
 
         for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
         {
@@ -6237,18 +6302,45 @@ static void TestBudget()
             TEST(budgetBeg[i].statistics.allocationBytes <= budgetBeg[i].statistics.blockBytes);
         }
 
+        // Create pool.
+        const bool usePool = testIndex >= 2;
+        const bool useDedicated = testIndex == 0 || testIndex == 3;
+        const bool usePreallocated = testIndex == 4;
+        VmaPool pool = VK_NULL_HANDLE;
+        if(usePool)
+        {
+            assert(memTypeIndex != UINT32_MAX);
+            VmaPoolCreateInfo poolCreateInfo = {};
+            poolCreateInfo.memoryTypeIndex = memTypeIndex;
+            if(usePreallocated)
+            {
+                poolCreateInfo.blockSize = PREALLOCATED_BLOCK_SIZE;
+                poolCreateInfo.minBlockCount = poolCreateInfo.maxBlockCount = 1;
+            }
+            TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+        }
+
+        VmaStatistics poolStatsBeg = {};
+        VmaDetailedStatistics detailedPoolStatsBeg = {};
+        if(usePool)
+        {
+            vmaGetPoolStatistics(g_hAllocator, pool, &poolStatsBeg);
+            vmaCalculatePoolStatistics(g_hAllocator, pool, &detailedPoolStatsBeg);
+        }
+
+        // CREATE BUFFERS
         VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufInfo.size = BUF_SIZE;
         bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
         VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        if(testIndex == 0)
-        {
+        if(usePool)
+            allocCreateInfo.pool = pool;
+        else
+            allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        if(useDedicated)
             allocCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-        }
 
-        // CREATE BUFFERS
         uint32_t heapIndex = 0;
         BufferInfo bufInfos[BUF_COUNT] = {};
         for(uint32_t bufIndex = 0; bufIndex < BUF_COUNT; ++bufIndex)
@@ -6259,6 +6351,8 @@ static void TestBudget()
             TEST(res == VK_SUCCESS);
             if(bufIndex == 0)
             {
+                if(testIndex == 1)
+                    memTypeIndex = allocInfo.memoryType;
                 heapIndex = MemoryTypeToHeap(allocInfo.memoryType);
             }
             else
@@ -6270,6 +6364,16 @@ static void TestBudget()
 
         VmaBudget budgetWithBufs[VK_MAX_MEMORY_HEAPS] = {};
         vmaGetHeapBudgets(g_hAllocator, budgetWithBufs);
+        VmaTotalStatistics statsWithBufs = {};
+        vmaCalculateStatistics(g_hAllocator, &statsWithBufs);
+
+        VmaStatistics poolStatsWithBufs = {};
+        VmaDetailedStatistics detailedPoolStatsWithBufs = {};
+        if(usePool)
+        {
+            vmaGetPoolStatistics(g_hAllocator, pool, &poolStatsWithBufs);
+            vmaCalculatePoolStatistics(g_hAllocator, pool, &detailedPoolStatsWithBufs);
+        }
 
         // DESTROY BUFFERS
         for(size_t bufIndex = BUF_COUNT; bufIndex--; )
@@ -6277,25 +6381,133 @@ static void TestBudget()
             vmaDestroyBuffer(g_hAllocator, bufInfos[bufIndex].Buffer, bufInfos[bufIndex].Allocation);
         }
 
+        VmaStatistics poolStatsEnd = {};
+        VmaDetailedStatistics detailedPoolStatsEnd = {};
+        if(usePool)
+        {
+            vmaGetPoolStatistics(g_hAllocator, pool, &poolStatsEnd);
+            vmaCalculatePoolStatistics(g_hAllocator, pool, &detailedPoolStatsEnd);
+        }
+
+        // Destroy the pool.
+        vmaDestroyPool(g_hAllocator, pool);
+
         VmaBudget budgetEnd[VK_MAX_MEMORY_HEAPS] = {};
         vmaGetHeapBudgets(g_hAllocator, budgetEnd);
+        VmaTotalStatistics statsEnd = {};
+        vmaCalculateStatistics(g_hAllocator, &statsEnd);
 
-        // CHECK
+        // CHECK MEMORY HEAPS
         for(uint32_t i = 0; i < memProps->memoryHeapCount; ++i)
         {
             TEST(budgetEnd[i].statistics.allocationBytes <= budgetEnd[i].statistics.blockBytes);
+
+            // The heap in which we allocated the testing buffers.
             if(i == heapIndex)
             {
+                // VmaBudget::usage
+                TEST(budgetWithBufs[i].usage >= budgetBeg[i].usage);
+                TEST(budgetEnd[i].usage <= budgetWithBufs[i].usage);
+
+                // VmaBudget - VmaStatistics::allocationBytes
                 TEST(budgetEnd[i].statistics.allocationBytes == budgetBeg[i].statistics.allocationBytes);
                 TEST(budgetWithBufs[i].statistics.allocationBytes == budgetBeg[i].statistics.allocationBytes + BUF_SIZE * BUF_COUNT);
-                TEST(budgetWithBufs[i].statistics.blockBytes >= budgetEnd[i].statistics.blockBytes);
+                
+                // VmaBudget - VmaStatistics::blockBytes
+                if(usePool)
+                {
+                    TEST(budgetEnd[i].statistics.blockBytes == budgetBeg[i].statistics.blockBytes);
+                    TEST(budgetWithBufs[i].statistics.blockBytes > budgetBeg[i].statistics.blockBytes);
+                }
+                else
+                    TEST(budgetWithBufs[i].statistics.blockBytes >= budgetBeg[i].statistics.blockBytes);
+
+                // VmaBudget - VmaStatistics::allocationCount
+                TEST(budgetEnd[i].statistics.allocationCount == budgetBeg[i].statistics.allocationCount);
+                TEST(budgetWithBufs[i].statistics.allocationCount == budgetBeg[i].statistics.allocationCount + BUF_COUNT);
+
+                // VmaBudget - VmaStatistics::blockCount
+                if(useDedicated)
+                {
+                    TEST(budgetEnd[i].statistics.blockCount == budgetBeg[i].statistics.blockCount);
+                    TEST(budgetWithBufs[i].statistics.blockCount == budgetBeg[i].statistics.blockCount + BUF_COUNT);
+                }
+                else if(usePool)
+                {
+                    TEST(budgetEnd[i].statistics.blockCount == budgetBeg[i].statistics.blockCount);
+                    if(usePreallocated)
+                        TEST(budgetWithBufs[i].statistics.blockCount == budgetBeg[i].statistics.blockCount + 1);
+                    else
+                        TEST(budgetWithBufs[i].statistics.blockCount > budgetBeg[i].statistics.blockCount);
+                }
             }
             else
             {
-                TEST(budgetEnd[i].statistics.allocationBytes == budgetEnd[i].statistics.allocationBytes &&
+                TEST(budgetEnd[i].statistics.allocationBytes == budgetBeg[i].statistics.allocationBytes &&
                     budgetEnd[i].statistics.allocationBytes == budgetWithBufs[i].statistics.allocationBytes);
-                TEST(budgetEnd[i].statistics.blockBytes == budgetEnd[i].statistics.blockBytes &&
+                TEST(budgetEnd[i].statistics.blockBytes == budgetBeg[i].statistics.blockBytes &&
                     budgetEnd[i].statistics.blockBytes == budgetWithBufs[i].statistics.blockBytes);
+                TEST(budgetEnd[i].statistics.allocationCount == budgetBeg[i].statistics.allocationCount &&
+                    budgetEnd[i].statistics.allocationCount == budgetWithBufs[i].statistics.allocationCount);
+                TEST(budgetEnd[i].statistics.blockCount == budgetBeg[i].statistics.blockCount &&
+                    budgetEnd[i].statistics.blockCount == budgetWithBufs[i].statistics.blockCount);
+            }
+
+            // Validate that statistics per heap and per type sum up to total correctly.
+            ValidateTotalStatistics(statsBeg);
+            ValidateTotalStatistics(statsWithBufs);
+            ValidateTotalStatistics(statsEnd);
+
+            // Compare vmaCalculateStatistics per heap with vmaGetBudget.
+            TEST(statsBeg.memoryHeap[i].statistics == budgetBeg[i].statistics);
+            TEST(statsWithBufs.memoryHeap[i].statistics == budgetWithBufs[i].statistics);
+            TEST(statsEnd.memoryHeap[i].statistics == budgetEnd[i].statistics);
+
+            if(usePool)
+            {
+                // Compare simple stats with calculated stats to make sure they are identical.
+                TEST(poolStatsBeg == detailedPoolStatsBeg.statistics);
+                TEST(poolStatsWithBufs == detailedPoolStatsWithBufs.statistics);
+                TEST(poolStatsEnd == detailedPoolStatsEnd.statistics);
+
+                // Validate stats of an empty pool.
+                TEST(detailedPoolStatsBeg.allocationSizeMax == 0);
+                TEST(detailedPoolStatsEnd.allocationSizeMax == 0);
+                TEST(detailedPoolStatsBeg.allocationSizeMin == VK_WHOLE_SIZE);
+                TEST(detailedPoolStatsEnd.allocationSizeMin == VK_WHOLE_SIZE);
+                TEST(poolStatsBeg.allocationCount == 0);
+                TEST(poolStatsBeg.allocationBytes == 0);
+                TEST(poolStatsEnd.allocationCount == 0);
+                TEST(poolStatsEnd.allocationBytes == 0);
+                if(usePreallocated)
+                {
+                    TEST(poolStatsBeg.blockCount      == 1);
+                    TEST(poolStatsEnd.blockCount      == 1);
+                    TEST(poolStatsBeg.blockBytes      == PREALLOCATED_BLOCK_SIZE);
+                    TEST(poolStatsEnd.blockBytes      == PREALLOCATED_BLOCK_SIZE);
+                }
+                else
+                {
+                    TEST(poolStatsBeg.blockCount == 0);
+                    TEST(poolStatsBeg.blockBytes == 0);
+                    // Not checking poolStatsEnd.blockCount, blockBytes, because an empty block may stay allocated.
+                }
+
+                // Validate stats of a pool with buffers.
+                TEST(detailedPoolStatsWithBufs.allocationSizeMin == BUF_SIZE);
+                TEST(detailedPoolStatsWithBufs.allocationSizeMax == BUF_SIZE);
+                TEST(poolStatsWithBufs.allocationCount == BUF_COUNT);
+                TEST(poolStatsWithBufs.allocationBytes == BUF_COUNT * BUF_SIZE);
+                if(usePreallocated)
+                {
+                    TEST(poolStatsWithBufs.blockCount == 1);
+                    TEST(poolStatsWithBufs.blockBytes == PREALLOCATED_BLOCK_SIZE);
+                }
+                else
+                {
+                    TEST(poolStatsWithBufs.blockCount > 0);
+                    TEST(poolStatsWithBufs.blockBytes >= poolStatsWithBufs.allocationBytes);
+                }
             }
         }
     }
@@ -8146,7 +8358,7 @@ void Test()
 #endif
     TestMemoryUsage();
     TestDeviceCoherentMemory();
-    TestBudget();
+    TestStatistics();
     TestAliasing();
     TestAllocationAliasing();
     TestMapping();
