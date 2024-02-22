@@ -2461,7 +2461,8 @@ PREDEFINED             = VMA_CALL_PRE= \
                          VMA_VULKAN_VERSION=1003000 \
                          VMA_EXTERNAL_MEMORY=1 \
                          VMA_MEMORY_PRIORITY=1 \
-                         VMA_EXTENDS_VK_STRUCT=
+                         VMA_EXTENDS_VK_STRUCT= \
+                         VMA_STATS_STRING_ENABLED=1
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The

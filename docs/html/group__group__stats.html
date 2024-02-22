@@ -126,6 +126,17 @@ Functions</h2></td></tr>
 <tr class="memitem:ga50ba0eb25d2b363b792be4645ca7a380" id="r_ga50ba0eb25d2b363b792be4645ca7a380"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga50ba0eb25d2b363b792be4645ca7a380">vmaCalculatePoolStatistics</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, <a class="el" href="struct_vma_pool.html">VmaPool</a> pool, <a class="el" href="struct_vma_detailed_statistics.html">VmaDetailedStatistics</a> *pPoolStats)</td></tr>
 <tr class="memdesc:ga50ba0eb25d2b363b792be4645ca7a380"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieves detailed statistics of existing <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object.  <br /></td></tr>
 <tr class="separator:ga50ba0eb25d2b363b792be4645ca7a380"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga52d810e1222c592e5d80556ad005f1e6" id="r_ga52d810e1222c592e5d80556ad005f1e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga52d810e1222c592e5d80556ad005f1e6">vmaBuildVirtualBlockStatsString</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, char **ppStatsString, VkBool32 detailedMap)</td></tr>
+<tr class="memdesc:ga52d810e1222c592e5d80556ad005f1e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds and returns a null-terminated string in JSON format with information about given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  <br /></td></tr>
+<tr class="separator:ga52d810e1222c592e5d80556ad005f1e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga47fb8d8aa69df4a7c23a9719b4080623" id="r_ga47fb8d8aa69df4a7c23a9719b4080623"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga47fb8d8aa69df4a7c23a9719b4080623">vmaFreeVirtualBlockStatsString</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, char *pStatsString)</td></tr>
+<tr class="memdesc:ga47fb8d8aa69df4a7c23a9719b4080623"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees a string returned by <a class="el" href="#ga52d810e1222c592e5d80556ad005f1e6" title="Builds and returns a null-terminated string in JSON format with information about given VmaVirtualBlo...">vmaBuildVirtualBlockStatsString()</a>.  <br /></td></tr>
+<tr class="separator:ga47fb8d8aa69df4a7c23a9719b4080623"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gaa4fee7eb5253377599ef4fd38c93c2a0" id="r_gaa4fee7eb5253377599ef4fd38c93c2a0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#gaa4fee7eb5253377599ef4fd38c93c2a0">vmaBuildStatsString</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, char **ppStatsString, VkBool32 detailedMap)</td></tr>
+<tr class="memdesc:gaa4fee7eb5253377599ef4fd38c93c2a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds and returns statistics as a null-terminated string in JSON format.  <br /></td></tr>
+<tr class="separator:gaa4fee7eb5253377599ef4fd38c93c2a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga3104eb30d8122c84dd8541063f145288" id="r_ga3104eb30d8122c84dd8541063f145288"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga3104eb30d8122c84dd8541063f145288">vmaFreeStatsString</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, char *pStatsString)</td></tr>
+<tr class="separator:ga3104eb30d8122c84dd8541063f145288"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <p>API elements that query current status of the allocator, from memory usage, budget, to full dump of the internal state in JSON format. See documentation chapter: <a class="el" href="statistics.html">Statistics</a>. </p>
@@ -203,6 +214,79 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
+<a id="gaa4fee7eb5253377599ef4fd38c93c2a0" name="gaa4fee7eb5253377599ef4fd38c93c2a0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gaa4fee7eb5253377599ef4fd38c93c2a0">&#9670;&#160;</a></span>vmaBuildStatsString()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaBuildStatsString </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a></td>          <td class="paramname"><span class="paramname"><em>allocator</em>, </span></td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char **</td>          <td class="paramname"><span class="paramname"><em>ppStatsString</em>, </span></td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkBool32</td>          <td class="paramname"><span class="paramname"><em>detailedMap</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Builds and returns statistics as a null-terminated string in JSON format. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">ppStatsString</td><td>Must be freed using <a class="el" href="#ga3104eb30d8122c84dd8541063f145288">vmaFreeStatsString()</a> function. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td></td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="ga52d810e1222c592e5d80556ad005f1e6" name="ga52d810e1222c592e5d80556ad005f1e6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga52d810e1222c592e5d80556ad005f1e6">&#9670;&#160;</a></span>vmaBuildVirtualBlockStatsString()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaBuildVirtualBlockStatsString </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a></td>          <td class="paramname"><span class="paramname"><em>virtualBlock</em>, </span></td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char **</td>          <td class="paramname"><span class="paramname"><em>ppStatsString</em>, </span></td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">VkBool32</td>          <td class="paramname"><span class="paramname"><em>detailedMap</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Builds and returns a null-terminated string in JSON format with information about given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">virtualBlock</td><td>Virtual block. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">ppStatsString</td><td>Returned string. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td>Pass <code>VK_FALSE</code> to only obtain statistics as returned by <a class="el" href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098" title="Calculates and returns detailed statistics about virtual allocations and memory usage in given VmaVir...">vmaCalculateVirtualBlockStatistics()</a>. Pass <code>VK_TRUE</code> to also obtain full list of allocations and free spaces.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Returned string must be freed using <a class="el" href="#ga47fb8d8aa69df4a7c23a9719b4080623" title="Frees a string returned by vmaBuildVirtualBlockStatsString().">vmaFreeVirtualBlockStatsString()</a>. </p>
+
+</div>
+</div>
 <a id="ga50ba0eb25d2b363b792be4645ca7a380" name="ga50ba0eb25d2b363b792be4645ca7a380"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ga50ba0eb25d2b363b792be4645ca7a380">&#9670;&#160;</a></span>vmaCalculatePoolStatistics()</h2>
 
@@ -261,6 +345,50 @@ Functions</h2></td></tr>
 <p>Retrieves statistics from current state of the Allocator. </p>
 <p>This function is called "calculate" not "get" because it has to traverse all internal data structures, so it may be quite slow. Use it for debugging purposes. For faster but more brief statistics suitable to be called every frame or every allocation, use <a class="el" href="#ga9f88db9d46a432c0ad7278cecbc5eaa7" title="Retrieves information about current memory usage and budget for all memory heaps.">vmaGetHeapBudgets()</a>.</p>
 <p>Note that when using allocator from multiple threads, returned information may immediately become outdated. </p>
+
+</div>
+</div>
+<a id="ga3104eb30d8122c84dd8541063f145288" name="ga3104eb30d8122c84dd8541063f145288"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga3104eb30d8122c84dd8541063f145288">&#9670;&#160;</a></span>vmaFreeStatsString()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaFreeStatsString </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_allocator.html">VmaAllocator</a></td>          <td class="paramname"><span class="paramname"><em>allocator</em>, </span></td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char *</td>          <td class="paramname"><span class="paramname"><em>pStatsString</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ga47fb8d8aa69df4a7c23a9719b4080623" name="ga47fb8d8aa69df4a7c23a9719b4080623"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga47fb8d8aa69df4a7c23a9719b4080623">&#9670;&#160;</a></span>vmaFreeVirtualBlockStatsString()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vmaFreeVirtualBlockStatsString </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a></td>          <td class="paramname"><span class="paramname"><em>virtualBlock</em>, </span></td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char *</td>          <td class="paramname"><span class="paramname"><em>pStatsString</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Frees a string returned by <a class="el" href="#ga52d810e1222c592e5d80556ad005f1e6" title="Builds and returns a null-terminated string in JSON format with information about given VmaVirtualBlo...">vmaBuildVirtualBlockStatsString()</a>. </p>
 
 </div>
 </div>

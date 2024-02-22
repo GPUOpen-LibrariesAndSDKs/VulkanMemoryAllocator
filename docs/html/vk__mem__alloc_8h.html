@@ -157,8 +157,6 @@ Macros</h2></td></tr>
 <tr class="separator:a7f9d5e71b70dd1a137c303a8a8262c10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abc635c70b154cb54aa4a15cd5da55498" id="r_abc635c70b154cb54aa4a15cd5da55498"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abc635c70b154cb54aa4a15cd5da55498">VMA_KHR_MAINTENANCE4</a>&#160;&#160;&#160;0</td></tr>
 <tr class="separator:abc635c70b154cb54aa4a15cd5da55498"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae25f0d55fd91cb166f002b63244800e1" id="r_ae25f0d55fd91cb166f002b63244800e1"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae25f0d55fd91cb166f002b63244800e1">VMA_STATS_STRING_ENABLED</a>&#160;&#160;&#160;1</td></tr>
-<tr class="separator:ae25f0d55fd91cb166f002b63244800e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
@@ -574,6 +572,17 @@ Functions</h2></td></tr>
 <tr class="memitem:ga93c5741bca44b43e5b849cacbd616098" id="r_ga93c5741bca44b43e5b849cacbd616098"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098">vmaCalculateVirtualBlockStatistics</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, <a class="el" href="struct_vma_detailed_statistics.html">VmaDetailedStatistics</a> *pStats)</td></tr>
 <tr class="memdesc:ga93c5741bca44b43e5b849cacbd616098"><td class="mdescLeft">&#160;</td><td class="mdescRight">Calculates and returns detailed statistics about virtual allocations and memory usage in given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  <br /></td></tr>
 <tr class="separator:ga93c5741bca44b43e5b849cacbd616098"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga52d810e1222c592e5d80556ad005f1e6" id="r_ga52d810e1222c592e5d80556ad005f1e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__stats.html#ga52d810e1222c592e5d80556ad005f1e6">vmaBuildVirtualBlockStatsString</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, char **ppStatsString, VkBool32 detailedMap)</td></tr>
+<tr class="memdesc:ga52d810e1222c592e5d80556ad005f1e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds and returns a null-terminated string in JSON format with information about given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>.  <br /></td></tr>
+<tr class="separator:ga52d810e1222c592e5d80556ad005f1e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga47fb8d8aa69df4a7c23a9719b4080623" id="r_ga47fb8d8aa69df4a7c23a9719b4080623"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__stats.html#ga47fb8d8aa69df4a7c23a9719b4080623">vmaFreeVirtualBlockStatsString</a> (<a class="el" href="struct_vma_virtual_block.html">VmaVirtualBlock</a> virtualBlock, char *pStatsString)</td></tr>
+<tr class="memdesc:ga47fb8d8aa69df4a7c23a9719b4080623"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees a string returned by <a class="el" href="group__group__stats.html#ga52d810e1222c592e5d80556ad005f1e6" title="Builds and returns a null-terminated string in JSON format with information about given VmaVirtualBlo...">vmaBuildVirtualBlockStatsString()</a>.  <br /></td></tr>
+<tr class="separator:ga47fb8d8aa69df4a7c23a9719b4080623"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gaa4fee7eb5253377599ef4fd38c93c2a0" id="r_gaa4fee7eb5253377599ef4fd38c93c2a0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__stats.html#gaa4fee7eb5253377599ef4fd38c93c2a0">vmaBuildStatsString</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, char **ppStatsString, VkBool32 detailedMap)</td></tr>
+<tr class="memdesc:gaa4fee7eb5253377599ef4fd38c93c2a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds and returns statistics as a null-terminated string in JSON format.  <br /></td></tr>
+<tr class="separator:gaa4fee7eb5253377599ef4fd38c93c2a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga3104eb30d8122c84dd8541063f145288" id="r_ga3104eb30d8122c84dd8541063f145288"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__stats.html#ga3104eb30d8122c84dd8541063f145288">vmaFreeStatsString</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, char *pStatsString)</td></tr>
+<tr class="separator:ga3104eb30d8122c84dd8541063f145288"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="a88bef97f86d70a34a4c0746e09a2680d" name="a88bef97f86d70a34a4c0746e09a2680d"></a>
@@ -640,20 +649,6 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define VMA_MEMORY_BUDGET&#160;&#160;&#160;0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ae25f0d55fd91cb166f002b63244800e1" name="ae25f0d55fd91cb166f002b63244800e1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae25f0d55fd91cb166f002b63244800e1">&#9670;&#160;</a></span>VMA_STATS_STRING_ENABLED</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_STATS_STRING_ENABLED&#160;&#160;&#160;1</td>
         </tr>
       </table>
 </div><div class="memdoc">
