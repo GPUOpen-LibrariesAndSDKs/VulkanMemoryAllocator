@@ -8079,6 +8079,37 @@ static void TestMappingHysteresis()
 
         vmaDestroyPool(g_hAllocator, pool);
     }
+
+    // Test hysteresis working currectly in case the mapping fails. See issue #407.
+    {
+        VkBufferCreateInfo bufCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bufCreateInfo.size = 1 * MEGABYTE;
+        bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+        VkBuffer buf;
+        VmaAllocation alloc;
+        TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+            &buf, &alloc, nullptr) == VK_SUCCESS);
+
+        VkMemoryPropertyFlags memProps = 0;
+        vmaGetAllocationMemoryProperties(g_hAllocator, alloc, &memProps);
+
+        // It makes sense to test only if this buffer ended up in a non-HOST_VISIBLE memory,
+        // which may not be the case on some integrated graphics.
+        if((memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+        {
+            void* ptr;
+            for (size_t i = 0; i < 10; ++i)
+            {
+                TEST(vmaMapMemory(g_hAllocator, alloc, &ptr) == VK_ERROR_MEMORY_MAP_FAILED);
+            }
+        }
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+    }
 }
 
 void Test()
