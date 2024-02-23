@@ -3425,6 +3425,14 @@ static void TestVirtualBlocksAlgorithms()
         };
         std::vector<AllocData> allocations;
 
+        // Test too large allocation
+        {
+            VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+            allocCreateInfo.size = blockCreateInfo.size * 2;
+            VmaVirtualAllocation alloc;
+            TEST(vmaVirtualAllocate(block, &allocCreateInfo, &alloc, nullptr) < 0);
+        }
+
         // Make some allocations
         for(size_t i = 0; i < 20; ++i)
         {
