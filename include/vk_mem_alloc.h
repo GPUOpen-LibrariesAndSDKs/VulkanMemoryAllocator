@@ -1008,6 +1008,7 @@ typedef struct VmaVulkanFunctions
     PFN_vkBindImageMemory2KHR VMA_NULLABLE vkBindImageMemory2KHR;
 #endif
 #if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+    /// Fetch from "vkGetPhysicalDeviceMemoryProperties2" on Vulkan >= 1.1, but you can also fetch it from "vkGetPhysicalDeviceMemoryProperties2KHR" if you enabled extension VK_KHR_get_physical_device_properties2.
     PFN_vkGetPhysicalDeviceMemoryProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties2KHR;
 #endif
 #if VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
@@ -12861,7 +12862,7 @@ void VmaAllocator_T::ImportVulkanFunctions_Static()
     }
 #endif
 
-#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+#if VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
         m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = (PFN_vkGetPhysicalDeviceMemoryProperties2)vkGetPhysicalDeviceMemoryProperties2;
@@ -12977,11 +12978,11 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
 #if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
-        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2, "vkGetPhysicalDeviceMemoryProperties2");
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2");
     }
     else if(m_UseExtMemoryBudget)
     {
-        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2, "vkGetPhysicalDeviceMemoryProperties2KHR");
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2KHR");
     }
 #endif
 
