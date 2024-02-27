@@ -71,5 +71,4 @@ var menudata={children:[
 {text:"v",url:"globals_type.html#index_v"}]},
 {text:"Enumerations",url:"globals_enum.html"},
 {text:"Enumerator",url:"globals_eval.html",children:[
-{text:"v",url:"globals_eval.html#index_v"}]},
-{text:"Macros",url:"globals_defs.html"}]}]}]}
+{text:"v",url:"globals_eval.html#index_v"}]}]}]}]}

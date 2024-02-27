@@ -141,7 +141,8 @@ Enumerations</h2></td></tr>
 , <a class="el" href="#gga4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a> = 0x00000040
 , <a class="el" href="#gga4f87c9100d154a65a4ad495f7763cf7caa2566e7f75e19ae7ec9c4fa509fea5fb">VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT</a> = 0x00000080
 , <br />
-&#160;&#160;<a class="el" href="#gga4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c">VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+&#160;&#160;<a class="el" href="#gga4f87c9100d154a65a4ad495f7763cf7caca82d4ce40bdb59d3da52a539c21d6b8">VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT</a> = 0x00000100
+, <a class="el" href="#gga4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c">VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
 <tr class="memdesc:ga4f87c9100d154a65a4ad495f7763cf7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a>.  <a href="#ga4f87c9100d154a65a4ad495f7763cf7c">More...</a><br /></td></tr>
@@ -369,6 +370,9 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="gga4f87c9100d154a65a4ad495f7763cf7caa2566e7f75e19ae7ec9c4fa509fea5fb" name="gga4f87c9100d154a65a4ad495f7763cf7caa2566e7f75e19ae7ec9c4fa509fea5fb"></a>VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_KHR_maintenance4 extension in the library.</p>
 <p>You may set this flag only if you found available and enabled this device extension, while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga4f87c9100d154a65a4ad495f7763cf7caca82d4ce40bdb59d3da52a539c21d6b8" name="gga4f87c9100d154a65a4ad495f7763cf7caca82d4ce40bdb59d3da52a539c21d6b8"></a>VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT&#160;</td><td class="fielddoc"><p>Enables usage of VK_KHR_maintenance5 extension in the library.</p>
+<p>You should set this flag if you found available and enabled this device extension, while creating Vulkan device passed as <a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a>. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="gga4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c" name="gga4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c"></a>VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM&#160;</td><td class="fielddoc"></td></tr>
 </table>

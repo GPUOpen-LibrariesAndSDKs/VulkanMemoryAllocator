@@ -10,6 +10,7 @@ Additions to the library API:
 - Added callback `VmaDefragmentationInfo::pfnBreakCallback` that allows breaking long execution of `vmaBeginDefragmentation`.
   Also added `PFN_vmaCheckDefragmentationBreakFunction`, `VmaDefragmentationInfo::pBreakCallbackUserData`.
 - Added support for VK_KHR_maintenance4 extension - `VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT` flag (#397).
+- Added support for VK_KHR_maintenance5 extension - `VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT` flag (#411).
 
 Other changes:
 

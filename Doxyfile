@@ -2459,8 +2459,14 @@ PREDEFINED             = VMA_CALL_PRE= \
                          VMA_NOT_NULL_NON_DISPATCHABLE= \
                          VMA_NULLABLE_NON_DISPATCHABLE= \
                          VMA_VULKAN_VERSION=1003000 \
-                         VMA_EXTERNAL_MEMORY=1 \
+                         VMA_DEDICATED_ALLOCATION=1 \
+                         VMA_BIND_MEMORY2=1 \
+                         VMA_MEMORY_BUDGET=1 \
+                         VMA_BUFFER_DEVICE_ADDRESS=1 \
                          VMA_MEMORY_PRIORITY=1 \
+                         VMA_KHR_MAINTENANCE4=1 \
+                         VMA_KHR_MAINTENANCE5=1 \
+                         VMA_EXTERNAL_MEMORY=1 \
                          VMA_EXTENDS_VK_STRUCT= \
                          VMA_STATS_STRING_ENABLED=1
 

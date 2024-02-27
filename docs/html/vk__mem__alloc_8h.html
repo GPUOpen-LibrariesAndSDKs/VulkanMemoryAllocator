@@ -77,7 +77,6 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#define-members">Macros</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
 <a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
@@ -144,19 +143,6 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_vma_virtual_allocation_info.html">VmaVirtualAllocationInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters of an existing virtual allocation, returned by <a class="el" href="group__group__virtual.html#ga8ee14ceb1fe033ec84d8aa29e1f75afa" title="Returns information about a specific virtual allocation within a virtual block, like its size and pUs...">vmaGetVirtualAllocationInfo()</a>.  <a href="struct_vma_virtual_allocation_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="define-members" name="define-members"></a>
-Macros</h2></td></tr>
-<tr class="memitem:af7b860e63b96d11e44ae8587ba06bbf4" id="r_af7b860e63b96d11e44ae8587ba06bbf4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af7b860e63b96d11e44ae8587ba06bbf4">VMA_DEDICATED_ALLOCATION</a>&#160;&#160;&#160;0</td></tr>
-<tr class="separator:af7b860e63b96d11e44ae8587ba06bbf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a88bef97f86d70a34a4c0746e09a2680d" id="r_a88bef97f86d70a34a4c0746e09a2680d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a88bef97f86d70a34a4c0746e09a2680d">VMA_BIND_MEMORY2</a>&#160;&#160;&#160;0</td></tr>
-<tr class="separator:a88bef97f86d70a34a4c0746e09a2680d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05decf1cf4ebf767beba7acca6c1ec3a" id="r_a05decf1cf4ebf767beba7acca6c1ec3a"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a05decf1cf4ebf767beba7acca6c1ec3a">VMA_MEMORY_BUDGET</a>&#160;&#160;&#160;0</td></tr>
-<tr class="separator:a05decf1cf4ebf767beba7acca6c1ec3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7f9d5e71b70dd1a137c303a8a8262c10" id="r_a7f9d5e71b70dd1a137c303a8a8262c10"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7f9d5e71b70dd1a137c303a8a8262c10">VMA_BUFFER_DEVICE_ADDRESS</a>&#160;&#160;&#160;1</td></tr>
-<tr class="separator:a7f9d5e71b70dd1a137c303a8a8262c10"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abc635c70b154cb54aa4a15cd5da55498" id="r_abc635c70b154cb54aa4a15cd5da55498"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abc635c70b154cb54aa4a15cd5da55498">VMA_KHR_MAINTENANCE4</a>&#160;&#160;&#160;0</td></tr>
-<tr class="separator:abc635c70b154cb54aa4a15cd5da55498"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
@@ -280,7 +266,8 @@ Enumerations</h2></td></tr>
 , <a class="el" href="group__group__init.html#gga4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a> = 0x00000040
 , <a class="el" href="group__group__init.html#gga4f87c9100d154a65a4ad495f7763cf7caa2566e7f75e19ae7ec9c4fa509fea5fb">VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT</a> = 0x00000080
 , <br />
-&#160;&#160;<a class="el" href="group__group__init.html#gga4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c">VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
+&#160;&#160;<a class="el" href="group__group__init.html#gga4f87c9100d154a65a4ad495f7763cf7caca82d4ce40bdb59d3da52a539c21d6b8">VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT</a> = 0x00000100
+, <a class="el" href="group__group__init.html#gga4f87c9100d154a65a4ad495f7763cf7cae4d5ad929caba5f23eb502b13bd5286c">VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM</a> = 0x7FFFFFFF
 <br />
  }</td></tr>
 <tr class="memdesc:ga4f87c9100d154a65a4ad495f7763cf7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flags for created <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a>.  <a href="group__group__init.html#ga4f87c9100d154a65a4ad495f7763cf7c">More...</a><br /></td></tr>
@@ -584,77 +571,6 @@ Functions</h2></td></tr>
 <tr class="memitem:ga3104eb30d8122c84dd8541063f145288" id="r_ga3104eb30d8122c84dd8541063f145288"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__stats.html#ga3104eb30d8122c84dd8541063f145288">vmaFreeStatsString</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, char *pStatsString)</td></tr>
 <tr class="separator:ga3104eb30d8122c84dd8541063f145288"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="a88bef97f86d70a34a4c0746e09a2680d" name="a88bef97f86d70a34a4c0746e09a2680d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a88bef97f86d70a34a4c0746e09a2680d">&#9670;&#160;</a></span>VMA_BIND_MEMORY2</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_BIND_MEMORY2&#160;&#160;&#160;0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7f9d5e71b70dd1a137c303a8a8262c10" name="a7f9d5e71b70dd1a137c303a8a8262c10"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7f9d5e71b70dd1a137c303a8a8262c10">&#9670;&#160;</a></span>VMA_BUFFER_DEVICE_ADDRESS</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_BUFFER_DEVICE_ADDRESS&#160;&#160;&#160;1</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="af7b860e63b96d11e44ae8587ba06bbf4" name="af7b860e63b96d11e44ae8587ba06bbf4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af7b860e63b96d11e44ae8587ba06bbf4">&#9670;&#160;</a></span>VMA_DEDICATED_ALLOCATION</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_DEDICATED_ALLOCATION&#160;&#160;&#160;0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="abc635c70b154cb54aa4a15cd5da55498" name="abc635c70b154cb54aa4a15cd5da55498"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abc635c70b154cb54aa4a15cd5da55498">&#9670;&#160;</a></span>VMA_KHR_MAINTENANCE4</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_KHR_MAINTENANCE4&#160;&#160;&#160;0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a05decf1cf4ebf767beba7acca6c1ec3a" name="a05decf1cf4ebf767beba7acca6c1ec3a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05decf1cf4ebf767beba7acca6c1ec3a">&#9670;&#160;</a></span>VMA_MEMORY_BUDGET</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VMA_MEMORY_BUDGET&#160;&#160;&#160;0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

@@ -38,6 +38,7 @@ extern VkCommandBuffer g_hTemporaryCommandBuffer;
 extern const VkAllocationCallbacks* g_Allocs;
 extern bool VK_KHR_buffer_device_address_enabled;
 extern bool VK_EXT_memory_priority_enabled;
+extern bool VK_KHR_maintenance5_enabled;
 extern PFN_vkGetBufferDeviceAddressKHR g_vkGetBufferDeviceAddressKHR;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
@@ -6938,6 +6939,32 @@ static void TestDeviceLocalMapped()
     }
 }
 
+static void TestMaintenance5()
+{
+#if !defined(VMA_KHR_MAINTENANCE5) || VMA_KHR_MAINTENANCE5
+    if(!VK_KHR_maintenance5_enabled)
+        return;
+    
+    wprintf(L"Test VK_KHR_maintenance5\n");
+
+    VkBufferCreateInfo bufCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufCreateInfo.size = 64 * KILOBYTE;
+
+    VkBufferUsageFlags2CreateInfoKHR bufUsageFlags2 = {VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO_KHR};
+    bufUsageFlags2.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufCreateInfo.pNext = &bufUsageFlags2;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    VkBuffer buf = VK_NULL_HANDLE;
+    VmaAllocation alloc = VK_NULL_HANDLE;
+    TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr) == VK_SUCCESS);
+
+    vmaDestroyBuffer(g_hAllocator, buf, alloc);
+#endif
+}
+
 static void TestMappingMultithreaded()
 {
     wprintf(L"Testing mapping multithreaded...\n");
@@ -8373,6 +8400,7 @@ void Test()
     TestAllocationMemoryCopy();
     TestMappingHysteresis();
     TestDeviceLocalMapped();
+    TestMaintenance5();
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
