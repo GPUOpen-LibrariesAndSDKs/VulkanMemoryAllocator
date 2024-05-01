@@ -2166,7 +2166,7 @@ For more information, see documentation of vmaFlushAllocation().
 \param allocator
 \param allocationCount
 \param allocations
-\param offsets If not null, it must point to an array of offsets of regions to flush, relative to the beginning of respective allocations. Null means all ofsets are zero.
+\param offsets If not null, it must point to an array of offsets of regions to flush, relative to the beginning of respective allocations. Null means all offsets are zero.
 \param sizes If not null, it must point to an array of sizes of regions to flush in respective allocations. Null means `VK_WHOLE_SIZE` for all allocations.
 
 This function returns the `VkResult` from `vkFlushMappedMemoryRanges` if it is
@@ -2187,7 +2187,7 @@ For more information, see documentation of vmaInvalidateAllocation().
 \param allocator
 \param allocationCount
 \param allocations
-\param offsets If not null, it must point to an array of offsets of regions to flush, relative to the beginning of respective allocations. Null means all ofsets are zero.
+\param offsets If not null, it must point to an array of offsets of regions to flush, relative to the beginning of respective allocations. Null means all offsets are zero.
 \param sizes If not null, it must point to an array of sizes of regions to flush in respective allocations. Null means `VK_WHOLE_SIZE` for all allocations.
 
 This function returns the `VkResult` from `vkInvalidateMappedMemoryRanges` if it is
@@ -3389,7 +3389,7 @@ class VmaAllocationObjectAllocator;
 /*
 Returns number of bits set to 1 in (v).
 
-On specific platforms and compilers you can use instrinsics like:
+On specific platforms and compilers you can use intrinsics like:
 
 Visual Studio:
     return __popcnt(v);
@@ -12880,7 +12880,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
                 GetMemoryTypeMinAlignment(memTypeIndex), // minAllocationAlignment
                 VMA_NULL); // // pMemoryAllocateNext
             // No need to call m_pBlockVectors[memTypeIndex][blockVectorTypeIndex]->CreateMinBlocks here,
-            // becase minBlockCount is 0.
+            // because minBlockCount is 0.
         }
     }
 }
@@ -16553,7 +16553,7 @@ You may need to configure importing Vulkan functions. There are 3 ways to do thi
 \subsection quick_start_initialization_enabling_extensions Enabling extensions
 
 VMA can automatically use following Vulkan extensions.
-If you found them availeble on the selected physical device and you enabled them
+If you found them available on the selected physical device and you enabled them
 while creating `VkInstance` / `VkDevice` object, inform VMA about their availability
 by setting appropriate flags in VmaAllocatorCreateInfo::flags.
 
@@ -17332,7 +17332,7 @@ Many of the common concerns can be addressed in a different way than using custo
 - If you want to keep your allocations of certain size (small versus large) or certain lifetime (transient versus long lived)
   separate, you likely don't need to.
   VMA uses a high quality allocation algorithm that manages memory well in various cases.
-  Please mesure and check if using custom pools provides a benefit.
+  Please measure and check if using custom pools provides a benefit.
 - If you want to keep your images and buffers separate, you don't need to.
   VMA respects `bufferImageGranularity` limit automatically.
 - If you want to keep your mapped and not mapped allocations separate, you don't need to.
@@ -18464,7 +18464,7 @@ vmaCreateImage(allocator, &imgCreateInfo, &allocCreateInfo, &img, &alloc, nullpt
 `priority` member is ignored in the following situations:
 
 - Allocations created in custom pools: They inherit the priority, along with all other allocation parameters
-  from the parametrs passed in #VmaPoolCreateInfo when the pool was created.
+  from the parameters passed in #VmaPoolCreateInfo when the pool was created.
 - Allocations created in default pools: They inherit the priority from the parameters
   VMA used when creating default pools, which means `priority == 0.5f`.
 
