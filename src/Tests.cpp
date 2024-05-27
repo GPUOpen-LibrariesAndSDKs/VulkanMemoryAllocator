@@ -8346,7 +8346,7 @@ static void TestMappingHysteresis()
 
         // It makes sense to test only if this buffer ended up in a non-HOST_VISIBLE memory,
         // which may not be the case on some integrated graphics.
-        if((memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
+        if((memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
         {
             void* ptr;
             for (size_t i = 0; i < 10; ++i)
