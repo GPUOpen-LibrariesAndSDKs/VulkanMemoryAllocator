@@ -35,8 +35,8 @@ static const char* const SHADER_PATH1 = "./";
 static const char* const SHADER_PATH2 = "../bin/";
 static const wchar_t* const WINDOW_CLASS_NAME = L"VULKAN_MEMORY_ALLOCATOR_SAMPLE";
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
-static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 3.0.1";
-static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 3.0.1";
+static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 3.1.0";
+static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 3.1.0";
 
 static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;

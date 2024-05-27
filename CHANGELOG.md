@@ -1,4 +1,4 @@
-# 3.1.0 (TBD)
+# 3.1.0 (2024-05-27)
 
 This release gathers fixes and improvements made during many months of continuous development on the main branch, mostly based on issues and pull requests on GitHub.
 

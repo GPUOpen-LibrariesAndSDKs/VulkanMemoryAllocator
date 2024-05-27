@@ -146,7 +146,7 @@ The VulkanMemoryAllocator port in vcpkg is kept up to date by Microsoft team mem
 
 # Binaries
 
-The release comes with precompiled binary executable for "VulkanSample" application which contains test suite. It is compiled using Visual Studio 2019, so it requires appropriate libraries to work, including "MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll". If the launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable for Visual Studio 2015, 2017 and 2019](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "x64" version.
+The release comes with precompiled binary executable for "VulkanSample" application which contains test suite. It is compiled using Visual Studio 2022, so it requires appropriate libraries to work, including "MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll". If the launch fails with error message telling about those files missing, please download and install [Microsoft Visual C++ Redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads), "X64" version.
 
 # Read more
 

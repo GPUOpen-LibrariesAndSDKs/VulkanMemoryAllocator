@@ -182,7 +182,7 @@ When not to use custom pools</h1>
 </ul>
 <p>Many of the common concerns can be addressed in a different way than using custom pools:</p>
 <ul>
-<li>If you want to keep your allocations of certain size (small versus large) or certain lifetime (transient versus long lived) separate, you likely don't need to. VMA uses a high quality allocation algorithm that manages memory well in various cases. Please mesure and check if using custom pools provides a benefit.</li>
+<li>If you want to keep your allocations of certain size (small versus large) or certain lifetime (transient versus long lived) separate, you likely don't need to. VMA uses a high quality allocation algorithm that manages memory well in various cases. Please measure and check if using custom pools provides a benefit.</li>
 <li>If you want to keep your images and buffers separate, you don't need to. VMA respects <code>bufferImageGranularity</code> limit automatically.</li>
 <li>If you want to keep your mapped and not mapped allocations separate, you don't need to. VMA respects <code>nonCoherentAtomSize</code> limit automatically. It also maps only those <code>VkDeviceMemory</code> blocks that need to map any allocation. It even tries to keep mappable and non-mappable allocations in separate blocks to minimize the amount of mapped memory.</li>
 <li>If you want to choose a custom size for the default memory block, you can set it globally instead using <a class="el" href="struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a" title="Preferred size of a single VkDeviceMemory block to be allocated from large heaps &gt; 1 GiB....">VmaAllocatorCreateInfo::preferredLargeHeapBlockSize</a>.</li>
