@@ -14,10 +14,14 @@ endif()
 
 if (PROJECT_IS_TOP_LEVEL)
     include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
 
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(TARGETS VulkanMemoryAllocator EXPORT VulkanMemoryAllocatorConfig INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(EXPORT VulkanMemoryAllocatorConfig NAMESPACE "GPUOpen::" DESTINATION "share/cmake/VulkanMemoryAllocator")
+
+    write_basic_package_version_file(VulkanMemoryAllocatorConfigVersion.cmake COMPATIBILITY SameMajorVersion ARCH_INDEPENDENT)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/VulkanMemoryAllocatorConfigVersion.cmake" DESTINATION "share/cmake/VulkanMemoryAllocator")
 
     option(VMA_BUILD_DOCUMENTATION "Create and install the HTML based API documentation")
     if(VMA_BUILD_DOCUMENTATION)
