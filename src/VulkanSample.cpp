@@ -1583,17 +1583,6 @@ static void PrintMemoryTypes()
     }
 }
 
-#if 0
-template<typename It, typename MapFunc>
-inline VkDeviceSize MapSum(It beg, It end, MapFunc mapFunc)
-{
-    VkDeviceSize result = 0;
-    for(It it = beg; it != end; ++it)
-        result += mapFunc(*it);
-    return result;
-}
-#endif
-
 static bool CanCreateVertexBuffer(uint32_t allowedMemoryTypeBits)
 {
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
