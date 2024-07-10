@@ -1469,13 +1469,6 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     outInfo.pVulkanFunctions = &vulkanFunctions;
 #endif
 
-    // Uncomment to enable recording to CSV file.
-    /*
-    static VmaRecordSettings recordSettings = {};
-    recordSettings.pFilePath = "VulkanSample.csv";
-    outInfo.pRecordSettings = &recordSettings;
-    */
-
     // Uncomment to enable HeapSizeLimit.
     /*
     static std::array<VkDeviceSize, VK_MAX_MEMORY_HEAPS> heapSizeLimit;
