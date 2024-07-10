@@ -86,7 +86,7 @@ static std::vector<VkImageView> g_SwapchainImageViews;
 static std::vector<VkFramebuffer> g_Framebuffers;
 static VkCommandPool g_hCommandPool;
 static VkCommandBuffer g_MainCommandBuffers[COMMAND_BUFFER_COUNT];
-static VkFence g_MainCommandBufferExecutedFances[COMMAND_BUFFER_COUNT];
+static VkFence g_MainCommandBufferExecutedFences[COMMAND_BUFFER_COUNT];
 VkFence g_ImmediateFence;
 static uint32_t g_NextCommandBufferIndex;
 // Notice we need as many semaphores as there are swapchain images
@@ -2088,7 +2088,7 @@ static void InitializeApplication()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     for(size_t i = 0; i < COMMAND_BUFFER_COUNT; ++i)
     {
-        ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, g_Allocs, &g_MainCommandBufferExecutedFances[i]) );
+        ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, g_Allocs, &g_MainCommandBufferExecutedFences[i]) );
     }
 
     ERR_GUARD_VULKAN( vkCreateFence(g_hDevice, &fenceInfo, g_Allocs, &g_ImmediateFence) );
@@ -2226,10 +2226,10 @@ static void FinalizeApplication()
 
     for(size_t i = COMMAND_BUFFER_COUNT; i--; )
     {
-        if(g_MainCommandBufferExecutedFances[i] != VK_NULL_HANDLE)
+        if(g_MainCommandBufferExecutedFences[i] != VK_NULL_HANDLE)
         {
-            vkDestroyFence(g_hDevice, g_MainCommandBufferExecutedFances[i], g_Allocs);
-            g_MainCommandBufferExecutedFances[i] = VK_NULL_HANDLE;
+            vkDestroyFence(g_hDevice, g_MainCommandBufferExecutedFences[i], g_Allocs);
+            g_MainCommandBufferExecutedFences[i] = VK_NULL_HANDLE;
         }
     }
     if(g_MainCommandBuffers[0] != VK_NULL_HANDLE)
@@ -2290,7 +2290,7 @@ static void DrawFrame()
     // Begin main command buffer
     size_t cmdBufIndex = (g_NextCommandBufferIndex++) % COMMAND_BUFFER_COUNT;
     VkCommandBuffer hCommandBuffer = g_MainCommandBuffers[cmdBufIndex];
-    VkFence hCommandBufferExecutedFence = g_MainCommandBufferExecutedFances[cmdBufIndex];
+    VkFence hCommandBufferExecutedFence = g_MainCommandBufferExecutedFences[cmdBufIndex];
 
     ERR_GUARD_VULKAN( vkWaitForFences(g_hDevice, 1, &hCommandBufferExecutedFence, VK_TRUE, UINT64_MAX) );
     ERR_GUARD_VULKAN( vkResetFences(g_hDevice, 1, &hCommandBufferExecutedFence) );
