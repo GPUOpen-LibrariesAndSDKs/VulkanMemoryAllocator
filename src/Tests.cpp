@@ -42,7 +42,7 @@ extern bool VK_KHR_maintenance5_enabled;
 extern PFN_vkGetBufferDeviceAddressKHR g_vkGetBufferDeviceAddressKHR;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
-void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const char* name);
+void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const std::string&);
 
 #ifndef VMA_DEBUG_MARGIN
     #define VMA_DEBUG_MARGIN 0
