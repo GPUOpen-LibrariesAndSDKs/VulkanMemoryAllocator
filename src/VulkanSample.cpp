@@ -262,29 +262,15 @@ struct CommandLineParameters
     }
 } g_CommandLineParameters;
 
-void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, std::string name)
+void SetDebugUtilsObjectName(VkObjectType type, uint64_t handle, const std::string &name)
 {
-    TEST(!name.empty());
-
-    // We must make sure the std::string we pass as name is still valid memory until the program ends.
-    // Since Vulkan is a C-Style API, it only accepts const char* as pObjectName parameter.
-    // Naming objects with unformatted names like "g_hTemporaryCommandBuffer" is no problem because
-    // this string ends up in the read-only data section of the program. However, if we for example want to
-    // name every item in a dynamic array of items (swapchain images for example), we can only use a std::string,
-    // and we must make sure the object lifetime of that string does not end before it's read as pObjectName.
-    // Therefore, we store the strings as a static unordered_set here just to be sure.
-    // Do not use a std::vector because it would continue to grow, eventually running out of memory.
-    static std::unordered_set<std::string> debug_names;
-    auto result = debug_names.insert(name);
-    const char* pObjectName = result.first->c_str();
-
     if (vkSetDebugUtilsObjectNameEXT_Func == nullptr)
         return;
 
     VkDebugUtilsObjectNameInfoEXT info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
     info.objectType = type;
     info.objectHandle = handle;
-    info.pObjectName = pObjectName;
+    info.pObjectName = name.c_str();
     ERR_GUARD_VULKAN( vkSetDebugUtilsObjectNameEXT_Func(g_hDevice, &info) );
 }
 
