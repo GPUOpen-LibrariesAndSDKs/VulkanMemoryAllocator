@@ -18308,13 +18308,21 @@ Please check "CONFIGURATION SECTION" in the code to find macros that you can def
 before each include of this file or change directly in this file to provide
 your own implementation of basic facilities like assert, `min()` and `max()` functions,
 mutex, atomic etc.
-The library uses its own implementation of containers by default, but you can switch to using
-STL containers instead.
 
 For example, define `VMA_ASSERT(expr)` before including the library to provide
 custom implementation of the assertion, compatible with your project.
 By default it is defined to standard C `assert(expr)` in `_DEBUG` configuration
 and empty otherwise.
+
+Similarly, you can define `VMA_LEAK_LOG_FORMAT` macro to enable printing of leaked (unfreed) allocations,
+including their names and other parameters. Example:
+
+\code
+#define VMA_LEAK_LOG_FORMAT(format, ...) do { \
+        printf((format), __VA_ARGS__); \
+        printf("\n"); \
+    } while(false)
+\endcode
 
 \section config_Vulkan_functions Pointers to Vulkan functions
 

@@ -78,9 +78,14 @@ $(function() {
   <div class="headertitle"><div class="title">Configuration</div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each include of this file or change directly in this file to provide your own implementation of basic facilities like assert, <code>min()</code> and <code>max()</code> functions, mutex, atomic etc. The library uses its own implementation of containers by default, but you can switch to using STL containers instead.</p>
+<div class="textblock"><p>Please check "CONFIGURATION SECTION" in the code to find macros that you can define before each include of this file or change directly in this file to provide your own implementation of basic facilities like assert, <code>min()</code> and <code>max()</code> functions, mutex, atomic etc.</p>
 <p>For example, define <code>VMA_ASSERT(expr)</code> before including the library to provide custom implementation of the assertion, compatible with your project. By default it is defined to standard C <code>assert(expr)</code> in <code>_DEBUG</code> configuration and empty otherwise.</p>
-<h1><a class="anchor" id="config_Vulkan_functions"></a>
+<p>Similarly, you can define <code>VMA_LEAK_LOG_FORMAT</code> macro to enable printing of leaked (unfreed) allocations, including their names and other parameters. Example:</p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define VMA_LEAK_LOG_FORMAT(format, ...) do { \</span></div>
+<div class="line"><span class="preprocessor">        printf((format), __VA_ARGS__); \</span></div>
+<div class="line"><span class="preprocessor">        printf(&quot;\n&quot;); \</span></div>
+<div class="line"><span class="preprocessor">    } while(false)</span></div>
+</div><!-- fragment --><h1><a class="anchor" id="config_Vulkan_functions"></a>
 Pointers to Vulkan functions</h1>
 <p>There are multiple ways to import pointers to Vulkan functions in the library. In the simplest case you don't need to do anything. If the compilation or linking of your program or the initialization of the <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> doesn't work for you, you can try to reconfigure it.</p>
 <p>First, the allocator tries to fetch pointers to Vulkan functions linked statically, like this:</p>
