@@ -17048,7 +17048,7 @@ implementation whether the allocation succeeds or fails. You can change this beh
 by using #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag. With it, the allocation is
 not made if it would exceed the budget or if the budget is already exceeded.
 VMA then tries to make the allocation from the next eligible Vulkan memory type.
-The all of them fail, the call then fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+If all of them fail, the call then fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
 Example usage pattern may be to pass the #VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT flag
 when creating resources that are not essential for the application (e.g. the texture
 of a specific object) and not to pass it when creating critically important resources
