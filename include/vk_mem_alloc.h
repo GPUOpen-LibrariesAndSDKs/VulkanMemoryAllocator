@@ -6069,6 +6069,54 @@ private:
 
 #endif // _VMA_MAPPING_HYSTERESIS
 
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+class VmaWin32Handle
+{
+public:
+    VmaWin32Handle() noexcept : m_hHandle(VMA_NULL) { }
+    VmaWin32Handle(HANDLE hHandle) noexcept : m_hHandle(hHandle) { }
+    ~VmaWin32Handle() noexcept { if (m_hHandle != VMA_NULL) { ::CloseHandle(m_hHandle); } }
+    VMA_CLASS_NO_COPY_NO_MOVE(VmaWin32Handle)
+public:
+    VkResult Init(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) vkGetMemoryWin32HandleKHR) noexcept
+    {
+        VkResult res = VK_ERROR_FEATURE_NOT_PRESENT;
+        if (vkGetMemoryWin32HandleKHR != VMA_NULL)
+        {
+            VkMemoryGetWin32HandleInfoKHR handleInfo{ };
+            handleInfo.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+            handleInfo.memory = memory;
+            handleInfo.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+            res = vkGetMemoryWin32HandleKHR(device, &handleInfo, &m_hHandle);
+        }
+        return res;
+    }
+    HANDLE Duplicate(HANDLE hTargetProcess = VMA_NULL) const noexcept
+    {
+        if (!m_hHandle)
+            return m_hHandle;
+
+        HANDLE hCurrentProcess = ::GetCurrentProcess();
+        HANDLE hDupHandle = VMA_NULL;
+        if (!::DuplicateHandle(hCurrentProcess, m_hHandle, hTargetProcess ? hTargetProcess : hCurrentProcess, &hDupHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+        {
+            VMA_ASSERT(0 && "Failed to duplicate handle.");
+        }
+        return hDupHandle;
+    }
+    operator bool() const noexcept { return m_hHandle != VMA_NULL; }
+
+private:
+    HANDLE m_hHandle;
+};
+#else 
+class VmaWin32Handle
+{
+    void* placeholder = VMA_NULL;
+};
+#endif // VK_USE_PLATFORM_WIN32_KHR
+
+
 #ifndef _VMA_DEVICE_MEMORY_BLOCK
 /*
 Represents a single block of device memory (`VkDeviceMemory`) with all the
@@ -6135,7 +6183,12 @@ public:
         VkDeviceSize allocationLocalOffset,
         VkImage hImage,
         const void* pNext);
-
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    VkResult CreateWin32Handle(
+        const VmaAllocator hAllocator,
+        HANDLE hTargetProcess,
+        HANDLE* pHandle)noexcept;
+#endif // VK_USE_PLATFORM_WIN32_KHR
 private:
     VmaPool m_hParentPool; // VK_NULL_HANDLE if not belongs to custom pool.
     uint32_t m_MemoryTypeIndex;
@@ -6151,6 +6204,8 @@ private:
     VmaMappingHysteresis m_MappingHysteresis;
     uint32_t m_MapCount;
     void* m_pMappedData;
+
+    VmaWin32Handle m_Handle; // Win32 handle
 };
 #endif // _VMA_DEVICE_MEMORY_BLOCK
 
@@ -6236,6 +6291,10 @@ public:
     void PrintParameters(class VmaJsonWriter& json) const;
 #endif
 
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    VkResult GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* hHandle) const noexcept;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+
 private:
     // Allocation out of VmaDeviceMemoryBlock.
     struct BlockAllocation
@@ -6251,6 +6310,7 @@ private:
         void* m_pMappedData; // Not null means memory is mapped.
         VmaAllocation_T* m_Prev;
         VmaAllocation_T* m_Next;
+        VmaWin32Handle m_Handle; // Win32 handle
     };
     union
     {
@@ -10434,7 +10494,8 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
     m_Id(0),
     m_hMemory(VK_NULL_HANDLE),
     m_MapCount(0),
-    m_pMappedData(VMA_NULL) {}
+    m_pMappedData(VMA_NULL),
+    m_Handle(VMA_NULL) {}
 
 VmaDeviceMemoryBlock::~VmaDeviceMemoryBlock()
 {
@@ -10677,6 +10738,38 @@ VkResult VmaDeviceMemoryBlock::BindImageMemory(
     VmaMutexLock lock(m_MapAndBindMutex, hAllocator->m_UseMutex);
     return hAllocator->BindVulkanImage(m_hMemory, memoryOffset, hImage, pNext);
 }
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
+{
+    VMA_ASSERT(pHandle);
+    *pHandle = VMA_NULL;
+
+    // relieves the mutex
+    if (m_Handle)
+    {
+        *pHandle = m_Handle.Duplicate(hTargetProcess);
+        return VK_SUCCESS;
+    }
+
+    VmaMutexLock lock(m_MapAndBindMutex, hAllocator->m_UseMutex);
+    if (m_Handle)
+    {
+        *pHandle = m_Handle.Duplicate(hTargetProcess);
+        return VK_SUCCESS;
+    }
+
+    // Do we pass the function manually or use the one from the allocator?
+    VkResult res = m_Handle.Init(hAllocator->m_hDevice, m_hMemory, &vkGetMemoryWin32HandleKHR);
+    if (res != VK_SUCCESS)
+    {
+        return res;
+    }
+
+    *pHandle = m_Handle.Duplicate(hTargetProcess);
+    return VK_SUCCESS;
+}
+#endif // VK_USE_PLATFORM_WIN32_KHR
 #endif // _VMA_DEVICE_MEMORY_BLOCK_FUNCTIONS
 
 #ifndef _VMA_ALLOCATION_T_FUNCTIONS
@@ -10977,6 +11070,21 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
         json.WriteString(m_pName);
     }
 }
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+inline VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) const noexcept
+{
+    switch (m_Type)
+    {
+    case ALLOCATION_TYPE_BLOCK:
+        return m_BlockAllocation.m_Block->CreateWin32Handle(hAllocator, hTargetProcess, pHandle);
+    case ALLOCATION_TYPE_DEDICATED:
+        // return m_DedicatedAllocation.m_hMemory;
+    default:
+        VMA_ASSERT(0);
+        return VK_ERROR_FEATURE_NOT_PRESENT;
+    }
+}
+#endif // VK_USE_PLATFORM_WIN32_KHR
 #endif // VMA_STATS_STRING_ENABLED
 
 void VmaAllocation_T::FreeName(VmaAllocator hAllocator)
@@ -16429,6 +16537,15 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock V
         VmaFreeString(virtualBlock->GetAllocationCallbacks(), pStatsString);
     }
 }
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32HandleKHR(VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation, HANDLE hTargetProcess, HANDLE* pHandle)
+{
+    VMA_ASSERT(allocator && allocation);
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    return allocation->GetWin32Handle(allocator, hTargetProcess, pHandle);
+}
+#endif // VK_USE_PLATFORM_WIN32_KHR 
 #endif // VMA_STATS_STRING_ENABLED
 #endif // _VMA_PUBLIC_INTERFACE
 #endif // VMA_IMPLEMENTATION
