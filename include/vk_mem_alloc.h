@@ -461,6 +461,14 @@ typedef enum VmaAllocatorCreateFlagBits
     */
     VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT = 0x00000100,
 
+    /**
+    Enables usage of VK_KHR_external_memory_win32 extension in the library.
+
+    You should set this flag if you found available and enabled this device extension,
+    while creating Vulkan device passed as VmaAllocatorCreateInfo::device.
+    */
+    VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32 = 0x00000200,
+
     VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VmaAllocatorCreateFlagBits;
 /// See #VmaAllocatorCreateFlagBits.
@@ -1034,6 +1042,11 @@ typedef struct VmaVulkanFunctions
     PFN_vkGetDeviceBufferMemoryRequirementsKHR VMA_NULLABLE vkGetDeviceBufferMemoryRequirements;
     /// Fetch from "vkGetDeviceImageMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceImageMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
     PFN_vkGetDeviceImageMemoryRequirementsKHR VMA_NULLABLE vkGetDeviceImageMemoryRequirements;
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    PFN_vkGetMemoryWin32HandleKHR VMA_NULLABLE vkGetMemoryWin32HandleKHR;
+#else
+    void* VMA_NULLABLE vkGetMemoryWin32HandleKHR;
 #endif
 } VmaVulkanFunctions;
 
@@ -10176,6 +10189,7 @@ public:
     bool m_UseExtMemoryPriority;
     bool m_UseKhrMaintenance4;
     bool m_UseKhrMaintenance5;
+    bool m_UseKhrExternalMemoryWin32;
     const VkDevice m_hDevice;
     const VkInstance m_hInstance;
     const bool m_AllocationCallbacksSpecified;
@@ -11095,7 +11109,7 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
 VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) const noexcept
 {
     // Where do we get this function from?
-    auto pvkGetMemoryWin32HandleKHR = &vkGetMemoryWin32HandleKHR;
+    auto pvkGetMemoryWin32HandleKHR = hAllocator->GetVulkanFunctions().vkGetMemoryWin32HandleKHR;
     switch (m_Type)
     {
     case ALLOCATION_TYPE_BLOCK:
@@ -12838,6 +12852,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     m_UseExtMemoryPriority((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT) != 0),
     m_UseKhrMaintenance4((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT) != 0),
     m_UseKhrMaintenance5((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT) != 0),
+    m_UseKhrExternalMemoryWin32((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32) != 0),
     m_hDevice(pCreateInfo->device),
     m_hInstance(pCreateInfo->instance),
     m_AllocationCallbacksSpecified(pCreateInfo->pAllocationCallbacks != VMA_NULL),
@@ -12925,6 +12940,19 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
 #endif
 #if !(VMA_KHR_MAINTENANCE5)
     if(m_UseKhrMaintenance5)
+    {
+        VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT is set but required extension is not available in your Vulkan header or its support in VMA has been disabled by a preprocessor macro.");
+    }
+#endif
+#if !(VMA_KHR_MAINTENANCE5)
+    if(m_UseKhrMaintenance5)
+    {
+        VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT is set but required extension is not available in your Vulkan header or its support in VMA has been disabled by a preprocessor macro.");
+    }
+#endif
+
+#if !defined(VK_USE_PLATFORM_WIN32_KHR)
+    if(m_UseKhrExternalMemoryWin32)
     {
         VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT is set but required extension is not available in your Vulkan header or its support in VMA has been disabled by a preprocessor macro.");
     }
@@ -13104,6 +13132,11 @@ void VmaAllocator_T::ImportVulkanFunctions_Static()
         m_VulkanFunctions.vkGetDeviceImageMemoryRequirements = (PFN_vkGetDeviceImageMemoryRequirements)vkGetDeviceImageMemoryRequirements;
     }
 #endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    m_VulkanFunctions.vkGetMemoryWin32HandleKHR = (PFN_vkGetMemoryWin32HandleKHR)vkGetMemoryWin32HandleKHR;
+#else 
+    m_VulkanFunctions.vkGetMemoryWin32HandleKHR = VMA_NULL;
+#endif
 }
 
 #endif // VMA_STATIC_VULKAN_FUNCTIONS == 1
@@ -13153,7 +13186,9 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
     VMA_COPY_IF_NOT_NULL(vkGetDeviceBufferMemoryRequirements);
     VMA_COPY_IF_NOT_NULL(vkGetDeviceImageMemoryRequirements);
 #endif
-
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    VMA_COPY_IF_NOT_NULL(vkGetMemoryWin32HandleKHR);
+#endif
 #undef VMA_COPY_IF_NOT_NULL
 }
 
@@ -13255,7 +13290,12 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
         VMA_FETCH_DEVICE_FUNC(vkGetDeviceImageMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirementsKHR, "vkGetDeviceImageMemoryRequirementsKHR");
     }
 #endif
-
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    if (m_UseKhrExternalMemoryWin32)
+    {
+        VMA_FETCH_DEVICE_FUNC(vkGetMemoryWin32HandleKHR, PFN_vkGetMemoryWin32HandleKHR, "vkGetMemoryWin32HandleKHR");
+    }
+#endif
 #undef VMA_FETCH_DEVICE_FUNC
 #undef VMA_FETCH_INSTANCE_FUNC
 }
@@ -13302,6 +13342,12 @@ void VmaAllocator_T::ValidateVulkanFunctions()
     if(m_UseExtMemoryBudget || m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
         VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR != VMA_NULL);
+    }
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    if (m_UseKhrExternalMemoryWin32)
+    {
+        VMA_ASSERT(m_VulkanFunctions.vkGetMemoryWin32HandleKHR != VMA_NULL);
     }
 #endif
 
