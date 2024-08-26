@@ -6077,41 +6077,85 @@ public:
     VmaWin32Handle(HANDLE hHandle) noexcept : m_hHandle(hHandle) { }
     ~VmaWin32Handle() noexcept { if (m_hHandle != VMA_NULL) { ::CloseHandle(m_hHandle); } }
     VMA_CLASS_NO_COPY_NO_MOVE(VmaWin32Handle)
+
 public:
-    VkResult Init(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) vkGetMemoryWin32HandleKHR) noexcept
+    // Strengthened
+    VkResult GetHandle(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
+    {
+        *pHandle = VMA_NULL;
+        // We only care about atomicity of handle retrieval, not about memory order.
+        HANDLE handle = m_hHandle.load(std::memory_order_relaxed);
+
+        // Try to get handle first.
+        if (handle != VMA_NULL)
+        {
+            *pHandle = Duplicate(hTargetProcess);
+            return VK_SUCCESS;
+        }
+
+        HANDLE hCreatedHandle = VMA_NULL;
+
+        // If failed, try to create it.
+        VkResult res = Create(device, memory, pvkGetMemoryWin32HandleKHR, &hCreatedHandle);
+        if (res == VK_SUCCESS)
+        {
+            // Successfully created handle, try to set it.
+            if (!m_hHandle.compare_exchange_strong(handle, hCreatedHandle, std::memory_order_relaxed))
+            {
+                // AMD workaround
+                if (hCreatedHandle != m_hHandle.load(std::memory_order_relaxed))
+                {
+                    ::CloseHandle(hCreatedHandle);
+                }
+            }
+        }
+
+        // If somehow it was set in the meantime, return it.
+        if (m_hHandle.load(std::memory_order_relaxed))
+        {
+            *pHandle = Duplicate(hTargetProcess);
+            return VK_SUCCESS;
+    }
+        return res;
+}
+
+    operator bool() const noexcept { return m_hHandle != VMA_NULL; }
+private:
+    // Not atomic
+    static VkResult Create(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE* pHandle) noexcept
     {
         VkResult res = VK_ERROR_FEATURE_NOT_PRESENT;
-        if (vkGetMemoryWin32HandleKHR != VMA_NULL)
+        if (pvkGetMemoryWin32HandleKHR != VMA_NULL)
         {
             VkMemoryGetWin32HandleInfoKHR handleInfo{ };
             handleInfo.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
             handleInfo.memory = memory;
             handleInfo.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
-            res = vkGetMemoryWin32HandleKHR(device, &handleInfo, &m_hHandle);
+            res = pvkGetMemoryWin32HandleKHR(device, &handleInfo, pHandle);
         }
         return res;
     }
     HANDLE Duplicate(HANDLE hTargetProcess = VMA_NULL) const noexcept
     {
-        if (!m_hHandle)
-            return m_hHandle;
+        HANDLE handle = m_hHandle.load(std::memory_order_relaxed);
+        if (!handle)
+            return handle;
 
         HANDLE hCurrentProcess = ::GetCurrentProcess();
         HANDLE hDupHandle = VMA_NULL;
-        if (!::DuplicateHandle(hCurrentProcess, m_hHandle, hTargetProcess ? hTargetProcess : hCurrentProcess, &hDupHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+        if (!::DuplicateHandle(hCurrentProcess, handle, hTargetProcess ? hTargetProcess : hCurrentProcess, &hDupHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
         {
             VMA_ASSERT(0 && "Failed to duplicate handle.");
         }
         return hDupHandle;
     }
-    operator bool() const noexcept { return m_hHandle != VMA_NULL; }
-
 private:
-    HANDLE m_hHandle;
+    std::atomic<HANDLE> m_hHandle;
 };
 #else 
 class VmaWin32Handle
 {
+    // ABI compatibility
     void* placeholder = VMA_NULL;
 };
 #endif // VK_USE_PLATFORM_WIN32_KHR
@@ -6186,6 +6230,7 @@ public:
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     VkResult CreateWin32Handle(
         const VmaAllocator hAllocator,
+        decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR,
         HANDLE hTargetProcess,
         HANDLE* pHandle)noexcept;
 #endif // VK_USE_PLATFORM_WIN32_KHR
@@ -6310,7 +6355,7 @@ private:
         void* m_pMappedData; // Not null means memory is mapped.
         VmaAllocation_T* m_Prev;
         VmaAllocation_T* m_Next;
-        VmaWin32Handle m_Handle; // Win32 handle
+        mutable VmaWin32Handle m_Handle; // Win32 handle
     };
     union
     {
@@ -10740,34 +10785,10 @@ VkResult VmaDeviceMemoryBlock::BindImageMemory(
 }
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
+VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
     VMA_ASSERT(pHandle);
-    *pHandle = VMA_NULL;
-
-    // relieves the mutex
-    if (m_Handle)
-    {
-        *pHandle = m_Handle.Duplicate(hTargetProcess);
-        return VK_SUCCESS;
-    }
-
-    VmaMutexLock lock(m_MapAndBindMutex, hAllocator->m_UseMutex);
-    if (m_Handle)
-    {
-        *pHandle = m_Handle.Duplicate(hTargetProcess);
-        return VK_SUCCESS;
-    }
-
-    // Do we pass the function manually or use the one from the allocator?
-    VkResult res = m_Handle.Init(hAllocator->m_hDevice, m_hMemory, &vkGetMemoryWin32HandleKHR);
-    if (res != VK_SUCCESS)
-    {
-        return res;
-    }
-
-    *pHandle = m_Handle.Duplicate(hTargetProcess);
-    return VK_SUCCESS;
+    return m_Handle.GetHandle(hAllocator->m_hDevice, m_hMemory, &vkGetMemoryWin32HandleKHR, hTargetProcess, pHandle);
 }
 #endif // VK_USE_PLATFORM_WIN32_KHR
 #endif // _VMA_DEVICE_MEMORY_BLOCK_FUNCTIONS
@@ -11071,14 +11092,16 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
     }
 }
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-inline VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) const noexcept
+VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) const noexcept
 {
+    // Where do we get this function from?
+    auto pvkGetMemoryWin32HandleKHR = &vkGetMemoryWin32HandleKHR;
     switch (m_Type)
     {
     case ALLOCATION_TYPE_BLOCK:
-        return m_BlockAllocation.m_Block->CreateWin32Handle(hAllocator, hTargetProcess, pHandle);
+        return m_BlockAllocation.m_Block->CreateWin32Handle(hAllocator, pvkGetMemoryWin32HandleKHR, hTargetProcess, pHandle);
     case ALLOCATION_TYPE_DEDICATED:
-        // return m_DedicatedAllocation.m_hMemory;
+        return m_DedicatedAllocation.m_Handle.GetHandle(hAllocator->m_hDevice, m_DedicatedAllocation.m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, pHandle);
     default:
         VMA_ASSERT(0);
         return VK_ERROR_FEATURE_NOT_PRESENT;
