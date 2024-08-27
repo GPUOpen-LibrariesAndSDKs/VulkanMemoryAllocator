@@ -2466,6 +2466,7 @@ PREDEFINED             = VMA_CALL_PRE= \
                          VMA_MEMORY_PRIORITY=1 \
                          VMA_KHR_MAINTENANCE4=1 \
                          VMA_KHR_MAINTENANCE5=1 \
+                         VMA_EXTERNAL_MEMORY_WIN32=1 \
                          VMA_EXTERNAL_MEMORY=1 \
                          VMA_EXTENDS_VK_STRUCT= \
                          VMA_STATS_STRING_ENABLED=1

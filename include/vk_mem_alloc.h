@@ -242,7 +242,7 @@ extern "C" {
     #endif
 #endif
 
-// Defined to 1 when VK_KHR_external_memory device extension is defined in Vulkan headers.
+// Defined to 1 when VK_KHR_external_memory_win32 device extension is defined in Vulkan headers.
 #if !defined(VMA_EXTERNAL_MEMORY_WIN32)
     #if VK_KHR_external_memory_win32
         #define VMA_EXTERNAL_MEMORY_WIN32 1
@@ -1052,7 +1052,7 @@ typedef struct VmaVulkanFunctions
     /// Fetch from "vkGetDeviceImageMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceImageMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
     PFN_vkGetDeviceImageMemoryRequirementsKHR VMA_NULLABLE vkGetDeviceImageMemoryRequirements;
 #endif
-#ifdef VK_USE_PLATFORM_WIN32_KHR
+#ifdef VMA_EXTERNAL_MEMORY_WIN32
     PFN_vkGetMemoryWin32HandleKHR VMA_NULLABLE vkGetMemoryWin32HandleKHR;
 #else
     void* VMA_NULLABLE vkGetMemoryWin32HandleKHR;
@@ -6096,7 +6096,7 @@ class VmaWin32Handle
 {
 public:
     VmaWin32Handle() noexcept : m_hHandle(VMA_NULL) { }
-    VmaWin32Handle(HANDLE hHandle) noexcept : m_hHandle(hHandle) { }
+    explicit VmaWin32Handle(HANDLE hHandle) noexcept : m_hHandle(hHandle) { }
     ~VmaWin32Handle() noexcept { if (m_hHandle != VMA_NULL) { ::CloseHandle(m_hHandle); } }
     VMA_CLASS_NO_COPY_NO_MOVE(VmaWin32Handle)
 
@@ -6105,32 +6105,26 @@ public:
     VkResult GetHandle(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, bool useMutex, HANDLE* pHandle) noexcept
     {
         *pHandle = VMA_NULL;
-        // We only care about atomicity of handle retrieval, not about memory order.
-        HANDLE handle = m_hHandle.load(std::memory_order_relaxed);
-
         // Try to get handle first.
-        if (handle != VMA_NULL)
+        if (m_hHandle != VMA_NULL)
         {
             *pHandle = Duplicate(hTargetProcess);
             return VK_SUCCESS;
         }
 
-        HANDLE hCreatedHandle = VMA_NULL;
-
         VkResult res = VK_SUCCESS;
         // If failed, try to create it.
         {
             VmaMutexLockWrite lock(m_Mutex, useMutex);
-            if (m_hHandle.load(std::memory_order_relaxed) == VMA_NULL)
+            if (m_hHandle == VMA_NULL)
             {
-                VkResult res = Create(device, memory, pvkGetMemoryWin32HandleKHR, &hCreatedHandle);
-                m_hHandle.store(hCreatedHandle, std::memory_order_relaxed);
+                res = Create(device, memory, pvkGetMemoryWin32HandleKHR, &m_hHandle);
             }
         }
 
         *pHandle = Duplicate(hTargetProcess);
         return res;
-}
+    }
 
     operator bool() const noexcept { return m_hHandle != VMA_NULL; }
 private:
@@ -6150,20 +6144,19 @@ private:
     }
     HANDLE Duplicate(HANDLE hTargetProcess = VMA_NULL) const noexcept
     {
-        HANDLE handle = m_hHandle.load(std::memory_order_relaxed);
-        if (!handle)
-            return handle;
+        if (!m_hHandle)
+            return m_hHandle;
 
         HANDLE hCurrentProcess = ::GetCurrentProcess();
         HANDLE hDupHandle = VMA_NULL;
-        if (!::DuplicateHandle(hCurrentProcess, handle, hTargetProcess ? hTargetProcess : hCurrentProcess, &hDupHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+        if (!::DuplicateHandle(hCurrentProcess, m_hHandle, hTargetProcess ? hTargetProcess : hCurrentProcess, &hDupHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
         {
             VMA_ASSERT(0 && "Failed to duplicate handle.");
         }
         return hDupHandle;
     }
 private:
-    std::atomic<HANDLE> m_hHandle;
+    HANDLE m_hHandle;
     VMA_RW_MUTEX m_Mutex; // Protects access m_Handle
 };
 #else 
@@ -10804,7 +10797,7 @@ VkResult VmaDeviceMemoryBlock::BindImageMemory(
 VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
     VMA_ASSERT(pHandle);
-    return m_Handle.GetHandle(hAllocator->m_hDevice, m_hMemory, &vkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
+    return m_Handle.GetHandle(hAllocator->m_hDevice, m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
 }
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 #endif // _VMA_DEVICE_MEMORY_BLOCK_FUNCTIONS
