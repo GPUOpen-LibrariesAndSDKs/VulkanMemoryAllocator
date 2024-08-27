@@ -2074,6 +2074,21 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
     VmaAllocation VMA_NOT_NULL allocation,
     VkMemoryPropertyFlags* VMA_NOT_NULL pFlags);
 
+
+#if VMA_EXTERNAL_MEMORY_WIN32
+/**
+\brief Given an allocation, returns Win32 Handle, that may be imported by other processes or APIs.
+
+`hTargetProcess` must be a valid handle to target process or NULL. If it's `NULL`, the function returns
+handle for the current process.
+
+If the allocation was created with `VMA_ALLOCATION_CREATE_EXPORT_WIN32_HANDLE_BIT` flag,
+the function fills `pHandle` with handle that can be used in target process.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32HandleKHR(VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation, HANDLE hTargetProcess, HANDLE* VMA_NOT_NULL pHandle);
+#endif // VMA_EXTERNAL_MEMORY_WIN32
+
 /** \brief Maps memory represented by given allocation and returns pointer to it.
 
 Maps memory represented by given allocation to make it accessible to CPU code.
@@ -6345,7 +6360,7 @@ public:
 #endif
 
 #if VMA_EXTERNAL_MEMORY_WIN32
-    VkResult GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* hHandle) const noexcept;
+    VkResult GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* hHandle) noexcept;
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 
 private:
@@ -6363,7 +6378,7 @@ private:
         void* m_pMappedData; // Not null means memory is mapped.
         VmaAllocation_T* m_Prev;
         VmaAllocation_T* m_Next;
-        mutable VmaWin32Handle m_Handle; // Win32 handle
+        VmaWin32Handle m_Handle; // Win32 handle
     };
     union
     {
@@ -11101,7 +11116,7 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
     }
 }
 #if VMA_EXTERNAL_MEMORY_WIN32
-VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) const noexcept
+VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
     // Where do we get this function from?
     auto pvkGetMemoryWin32HandleKHR = hAllocator->GetVulkanFunctions().vkGetMemoryWin32HandleKHR;
@@ -13126,12 +13141,6 @@ void VmaAllocator_T::ImportVulkanFunctions_Static()
         m_VulkanFunctions.vkGetDeviceBufferMemoryRequirements = (PFN_vkGetDeviceBufferMemoryRequirements)vkGetDeviceBufferMemoryRequirements;
         m_VulkanFunctions.vkGetDeviceImageMemoryRequirements = (PFN_vkGetDeviceImageMemoryRequirements)vkGetDeviceImageMemoryRequirements;
     }
-#endif
-#if VMA_EXTERNAL_MEMORY_WIN32
-    // Can only be fetched dynamically
-    m_VulkanFunctions.vkGetMemoryWin32HandleKHR = (PFN_vkGetMemoryWin32HandleKHR)m_VulkanFunctions.vkGetDeviceProcAddr(m_hDevice, "vkGetMemoryWin32HandleKHR");
-#else 
-    m_VulkanFunctions.vkGetMemoryWin32HandleKHR = VMA_NULL;
 #endif
 }
 
@@ -16604,7 +16613,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock V
 }
 #if VMA_EXTERNAL_MEMORY_WIN32
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32HandleKHR(VmaAllocator VMA_NOT_NULL allocator,
-    VmaAllocation VMA_NOT_NULL allocation, HANDLE hTargetProcess, HANDLE* pHandle)
+    VmaAllocation VMA_NOT_NULL allocation, HANDLE hTargetProcess, HANDLE* VMA_NOT_NULL pHandle)
 {
     VMA_ASSERT(allocator && allocation);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
