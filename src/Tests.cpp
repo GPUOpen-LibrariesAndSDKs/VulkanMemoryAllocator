@@ -8258,15 +8258,50 @@ static void TestWin32Handles()
 {
 #if VMA_EXTERNAL_MEMORY_WIN32
     wprintf(L"Test Win32 handles\n");
-    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufCreateInfo.size = 1024;
-    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    constexpr static VkExportMemoryAllocateInfoKHR exportInfo{
+        VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
+        nullptr,
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+    };
+    constexpr static VkExternalMemoryBufferCreateInfoKHR externalInfo{
+        VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
+        nullptr,
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+    };
+
+    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    sampleBufCreateInfo.size = 0x1000; // Doesn't matter.
+    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    sampleBufCreateInfo.pNext = &externalInfo;
+
+    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
+    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    sampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+
+    uint32_t memTypeIndex;
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator,
+        &sampleBufCreateInfo, &sampleAllocCreateInfo, &memTypeIndex) == VK_SUCCESS);
+    // Check res...
+
+
+    // Create a pool that can have at most 2 blocks, 128 MiB each.
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.memoryTypeIndex = memTypeIndex;
+    poolCreateInfo.blockSize = 128ull * 1024 * 1024;
+    poolCreateInfo.maxBlockCount = 2;
+    poolCreateInfo.pMemoryAllocateNext = (void*)&exportInfo;
+
+
+    VmaPool pool;
+    TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+
+
+    sampleAllocCreateInfo.pool = pool;
+
     VkBuffer buf;
     VmaAllocation alloc;
     VmaAllocationInfo allocInfo;
-    TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, &allocInfo) == VK_SUCCESS);
+    TEST(vmaCreateBuffer(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &buf, &alloc, &allocInfo) == VK_SUCCESS);
     HANDLE handle;
     HANDLE handle2;
     TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
