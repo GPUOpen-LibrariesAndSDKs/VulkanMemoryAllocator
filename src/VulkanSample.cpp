@@ -32,7 +32,7 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
-static const char* const SHADER_PATH1 = "./";
+static const char* const SHADER_PATH1 = "./Shaders/";
 static const char* const SHADER_PATH2 = "../bin/";
 static const wchar_t* const WINDOW_CLASS_NAME = L"VULKAN_MEMORY_ALLOCATOR_SAMPLE";
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
@@ -1884,7 +1884,7 @@ static void InitializeApplication()
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_MAINTENANCE_5_EXTENSION_NAME) == 0)
             VK_KHR_maintenance5_enabled = true;
         else if (strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) == 0)
-            VK_KHR_external_memory_win32_enabled = true;
+            VK_KHR_external_memory_win32_enabled = VMA_DYNAMIC_VULKAN_FUNCTIONS;
     }
 
     if(GetVulkanApiVersion() >= VK_API_VERSION_1_2)

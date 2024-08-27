@@ -8313,6 +8313,8 @@ static void TestWin32Handles()
     vmaDestroyBuffer(g_hAllocator, buf, alloc);
     TEST(CloseHandle(handle));
     TEST(CloseHandle(handle2));
+
+    vmaDestroyPool(g_hAllocator, pool);
 #endif
 }
 

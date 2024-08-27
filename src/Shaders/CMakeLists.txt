@@ -17,12 +17,20 @@ foreach(SHADER ${SHADERS})
     get_filename_component(FILE_NAME ${SHADER} NAME)
     
     # Put the .spv files into the bin folder
+    set(SPIRV_BIN ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}.spv)
     set(SPIRV ${PROJECT_SOURCE_DIR}/bin/${FILE_NAME}.spv)
+
 
     add_custom_command(
         OUTPUT ${SPIRV}
         # Use the same file name and append .spv to the compiled shader
         COMMAND ${GLSL_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/${SHADER} -o ${SPIRV}
+        DEPENDS ${SHADER}
+    )
+    add_custom_command(
+        OUTPUT ${SPIRV_BIN}
+        # Use the same file name and append .spv to the compiled shader
+        COMMAND ${GLSL_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/${SHADER} -o ${SPIRV_BIN}
         DEPENDS ${SHADER}
     )
 
