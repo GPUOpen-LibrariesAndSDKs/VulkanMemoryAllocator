@@ -13128,7 +13128,8 @@ void VmaAllocator_T::ImportVulkanFunctions_Static()
     }
 #endif
 #if VMA_EXTERNAL_MEMORY_WIN32
-    m_VulkanFunctions.vkGetMemoryWin32HandleKHR = (PFN_vkGetMemoryWin32HandleKHR)vkGetMemoryWin32HandleKHR;
+    // Can only be fetched dynamically
+    m_VulkanFunctions.vkGetMemoryWin32HandleKHR = (PFN_vkGetMemoryWin32HandleKHR)m_VulkanFunctions.vkGetDeviceProcAddr(m_hDevice, "vkGetMemoryWin32HandleKHR");
 #else 
     m_VulkanFunctions.vkGetMemoryWin32HandleKHR = VMA_NULL;
 #endif
