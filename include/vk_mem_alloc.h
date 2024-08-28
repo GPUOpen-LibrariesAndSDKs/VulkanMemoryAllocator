@@ -18929,6 +18929,9 @@ res = vmaCreateBuffer(g_Allocator, &bufCreateInfo, &allocCreateInfo, &buf, &allo
 vmaDestroyBuffer(g_Allocator, buf, alloc);
 \endcode
 
+If you need each allocation to have its own device memory block and start at offset 0, you can still do 
+by using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag. It works also with custom pools.
+
 \section vk_khr_external_memory_win32_exporting_win32_handle Exporting Win32 handle
 
 After the allocation is created, you can acquire a Win32 `HANDLE` to the `VkDeviceMemory` block it belongs to.
