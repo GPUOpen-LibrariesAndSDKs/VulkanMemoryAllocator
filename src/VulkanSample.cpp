@@ -32,7 +32,7 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
-static const char* const SHADER_PATH1 = "./";
+static const char* const SHADER_PATH1 = "./Shaders/";
 static const char* const SHADER_PATH2 = "../bin/";
 static const wchar_t* const WINDOW_CLASS_NAME = L"VULKAN_MEMORY_ALLOCATOR_SAMPLE";
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
@@ -69,6 +69,7 @@ bool VK_KHR_buffer_device_address_enabled = false;
 bool VK_EXT_memory_priority_enabled = false;
 bool VK_EXT_debug_utils_enabled = false;
 bool VK_KHR_maintenance5_enabled = false;
+bool VK_KHR_external_memory_win32_enabled = false;
 bool g_SparseBindingEnabled = false;
 
 // # Pointers to functions from extensions
@@ -1449,6 +1450,7 @@ static void PrintEnabledFeatures()
     }
     wprintf(L"VK_EXT_memory_priority: %d\n", VK_EXT_memory_priority_enabled ? 1 : 0);
     wprintf(L"VK_KHR_maintenance5: %d\n", VK_KHR_maintenance5_enabled? 1 : 0);
+    wprintf(L"VK_KHR_external_memory_win32: %d\n", VK_KHR_external_memory_win32_enabled ? 1 : 0);
 }
 
 void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
@@ -1492,6 +1494,11 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     if(VK_KHR_maintenance5_enabled)
     {
         outInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT;
+    }
+
+    if(VK_KHR_external_memory_win32_enabled)
+    {
+        outInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT;
     }
 
     if(USE_CUSTOM_CPU_ALLOCATION_CALLBACKS)
@@ -1876,6 +1883,8 @@ static void InitializeApplication()
             VK_EXT_memory_priority_enabled = true;
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_MAINTENANCE_5_EXTENSION_NAME) == 0)
             VK_KHR_maintenance5_enabled = true;
+        else if (strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) == 0)
+            VK_KHR_external_memory_win32_enabled = VMA_DYNAMIC_VULKAN_FUNCTIONS;
     }
 
     if(GetVulkanApiVersion() >= VK_API_VERSION_1_2)
@@ -2036,6 +2045,8 @@ static void InitializeApplication()
         enabledDeviceExtensions.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
     if(VK_KHR_maintenance5_enabled)
         enabledDeviceExtensions.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
+    if (VK_KHR_external_memory_win32_enabled)
+        enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 
     VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     deviceFeatures.features.samplerAnisotropy = VK_TRUE;
