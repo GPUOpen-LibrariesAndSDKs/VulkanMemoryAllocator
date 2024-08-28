@@ -6138,7 +6138,7 @@ public:
 
 public:
     // Strengthened
-    VkResult GetHandle(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, bool useMutex, HANDLE* pHandle) noexcept
+    VkResult GetHandle(VkDevice device, VkDeviceMemory memory, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, bool useMutex, HANDLE* pHandle) noexcept
     {
         *pHandle = VMA_NULL;
         // Try to get handle first.
@@ -6165,7 +6165,7 @@ public:
     operator bool() const noexcept { return m_hHandle != VMA_NULL; }
 private:
     // Not atomic
-    static VkResult Create(VkDevice device, VkDeviceMemory memory, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE* pHandle) noexcept
+    static VkResult Create(VkDevice device, VkDeviceMemory memory, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, HANDLE* pHandle) noexcept
     {
         VkResult res = VK_ERROR_FEATURE_NOT_PRESENT;
         if (pvkGetMemoryWin32HandleKHR != VMA_NULL)
@@ -6274,7 +6274,7 @@ public:
 #if VMA_EXTERNAL_MEMORY_WIN32
     VkResult CreateWin32Handle(
         const VmaAllocator hAllocator,
-        decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR,
+        PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR,
         HANDLE hTargetProcess,
         HANDLE* pHandle)noexcept;
 #endif // VMA_EXTERNAL_MEMORY_WIN32
@@ -10839,7 +10839,7 @@ VkResult VmaDeviceMemoryBlock::BindImageMemory(
 }
 
 #if VMA_EXTERNAL_MEMORY_WIN32
-VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, decltype(&vkGetMemoryWin32HandleKHR) pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
+VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
     VMA_ASSERT(pHandle);
     return m_Handle.GetHandle(hAllocator->m_hDevice, m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
