@@ -8281,7 +8281,6 @@ static void TestWin32Handles()
     TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator,
         &bufCreateInfo, &allocCreateInfo, &memTypeIndex) == VK_SUCCESS);
 
-    // Create a pool that can have at most 2 blocks, 128 MiB each.
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.memoryTypeIndex = memTypeIndex;
     poolCreateInfo.pMemoryAllocateNext = (void*)&exportMemAllocInfo;
@@ -8301,9 +8300,9 @@ static void TestWin32Handles()
         TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr) == VK_SUCCESS);
         HANDLE handle = NULL;
         HANDLE handle2 = NULL;
-        TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
+        TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
         TEST(handle != nullptr);
-        TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle2) == VK_SUCCESS);
+        TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle2) == VK_SUCCESS);
         TEST(handle2 != nullptr);
         TEST(handle2 != handle);
 

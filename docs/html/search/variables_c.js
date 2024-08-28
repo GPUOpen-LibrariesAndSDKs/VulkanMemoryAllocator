@@ -20,11 +20,12 @@ var searchData=
   ['vkgetimagememoryrequirements_17',['vkGetImageMemoryRequirements',['../struct_vma_vulkan_functions.html#a475f6f49f8debe4d10800592606d53f4',1,'VmaVulkanFunctions']]],
   ['vkgetimagememoryrequirements2khr_18',['vkGetImageMemoryRequirements2KHR',['../struct_vma_vulkan_functions.html#a9cdcdc1e2b2ea7c571f7d27e30ba6875',1,'VmaVulkanFunctions']]],
   ['vkgetinstanceprocaddr_19',['vkGetInstanceProcAddr',['../struct_vma_vulkan_functions.html#a3eafa102f5f8915f093f40675636b849',1,'VmaVulkanFunctions']]],
-  ['vkgetphysicaldevicememoryproperties_20',['vkGetPhysicalDeviceMemoryProperties',['../struct_vma_vulkan_functions.html#a60d25c33bba06bb8592e6875cbaa9830',1,'VmaVulkanFunctions']]],
-  ['vkgetphysicaldevicememoryproperties2khr_21',['vkGetPhysicalDeviceMemoryProperties2KHR',['../struct_vma_vulkan_functions.html#a0d992896e6ffcf92b9d7ea049fa5c445',1,'VmaVulkanFunctions']]],
-  ['vkgetphysicaldeviceproperties_22',['vkGetPhysicalDeviceProperties',['../struct_vma_vulkan_functions.html#a77b7a74082823e865dd6546623468f96',1,'VmaVulkanFunctions']]],
-  ['vkinvalidatemappedmemoryranges_23',['vkInvalidateMappedMemoryRanges',['../struct_vma_vulkan_functions.html#a5c1093bc32386a8060c37c9f282078a1',1,'VmaVulkanFunctions']]],
-  ['vkmapmemory_24',['vkMapMemory',['../struct_vma_vulkan_functions.html#ab5c1f38dea3a2cf00dc9eb4f57218c49',1,'VmaVulkanFunctions']]],
-  ['vkunmapmemory_25',['vkUnmapMemory',['../struct_vma_vulkan_functions.html#acc798589736f0becb317fc2196c1d8b9',1,'VmaVulkanFunctions']]],
-  ['vulkanapiversion_26',['vulkanApiVersion',['../struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285',1,'VmaAllocatorCreateInfo']]]
+  ['vkgetmemorywin32handlekhr_20',['vkGetMemoryWin32HandleKHR',['../struct_vma_vulkan_functions.html#af45d10a2b47971f4cf5bcacf1d331f86',1,'VmaVulkanFunctions']]],
+  ['vkgetphysicaldevicememoryproperties_21',['vkGetPhysicalDeviceMemoryProperties',['../struct_vma_vulkan_functions.html#a60d25c33bba06bb8592e6875cbaa9830',1,'VmaVulkanFunctions']]],
+  ['vkgetphysicaldevicememoryproperties2khr_22',['vkGetPhysicalDeviceMemoryProperties2KHR',['../struct_vma_vulkan_functions.html#a0d992896e6ffcf92b9d7ea049fa5c445',1,'VmaVulkanFunctions']]],
+  ['vkgetphysicaldeviceproperties_23',['vkGetPhysicalDeviceProperties',['../struct_vma_vulkan_functions.html#a77b7a74082823e865dd6546623468f96',1,'VmaVulkanFunctions']]],
+  ['vkinvalidatemappedmemoryranges_24',['vkInvalidateMappedMemoryRanges',['../struct_vma_vulkan_functions.html#a5c1093bc32386a8060c37c9f282078a1',1,'VmaVulkanFunctions']]],
+  ['vkmapmemory_25',['vkMapMemory',['../struct_vma_vulkan_functions.html#ab5c1f38dea3a2cf00dc9eb4f57218c49',1,'VmaVulkanFunctions']]],
+  ['vkunmapmemory_26',['vkUnmapMemory',['../struct_vma_vulkan_functions.html#acc798589736f0becb317fc2196c1d8b9',1,'VmaVulkanFunctions']]],
+  ['vulkanapiversion_27',['vulkanApiVersion',['../struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285',1,'VmaAllocatorCreateInfo']]]
 ];
