@@ -1467,17 +1467,17 @@ typedef struct VmaAllocationInfo
 typedef struct VmaAllocationInfo2
 {
     /** \brief Basic parameters of the allocation.
-    
+
     If you need only these, you can use function vmaGetAllocationInfo() and structure #VmaAllocationInfo instead.
     */
     VmaAllocationInfo allocationInfo;
     /** \brief Size of the `VkDeviceMemory` block that the allocation belongs to.
-    
+
     In case of an allocation with dedicated memory, it will be equal to `allocationInfo.size`.
     */
     VkDeviceSize blockSize;
     /** \brief `VK_TRUE` if the allocation has dedicated memory, `VK_FALSE` if it was placed as part of a larger memory block.
-    
+
     When `VK_TRUE`, it also means `VkMemoryDedicatedAllocateInfo` was used when creating the allocation
     (if VK_KHR_dedicated_allocation extension or Vulkan version >= 1.1 is enabled).
     */
@@ -2567,7 +2567,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
 \param allocator
 \param allocation Allocation that provides memory to be used for binding new buffer to it.
 \param allocationLocalOffset Additional offset to be added while binding, relative to the beginning of the allocation. Normally it should be 0.
-\param pBufferCreateInfo 
+\param pBufferCreateInfo
 \param[out] pBuffer Buffer that was created.
 
 This function automatically:
@@ -6195,7 +6195,7 @@ private:
     HANDLE m_hHandle;
     VMA_RW_MUTEX m_Mutex; // Protects access m_Handle
 };
-#else 
+#else
 class VmaWin32Handle
 {
     // ABI compatibility
@@ -10594,7 +10594,7 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
     m_hMemory(VK_NULL_HANDLE),
     m_MapCount(0),
     m_pMappedData(VMA_NULL),
-    m_Handle(VMA_NULL) {}
+    m_Handle() {}
 
 VmaDeviceMemoryBlock::~VmaDeviceMemoryBlock()
 {
@@ -16675,7 +16675,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(VmaAllocator VMA_NOT
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     return allocation->GetWin32Handle(allocator, hTargetProcess, pHandle);
 }
-#endif // VMA_EXTERNAL_MEMORY_WIN32 
+#endif // VMA_EXTERNAL_MEMORY_WIN32
 #endif // VMA_STATS_STRING_ENABLED
 #endif // _VMA_PUBLIC_INTERFACE
 #endif // VMA_IMPLEMENTATION
@@ -18929,7 +18929,7 @@ res = vmaCreateBuffer(g_Allocator, &bufCreateInfo, &allocCreateInfo, &buf, &allo
 vmaDestroyBuffer(g_Allocator, buf, alloc);
 \endcode
 
-If you need each allocation to have its own device memory block and start at offset 0, you can still do 
+If you need each allocation to have its own device memory block and start at offset 0, you can still do
 by using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag. It works also with custom pools.
 
 \section vk_khr_external_memory_win32_exporting_win32_handle Exporting Win32 handle
