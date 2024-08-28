@@ -3157,7 +3157,7 @@ static void vma_aligned_free(void* VMA_NULLABLE ptr)
             std::shared_mutex m_Mutex;
         };
         #define VMA_RW_MUTEX VmaRWMutex
-    #elif defined(_WIN32) && defined(WINVER) && WINVER >= 0x0600
+    #elif defined(_WIN32) && defined(WINVER) && defined(SRWLOCK_INIT) && WINVER >= 0x0600
         // Use SRWLOCK from WinAPI.
         // Minimum supported client = Windows Vista, server = Windows Server 2008.
         class VmaRWMutex
