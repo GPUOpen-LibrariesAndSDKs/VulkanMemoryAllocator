@@ -1,0 +1,52 @@
+name: linux
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cxx: [g++-12, clang++-15]
+        build_type: [Debug, Release]
+        include:
+          - cxx: g++-12
+            install: sudo apt install g++-12
+          - cxx: clang++-15
+            cxxflags: -stdlib=libc++
+            install: sudo apt install clang-15 libc++-15-dev libc++abi-15-dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Prepare Vulkan SDK
+      uses: humbletim/install-vulkan-sdk@v1.1.1
+      with:
+        version: 1.3.290.0
+        cache: true
+
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        ${{matrix.install}}
+        cmake -E make_directory ${{runner.workspace}}/build
+
+    - name: Configure
+      working-directory: ${{runner.workspace}}/build
+      env:
+        CXX: ${{matrix.cxx}}
+        CXXFLAGS: ${{matrix.cxxflags}}
+      run: |
+        cmake -DCPM_SOURCE_CACHE=~/cpm-cache \
+          -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+          -DVMA_BUILD_SAMPLES=YES \
+          $GITHUB_WORKSPACE
+
+    - name: Build
+      working-directory: ${{runner.workspace}}/build
+      run: |
+        threads=`nproc`
+        cmake --build . --target VmaCompilationTest --config ${{matrix.build_type}} --parallel $threads
