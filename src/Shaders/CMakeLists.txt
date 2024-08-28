@@ -34,7 +34,7 @@ foreach(SHADER ${SHADERS})
         DEPENDS ${SHADER}
     )
 
-    list(APPEND SPIRV_FILES ${SPIRV})
+    list(APPEND SPIRV_FILES ${SPIRV} ${SPIRV_BIN})
 endforeach()
 
 add_custom_target(VmaSampleShaders ALL DEPENDS ${SPIRV_FILES})

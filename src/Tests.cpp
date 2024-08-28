@@ -8258,61 +8258,59 @@ static void TestWin32Handles()
 {
 #if VMA_EXTERNAL_MEMORY_WIN32
     wprintf(L"Test Win32 handles\n");
-    constexpr static VkExportMemoryAllocateInfoKHR exportInfo{
+    constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo{
         VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
         nullptr,
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
     };
-    constexpr static VkExternalMemoryBufferCreateInfoKHR externalInfo{
+    constexpr static VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo{
         VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
         nullptr,
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
     };
 
-    VkBufferCreateInfo sampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    sampleBufCreateInfo.size = 0x1000; // Doesn't matter.
-    sampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    sampleBufCreateInfo.pNext = &externalInfo;
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 0x10000;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufCreateInfo.pNext = &externalMemBufCreateInfo;
 
-    VmaAllocationCreateInfo sampleAllocCreateInfo = {};
-    sampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    sampleAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
-    uint32_t memTypeIndex;
+    uint32_t memTypeIndex = UINT32_MAX;
     TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator,
-        &sampleBufCreateInfo, &sampleAllocCreateInfo, &memTypeIndex) == VK_SUCCESS);
-    // Check res...
-
+        &bufCreateInfo, &allocCreateInfo, &memTypeIndex) == VK_SUCCESS);
 
     // Create a pool that can have at most 2 blocks, 128 MiB each.
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.memoryTypeIndex = memTypeIndex;
-    poolCreateInfo.blockSize = 128ull * 1024 * 1024;
-    poolCreateInfo.maxBlockCount = 2;
-    poolCreateInfo.pMemoryAllocateNext = (void*)&exportInfo;
+    poolCreateInfo.pMemoryAllocateNext = (void*)&exportMemAllocInfo;
 
-
-    VmaPool pool;
+    VmaPool pool = VK_NULL_HANDLE;
     TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
 
+    allocCreateInfo.pool = pool;
 
-    sampleAllocCreateInfo.pool = pool;
+    for (size_t test = 0; test < 2; ++test)
+    {
+        if (test == 1)
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
-    VkBuffer buf;
-    VmaAllocation alloc;
-    VmaAllocationInfo allocInfo;
-    TEST(vmaCreateBuffer(g_hAllocator, &sampleBufCreateInfo, &sampleAllocCreateInfo, &buf, &alloc, &allocInfo) == VK_SUCCESS);
-    HANDLE handle;
-    HANDLE handle2;
-    TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
-    TEST(handle != nullptr);
-    TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle2) == VK_SUCCESS);
-    TEST(handle2 != nullptr);
-    TEST(handle2 != handle);
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr) == VK_SUCCESS);
+        HANDLE handle = NULL;
+        HANDLE handle2 = NULL;
+        TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
+        TEST(handle != nullptr);
+        TEST(vmaGetMemoryWin32HandleKHR(g_hAllocator, alloc, nullptr, &handle2) == VK_SUCCESS);
+        TEST(handle2 != nullptr);
+        TEST(handle2 != handle);
 
-    vmaDestroyBuffer(g_hAllocator, buf, alloc);
-    TEST(CloseHandle(handle));
-    TEST(CloseHandle(handle2));
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+        TEST(CloseHandle(handle));
+        TEST(CloseHandle(handle2));
+    }
 
     vmaDestroyPool(g_hAllocator, pool);
 #endif

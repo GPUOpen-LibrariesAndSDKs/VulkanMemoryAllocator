@@ -6273,11 +6273,17 @@ private:
     uint32_t m_MapCount;
     void* m_pMappedData;
 
-    VmaWin32Handle m_Handle; // Win32 handle
+    VmaWin32Handle m_Handle;
 };
 #endif // _VMA_DEVICE_MEMORY_BLOCK
 
 #ifndef _VMA_ALLOCATION_T
+struct VmaAllocationExtraData
+{
+    void* m_pMappedData = VMA_NULL; // Not null means memory is mapped.
+    VmaWin32Handle m_Handle;
+};
+
 struct VmaAllocation_T
 {
     friend struct VmaDedicatedAllocationListItemTraits;
@@ -6310,12 +6316,14 @@ public:
         bool mapped);
     // pMappedData not null means allocation is created with MAPPED flag.
     void InitDedicatedAllocation(
+        VmaAllocator allocator,
         VmaPool hParentPool,
         uint32_t memoryTypeIndex,
         VkDeviceMemory hMemory,
         VmaSuballocationType suballocationType,
         void* pMappedData,
         VkDeviceSize size);
+    void Destroy(VmaAllocator allocator);
 
     ALLOCATION_TYPE GetType() const { return (ALLOCATION_TYPE)m_Type; }
     VkDeviceSize GetAlignment() const { return m_Alignment; }
@@ -6375,10 +6383,9 @@ private:
     {
         VmaPool m_hParentPool; // VK_NULL_HANDLE if not belongs to custom pool.
         VkDeviceMemory m_hMemory;
-        void* m_pMappedData; // Not null means memory is mapped.
+        VmaAllocationExtraData* m_ExtraData;
         VmaAllocation_T* m_Prev;
         VmaAllocation_T* m_Next;
-        VmaWin32Handle m_Handle; // Win32 handle
     };
     union
     {
@@ -6401,6 +6408,8 @@ private:
 #if VMA_STATS_STRING_ENABLED
     VmaBufferImageUsage m_BufferImageUsage; // 0 if unknown.
 #endif
+
+    void EnsureExtraData(VmaAllocator hAllocator);
 };
 #endif // _VMA_ALLOCATION_T
 
@@ -10867,6 +10876,7 @@ void VmaAllocation_T::InitBlockAllocation(
 }
 
 void VmaAllocation_T::InitDedicatedAllocation(
+    VmaAllocator allocator,
     VmaPool hParentPool,
     uint32_t memoryTypeIndex,
     VkDeviceMemory hMemory,
@@ -10881,16 +10891,29 @@ void VmaAllocation_T::InitDedicatedAllocation(
     m_Size = size;
     m_MemoryTypeIndex = memoryTypeIndex;
     m_SuballocationType = (uint8_t)suballocationType;
-    if(pMappedData != VMA_NULL)
+    m_DedicatedAllocation.m_ExtraData = VMA_NULL;
+    m_DedicatedAllocation.m_hParentPool = hParentPool;
+    m_DedicatedAllocation.m_hMemory = hMemory;
+    m_DedicatedAllocation.m_Prev = VMA_NULL;
+    m_DedicatedAllocation.m_Next = VMA_NULL;
+
+    if (pMappedData != VMA_NULL)
     {
         VMA_ASSERT(IsMappingAllowed() && "Mapping is not allowed on this allocation! Please use one of the new VMA_ALLOCATION_CREATE_HOST_ACCESS_* flags when creating it.");
         m_Flags |= (uint8_t)FLAG_PERSISTENT_MAP;
+        EnsureExtraData(allocator);
+        m_DedicatedAllocation.m_ExtraData->m_pMappedData = pMappedData;
     }
-    m_DedicatedAllocation.m_hParentPool = hParentPool;
-    m_DedicatedAllocation.m_hMemory = hMemory;
-    m_DedicatedAllocation.m_pMappedData = pMappedData;
-    m_DedicatedAllocation.m_Prev = VMA_NULL;
-    m_DedicatedAllocation.m_Next = VMA_NULL;
+}
+
+void VmaAllocation_T::Destroy(VmaAllocator allocator)
+{
+    FreeName(allocator);
+
+    if (GetType() == ALLOCATION_TYPE_DEDICATED)
+    {
+        vma_delete(allocator, m_DedicatedAllocation.m_ExtraData);
+    }
 }
 
 void VmaAllocation_T::SetName(VmaAllocator hAllocator, const char* pName)
@@ -10995,8 +11018,9 @@ void* VmaAllocation_T::GetMappedData() const
         }
         break;
     case ALLOCATION_TYPE_DEDICATED:
-        VMA_ASSERT((m_DedicatedAllocation.m_pMappedData != VMA_NULL) == (m_MapCount != 0 || IsPersistentMap()));
-        return m_DedicatedAllocation.m_pMappedData;
+        VMA_ASSERT((m_DedicatedAllocation.m_ExtraData != VMA_NULL && m_DedicatedAllocation.m_ExtraData->m_pMappedData != VMA_NULL) ==
+            (m_MapCount != 0 || IsPersistentMap()));
+        return m_DedicatedAllocation.m_ExtraData != VMA_NULL ? m_DedicatedAllocation.m_ExtraData->m_pMappedData : VMA_NULL;
     default:
         VMA_ASSERT(0);
         return VMA_NULL;
@@ -11037,12 +11061,14 @@ VkResult VmaAllocation_T::DedicatedAllocMap(VmaAllocator hAllocator, void** ppDa
     VMA_ASSERT(GetType() == ALLOCATION_TYPE_DEDICATED);
     VMA_ASSERT(IsMappingAllowed() && "Mapping is not allowed on this allocation! Please use one of the new VMA_ALLOCATION_CREATE_HOST_ACCESS_* flags when creating it.");
 
+    EnsureExtraData(hAllocator);
+
     if (m_MapCount != 0 || IsPersistentMap())
     {
         if (m_MapCount < 0xFF)
         {
-            VMA_ASSERT(m_DedicatedAllocation.m_pMappedData != VMA_NULL);
-            *ppData = m_DedicatedAllocation.m_pMappedData;
+            VMA_ASSERT(m_DedicatedAllocation.m_ExtraData->m_pMappedData != VMA_NULL);
+            *ppData = m_DedicatedAllocation.m_ExtraData->m_pMappedData;
             ++m_MapCount;
             return VK_SUCCESS;
         }
@@ -11063,7 +11089,7 @@ VkResult VmaAllocation_T::DedicatedAllocMap(VmaAllocator hAllocator, void** ppDa
             ppData);
         if (result == VK_SUCCESS)
         {
-            m_DedicatedAllocation.m_pMappedData = *ppData;
+            m_DedicatedAllocation.m_ExtraData->m_pMappedData = *ppData;
             m_MapCount = 1;
         }
         return result;
@@ -11079,7 +11105,8 @@ void VmaAllocation_T::DedicatedAllocUnmap(VmaAllocator hAllocator)
         --m_MapCount;
         if (m_MapCount == 0 && !IsPersistentMap())
         {
-            m_DedicatedAllocation.m_pMappedData = VMA_NULL;
+            VMA_ASSERT(m_DedicatedAllocation.m_ExtraData != VMA_NULL);
+            m_DedicatedAllocation.m_ExtraData->m_pMappedData = VMA_NULL;
             (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(
                 hAllocator->m_hDevice,
                 m_DedicatedAllocation.m_hMemory);
@@ -11118,14 +11145,14 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
 #if VMA_EXTERNAL_MEMORY_WIN32
 VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
-    // Where do we get this function from?
     auto pvkGetMemoryWin32HandleKHR = hAllocator->GetVulkanFunctions().vkGetMemoryWin32HandleKHR;
     switch (m_Type)
     {
     case ALLOCATION_TYPE_BLOCK:
         return m_BlockAllocation.m_Block->CreateWin32Handle(hAllocator, pvkGetMemoryWin32HandleKHR, hTargetProcess, pHandle);
     case ALLOCATION_TYPE_DEDICATED:
-        return m_DedicatedAllocation.m_Handle.GetHandle(hAllocator->m_hDevice, m_DedicatedAllocation.m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
+        EnsureExtraData(hAllocator);
+        return m_DedicatedAllocation.m_ExtraData->m_Handle.GetHandle(hAllocator->m_hDevice, m_DedicatedAllocation.m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
     default:
         VMA_ASSERT(0);
         return VK_ERROR_FEATURE_NOT_PRESENT;
@@ -11133,6 +11160,14 @@ VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTarget
 }
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 #endif // VMA_STATS_STRING_ENABLED
+
+void VmaAllocation_T::EnsureExtraData(VmaAllocator hAllocator)
+{
+    if (m_DedicatedAllocation.m_ExtraData == VMA_NULL)
+    {
+        m_DedicatedAllocation.m_ExtraData = vma_new(hAllocator, VmaAllocationExtraData)();
+    }
+}
 
 void VmaAllocation_T::FreeName(VmaAllocator hAllocator)
 {
@@ -11562,6 +11597,7 @@ void VmaBlockVector::Free(const VmaAllocation hAllocation)
     }
 
     m_hAllocator->m_Budget.RemoveAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), hAllocation->GetSize());
+    hAllocation->Destroy(m_hAllocator);
     m_hAllocator->m_AllocationObjectAllocator.Free(hAllocation);
 }
 
@@ -13705,7 +13741,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
     }
 
     *pAllocation = m_AllocationObjectAllocator.Allocate(isMappingAllowed);
-    (*pAllocation)->InitDedicatedAllocation(pool, memTypeIndex, hMemory, suballocType, pMappedData, size);
+    (*pAllocation)->InitDedicatedAllocation(this, pool, memTypeIndex, hMemory, suballocType, pMappedData, size);
     if (isUserDataString)
         (*pAllocation)->SetName(this, (const char*)pUserData);
     else
@@ -14040,8 +14076,6 @@ void VmaAllocator_T::FreeMemory(
             {
                 FillAllocation(allocation, VMA_ALLOCATION_FILL_PATTERN_DESTROYED);
             }
-
-            allocation->FreeName(this);
 
             switch(allocation->GetType())
             {
@@ -14726,6 +14760,7 @@ void VmaAllocator_T::FreeDedicatedMemory(const VmaAllocation allocation)
     FreeVulkanMemory(memTypeIndex, allocation->GetSize(), hMemory);
 
     m_Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation->GetMemoryTypeIndex()), allocation->GetSize());
+    allocation->Destroy(this);
     m_AllocationObjectAllocator.Free(allocation);
 
     VMA_DEBUG_LOG_FORMAT("    Freed DedicatedMemory MemoryTypeIndex=%" PRIu32, memTypeIndex);
@@ -16615,7 +16650,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeVirtualBlockStatsString(VmaVirtualBlock V
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32HandleKHR(VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation, HANDLE hTargetProcess, HANDLE* VMA_NOT_NULL pHandle)
 {
-    VMA_ASSERT(allocator && allocation);
+    VMA_ASSERT(allocator && allocation && pHandle);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     return allocation->GetWin32Handle(allocator, hTargetProcess, pHandle);
 }
@@ -16753,6 +16788,7 @@ VK_EXT_memory_budget          | #VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT
 VK_KHR_buffer_device_address  | #VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
 VK_EXT_memory_priority        | #VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT
 VK_AMD_device_coherent_memory | #VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT
+VK_KHR_external_memory_win32  | #VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT
 
 Example with fetching pointers to Vulkan functions dynamically:
 
