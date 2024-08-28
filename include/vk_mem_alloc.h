@@ -1054,7 +1054,7 @@ typedef struct VmaVulkanFunctions
     /// Fetch from "vkGetDeviceImageMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceImageMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
     PFN_vkGetDeviceImageMemoryRequirementsKHR VMA_NULLABLE vkGetDeviceImageMemoryRequirements;
 #endif
-#ifdef VMA_EXTERNAL_MEMORY_WIN32
+#if VMA_EXTERNAL_MEMORY_WIN32
     PFN_vkGetMemoryWin32HandleKHR VMA_NULLABLE vkGetMemoryWin32HandleKHR;
 #else
     void* VMA_NULLABLE vkGetMemoryWin32HandleKHR;
