@@ -10593,8 +10593,7 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
     m_Id(0),
     m_hMemory(VK_NULL_HANDLE),
     m_MapCount(0),
-    m_pMappedData(VMA_NULL),
-    m_Handle(VMA_NULL) {}
+    m_pMappedData(VMA_NULL){}
 
 VmaDeviceMemoryBlock::~VmaDeviceMemoryBlock()
 {
