@@ -156,6 +156,7 @@ See **[Documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAll
 # Software using this library
 
 - **[Blender](https://www.blender.org)**
+- **[Qt Project](https://github.com/qt)**
 - **[Baldur's Gate III](https://www.mobygames.com/game/150689/baldurs-gate-iii/credits/windows/?autoplatform=true)**
 - **[Cyberpunk 2077](https://www.mobygames.com/game/128136/cyberpunk-2077/credits/windows/?autoplatform=true)**
 - **[X-Plane](https://x-plane.com/)**
