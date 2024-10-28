@@ -1836,6 +1836,9 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyPool(
 \param allocator Allocator object.
 \param pool Pool object.
 \param[out] pPoolStats Statistics of specified pool.
+
+Note that when using the pool from multiple threads, returned information may immediately
+become outdated.
 */
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolStatistics(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -11605,6 +11608,10 @@ void VmaBlockVector::Free(const VmaAllocation hAllocation)
         }
 
         IncrementallySortBlocks();
+
+        m_hAllocator->m_Budget.RemoveAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), hAllocation->GetSize());
+        hAllocation->Destroy(m_hAllocator);
+        m_hAllocator->m_AllocationObjectAllocator.Free(hAllocation);
     }
 
     // Destruction of a free block. Deferred until this point, outside of mutex
@@ -11615,10 +11622,6 @@ void VmaBlockVector::Free(const VmaAllocation hAllocation)
         pBlockToDelete->Destroy(m_hAllocator);
         vma_delete(m_hAllocator, pBlockToDelete);
     }
-
-    m_hAllocator->m_Budget.RemoveAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), hAllocation->GetSize());
-    hAllocation->Destroy(m_hAllocator);
-    m_hAllocator->m_AllocationObjectAllocator.Free(hAllocation);
 }
 
 VkDeviceSize VmaBlockVector::CalcMaxBlockSize() const
