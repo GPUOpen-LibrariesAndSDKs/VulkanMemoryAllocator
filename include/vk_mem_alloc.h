@@ -16404,7 +16404,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
         pImageCreateInfo,
         allocator->GetAllocationCallbacks(),
         pImage);
-    if(res >= 0)
+    if(res == VK_SUCCESS)
     {
         VmaSuballocationType suballocType = pImageCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL ?
             VMA_SUBALLOCATION_TYPE_IMAGE_OPTIMAL :
@@ -16429,14 +16429,14 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
             1, // allocationCount
             pAllocation);
 
-        if(res >= 0)
+        if(res == VK_SUCCESS)
         {
             // 3. Bind image with memory.
             if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
             {
                 res = allocator->BindImageMemory(*pAllocation, 0, *pImage, VMA_NULL);
             }
-            if(res >= 0)
+            if(res == VK_SUCCESS)
             {
                 // All steps succeeded.
                 #if VMA_STATS_STRING_ENABLED
