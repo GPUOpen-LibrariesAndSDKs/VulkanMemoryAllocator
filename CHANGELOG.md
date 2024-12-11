@@ -1,3 +1,15 @@
+# 3.2.0 (TBD)
+
+Additions to the library API:
+
+- Added support for Vulkan 1.4.
+- Added support for VK_KHR_external_memory_win32 extension - `VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT` flag, `vmaGetMemoryWin32Handle` function, and a whole new documentation chapter about it (#442).
+
+Other changes:
+
+- Fixed thread safety issue (#451).
+- Many other bug fixes and improvements in the library code, documentation, sample app, Cmake script, mostly to improve compatibility with various compilers and GPUs.
+
 # 3.1.0 (2024-05-27)
 
 This release gathers fixes and improvements made during many months of continuous development on the main branch, mostly based on issues and pull requests on GitHub.
