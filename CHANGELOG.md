@@ -1,4 +1,4 @@
-# 3.2.0 (TBD)
+# 3.2.0 (2024-12-30)
 
 Additions to the library API:
 
