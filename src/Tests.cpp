@@ -39,6 +39,7 @@ extern const VkAllocationCallbacks* g_Allocs;
 extern bool VK_KHR_buffer_device_address_enabled;
 extern bool VK_EXT_memory_priority_enabled;
 extern bool VK_KHR_maintenance5_enabled;
+extern bool VK_KHR_external_memory_win32_enabled;
 extern PFN_vkGetBufferDeviceAddressKHR g_vkGetBufferDeviceAddressKHR;
 void BeginSingleTimeCommands();
 void EndSingleTimeCommands();
@@ -8257,6 +8258,9 @@ static void TestMappingHysteresis()
 static void TestWin32Handles()
 {
 #if VMA_EXTERNAL_MEMORY_WIN32
+    if (!VK_KHR_external_memory_win32_enabled)
+        return;
+
     wprintf(L"Test Win32 handles\n");
     constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo{
         VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
