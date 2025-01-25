@@ -9318,40 +9318,21 @@ void VmaBlockMetadata_TLSF::Alloc(
     VkDeviceSize debugMargin = GetDebugMargin();
     VkDeviceSize missingAlignment = offset - currentBlock->offset;
 
-    // Append missing alignment to prev block or create new one
+    // Create new block for missing alignment
     if (missingAlignment)
     {
         Block* prevBlock = currentBlock->prevPhysical;
         VMA_ASSERT(prevBlock != VMA_NULL && "There should be no missing alignment at offset 0!");
 
-        if (prevBlock->IsFree() && prevBlock->size != debugMargin)
-        {
-            uint32_t oldList = GetListIndex(prevBlock->size);
-            prevBlock->size += missingAlignment;
-            // Check if new size crosses list bucket
-            if (oldList != GetListIndex(prevBlock->size))
-            {
-                prevBlock->size -= missingAlignment;
-                RemoveFreeBlock(prevBlock);
-                prevBlock->size += missingAlignment;
-                InsertFreeBlock(prevBlock);
-            }
-            else
-                m_BlocksFreeSize += missingAlignment;
-        }
-        else
-        {
-            Block* newBlock = m_BlockAllocator.Alloc();
-            currentBlock->prevPhysical = newBlock;
-            prevBlock->nextPhysical = newBlock;
-            newBlock->prevPhysical = prevBlock;
-            newBlock->nextPhysical = currentBlock;
-            newBlock->size = missingAlignment;
-            newBlock->offset = currentBlock->offset;
-            newBlock->MarkTaken();
-
-            InsertFreeBlock(newBlock);
-        }
+        Block* newBlock = m_BlockAllocator.Alloc();
+        currentBlock->prevPhysical = newBlock;
+        prevBlock->nextPhysical = newBlock;
+        newBlock->prevPhysical = prevBlock;
+        newBlock->nextPhysical = currentBlock;
+        newBlock->size = missingAlignment;
+        newBlock->offset = currentBlock->offset;
+        newBlock->MarkTaken();
+        InsertFreeBlock(newBlock);
 
         currentBlock->size -= missingAlignment;
         currentBlock->offset += missingAlignment;
