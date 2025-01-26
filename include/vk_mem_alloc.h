@@ -2070,6 +2070,21 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationName(
     VmaAllocation VMA_NOT_NULL allocation,
     const char* VMA_NULLABLE pName);
 
+/** \brief Sets pName in given allocation to new value.
+
+If `pName` is null, `len` must be zero. Otherwise, `pName` must point to a 
+valid string. The function makes a local copy of the first `len` characters from 
+the string pointed to by `pName` and sets it as the allocation's `pName`.
+The caller must ensure the string is valid for at least `len` bytes. String
+passed as pName doesn't need to be valid for whole lifetime of the allocation -
+you can free it after this call. String previously pointed by allocation's
+`pName` is freed from memory.
+*/
+VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationNameWithLength(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    const char* VMA_NULLABLE pName, size_t len);
+
 /**
 \brief Given an allocation, returns Property Flags of its memory type.
 
@@ -4168,7 +4183,6 @@ static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char
     return VMA_NULL;
 }
 
-#if VMA_STATS_STRING_ENABLED
 static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char* srcStr, size_t strLen)
 {
     if (srcStr != VMA_NULL)
@@ -4180,7 +4194,6 @@ static char* VmaCreateStringCopy(const VkAllocationCallbacks* allocs, const char
     }
     return VMA_NULL;
 }
-#endif // VMA_STATS_STRING_ENABLED
 
 static void VmaFreeString(const VkAllocationCallbacks* allocs, char* str)
 {
@@ -6365,6 +6378,7 @@ public:
 
     void SetUserData(VmaAllocator hAllocator, void* pUserData) { m_pUserData = pUserData; }
     void SetName(VmaAllocator hAllocator, const char* pName);
+    void SetName(VmaAllocator hAllocator, const char* pName, size_t len);
     void FreeName(VmaAllocator hAllocator);
     uint8_t SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocation allocation);
     VmaAllocHandle GetAllocHandle() const;
@@ -10949,6 +10963,16 @@ void VmaAllocation_T::SetName(VmaAllocator hAllocator, const char* pName)
 
     if (pName != VMA_NULL)
         m_pName = VmaCreateStringCopy(hAllocator->GetAllocationCallbacks(), pName);
+}
+
+void VmaAllocation_T::SetName(VmaAllocator hAllocator, const char* pName, size_t len)
+{
+    VMA_ASSERT(pName != VMA_NULL || len == 0);
+
+    FreeName(hAllocator);
+
+    if (len != 0)
+        m_pName = VmaCreateStringCopy(hAllocator->GetAllocationCallbacks(), pName, len);
 }
 
 uint8_t VmaAllocation_T::SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocation allocation)
@@ -15810,6 +15834,14 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationName(
     const char* VMA_NULLABLE pName)
 {
     allocation->SetName(allocator, pName);
+}
+
+VMA_CALL_PRE void VMA_CALL_POST vmaSetAllocationNameWithLength(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation,
+    const char* VMA_NULLABLE pName, size_t len)
+{
+    allocation->SetName(allocator, pName, len);
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
