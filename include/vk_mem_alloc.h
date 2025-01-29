@@ -9316,10 +9316,10 @@ void VmaBlockMetadata_TLSF::Alloc(
         RemoveFreeBlock(currentBlock);
 
     VkDeviceSize debugMargin = GetDebugMargin();
-    VkDeviceSize misssingAlignment = offset - currentBlock->offset;
+    VkDeviceSize missingAlignment = offset - currentBlock->offset;
 
     // Append missing alignment to prev block or create new one
-    if (misssingAlignment)
+    if (missingAlignment)
     {
         Block* prevBlock = currentBlock->prevPhysical;
         VMA_ASSERT(prevBlock != VMA_NULL && "There should be no missing alignment at offset 0!");
@@ -9327,17 +9327,17 @@ void VmaBlockMetadata_TLSF::Alloc(
         if (prevBlock->IsFree() && prevBlock->size != debugMargin)
         {
             uint32_t oldList = GetListIndex(prevBlock->size);
-            prevBlock->size += misssingAlignment;
+            prevBlock->size += missingAlignment;
             // Check if new size crosses list bucket
             if (oldList != GetListIndex(prevBlock->size))
             {
-                prevBlock->size -= misssingAlignment;
+                prevBlock->size -= missingAlignment;
                 RemoveFreeBlock(prevBlock);
-                prevBlock->size += misssingAlignment;
+                prevBlock->size += missingAlignment;
                 InsertFreeBlock(prevBlock);
             }
             else
-                m_BlocksFreeSize += misssingAlignment;
+                m_BlocksFreeSize += missingAlignment;
         }
         else
         {
@@ -9346,15 +9346,15 @@ void VmaBlockMetadata_TLSF::Alloc(
             prevBlock->nextPhysical = newBlock;
             newBlock->prevPhysical = prevBlock;
             newBlock->nextPhysical = currentBlock;
-            newBlock->size = misssingAlignment;
+            newBlock->size = missingAlignment;
             newBlock->offset = currentBlock->offset;
             newBlock->MarkTaken();
 
             InsertFreeBlock(newBlock);
         }
 
-        currentBlock->size -= misssingAlignment;
-        currentBlock->offset += misssingAlignment;
+        currentBlock->size -= missingAlignment;
+        currentBlock->offset += missingAlignment;
     }
 
     VkDeviceSize size = request.size + debugMargin;
