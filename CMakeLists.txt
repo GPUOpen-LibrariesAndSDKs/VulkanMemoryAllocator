@@ -22,7 +22,7 @@
 
 cmake_minimum_required(VERSION 3.15...3.26)
 
-project(VMA VERSION 3.2.0 LANGUAGES CXX)
+project(VMA VERSION 3.2.1 LANGUAGES CXX)
 
 add_library(VulkanMemoryAllocator INTERFACE)
 add_library(GPUOpen::VulkanMemoryAllocator ALIAS VulkanMemoryAllocator)

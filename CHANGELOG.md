@@ -1,3 +1,11 @@
+# 3.2.1 (2025-02-05)
+
+Changes:
+
+- Fixed an assert in `vmaCreateAllocator` function incorrectly failing when Vulkan version 1.4 is used (#457).
+- Fix for importing function `vkGetPhysicalDeviceMemoryProperties2` / `vkGetPhysicalDeviceMemoryProperties2KHR` when `VMA_DYNAMIC_VULKAN_FUNCTIONS` macro is enabled (#410).
+- Other minor fixes and improvements...
+
 # 3.2.0 (2024-12-30)
 
 Additions to the library API:
