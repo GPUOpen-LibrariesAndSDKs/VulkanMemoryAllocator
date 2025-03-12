@@ -97,7 +97,10 @@ include all public interface declarations. Example:
 #endif
 
 #include <vulkan/vulkan.h>
+
+#ifdef _WIN32
 #include <vulkan/vulkan_win32.h>
+#endif  // #ifdef _WIN32
 
 #include "vk_mem_alloc.h"
 
