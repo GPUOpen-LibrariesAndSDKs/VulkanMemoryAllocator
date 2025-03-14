@@ -3202,7 +3202,7 @@ static void TestMemoryRequirements()
 
 static void TestGetAllocatorInfo()
 {
-    wprintf(L"Test vnaGetAllocatorInfo\n");
+    wprintf(L"Test vmaGetAllocatorInfo\n");
 
     VmaAllocatorInfo allocInfo = {};
     vmaGetAllocatorInfo(g_hAllocator, &allocInfo);

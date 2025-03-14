@@ -470,15 +470,6 @@ void SparseBindingImage::Init(RandomNumberGenerator& rand)
     VkMemoryRequirements imageMemReq;
     vkGetImageMemoryRequirements(g_hDevice, m_Image, &imageMemReq);
 
-    // This is just to silence validation layer warning.
-    // But it doesn't help. Looks like a bug in Vulkan validation layers.
-    // See: https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/364
-    uint32_t sparseMemReqCount = 0;
-    vkGetImageSparseMemoryRequirements(g_hDevice, m_Image, &sparseMemReqCount, nullptr);
-    TEST(sparseMemReqCount <= 8);
-    VkSparseImageMemoryRequirements sparseMemReq[8];
-    vkGetImageSparseMemoryRequirements(g_hDevice, m_Image, &sparseMemReqCount, sparseMemReq);
-
     // According to Vulkan specification, for sparse resources memReq.alignment is also page size.
     const VkDeviceSize pageSize = imageMemReq.alignment;
     const uint32_t pageCount = (uint32_t)ceil_div<VkDeviceSize>(imageMemReq.size, pageSize);
