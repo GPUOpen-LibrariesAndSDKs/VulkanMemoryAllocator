@@ -1,0 +1,117 @@
+name: Build Code
+
+on:
+  push:
+  pull_request:
+    types: [opened]
+
+env:
+  VMA_VULKAN_VERSION: "1.3.283.0"
+  VMA_VULKAN_SDK_PATH: "$GITHUB_WORKSPACE/../vulkan_sdk/"
+  VMA_VULKAN_SDK_CHECKSUM_LINUX: "8005e2cf3e89c80cbe1c0d0a259c88248de3257b4fc6fdefb47409edb3e43ecb"
+  VMA_VULKAN_SDK_CHECKSUM_WINDOWS: "811fcb9b43d09248520b2f38ae9a3763fc81df950fdab874f23bd762b07a9b12"
+
+jobs:
+  windows:
+    name: ${{ matrix.config.name }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {
+            name: "Windows MSVC (Debug)",
+            compiler: "msvc",
+            cc: "cl", cxx: "cl",
+            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
+            build_type: "Debug",
+            cmake_build_options: "--config Debug",
+          }
+          - {
+            name: "Windows MSVC (Release)",
+            compiler: "msvc",
+            cc: "cl", cxx: "cl",
+            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
+            build_type: "Release",
+            cmake_build_options: "--config Release",
+          }
+          - {
+            name: "Windows Clang (Debug)",
+            compiler: "clang",
+            cc: "clang-cl", cxx: "clang-cl",
+            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64 -T "LLVM_v143" -DCMAKE_CXX_COMPILER="clang-cl.exe" -DCMAKE_C_COMPILER="clang-cl.exe" -DCMAKE_LINKER="lld.exe"',
+            build_type: "Debug",
+            cmake_build_options: "--config Debug",
+          }
+          - {
+            name: "Windows Clang (Release)",
+            compiler: "clang",
+            cc: "clang-cl", cxx: "clang-cl",
+            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64 -T "LLVM_v143" -DCMAKE_CXX_COMPILER="clang-cl.exe" -DCMAKE_C_COMPILER="clang-cl.exe" -DCMAKE_LINKER="lld.exe"',
+            build_type: "Release",
+            cmake_build_options: "--config Release",
+          }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure LLVM
+        if: matrix.config.compiler == 'clang'
+        shell: pwsh
+        run: |
+          choco upgrade --no-progress llvm
+          curl -fsSL -o "LLVM_VS2017.zip" "https://github.com/zufuliu/llvm-utils/releases/download/v23.05/LLVM_VS2017.zip"
+          7z x -y "LLVM_VS2017.zip" >NUL
+          LLVM_VS2017\install.bat
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          curl -LS -o vulkansdk.exe https://sdk.lunarg.com/sdk/download/${{ env.VMA_VULKAN_VERSION }}/windows/VulkanSDK-${{ env.VMA_VULKAN_VERSION }}-Installer.exe
+          7z x vulkansdk.exe -o"${{ env.VMA_VULKAN_SDK_PATH }}"
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          $env:CC="${{ matrix.config.cc }}"
+          $env:CXX="${{ matrix.config.cxx }}"
+          $env:Path += ";${{ env.VMA_VULKAN_SDK_PATH }}\;${{ env.VMA_VULKAN_SDK_PATH }}\Bin\"
+          $env:VULKAN_SDK="${{ env.VMA_VULKAN_SDK_PATH }}"
+          cmake . `
+            -Bbuild `
+            -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} `
+            -DVMA_BUILD_SAMPLES=ON `
+            ${{ matrix.config.cmake_configure_options }}
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build build ${{ matrix.config.cmake_build_options }}
+
+      - name: Prepare Build Artifacts
+        shell: pwsh
+        run: |
+          7z a -tzip "build_windows_${{ matrix.config.build_type }}_${{ matrix.config.compiler }}" ./build/*
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_windows_${{ matrix.config.build_type }}_${{ matrix.config.compiler }}
+          path: build_windows_${{ matrix.config.build_type }}_${{ matrix.config.compiler }}.zip
+
+      - name: Prepare Nightly Artifacts
+        shell: pwsh
+        run: |
+          mkdir artifacts
+          cp -r ./build/src/${{ matrix.config.build_type }}/VmaSample.exe artifacts
+          mkdir -P ./artifacts/shaders
+          cp -r ./build/src/Shaders/*.spv ./artifacts/shaders/
+          7z a -tzip "nightly_windows_${{ matrix.config.build_type }}_${{ matrix.config.compiler }}" ./artifacts/*
+
+      - name: Upload Nightly Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly_windows_${{ matrix.config.build_type }}_${{ matrix.config.compiler }}
+          path: nightly_windows_${{ matrix.config.build_type }}_${{ matrix.config.compiler }}.zip
+          retention-days: 7
