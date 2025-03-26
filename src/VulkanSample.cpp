@@ -401,7 +401,9 @@ static VkExtent2D ChooseSwapExtent()
 
 static constexpr uint32_t GetVulkanApiVersion()
 {
-#if VMA_VULKAN_VERSION == 1003000
+#if VMA_VULKAN_VERSION == 1004000
+    return VK_API_VERSION_1_4;
+#elif VMA_VULKAN_VERSION == 1003000
     return VK_API_VERSION_1_3;
 #elif VMA_VULKAN_VERSION == 1002000
     return VK_API_VERSION_1_2;
@@ -502,6 +504,9 @@ void VulkanUsage::Init()
 #endif
 #ifdef VK_VERSION_1_3
     case VK_API_VERSION_1_3: wprintf(L"1.3\n"); break;
+#endif
+#ifdef VK_VERSION_1_4
+    case VK_API_VERSION_1_4: wprintf(L"1.4\n"); break;
 #endif
     default: assert(0);
     }
