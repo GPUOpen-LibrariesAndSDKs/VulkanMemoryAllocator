@@ -9146,7 +9146,7 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
 
     // Round up to the next block
     VkDeviceSize sizeForNextList = allocSize;
-    VkDeviceSize smallSizeStep = VkDeviceSize(SMALL_BUFFER_SIZE / (IsVirtual() ? 1 << SECOND_LEVEL_INDEX : 4));
+    VkDeviceSize smallSizeStep = VkDeviceSize(SMALL_BUFFER_SIZE / (IsVirtual() ? 1u << SECOND_LEVEL_INDEX : 4u));
     if (allocSize > SMALL_BUFFER_SIZE)
     {
         sizeForNextList += (1ULL << (VMA_BITSCAN_MSB(allocSize) - SECOND_LEVEL_INDEX));
@@ -10594,6 +10594,7 @@ static void vma_delete_array(VmaAllocator hAllocator, T* ptr, size_t count)
 #ifndef _VMA_DEVICE_MEMORY_BLOCK_FUNCTIONS
 VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
     : m_pMetadata(VMA_NULL),
+    m_hParentPool(nullptr),
     m_MemoryTypeIndex(UINT32_MAX),
     m_Id(0),
     m_hMemory(VK_NULL_HANDLE),
