@@ -5631,6 +5631,7 @@ public:
     ~VmaStringBuilder() = default;
 
     size_t GetLength() const { return m_Data.size(); }
+    // Returned string is not null-terminated!
     const char* GetData() const { return m_Data.data(); }
     void AddNewLine() { Add('\n'); }
     void Add(char ch) { m_Data.push_back(ch); }
