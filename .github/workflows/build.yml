@@ -23,7 +23,6 @@ jobs:
             cc: "cl", cxx: "cl",
             cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
             build_type: "Debug",
-            cmake_build_options: "--config Debug",
           }
           - {
             name: "Windows MSVC (Release)",
@@ -31,7 +30,6 @@ jobs:
             cc: "cl", cxx: "cl",
             cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
             build_type: "Release",
-            cmake_build_options: "--config Release",
           }
           - {
             name: "Windows Clang (Debug)",
@@ -39,7 +37,6 @@ jobs:
             cc: "clang-cl", cxx: "clang-cl",
             cmake_configure_options: '-G "Visual Studio 17 2022" -A x64 -T "LLVM_v143" -DCMAKE_CXX_COMPILER="clang-cl.exe" -DCMAKE_C_COMPILER="clang-cl.exe" -DCMAKE_LINKER="lld.exe"',
             build_type: "Debug",
-            cmake_build_options: "--config Debug",
           }
           - {
             name: "Windows Clang (Release)",
@@ -47,7 +44,6 @@ jobs:
             cc: "clang-cl", cxx: "clang-cl",
             cmake_configure_options: '-G "Visual Studio 17 2022" -A x64 -T "LLVM_v143" -DCMAKE_CXX_COMPILER="clang-cl.exe" -DCMAKE_C_COMPILER="clang-cl.exe" -DCMAKE_LINKER="lld.exe"',
             build_type: "Release",
-            cmake_build_options: "--config Release",
           }
 
     steps:
@@ -85,4 +81,4 @@ jobs:
       - name: Build
         shell: pwsh
         run: |
-          cmake --build build ${{ matrix.config.cmake_build_options }}
+          cmake --build build --config ${{ matrix.config.build_type }}
