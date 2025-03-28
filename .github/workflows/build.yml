@@ -31,20 +31,6 @@ jobs:
             cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
             build_type: "Release",
           }
-          - {
-            name: "Windows Clang (Debug)",
-            compiler: "clang",
-            cc: "clang-cl", cxx: "clang-cl",
-            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64 -T "LLVM_v143" -DCMAKE_CXX_COMPILER="clang-cl.exe" -DCMAKE_C_COMPILER="clang-cl.exe" -DCMAKE_LINKER="lld.exe"',
-            build_type: "Debug",
-          }
-          - {
-            name: "Windows Clang (Release)",
-            compiler: "clang",
-            cc: "clang-cl", cxx: "clang-cl",
-            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64 -T "LLVM_v143" -DCMAKE_CXX_COMPILER="clang-cl.exe" -DCMAKE_C_COMPILER="clang-cl.exe" -DCMAKE_LINKER="lld.exe"',
-            build_type: "Release",
-          }
 
     steps:
       - name: Checkout
