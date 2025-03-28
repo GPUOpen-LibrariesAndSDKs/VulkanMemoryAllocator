@@ -50,15 +50,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure LLVM
-        if: matrix.config.compiler == 'clang'
-        shell: pwsh
-        run: |
-          choco upgrade --no-progress llvm
-          curl -fsSL -o "LLVM_VS2017.zip" "https://github.com/zufuliu/llvm-utils/releases/download/v23.05/LLVM_VS2017.zip"
-          7z x -y "LLVM_VS2017.zip" >NUL
-          LLVM_VS2017\install.bat
-
       - name: Install Vulkan SDK
         shell: pwsh
         run: |
