@@ -6161,7 +6161,7 @@ static void TestDataUploadingWithStagingBuffer()
     const VkDeviceSize bufferSize = 65536;
     std::vector<std::uint8_t> bufferData(bufferSize);
     for (auto& bufferByte : bufferData) {
-        bufferByte = static_cast<std::uint8_t>(rand() % 256);
+        bufferByte = static_cast<std::uint8_t>(rand());
     }
 
     VkBufferCreateInfo uniformBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -6170,19 +6170,13 @@ static void TestDataUploadingWithStagingBuffer()
 
     VmaAllocationCreateInfo uniformBufferAllocCI = {};
     uniformBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
-    uniformBufferAllocCI.flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     VkBuffer uniformBuffer = VK_NULL_HANDLE;
-    VmaAllocation uniformBufferAlloc = {};
+    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo uniformBufferAllocInfo = {};
 
     VkResult result = vmaCreateBuffer(g_hAllocator, &uniformBufferCI, &uniformBufferAllocCI, &uniformBuffer, &uniformBufferAlloc, &uniformBufferAllocInfo);
     TEST(result == VK_SUCCESS);
-
-    // We need to check if the uniform buffer really ended NOT up in mappable memory.
-    VkMemoryPropertyFlags memPropFlags;
-    vmaGetAllocationMemoryProperties(g_hAllocator, uniformBufferAlloc, &memPropFlags);
-    TEST(!(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
 
     VkBufferCreateInfo stagingBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     stagingBufferCI.size = bufferSize;
@@ -6200,10 +6194,7 @@ static void TestDataUploadingWithStagingBuffer()
     TEST(result == VK_SUCCESS);
 
     TEST(stagingBufferAllocInfo.pMappedData != nullptr);
-    std::memcpy(stagingBufferAllocInfo.pMappedData, bufferData.data(), bufferData.size());
-
-    result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
-    TEST(result == VK_SUCCESS);
+    vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
 
     BeginSingleTimeCommands();
 
@@ -6243,7 +6234,7 @@ static void TestDataUploadingWithStagingBuffer()
 }
 
 static void TestDataUploadingWithMappedMemory() {
-    wprintf(L"Testing data uploading with mapped memory and memcpy...\n");
+    wprintf(L"Testing data uploading with mapped memory...\n");
 
     // Generate some random data to fill the uniform buffer with.
     const VkDeviceSize bufferSize = 65536;
@@ -6258,10 +6249,10 @@ static void TestDataUploadingWithMappedMemory() {
 
     VmaAllocationCreateInfo uniformBufferAllocCI = {};
     uniformBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
-    uniformBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT; // We want memory to be mapped so we can use memcpy to update it
+    uniformBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT; // We want memory to be mapped.
 
     VkBuffer uniformBuffer = VK_NULL_HANDLE;
-    VmaAllocation uniformBufferAlloc = {};
+    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo uniformBufferAllocInfo = {};
 
     VkResult result = vmaCreateBuffer(g_hAllocator, &uniformBufferCI, &uniformBufferAllocCI, &uniformBuffer, &uniformBufferAlloc, &uniformBufferAllocInfo);
@@ -6273,11 +6264,7 @@ static void TestDataUploadingWithMappedMemory() {
     TEST(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
     TEST(uniformBufferAllocInfo.pMappedData != nullptr);
-    std::memcpy(uniformBufferAllocInfo.pMappedData, bufferData.data(), bufferData.size());
-
-    // We don't need to check for VK_MEMORY_PROPERTY_HOST_COHERENT_BIT because both vmaFlushAllocation and vmaInvalidateAllocation check for this internally.
-    result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
-    TEST(result == VK_SUCCESS);
+    vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
 
     BeginSingleTimeCommands();
 
@@ -6313,7 +6300,8 @@ static void TestAdvancedDataUploading() {
 
     VmaAllocationCreateInfo uniformBufferAllocCI = {};
     uniformBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
-    uniformBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    uniformBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
+                                    | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkBuffer uniformBuffer = VK_NULL_HANDLE;
     VmaAllocation uniformBufferAlloc = {};
@@ -6326,13 +6314,9 @@ static void TestAdvancedDataUploading() {
     vmaGetAllocationMemoryProperties(g_hAllocator, uniformBufferAlloc, &memPropFlags);
 
     if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-        // The allocation ended up as mapped memory, meaning we can update it simply by using std::memcpy.
+        // The allocation ended up as mapped memory.
         TEST(uniformBufferAllocInfo.pMappedData != nullptr);
-        std::memcpy(uniformBufferAllocInfo.pMappedData, bufferData.data(), bufferData.size());
-
-        // We don't need to check for VK_MEMORY_PROPERTY_HOST_COHERENT_BIT because both vmaFlushAllocation and vmaInvalidateAllocation check for this internally.
-        result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
-        TEST(result == VK_SUCCESS);
+        vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
 
         BeginSingleTimeCommands();
 
@@ -6367,7 +6351,7 @@ static void TestAdvancedDataUploading() {
         TEST(result == VK_SUCCESS);
 
         TEST(stagingBufferAllocInfo.pMappedData != nullptr);
-        std::memcpy(stagingBufferAllocInfo.pMappedData, bufferData.data(), bufferData.size());
+        vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
 
         result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
         TEST(result == VK_SUCCESS);
