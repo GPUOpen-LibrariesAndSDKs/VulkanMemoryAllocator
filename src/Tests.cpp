@@ -6153,6 +6153,248 @@ static void TestMemoryUsage()
     }
 }
 
+static void TestDataUploadingWithStagingBuffer()
+{
+    wprintf(L"Testing data uploading with staging buffer...\n");
+
+    // Generate some random data to fill the uniform buffer with.
+    const VkDeviceSize bufferSize = 65536;
+    std::vector<std::uint8_t> bufferData(bufferSize);
+    for (auto& bufferByte : bufferData) {
+        bufferByte = static_cast<std::uint8_t>(rand());
+    }
+
+    VkBufferCreateInfo uniformBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    uniformBufferCI.size = bufferSize;
+    uniformBufferCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change this if you want to create another type of buffer.
+
+    VmaAllocationCreateInfo uniformBufferAllocCI = {};
+    uniformBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
+
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;
+    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo uniformBufferAllocInfo = {};
+
+    VkResult result = vmaCreateBuffer(g_hAllocator, &uniformBufferCI, &uniformBufferAllocCI, &uniformBuffer, &uniformBufferAlloc, &uniformBufferAllocInfo);
+    TEST(result == VK_SUCCESS);
+
+    VkBufferCreateInfo stagingBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    stagingBufferCI.size = bufferSize;
+    stagingBufferCI.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VmaAllocationCreateInfo stagingBufferAllocCI = {};
+    stagingBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
+    stagingBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VmaAllocation stagingBufferAlloc = {};
+    VmaAllocationInfo stagingBufferAllocInfo = {};
+
+    result = vmaCreateBuffer(g_hAllocator, &stagingBufferCI, &stagingBufferAllocCI, &stagingBuffer, &stagingBufferAlloc, &stagingBufferAllocInfo);
+    TEST(result == VK_SUCCESS);
+
+    TEST(stagingBufferAllocInfo.pMappedData != nullptr);
+    vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
+
+    BeginSingleTimeCommands();
+
+    VkBufferMemoryBarrier bufferMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    bufferMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    bufferMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    bufferMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferMemBarrier.buffer = stagingBuffer;
+    bufferMemBarrier.offset = 0;
+    bufferMemBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferMemBarrier, 0, nullptr);
+
+    VkBufferCopy bufferCopy = {};
+    bufferCopy.srcOffset = 0;
+    bufferCopy.dstOffset = 0;
+    bufferCopy.size = bufferSize;
+
+    vkCmdCopyBuffer(g_hTemporaryCommandBuffer, stagingBuffer, uniformBuffer, 1, &bufferCopy);
+
+    VkBufferMemoryBarrier bufferMemBarrier2 = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    bufferMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufferMemBarrier2.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT; // Change this if you want to create another type of buffer.
+    bufferMemBarrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferMemBarrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferMemBarrier2.buffer = uniformBuffer;
+    bufferMemBarrier2.offset = 0;
+    bufferMemBarrier2.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 1, &bufferMemBarrier2, 0, nullptr);
+
+    EndSingleTimeCommands();
+
+    vmaDestroyBuffer(g_hAllocator, stagingBuffer, stagingBufferAlloc);
+    vmaDestroyBuffer(g_hAllocator, uniformBuffer, uniformBufferAlloc);
+}
+
+static void TestDataUploadingWithMappedMemory() {
+    wprintf(L"Testing data uploading with mapped memory...\n");
+
+    // Generate some random data to fill the uniform buffer with.
+    const VkDeviceSize bufferSize = 65536;
+    std::vector<std::uint8_t> bufferData(bufferSize);
+    for (auto& bufferByte : bufferData) {
+        bufferByte = static_cast<std::uint8_t>(rand() % 256);
+    }
+
+    VkBufferCreateInfo uniformBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    uniformBufferCI.size = bufferSize;
+    uniformBufferCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // Change this if you want to create another type of buffer.
+
+    VmaAllocationCreateInfo uniformBufferAllocCI = {};
+    uniformBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
+    uniformBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT; // We want memory to be mapped.
+
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;
+    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo uniformBufferAllocInfo = {};
+
+    VkResult result = vmaCreateBuffer(g_hAllocator, &uniformBufferCI, &uniformBufferAllocCI, &uniformBuffer, &uniformBufferAlloc, &uniformBufferAllocInfo);
+    TEST(result == VK_SUCCESS);
+
+    // We need to check if the uniform buffer really ended up in mappable memory.
+    VkMemoryPropertyFlags memPropFlags;
+    vmaGetAllocationMemoryProperties(g_hAllocator, uniformBufferAlloc, &memPropFlags);
+    TEST(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+    TEST(uniformBufferAllocInfo.pMappedData != nullptr);
+    vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
+
+    BeginSingleTimeCommands();
+
+    VkBufferMemoryBarrier bufferMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    bufferMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    bufferMemBarrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT; // Change this if you want to create another type of buffer.
+    bufferMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferMemBarrier.buffer = uniformBuffer;
+    bufferMemBarrier.offset = 0;
+    bufferMemBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 1, &bufferMemBarrier, 0, nullptr);
+
+    EndSingleTimeCommands();
+
+    vmaDestroyBuffer(g_hAllocator, uniformBuffer, uniformBufferAlloc);
+}
+
+static void TestAdvancedDataUploading() {
+    wprintf(L"Testing advanced data uploading...\n");
+
+    // Generate some random data to fill the uniform buffer with.
+    const VkDeviceSize bufferSize = 65536;
+    std::vector<std::uint8_t> bufferData(bufferSize);
+    for (auto& bufferByte : bufferData) {
+        bufferByte = static_cast<std::uint8_t>(rand() % 256);
+    }
+
+    VkBufferCreateInfo uniformBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    uniformBufferCI.size = bufferSize;
+    uniformBufferCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // Change this if you want to create another type of buffer.
+
+    VmaAllocationCreateInfo uniformBufferAllocCI = {};
+    uniformBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
+    uniformBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
+                                    | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;
+    VmaAllocation uniformBufferAlloc = {};
+    VmaAllocationInfo uniformBufferAllocInfo = {};
+
+    VkResult result = vmaCreateBuffer(g_hAllocator, &uniformBufferCI, &uniformBufferAllocCI, &uniformBuffer, &uniformBufferAlloc, &uniformBufferAllocInfo);
+    TEST(result == VK_SUCCESS);
+
+    VkMemoryPropertyFlags memPropFlags;
+    vmaGetAllocationMemoryProperties(g_hAllocator, uniformBufferAlloc, &memPropFlags);
+
+    if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+        // The allocation ended up as mapped memory.
+        TEST(uniformBufferAllocInfo.pMappedData != nullptr);
+        vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
+
+        BeginSingleTimeCommands();
+
+        VkBufferMemoryBarrier bufferMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        bufferMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        bufferMemBarrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT; // Change this if you want to create another type of buffer.
+        bufferMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferMemBarrier.buffer = uniformBuffer;
+        bufferMemBarrier.offset = 0;
+        bufferMemBarrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 1, &bufferMemBarrier, 0, nullptr);
+
+        EndSingleTimeCommands();
+    }
+    else {
+        // The allocation did not end up in mapped memory, so we need a staging buffer and a copy operation to update it.
+        VkBufferCreateInfo stagingBufferCI = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        stagingBufferCI.size = bufferSize;
+        stagingBufferCI.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+        VmaAllocationCreateInfo stagingBufferAllocCI = {};
+        stagingBufferAllocCI.usage = VMA_MEMORY_USAGE_AUTO;
+        stagingBufferAllocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+        VkBuffer stagingBuffer = VK_NULL_HANDLE;
+        VmaAllocation stagingBufferAlloc = {};
+        VmaAllocationInfo stagingBufferAllocInfo = {};
+
+        result = vmaCreateBuffer(g_hAllocator, &stagingBufferCI, &stagingBufferAllocCI, &stagingBuffer, &stagingBufferAlloc, &stagingBufferAllocInfo);
+        TEST(result == VK_SUCCESS);
+
+        TEST(stagingBufferAllocInfo.pMappedData != nullptr);
+        vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
+
+        result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
+        TEST(result == VK_SUCCESS);
+
+        BeginSingleTimeCommands();
+
+        VkBufferMemoryBarrier bufferMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        bufferMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        bufferMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        bufferMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferMemBarrier.buffer = stagingBuffer;
+        bufferMemBarrier.offset = 0;
+        bufferMemBarrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferMemBarrier, 0, nullptr);
+
+        VkBufferCopy bufferCopy = {};
+        bufferCopy.srcOffset = 0;
+        bufferCopy.dstOffset = 0;
+        bufferCopy.size = bufferSize;
+
+        vkCmdCopyBuffer(g_hTemporaryCommandBuffer, stagingBuffer, uniformBuffer, 1, &bufferCopy);
+
+        VkBufferMemoryBarrier bufferMemBarrier2 = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        bufferMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bufferMemBarrier2.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT; // Change this if you want to create another type of buffer.
+        bufferMemBarrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferMemBarrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferMemBarrier2.buffer = uniformBuffer;
+        bufferMemBarrier2.offset = 0;
+        bufferMemBarrier2.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(g_hTemporaryCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 1, &bufferMemBarrier2, 0, nullptr);
+
+        EndSingleTimeCommands();
+
+        vmaDestroyBuffer(g_hAllocator, stagingBuffer, stagingBufferAlloc);
+    }
+
+    vmaDestroyBuffer(g_hAllocator, uniformBuffer, uniformBufferAlloc);
+}
+
 static uint32_t FindDeviceCoherentMemoryTypeBits()
 {
     VkPhysicalDeviceMemoryProperties memProps;
@@ -8352,6 +8594,9 @@ void Test()
     TestAllocationsInitialization();
 #endif
     TestMemoryUsage();
+    TestDataUploadingWithStagingBuffer();
+    TestDataUploadingWithMappedMemory();
+    TestAdvancedDataUploading();
     TestDeviceCoherentMemory();
     TestStatistics();
     TestAliasing();
