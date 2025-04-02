@@ -1,14 +1,15 @@
-name: linux
+name: Build code on Linux
 
-on: [push, pull_request]
-
-permissions:
-  contents: read
+on:
+  push:
+  pull_request:
+    types: [opened]
 
 jobs:
-  build:
+  linux:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         cxx: [g++-12, clang++-15]
         build_type: [Debug, Release]
