@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2017-2025 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +36,8 @@ static const char* const SHADER_PATH1 = "./Shaders/";
 static const char* const SHADER_PATH2 = "../bin/";
 static const wchar_t* const WINDOW_CLASS_NAME = L"VULKAN_MEMORY_ALLOCATOR_SAMPLE";
 static const char* const VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
-static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 3.1.0";
-static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 3.1.0";
+static const char* const APP_TITLE_A =     "Vulkan Memory Allocator Sample 3.2.1";
+static const wchar_t* const APP_TITLE_W = L"Vulkan Memory Allocator Sample 3.2.1";
 
 static const bool VSYNC = true;
 static const uint32_t COMMAND_BUFFER_COUNT = 2;
@@ -401,7 +401,9 @@ static VkExtent2D ChooseSwapExtent()
 
 static constexpr uint32_t GetVulkanApiVersion()
 {
-#if VMA_VULKAN_VERSION == 1003000
+#if VMA_VULKAN_VERSION == 1004000
+    return VK_API_VERSION_1_4;
+#elif VMA_VULKAN_VERSION == 1003000
     return VK_API_VERSION_1_3;
 #elif VMA_VULKAN_VERSION == 1002000
     return VK_API_VERSION_1_2;
@@ -502,6 +504,9 @@ void VulkanUsage::Init()
 #endif
 #ifdef VK_VERSION_1_3
     case VK_API_VERSION_1_3: wprintf(L"1.3\n"); break;
+#endif
+#ifdef VK_VERSION_1_4
+    case VK_API_VERSION_1_4: wprintf(L"1.4\n"); break;
 #endif
     default: assert(0);
     }

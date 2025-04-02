@@ -1,0 +1,61 @@
+name: Build Code
+
+on:
+  push:
+  pull_request:
+    types: [opened]
+
+env:
+  VMA_VULKAN_VERSION: "1.3.283.0"
+  VMA_VULKAN_SDK_PATH: "$GITHUB_WORKSPACE/../vulkan_sdk/"
+
+jobs:
+  windows:
+    name: ${{ matrix.config.name }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {
+            name: "Windows MSVC (Debug)",
+            compiler: "msvc",
+            cc: "cl", cxx: "cl",
+            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
+            build_type: "Debug",
+          }
+          - {
+            name: "Windows MSVC (Release)",
+            compiler: "msvc",
+            cc: "cl", cxx: "cl",
+            cmake_configure_options: '-G "Visual Studio 17 2022" -A x64',
+            build_type: "Release",
+          }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          curl -LS -o vulkansdk.exe https://sdk.lunarg.com/sdk/download/${{ env.VMA_VULKAN_VERSION }}/windows/VulkanSDK-${{ env.VMA_VULKAN_VERSION }}-Installer.exe
+          7z x vulkansdk.exe -o"${{ env.VMA_VULKAN_SDK_PATH }}"
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          $env:CC="${{ matrix.config.cc }}"
+          $env:CXX="${{ matrix.config.cxx }}"
+          $env:Path += ";${{ env.VMA_VULKAN_SDK_PATH }}\;${{ env.VMA_VULKAN_SDK_PATH }}\Bin\"
+          $env:VULKAN_SDK="${{ env.VMA_VULKAN_SDK_PATH }}"
+          cmake . `
+            -Bbuild `
+            -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} `
+            -DVMA_BUILD_SAMPLES=ON `
+            ${{ matrix.config.cmake_configure_options }}
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build build --config ${{ matrix.config.build_type }}

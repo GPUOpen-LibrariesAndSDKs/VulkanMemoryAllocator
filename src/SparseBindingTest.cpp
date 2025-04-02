@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017-2024 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2017-2025 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -469,15 +469,6 @@ void SparseBindingImage::Init(RandomNumberGenerator& rand)
     // Get memory requirements.
     VkMemoryRequirements imageMemReq;
     vkGetImageMemoryRequirements(g_hDevice, m_Image, &imageMemReq);
-
-    // This is just to silence validation layer warning.
-    // But it doesn't help. Looks like a bug in Vulkan validation layers.
-    // See: https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/364
-    uint32_t sparseMemReqCount = 0;
-    vkGetImageSparseMemoryRequirements(g_hDevice, m_Image, &sparseMemReqCount, nullptr);
-    TEST(sparseMemReqCount <= 8);
-    VkSparseImageMemoryRequirements sparseMemReq[8];
-    vkGetImageSparseMemoryRequirements(g_hDevice, m_Image, &sparseMemReqCount, sparseMemReq);
 
     // According to Vulkan specification, for sparse resources memReq.alignment is also page size.
     const VkDeviceSize pageSize = imageMemReq.alignment;
