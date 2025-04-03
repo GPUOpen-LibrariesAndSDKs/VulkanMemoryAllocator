@@ -11,29 +11,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cxx: [g++-12, clang++-15]
-        build_type: [Debug, Release]
+        cxx: g++-12
+        build_type: Debug
+        #cxx: [g++-12, clang++-15]
+        #build_type: [Debug, Release]
         include:
           - cxx: g++-12
             install: sudo apt install g++-12
-          - cxx: clang++-15
-            cxxflags: -stdlib=libc++
-            install: sudo apt install clang-15 libc++-15-dev libc++abi-15-dev
+          #- cxx: clang++-15
+          #  cxxflags: -stdlib=libc++
+          #  install: sudo apt install clang-15 libc++-15-dev libc++abi-15-dev
 
     steps:
     - uses: actions/checkout@v4
-
-    - name: Prepare Vulkan SDK
-      uses: humbletim/install-vulkan-sdk@v1.1.1
-      with:
-        version: 1.3.290.0
-        cache: true
 
     - name: Create Build Environment
       run: |
         sudo apt update
         ${{matrix.install}}
         cmake -E make_directory ${{runner.workspace}}/build
+
+    - name: Prepare Vulkan SDK
+      shell: bash
+      run: |
+        curl -LS -o vulkansdk.tar.xz https://sdk.lunarg.com/sdk/download/1.4.309.0/linux/vulkansdk-linux-x86_64-1.4.309.0.tar.xz
+        mkdir -p vulkan_sdk
+        tar xf vulkansdk.tar.xz -C "vulkan_sdk"
+        rm -rf vulkansdk.tar.xz
 
     - name: Configure
       working-directory: ${{runner.workspace}}/build
