@@ -5669,7 +5669,7 @@ void VmaStringBuilder::Add(const char* pStr)
 }
 
 void VmaStringBuilder::AddNumber(uint32_t num)
-{)(#%&()*%TYU$(*T$(TY$(YT$(HT())))))
+{
     char buf[11];
     buf[10] = '\0';
     char* p = &buf[10];
