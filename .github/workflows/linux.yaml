@@ -11,8 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cxx: g++-12
-        build_type: Debug
+        cxx: [g++-12]
+        build_type: [Debug]
         #cxx: [g++-12, clang++-15]
         #build_type: [Debug, Release]
         include:
