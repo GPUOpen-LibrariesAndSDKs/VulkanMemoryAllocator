@@ -11,16 +11,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cxx: [g++-12]
-        build_type: [Debug]
-        #cxx: [g++-12, clang++-15]
-        #build_type: [Debug, Release]
+        cxx: [g++-12, clang++-15]
+        build_type: [Debug, Release]
         include:
           - cxx: g++-12
             install: sudo apt install g++-12
-          #- cxx: clang++-15
-          #  cxxflags: -stdlib=libc++
-          #  install: sudo apt install clang-15 libc++-15-dev libc++abi-15-dev
+          - cxx: clang++-15
+            cxxflags: -stdlib=libc++
+            install: sudo apt install clang-15 libc++-15-dev libc++abi-15-dev
 
     steps:
     - uses: actions/checkout@v4
