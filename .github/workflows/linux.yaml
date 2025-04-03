@@ -38,6 +38,18 @@ jobs:
         mkdir -p vulkan_sdk
         tar xf vulkansdk.tar.xz -C "vulkan_sdk"
         rm -rf vulkansdk.tar.xz
+        
+        export VULKAN_SDK=$GITHUB_WORKSPACE/vulkan_sdk/1.4.309.0/x86_64
+        export PATH=$VULKAN_SDK/bin:$PATH
+        export LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH
+        export VK_ICD_FILENAMES=$VULKAN_SDK/etc/vulkan/icd.d
+        export VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/layer.d
+
+        echo "VULKAN_SDK=$VULKAN_SDK" >> $GITHUB_ENV
+        echo "PATH=$VULKAN_SDK/bin:$PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "VK_ICD_FILENAMES=$VULKAN_SDK/etc/vulkan/icd.d" >> $GITHUB_ENV
+        echo "VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/layer.d" >> $GITHUB_ENV
 
     - name: Configure
       working-directory: ${{runner.workspace}}/build
