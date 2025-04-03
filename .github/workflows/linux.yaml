@@ -36,7 +36,7 @@ jobs:
       run: |
         curl -LS -o vulkansdk.tar.xz https://sdk.lunarg.com/sdk/download/1.4.309.0/linux/vulkansdk-linux-x86_64-1.4.309.0.tar.xz
         mkdir -p vulkan_sdk
-        tar xf vulkansdk.tar.xz -C "vulkan_sdk"
+        tar xf vulkansdk.tar.xz -C vulkan_sdk
         rm -rf vulkansdk.tar.xz
         
         export VULKAN_SDK=$GITHUB_WORKSPACE/vulkan_sdk/1.4.309.0/x86_64
@@ -57,8 +57,7 @@ jobs:
         CXX: ${{matrix.cxx}}
         CXXFLAGS: ${{matrix.cxxflags}}
       run: |
-        cmake -DCPM_SOURCE_CACHE=~/cpm-cache \
-          -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+        cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
           -DVMA_BUILD_SAMPLES=YES \
           $GITHUB_WORKSPACE
 
@@ -66,4 +65,4 @@ jobs:
       working-directory: ${{runner.workspace}}/build
       run: |
         threads=`nproc`
-        cmake --build . --target VmaCompilationTest --config ${{matrix.build_type}} --parallel $threads
+        cmake --build . --config ${{matrix.build_type}} --parallel $threads
