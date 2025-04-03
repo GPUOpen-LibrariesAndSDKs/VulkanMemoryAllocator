@@ -20,11 +20,6 @@
 # THE SOFTWARE.
 #
 
-if (NOT WIN32)
-    message(STATUS "VmaSample application is only supported on Windows")
-    return()
-endif()
-
 option(VMA_STATIC_VULKAN_FUNCTIONS "Link statically with Vulkan API" ON)
 option(VMA_DYNAMIC_VULKAN_FUNCTIONS "Fetch pointers to Vulkan functions internally (no static linking)" OFF)
 option(VMA_DEBUG_ALWAYS_DEDICATED_MEMORY "Every allocation will have its own memory block" OFF)

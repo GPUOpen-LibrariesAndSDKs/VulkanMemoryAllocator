@@ -1,0 +1,66 @@
+name: Build code on Linux
+
+on:
+  push:
+  pull_request:
+    types: [opened]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++-12, clang++-15]
+        build_type: [Debug, Release]
+        include:
+          - cxx: g++-12
+            install: sudo apt install g++-12
+          - cxx: clang++-15
+            cxxflags: -stdlib=libc++
+            install: sudo apt install clang-15 libc++-15-dev libc++abi-15-dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        ${{matrix.install}}
+        cmake -E make_directory ${{runner.workspace}}/build
+
+    - name: Prepare Vulkan SDK
+      shell: bash
+      run: |
+        curl -LS -o vulkansdk.tar.xz https://sdk.lunarg.com/sdk/download/1.4.309.0/linux/vulkansdk-linux-x86_64-1.4.309.0.tar.xz
+        mkdir -p vulkan_sdk
+        tar xf vulkansdk.tar.xz -C vulkan_sdk
+        rm -rf vulkansdk.tar.xz
+        
+        export VULKAN_SDK=$GITHUB_WORKSPACE/vulkan_sdk/1.4.309.0/x86_64
+        export PATH=$VULKAN_SDK/bin:$PATH
+        export LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH
+        export VK_ICD_FILENAMES=$VULKAN_SDK/etc/vulkan/icd.d
+        export VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/layer.d
+
+        echo "VULKAN_SDK=$VULKAN_SDK" >> $GITHUB_ENV
+        echo "PATH=$VULKAN_SDK/bin:$PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "VK_ICD_FILENAMES=$VULKAN_SDK/etc/vulkan/icd.d" >> $GITHUB_ENV
+        echo "VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/layer.d" >> $GITHUB_ENV
+
+    - name: Configure
+      working-directory: ${{runner.workspace}}/build
+      env:
+        CXX: ${{matrix.cxx}}
+        CXXFLAGS: ${{matrix.cxxflags}}
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+          -DVMA_BUILD_SAMPLES=YES \
+          $GITHUB_WORKSPACE
+
+    - name: Build
+      working-directory: ${{runner.workspace}}/build
+      run: |
+        threads=`nproc`
+        cmake --build . --config ${{matrix.build_type}} --parallel $threads
