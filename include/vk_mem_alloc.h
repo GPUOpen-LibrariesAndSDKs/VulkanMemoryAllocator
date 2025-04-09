@@ -1669,6 +1669,20 @@ typedef struct VmaVirtualAllocationInfo
 @{
 */
 
+#ifdef VOLK_HEADER_VERSION
+/** \brief Fully initializes `dst` structure with Vulkan functions needed by this library based on functions imported by
+[volk library](https://github.com/zeux/volk).
+
+If you use volk, call this function after `VkInstance` and `VkDevice` is created to fill in structure #VmaVulkanFunctions
+before calling vmaCreateAllocator().
+
+Pointers to functions related to the entire Vulkan instance are fetched using global function definitions.
+Pointers to functions related to the Vulkan device are fetched using `volkLoadDeviceTable()` for given `device`.
+ */
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaImportVulkanFunctionsFromVolk(
+    VkDevice VMA_NOT_NULL device, VmaVulkanFunctions* VMA_NOT_NULL dst);
+#endif
+
 /// Creates #VmaAllocator object.
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
     const VmaAllocatorCreateInfo* VMA_NOT_NULL pCreateInfo,
@@ -15082,6 +15096,78 @@ void VmaAllocator_T::PrintDetailedMap(VmaJsonWriter& json)
 
 
 #ifndef _VMA_PUBLIC_INTERFACE
+
+#ifdef VOLK_HEADER_VERSION
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaImportVulkanFunctionsFromVolk(
+    VkDevice VMA_NOT_NULL device, VmaVulkanFunctions* VMA_NOT_NULL dst)
+{
+    VolkDeviceTable src = {};
+    memset(&dst, 0, sizeof(dst));
+    memset(&src, 0, sizeof(src));
+    
+    volkLoadDeviceTable(&src, device);
+
+#define COPY_GLOBAL_TO_VMA_FUNC(volkName, vmaName) if(!dst->vmaName) dst->vmaName = volkName;
+#define COPY_DEVICE_TO_VMA_FUNC(volkName, vmaName) if(!dst->vmaName) dst->vmaName = src.volkName;
+
+    COPY_GLOBAL_TO_VMA_FUNC(vkGetInstanceProcAddr, vkGetInstanceProcAddr)
+    COPY_GLOBAL_TO_VMA_FUNC(vkGetDeviceProcAddr, vkGetDeviceProcAddr)
+    COPY_GLOBAL_TO_VMA_FUNC(vkGetPhysicalDeviceProperties, vkGetPhysicalDeviceProperties)
+    COPY_GLOBAL_TO_VMA_FUNC(vkGetPhysicalDeviceMemoryProperties, vkGetPhysicalDeviceMemoryProperties)
+    COPY_DEVICE_TO_VMA_FUNC(vkAllocateMemory, vkAllocateMemory)
+    COPY_DEVICE_TO_VMA_FUNC(vkFreeMemory, vkFreeMemory)
+    COPY_DEVICE_TO_VMA_FUNC(vkMapMemory, vkMapMemory)
+    COPY_DEVICE_TO_VMA_FUNC(vkUnmapMemory, vkUnmapMemory)
+    COPY_DEVICE_TO_VMA_FUNC(vkFlushMappedMemoryRanges, vkFlushMappedMemoryRanges)
+    COPY_DEVICE_TO_VMA_FUNC(vkInvalidateMappedMemoryRanges, vkInvalidateMappedMemoryRanges)
+    COPY_DEVICE_TO_VMA_FUNC(vkBindBufferMemory, vkBindBufferMemory)
+    COPY_DEVICE_TO_VMA_FUNC(vkBindImageMemory, vkBindImageMemory)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetBufferMemoryRequirements, vkGetBufferMemoryRequirements)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetImageMemoryRequirements, vkGetImageMemoryRequirements)
+    COPY_DEVICE_TO_VMA_FUNC(vkCreateBuffer, vkCreateBuffer)
+    COPY_DEVICE_TO_VMA_FUNC(vkDestroyBuffer, vkDestroyBuffer)
+    COPY_DEVICE_TO_VMA_FUNC(vkCreateImage, vkCreateImage)
+    COPY_DEVICE_TO_VMA_FUNC(vkDestroyImage, vkDestroyImage)
+    COPY_DEVICE_TO_VMA_FUNC(vkCmdCopyBuffer, vkCmdCopyBuffer)
+#if VMA_VULKAN_VERSION >= 1001000
+    COPY_GLOBAL_TO_VMA_FUNC(vkGetPhysicalDeviceMemoryProperties2, vkGetPhysicalDeviceMemoryProperties2KHR)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetBufferMemoryRequirements2, vkGetBufferMemoryRequirements2KHR)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetImageMemoryRequirements2, vkGetImageMemoryRequirements2KHR)
+    COPY_DEVICE_TO_VMA_FUNC(vkBindBufferMemory2, vkBindBufferMemory2KHR)
+    COPY_DEVICE_TO_VMA_FUNC(vkBindImageMemory2, vkBindImageMemory2KHR)
+#endif
+#if VMA_VULKAN_VERSION >= 1003000
+    COPY_DEVICE_TO_VMA_FUNC(vkGetDeviceBufferMemoryRequirements, vkGetDeviceBufferMemoryRequirements)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetDeviceImageMemoryRequirements, vkGetDeviceImageMemoryRequirements)
+#endif
+#if VMA_KHR_MAINTENANCE4
+    COPY_DEVICE_TO_VMA_FUNC(vkGetDeviceBufferMemoryRequirementsKHR, vkGetDeviceBufferMemoryRequirements)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetDeviceImageMemoryRequirementsKHR, vkGetDeviceImageMemoryRequirements)
+#endif
+#if VMA_DEDICATED_ALLOCATION
+    COPY_DEVICE_TO_VMA_FUNC(vkGetBufferMemoryRequirements2KHR, vkGetBufferMemoryRequirements2KHR)
+    COPY_DEVICE_TO_VMA_FUNC(vkGetImageMemoryRequirements2KHR, vkGetImageMemoryRequirements2KHR)
+#endif
+#if VMA_BIND_MEMORY2
+    COPY_DEVICE_TO_VMA_FUNC(vkBindBufferMemory2KHR, vkBindBufferMemory2KHR)
+    COPY_DEVICE_TO_VMA_FUNC(vkBindImageMemory2KHR, vkBindImageMemory2KHR)
+#endif
+#if VMA_MEMORY_BUDGET
+    COPY_GLOBAL_TO_VMA_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, vkGetPhysicalDeviceMemoryProperties2KHR)
+#endif
+#if VMA_EXTERNAL_MEMORY_WIN32
+    COPY_DEVICE_TO_VMA_FUNC(vkGetMemoryWin32HandleKHR, vkGetMemoryWin32HandleKHR)
+#endif
+
+#undef COPY_DEVICE_TO_VMA_FUNC
+#undef COPY_GLOBAL_TO_VMA_FUNC
+
+    return VK_SUCCESS;
+}
+
+#endif // #ifdef VOLK_HEADER_VERSION
+
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
     const VmaAllocatorCreateInfo* pCreateInfo,
     VmaAllocator* pAllocator)

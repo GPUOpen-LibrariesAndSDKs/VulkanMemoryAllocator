@@ -426,6 +426,8 @@ void VulkanUsage::Init()
         g_Allocs = &g_CpuAllocationCallbacks;
     }
 
+    ERR_GUARD_VULKAN(volkInitialize());
+
     uint32_t instanceLayerPropCount = 0;
     ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr) );
     std::vector<VkLayerProperties> instanceLayerProps(instanceLayerPropCount);
@@ -512,6 +514,8 @@ void VulkanUsage::Init()
     }
 
     ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, g_Allocs, &g_hVulkanInstance) );
+
+    volkLoadInstance(g_hVulkanInstance);
 
     if(VK_EXT_debug_utils_enabled)
     {
@@ -1511,12 +1515,22 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
         outInfo.pAllocationCallbacks = &g_CpuAllocationCallbacks;
     }
 
-#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+#ifdef VOLK_HEADER_VERSION
+
     static VmaVulkanFunctions vulkanFunctions = {};
+    vmaImportVulkanFunctionsFromVolk(g_hDevice, &vulkanFunctions);
+    outInfo.pVulkanFunctions = &vulkanFunctions;
+
+#else // #ifdef VOLK_HEADER_VERSION
+
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+v    static VmaVulkanFunctions vulkanFunctions = {};
     vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
     outInfo.pVulkanFunctions = &vulkanFunctions;
-#endif
+#endif // #if VMA_DYNAMIC_VULKAN_FUNCTIONS
+
+#endif // #ifdef VOLK_HEADER_VERSION
 
     // Uncomment to enable HeapSizeLimit.
     /*
@@ -2083,6 +2097,7 @@ static void InitializeApplication()
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfo;
 
     ERR_GUARD_VULKAN( vkCreateDevice(g_hPhysicalDevice, &deviceCreateInfo, g_Allocs, &g_hDevice) );
+    volkLoadDevice(g_hDevice);
     SetDebugUtilsObjectName(VK_OBJECT_TYPE_DEVICE, reinterpret_cast<std::uint64_t>(g_hDevice), "g_hDevice");
     // Only now that SetDebugUtilsObjectName is loaded, we can assign a name to g_hVulkanInstance as well
     SetDebugUtilsObjectName(VK_OBJECT_TYPE_INSTANCE, reinterpret_cast<std::uint64_t>(g_hVulkanInstance), "g_hVulkanInstance");
