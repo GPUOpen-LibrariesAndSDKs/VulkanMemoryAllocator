@@ -57,6 +57,45 @@ jobs:
       run: |
         cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
           -DVMA_BUILD_SAMPLES=YES \
+          -DCMAKE_CXX_FLAGS="$CXXFLAGS \
+              -Wall \
+              -Wextra \
+              -Wpedantic \
+              -Wconversion \
+              -Wsign-conversion \
+              -Wshadow \
+              -Wnull-dereference \
+              -Wdouble-promotion \
+              -Wformat=2 \
+              -Wimplicit-fallthrough \
+              -Wundef \
+              -Wcast-align \
+              -Woverloaded-virtual \
+              -Wnon-virtual-dtor \
+              -Wstrict-overflow=5 \
+              -Wuseless-cast \
+              -Wduplicated-cond \
+              -Wduplicated-branches \
+              -Wlogical-op \
+              -Wredundant-decls \
+              -Wstrict-null-sentinel \
+              -Wold-style-cast" \
+              -Wcast-qual \
+              -Wconversion-extra \
+              -Wstack-usage=2048 \
+              -Wsuggest-final-types \
+              -Wsuggest-final-methods \
+              -Wsuggest-override \
+              -Wvector-operation-performance \
+              -Wzero-as-null-pointer-constant \
+              -Wextra-semi \
+              -Wmissing-declarations \
+              -Wmissing-include-dirs \
+              -Winit-self \
+              -Wuninitialized \
+              -Wunused \
+              -Wunused-parameter \
+              -Wshadow=local \
           $GITHUB_WORKSPACE
 
     - name: Build
