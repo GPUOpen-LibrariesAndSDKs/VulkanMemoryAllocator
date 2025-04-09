@@ -1,0 +1,45 @@
+name: Static code analysis (clang-tidy) 
+
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  clang-tidy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y clang-15 clang-tidy-15 cmake ninja-build libc++-15-dev libc++abi-15-dev
+
+    - name: Set clang-tidy version
+      run: echo "CLANG_TIDY=clang-tidy-15" >> $GITHUB_ENV
+
+    - name: Prepare Vulkan SDK
+      run: |
+        curl -LS -o vulkansdk.tar.xz https://sdk.lunarg.com/sdk/download/1.4.309.0/linux/vulkansdk-linux-x86_64-1.4.309.0.tar.xz
+        mkdir -p vulkan_sdk
+        tar xf vulkansdk.tar.xz -C vulkan_sdk
+        export VULKAN_SDK=$GITHUB_WORKSPACE/vulkan_sdk/1.4.309.0/x86_64
+        echo "VULKAN_SDK=$VULKAN_SDK" >> $GITHUB_ENV
+        echo "PATH=$VULKAN_SDK/bin:$PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "VK_ICD_FILENAMES=$VULKAN_SDK/etc/vulkan/icd.d" >> $GITHUB_ENV
+        echo "VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/layer.d" >> $GITHUB_ENV
+
+    - name: Configure with CMake
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -DCMAKE_CXX_COMPILER=clang++-15 \
+          -DCMAKE_C_COMPILER=clang-15 \
+          -DVMA_BUILD_SAMPLES=YES
+
+    - name: Run Clang-Tidy
+      run: |
+        find . -name '*.cpp' | xargs clang-tidy-15 -checks='*, -modernize-use-trailing-return-type, -cppcoreguidelines-macro-usage, -modernize-use-auto, -modernize-use-using' -header-filter='.*vk_mem_alloc\.h' -p build || true
