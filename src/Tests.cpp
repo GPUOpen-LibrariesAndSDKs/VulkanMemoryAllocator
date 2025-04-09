@@ -2267,11 +2267,13 @@ void TestDefragmentationAlgorithms()
 
     VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.extent.width = 128; // Example one.
+    imageCreateInfo.extent.height = 128; // Example one.
     imageCreateInfo.extent.depth = 1;
     imageCreateInfo.mipLevels = 1;
     imageCreateInfo.arrayLayers = 1;
     imageCreateInfo.format = VK_FORMAT_R8_UNORM;
-    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
     imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -2280,12 +2282,18 @@ void TestDefragmentationAlgorithms()
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
-    uint32_t memTypeIndex = UINT32_MAX;
-    vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &memTypeIndex);
+    uint32_t bufMemTypeIndex = UINT32_MAX;
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &bufMemTypeIndex) == VK_SUCCESS);
+    uint32_t imageMemTypeIndex = UINT32_MAX;
+    TEST(vmaFindMemoryTypeIndexForImageInfo(g_hAllocator, &imageCreateInfo, &allocCreateInfo, &imageMemTypeIndex) == VK_SUCCESS);
+
+    const uint32_t commonMemTypeIndex = bufMemTypeIndex & imageMemTypeIndex;
+    // Check if this platform supports buffer and LINEAR R8 2D images in the same HOST_VISIBLE + HOST_CACHED memory.
+    TEST(commonMemTypeIndex != 0);
 
     VmaPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.blockSize = BLOCK_SIZE;
-    poolCreateInfo.memoryTypeIndex = memTypeIndex;
+    poolCreateInfo.memoryTypeIndex = commonMemTypeIndex;
 
     VmaPool pool;
     TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
