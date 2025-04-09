@@ -2239,7 +2239,7 @@ void TestDefragmentationVsMapping()
 
 void TestDefragmentationAlgorithms()
 {
-    wprintf(L"Test defragmentation simple\n");
+    wprintf(L"Test defragmentation algorithms\n");
 
     RandomNumberGenerator rand(669);
 
