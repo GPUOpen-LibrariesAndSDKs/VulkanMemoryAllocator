@@ -10537,8 +10537,7 @@ private:
         size_t allocationCount);
     VkResult CalcAllocationParams(
         VmaAllocationCreateInfo& outCreateInfo,
-        bool dedicatedRequired,
-        bool dedicatedPreferred);
+        bool dedicatedRequired);
 
     /*
     Calculates and returns bit mask of memory types that can support defragmentation
@@ -13940,8 +13939,7 @@ VkResult VmaAllocator_T::CalcMemTypeParams(
 
 VkResult VmaAllocator_T::CalcAllocationParams(
     VmaAllocationCreateInfo& inoutCreateInfo,
-    bool dedicatedRequired,
-    bool dedicatedPreferred)
+    bool dedicatedRequired)
 {
     VMA_ASSERT((inoutCreateInfo.flags &
         (VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)) !=
@@ -14029,7 +14027,7 @@ VkResult VmaAllocator_T::AllocateMemory(
     }
 
     VmaAllocationCreateInfo createInfoFinal = createInfo;
-    VkResult res = CalcAllocationParams(createInfoFinal, requiresDedicatedAllocation, prefersDedicatedAllocation);
+    VkResult res = CalcAllocationParams(createInfoFinal, requiresDedicatedAllocation);
     if(res != VK_SUCCESS)
         return res;
 
