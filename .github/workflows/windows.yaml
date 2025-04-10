@@ -1,9 +1,9 @@
-name: Build Code
+name: Build code
 
 on:
   push:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, reopened]
 
 env:
   VMA_VULKAN_VERSION: "1.3.283.0"

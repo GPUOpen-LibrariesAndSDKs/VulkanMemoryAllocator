@@ -3,7 +3,7 @@ name: Build code on Linux
 on:
   push:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, reopened]
 
 jobs:
   linux:
