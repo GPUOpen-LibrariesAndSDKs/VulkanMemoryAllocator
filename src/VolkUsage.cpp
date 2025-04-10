@@ -20,10 +20,9 @@
 // THE SOFTWARE.
 //
 
-/*
-In exactly one CPP file define macro VMA_IMPLEMENTATION and then include
-vk_mem_alloc.h to include definitions of its internal implementation
-*/
+#ifdef VMA_VOLK_HEADER_PATH
 
 #define VOLK_IMPLEMENTATION
 #include "VmaUsage.h"
+
+#endif // #ifdef VMA_VOLK_HEADER_PATH

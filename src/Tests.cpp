@@ -3904,7 +3904,7 @@ void TestHeapSizeLimit()
     allocatorCreateInfo.pHeapSizeLimit = heapSizeLimit;
 #ifdef VOLK_HEADER_VERSION
     VmaVulkanFunctions vulkanFunctions = {};
-    vmaImportVulkanFunctionsFromVolk(g_hDevice, &vulkanFunctions);
+    vmaImportVulkanFunctionsFromVolk(&allocatorCreateInfo, &vulkanFunctions);
     allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 #endif
 #if VMA_DYNAMIC_VULKAN_FUNCTIONS
