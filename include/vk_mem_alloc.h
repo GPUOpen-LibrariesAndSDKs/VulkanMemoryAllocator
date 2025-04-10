@@ -1695,7 +1695,7 @@ Example:
 
 \code
 VmaAllocatorCreateInfo allocatorCreateInfo = {};
-allocatorCreateInfo.physicalDevice = myPhysivcalDevice;
+allocatorCreateInfo.physicalDevice = myPhysicalDevice;
 allocatorCreateInfo.device = myDevice;
 allocatorCreateInfo.instance = myInstance;
 allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
