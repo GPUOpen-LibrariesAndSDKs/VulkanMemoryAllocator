@@ -3292,12 +3292,12 @@ If providing your own implementation, you need to implement a subset of std::ato
 
 #ifndef VMA_SMALL_HEAP_MAX_SIZE
    /// Maximum size of a memory heap in Vulkan to consider it "small".
-   #define VMA_SMALL_HEAP_MAX_SIZE (1024ull * 1024 * 1024)
+   #define VMA_SMALL_HEAP_MAX_SIZE (1024ULL * 1024 * 1024)
 #endif
 
 #ifndef VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE
    /// Default size of a block allocated as single VkDeviceMemory from a "large" heap.
-   #define VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE (256ull * 1024 * 1024)
+   #define VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE (256ULL * 1024 * 1024)
 #endif
 
 /*
@@ -3333,7 +3333,7 @@ static const uint32_t VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD_COPY = 0x000000
 static const uint32_t VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY = 0x00020000;
 static const uint32_t VK_IMAGE_CREATE_DISJOINT_BIT_COPY = 0x00000200;
 static const int32_t VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT_COPY = 1000158000;
-static const uint32_t VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET = 0x10000000u;
+static const uint32_t VMA_ALLOCATION_INTERNAL_STRATEGY_MIN_OFFSET = 0x10000000U;
 static const uint32_t VMA_ALLOCATION_TRY_COUNT = 32;
 static const uint32_t VMA_VENDOR_ID_AMD = 4098;
 
@@ -3345,7 +3345,7 @@ static const uint32_t VMA_VENDOR_ID_AMD = 4098;
 
 #if VMA_STATS_STRING_ENABLED
 // Correspond to values of enum VmaSuballocationType.
-static const char* VMA_SUBALLOCATION_TYPE_NAMES[] =
+static const char* const VMA_SUBALLOCATION_TYPE_NAMES[] =
 {
     "FREE",
     "UNKNOWN",
@@ -3356,7 +3356,7 @@ static const char* VMA_SUBALLOCATION_TYPE_NAMES[] =
 };
 #endif
 
-static VkAllocationCallbacks VmaEmptyAllocationCallbacks =
+static const VkAllocationCallbacks VmaEmptyAllocationCallbacks =
     { VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL, VMA_NULL };
 
 
@@ -4379,9 +4379,9 @@ struct VmaStlAllocator
     const VkAllocationCallbacks* const m_pCallbacks;
     typedef T value_type;
 
-    VmaStlAllocator(const VkAllocationCallbacks* pCallbacks) : m_pCallbacks(pCallbacks) {}
+    explicit VmaStlAllocator(const VkAllocationCallbacks* pCallbacks) : m_pCallbacks(pCallbacks) {}
     template<typename U>
-    VmaStlAllocator(const VmaStlAllocator<U>& src) : m_pCallbacks(src.m_pCallbacks) {}
+    explicit VmaStlAllocator(const VmaStlAllocator<U>& src) : m_pCallbacks(src.m_pCallbacks) {}
     VmaStlAllocator(const VmaStlAllocator&) = default;
     VmaStlAllocator& operator=(const VmaStlAllocator&) = delete;
 
@@ -4413,12 +4413,12 @@ public:
     typedef T* iterator;
     typedef const T* const_iterator;
 
-    VmaVector(const AllocatorT& allocator);
+    explicit VmaVector(const AllocatorT& allocator);
     VmaVector(size_t count, const AllocatorT& allocator);
     // This version of the constructor is here for compatibility with pre-C++14 std::vector.
     // value is unused.
     VmaVector(size_t count, const T& value, const AllocatorT& allocator) : VmaVector(count, allocator) {}
-    VmaVector(const VmaVector<T, AllocatorT>& src);
+    explicit VmaVector(const VmaVector<T, AllocatorT>& src);
     VmaVector& operator=(const VmaVector& rhs);
     ~VmaVector() { VmaFree(m_Allocator.m_pCallbacks, m_pArray); }
 
@@ -4629,10 +4629,10 @@ public:
     typedef T value_type;
     typedef T* iterator;
 
-    VmaSmallVector(const AllocatorT& allocator);
+    explicit VmaSmallVector(const AllocatorT& allocator);
     VmaSmallVector(size_t count, const AllocatorT& allocator);
     template<typename SrcT, typename SrcAllocatorT, size_t SrcN>
-    VmaSmallVector(const VmaSmallVector<SrcT, SrcAllocatorT, SrcN>&) = delete;
+    explicit VmaSmallVector(const VmaSmallVector<SrcT, SrcAllocatorT, SrcN>&) = delete;
     template<typename SrcT, typename SrcAllocatorT, size_t SrcN>
     VmaSmallVector<T, AllocatorT, N>& operator=(const VmaSmallVector<SrcT, SrcAllocatorT, SrcN>&) = delete;
     ~VmaSmallVector() = default;
@@ -4916,7 +4916,7 @@ class VmaRawList
 public:
     typedef VmaListItem<T> ItemType;
 
-    VmaRawList(const VkAllocationCallbacks* pAllocationCallbacks);
+    explicit VmaRawList(const VkAllocationCallbacks* pAllocationCallbacks);
     // Intentionally not calling Clear, because that would be unnecessary
     // computations to return all items to m_ItemAllocator as free.
     ~VmaRawList() = default;
@@ -5123,8 +5123,7 @@ VmaListItem<T>* VmaRawList<T>::InsertBefore(ItemType* pItem)
         ++m_Count;
         return newItem;
     }
-    else
-        return PushBack();
+    return PushBack();
 }
 
 template<typename T>
@@ -5149,8 +5148,7 @@ VmaListItem<T>* VmaRawList<T>::InsertAfter(ItemType* pItem)
         ++m_Count;
         return newItem;
     }
-    else
-        return PushFront();
+    return PushFront();
 }
 
 template<typename T>
@@ -5187,7 +5185,7 @@ public:
         friend class VmaList<T, AllocatorT>;
     public:
         iterator() :  m_pList(VMA_NULL), m_pItem(VMA_NULL) {}
-        iterator(const reverse_iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
+        explicit iterator(const reverse_iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
 
         T& operator*() const { VMA_HEAVY_ASSERT(m_pItem != VMA_NULL); return m_pItem->Value; }
         T* operator->() const { VMA_HEAVY_ASSERT(m_pItem != VMA_NULL); return &m_pItem->Value; }
@@ -5213,7 +5211,7 @@ public:
         friend class VmaList<T, AllocatorT>;
     public:
         reverse_iterator() : m_pList(VMA_NULL), m_pItem(VMA_NULL) {}
-        reverse_iterator(const iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
+        explicit reverse_iterator(const iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
 
         T& operator*() const { VMA_HEAVY_ASSERT(m_pItem != VMA_NULL); return m_pItem->Value; }
         T* operator->() const { VMA_HEAVY_ASSERT(m_pItem != VMA_NULL); return &m_pItem->Value; }
@@ -5238,8 +5236,8 @@ public:
         friend class VmaList<T, AllocatorT>;
     public:
         const_iterator() : m_pList(VMA_NULL), m_pItem(VMA_NULL) {}
-        const_iterator(const iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
-        const_iterator(const reverse_iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
+        explicit const_iterator(const iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
+        explicit const_iterator(const reverse_iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
 
         iterator drop_const() { return { const_cast<VmaRawList<T>*>(m_pList), const_cast<VmaListItem<T>*>(m_pItem) }; }
 
@@ -5266,8 +5264,8 @@ public:
         friend class VmaList<T, AllocatorT>;
     public:
         const_reverse_iterator() : m_pList(VMA_NULL), m_pItem(VMA_NULL) {}
-        const_reverse_iterator(const reverse_iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
-        const_reverse_iterator(const iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
+        explicit const_reverse_iterator(const reverse_iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
+        explicit const_reverse_iterator(const iterator& src) : m_pList(src.m_pList), m_pItem(src.m_pItem) {}
 
         reverse_iterator drop_const() { return { const_cast<VmaRawList<T>*>(m_pList), const_cast<VmaListItem<T>*>(m_pItem) }; }
 
@@ -5290,7 +5288,7 @@ public:
         const_reverse_iterator(const VmaRawList<T>* pList, const VmaListItem<T>* pItem) : m_pList(pList), m_pItem(pItem) {}
     };
 
-    VmaList(const AllocatorT& allocator) : m_RawList(allocator.m_pCallbacks) {}
+    explicit VmaList(const AllocatorT& allocator) : m_RawList(allocator.m_pCallbacks) {}
 
     bool empty() const { return m_RawList.IsEmpty(); }
     size_t size() const { return m_RawList.GetCount(); }
@@ -5408,9 +5406,9 @@ public:
 
     // Movable, not copyable.
     VmaIntrusiveLinkedList() = default;
-    VmaIntrusiveLinkedList(VmaIntrusiveLinkedList && src);
+    VmaIntrusiveLinkedList(VmaIntrusiveLinkedList && src) noexcept;
     VmaIntrusiveLinkedList(const VmaIntrusiveLinkedList&) = delete;
-    VmaIntrusiveLinkedList& operator=(VmaIntrusiveLinkedList&& src);
+    VmaIntrusiveLinkedList& operator=(VmaIntrusiveLinkedList&& src) noexcept;
     VmaIntrusiveLinkedList& operator=(const VmaIntrusiveLinkedList&) = delete;
     ~VmaIntrusiveLinkedList() { VMA_HEAVY_ASSERT(IsEmpty()); }
 
@@ -5441,7 +5439,7 @@ private:
 
 #ifndef _VMA_INTRUSIVE_LINKED_LIST_FUNCTIONS
 template<typename ItemTypeTraits>
-VmaIntrusiveLinkedList<ItemTypeTraits>::VmaIntrusiveLinkedList(VmaIntrusiveLinkedList&& src)
+VmaIntrusiveLinkedList<ItemTypeTraits>::VmaIntrusiveLinkedList(VmaIntrusiveLinkedList&& src) noexcept
     : m_Front(src.m_Front), m_Back(src.m_Back), m_Count(src.m_Count)
 {
     src.m_Front = src.m_Back = VMA_NULL;
@@ -5449,7 +5447,7 @@ VmaIntrusiveLinkedList<ItemTypeTraits>::VmaIntrusiveLinkedList(VmaIntrusiveLinke
 }
 
 template<typename ItemTypeTraits>
-VmaIntrusiveLinkedList<ItemTypeTraits>& VmaIntrusiveLinkedList<ItemTypeTraits>::operator=(VmaIntrusiveLinkedList&& src)
+VmaIntrusiveLinkedList<ItemTypeTraits>& VmaIntrusiveLinkedList<ItemTypeTraits>::operator=(VmaIntrusiveLinkedList&& src) noexcept
 {
     if (&src != this)
     {
@@ -5638,7 +5636,7 @@ void VmaIntrusiveLinkedList<ItemTypeTraits>::RemoveAll()
 class VmaStringBuilder
 {
 public:
-    VmaStringBuilder(const VkAllocationCallbacks* allocationCallbacks) : m_Data(VmaStlAllocator<char>(allocationCallbacks)) {}
+    explicit VmaStringBuilder(const VkAllocationCallbacks* allocationCallbacks) : m_Data(VmaStlAllocator<char>(allocationCallbacks)) {}
     ~VmaStringBuilder() = default;
 
     size_t GetLength() const { return m_Data.size(); }
@@ -6277,14 +6275,14 @@ public:
     VkResult ValidateMagicValueAfterAllocation(VmaAllocator hAllocator, VkDeviceSize allocOffset, VkDeviceSize allocSize);
 
     VkResult BindBufferMemory(
-        const VmaAllocator hAllocator,
-        const VmaAllocation hAllocation,
+        VmaAllocator hAllocator,
+        VmaAllocation hAllocation,
         VkDeviceSize allocationLocalOffset,
         VkBuffer hBuffer,
         const void* pNext);
     VkResult BindImageMemory(
-        const VmaAllocator hAllocator,
-        const VmaAllocation hAllocation,
+        VmaAllocator hAllocator,
+        VmaAllocation hAllocation,
         VkDeviceSize allocationLocalOffset,
         VkImage hImage,
         const void* pNext);
@@ -6341,7 +6339,7 @@ public:
     };
 
     // This struct is allocated using VmaPoolAllocator.
-    VmaAllocation_T(bool mappingAllowed);
+    explicit VmaAllocation_T(bool mappingAllowed);
     ~VmaAllocation_T();
 
     void InitBlockAllocation(
@@ -6750,10 +6748,10 @@ protected:
         size_t unusedRangeCount) const;
     void PrintDetailedMap_Allocation(class VmaJsonWriter& json,
         VkDeviceSize offset, VkDeviceSize size, void* userData) const;
-    void PrintDetailedMap_UnusedRange(class VmaJsonWriter& json,
+    static void PrintDetailedMap_UnusedRange(class VmaJsonWriter& json,
         VkDeviceSize offset,
-        VkDeviceSize size) const;
-    void PrintDetailedMap_End(class VmaJsonWriter& json) const;
+        VkDeviceSize size);
+    static void PrintDetailedMap_End(class VmaJsonWriter& json);
 #endif
 
 private:
@@ -6848,7 +6846,7 @@ void VmaBlockMetadata::PrintDetailedMap_Allocation(class VmaJsonWriter& json,
 }
 
 void VmaBlockMetadata::PrintDetailedMap_UnusedRange(class VmaJsonWriter& json,
-    VkDeviceSize offset, VkDeviceSize size) const
+    VkDeviceSize offset, VkDeviceSize size)
 {
     json.BeginObject(true);
 
@@ -6864,7 +6862,7 @@ void VmaBlockMetadata::PrintDetailedMap_UnusedRange(class VmaJsonWriter& json,
     json.EndObject();
 }
 
-void VmaBlockMetadata::PrintDetailedMap_End(class VmaJsonWriter& json) const
+void VmaBlockMetadata::PrintDetailedMap_End(class VmaJsonWriter& json)
 {
     json.EndArray();
 }
@@ -6883,7 +6881,7 @@ public:
         uint16_t* pageAllocs;
     };
 
-    VmaBlockBufferImageGranularity(VkDeviceSize bufferImageGranularity);
+    explicit VmaBlockBufferImageGranularity(VkDeviceSize bufferImageGranularity);
     ~VmaBlockBufferImageGranularity();
 
     bool IsEnabled() const { return m_BufferImageGranularity > MAX_LOW_BUFFER_IMAGE_GRANULARITY; }
@@ -6928,7 +6926,7 @@ private:
     uint32_t GetEndPage(VkDeviceSize offset, VkDeviceSize size) const { return OffsetToPageIndex((offset + size - 1) & ~(m_BufferImageGranularity - 1)); }
 
     uint32_t OffsetToPageIndex(VkDeviceSize offset) const;
-    void AllocPage(RegionInfo& page, uint8_t allocType);
+    static void AllocPage(RegionInfo& page, uint8_t allocType);
 };
 
 #ifndef _VMA_BLOCK_BUFFER_IMAGE_GRANULARITY_FUNCTIONS
@@ -7192,7 +7190,7 @@ class VmaBlockMetadata_Linear : public VmaBlockMetadata
 public:
     VmaBlockMetadata_Linear(const VkAllocationCallbacks* pAllocationCallbacks,
         VkDeviceSize bufferImageGranularity, bool isVirtual);
-    virtual ~VmaBlockMetadata_Linear() = default;
+    ~VmaBlockMetadata_Linear() override = default;
 
     VkDeviceSize GetSumFreeSize() const override { return m_SumFreeSize; }
     bool IsEmpty() const override { return GetAllocationCount() == 0; }
@@ -8807,7 +8805,7 @@ class VmaBlockMetadata_TLSF : public VmaBlockMetadata
 public:
     VmaBlockMetadata_TLSF(const VkAllocationCallbacks* pAllocationCallbacks,
         VkDeviceSize bufferImageGranularity, bool isVirtual);
-    virtual ~VmaBlockMetadata_TLSF();
+    ~VmaBlockMetadata_TLSF() override;
 
     size_t GetAllocationCount() const override { return m_AllocCount; }
     size_t GetFreeRegionsCount() const override { return m_BlocksFreeCount + 1; }
@@ -9158,7 +9156,7 @@ bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
 
     // Round up to the next block
     VkDeviceSize sizeForNextList = allocSize;
-    VkDeviceSize smallSizeStep = VkDeviceSize(SMALL_BUFFER_SIZE / (IsVirtual() ? 1u << SECOND_LEVEL_INDEX : 4u));
+    VkDeviceSize smallSizeStep = VkDeviceSize(SMALL_BUFFER_SIZE / (IsVirtual() ? 1U << SECOND_LEVEL_INDEX : 4U));
     if (allocSize > SMALL_BUFFER_SIZE)
     {
         sizeForNextList += (1ULL << (VMA_BITSCAN_MSB(allocSize) - SECOND_LEVEL_INDEX));
@@ -10821,8 +10819,8 @@ VkResult VmaDeviceMemoryBlock::ValidateMagicValueAfterAllocation(VmaAllocator hA
 }
 
 VkResult VmaDeviceMemoryBlock::BindBufferMemory(
-    const VmaAllocator hAllocator,
-    const VmaAllocation hAllocation,
+    VmaAllocator hAllocator,
+    VmaAllocation hAllocation,
     VkDeviceSize allocationLocalOffset,
     VkBuffer hBuffer,
     const void* pNext)
@@ -10838,8 +10836,8 @@ VkResult VmaDeviceMemoryBlock::BindBufferMemory(
 }
 
 VkResult VmaDeviceMemoryBlock::BindImageMemory(
-    const VmaAllocator hAllocator,
-    const VmaAllocation hAllocation,
+    VmaAllocator hAllocator,
+    VmaAllocation hAllocation,
     VkDeviceSize allocationLocalOffset,
     VkImage hImage,
     const void* pNext)
@@ -13083,7 +13081,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
             const VkDeviceSize limit = pCreateInfo->pHeapSizeLimit[heapIndex];
             if(limit != VK_WHOLE_SIZE)
             {
-                m_HeapSizeLimitMask |= 1u << heapIndex;
+                m_HeapSizeLimitMask |= 1U << heapIndex;
                 if(limit < m_MemProps.memoryHeaps[heapIndex].size)
                 {
                     m_MemProps.memoryHeaps[heapIndex].size = limit;
@@ -13095,7 +13093,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     for(uint32_t memTypeIndex = 0; memTypeIndex < GetMemoryTypeCount(); ++memTypeIndex)
     {
         // Create only supported types
-        if((m_GlobalMemoryTypeBits & (1u << memTypeIndex)) != 0)
+        if((m_GlobalMemoryTypeBits & (1U << memTypeIndex)) != 0)
         {
             const VkDeviceSize preferredBlockSize = CalcPreferredBlockSize(memTypeIndex);
             m_pBlockVectors[memTypeIndex] = vma_new(this, VmaBlockVector)(
@@ -14083,7 +14081,7 @@ VkResult VmaAllocator_T::AllocateMemory(
                 return VK_SUCCESS;
 
             // Remove old memTypeIndex from list of possibilities.
-            memoryTypeBits &= ~(1u << memTypeIndex);
+            memoryTypeBits &= ~(1U << memTypeIndex);
             // Find alternative memTypeIndex.
             res = FindMemoryTypeIndex(memoryTypeBits, &createInfoFinal, dedicatedBufferImageUsage, &memTypeIndex);
         } while(res == VK_SUCCESS);
@@ -14300,7 +14298,7 @@ VkResult VmaAllocator_T::CreatePool(const VmaPoolCreateInfo* pCreateInfo, VmaPoo
     }
     // Memory type index out of range or forbidden.
     if(pCreateInfo->memoryTypeIndex >= GetMemoryTypeCount() ||
-        ((1u << pCreateInfo->memoryTypeIndex) & m_GlobalMemoryTypeBits) == 0)
+        ((1U << pCreateInfo->memoryTypeIndex) & m_GlobalMemoryTypeBits) == 0)
     {
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
@@ -14402,7 +14400,7 @@ VkResult VmaAllocator_T::CheckCorruption(uint32_t memoryTypeBits)
         VmaMutexLockRead lock(m_PoolsMutex, m_UseMutex);
         for(VmaPool pool = m_Pools.Front(); pool != VMA_NULL; pool = m_Pools.GetNext(pool))
         {
-            if(((1u << pool->m_BlockVector.GetMemoryTypeIndex()) & memoryTypeBits) != 0)
+            if(((1U << pool->m_BlockVector.GetMemoryTypeIndex()) & memoryTypeBits) != 0)
             {
                 VkResult localRes = pool->m_BlockVector.CheckCorruption();
                 switch(localRes)
@@ -14443,7 +14441,7 @@ VkResult VmaAllocator_T::AllocateVulkanMemory(const VkMemoryAllocateInfo* pAlloc
 #endif
 
     // HeapSizeLimit is in effect for this heap.
-    if((m_HeapSizeLimitMask & (1u << heapIndex)) != 0)
+    if((m_HeapSizeLimitMask & (1U << heapIndex)) != 0)
     {
         const VkDeviceSize heapSize = m_MemProps.memoryHeaps[heapIndex].size;
         VkDeviceSize blockBytes = m_Budget.m_BlockBytes[heapIndex];
@@ -14846,7 +14844,7 @@ uint32_t VmaAllocator_T::CalculateGlobalMemoryTypeBits() const
         {
             if((m_MemProps.memoryTypes[memTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD_COPY) != 0)
             {
-                memoryTypeBits &= ~(1u << memTypeIndex);
+                memoryTypeBits &= ~(1U << memTypeIndex);
             }
         }
     }
@@ -17058,7 +17056,7 @@ memory type 2, use following code:
 uint32_t memoryTypeIndex = 2;
 
 VmaAllocationCreateInfo allocInfo = {};
-allocInfo.memoryTypeBits = 1u << memoryTypeIndex;
+allocInfo.memoryTypeBits = 1U << memoryTypeIndex;
 
 VkBuffer buffer;
 VmaAllocation allocation;
@@ -17076,7 +17074,7 @@ by setting all bits of `memoryTypeBits` to 1 except the ones you choose.
 uint32_t excludedMemoryTypeIndex = 2;
 VmaAllocationCreateInfo allocInfo = {};
 allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-allocInfo.memoryTypeBits = ~(1u << excludedMemoryTypeIndex);
+allocInfo.memoryTypeBits = ~(1U << excludedMemoryTypeIndex);
 // ...
 \endcode
 
@@ -17498,7 +17496,7 @@ VkResult res = vmaFindMemoryTypeIndexForBufferInfo(allocator,
 // Create a pool that can have at most 2 blocks, 128 MiB each.
 VmaPoolCreateInfo poolCreateInfo = {};
 poolCreateInfo.memoryTypeIndex = memTypeIndex;
-poolCreateInfo.blockSize = 128ull * 1024 * 1024;
+poolCreateInfo.blockSize = 128ULL * 1024 * 1024;
 poolCreateInfo.maxBlockCount = 2;
 
 VmaPool pool;
@@ -17605,7 +17603,7 @@ Many of the common concerns can be addressed in a different way than using custo
 - If you want to choose a custom size for the default memory block, you can set it globally instead
   using VmaAllocatorCreateInfo::preferredLargeHeapBlockSize.
 - If you want to select specific memory type for your allocation,
-  you can set VmaAllocationCreateInfo::memoryTypeBits to `(1u << myMemoryTypeIndex)` instead.
+  you can set VmaAllocationCreateInfo::memoryTypeBits to `(1U << myMemoryTypeIndex)` instead.
 - If you need to create a buffer with certain minimum alignment, you can still do it
   using default pools with dedicated function vmaCreateBufferWithAlignment().
 
@@ -18830,7 +18828,7 @@ devices. There are multiple ways to do it, for example:
   or VmaAllocationCreateInfo::preferredFlags. Those flags can be freely mixed with
   other ways of \ref choosing_memory_type, like setting VmaAllocationCreateInfo::usage.
 - If you manually found memory type index to use for this purpose, force allocation
-  from this specific index by setting VmaAllocationCreateInfo::memoryTypeBits `= 1u << index`.
+  from this specific index by setting VmaAllocationCreateInfo::memoryTypeBits `= 1U << index`.
 
 \section vk_amd_device_coherent_memory_more_information More information
 
