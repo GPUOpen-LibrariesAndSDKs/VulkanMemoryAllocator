@@ -164,6 +164,9 @@ Enumerations</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:gaf8d9ee01910a7af7f552145ef0065b9c" id="r_gaf8d9ee01910a7af7f552145ef0065b9c"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#gaf8d9ee01910a7af7f552145ef0065b9c">vmaImportVulkanFunctionsFromVolk</a> (const <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a> *pAllocatorCreateInfo, <a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a> *pDstVulkanFunctions)</td></tr>
+<tr class="memdesc:gaf8d9ee01910a7af7f552145ef0065b9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fully initializes <code>pDstVulkanFunctions</code> structure with Vulkan functions needed by VMA using <a href="https://github.com/zeux/volk">volk library</a>.  <br /></td></tr>
+<tr class="separator:gaf8d9ee01910a7af7f552145ef0065b9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga200692051ddb34240248234f5f4c17bb" id="r_ga200692051ddb34240248234f5f4c17bb"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga200692051ddb34240248234f5f4c17bb">vmaCreateAllocator</a> (const <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_allocator.html">VmaAllocator</a> *pAllocator)</td></tr>
 <tr class="memdesc:ga200692051ddb34240248234f5f4c17bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object.  <br /></td></tr>
 <tr class="separator:ga200692051ddb34240248234f5f4c17bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -533,6 +536,84 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>PhysicalDeviceProperties are fetched from physicalDevice by the allocator. You can access it here, without fetching it again on your own. </p>
+
+</div>
+</div>
+<a id="gaf8d9ee01910a7af7f552145ef0065b9c" name="gaf8d9ee01910a7af7f552145ef0065b9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gaf8d9ee01910a7af7f552145ef0065b9c">&#9670;&#160;</a></span>vmaImportVulkanFunctionsFromVolk()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">VkResult vmaImportVulkanFunctionsFromVolk </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a> *</td>          <td class="paramname"><span class="paramname"><em>pAllocatorCreateInfo</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a> *</td>          <td class="paramname"><span class="paramname"><em>pDstVulkanFunctions</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Fully initializes <code>pDstVulkanFunctions</code> structure with Vulkan functions needed by VMA using <a href="https://github.com/zeux/volk">volk library</a>. </p>
+<p>This function is defined in VMA header only if "volk.h" was included before it.</p>
+<p>To use this function properly:</p>
+<ol type="1">
+<li>Initialize volk and Vulkan:<ol type="a">
+<li>Call <code>volkInitialize()</code></li>
+<li>Create <code>VkInstance</code> object</li>
+<li>Call <code>volkLoadInstance()</code></li>
+<li>Create <code>VkDevice</code> object</li>
+<li>Call <code>volkLoadDevice()</code></li>
+</ol>
+</li>
+<li>Fill in structure <a class="el" href="struct_vma_allocator_create_info.html" title="Description of a Allocator to be created.">VmaAllocatorCreateInfo</a>, especially members:<ul>
+<li><a class="el" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500" title="Vulkan device.">VmaAllocatorCreateInfo::device</a></li>
+<li><a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. Vulkan version that the application uses.">VmaAllocatorCreateInfo::vulkanApiVersion</a></li>
+<li><a class="el" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346" title="Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.">VmaAllocatorCreateInfo::flags</a> - set appropriate flags for the Vulkan extensions you enabled</li>
+</ul>
+</li>
+<li>Create an instance of the <a class="el" href="struct_vma_vulkan_functions.html" title="Pointers to some Vulkan functions - a subset used by the library.">VmaVulkanFunctions</a> structure.</li>
+<li>Call <a class="el" href="#gaf8d9ee01910a7af7f552145ef0065b9c" title="Fully initializes pDstVulkanFunctions structure with Vulkan functions needed by VMA using volk librar...">vmaImportVulkanFunctionsFromVolk()</a>. Parameter <code>pAllocatorCreateInfo</code> is read to find out which functions should be fetched for appropriate Vulkan version and extensions. Parameter <code>pDstVulkanFunctions</code> is filled with those function pointers, or null if not applicable.</li>
+<li>Attach the <a class="el" href="struct_vma_vulkan_functions.html" title="Pointers to some Vulkan functions - a subset used by the library.">VmaVulkanFunctions</a> structure to <a class="el" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd" title="Pointers to Vulkan functions. Can be null.">VmaAllocatorCreateInfo::pVulkanFunctions</a>.</li>
+<li>Call <a class="el" href="#ga200692051ddb34240248234f5f4c17bb" title="Creates VmaAllocator object.">vmaCreateAllocator()</a> to create the <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object.</li>
+</ol>
+<p>Example:</p>
+<div class="fragment"><div class="line"><a class="code hl_struct" href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a> allocatorCreateInfo = {};</div>
+<div class="line">allocatorCreateInfo.<a class="code hl_variable" href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">physicalDevice</a> = myPhysicalDevice;</div>
+<div class="line">allocatorCreateInfo.<a class="code hl_variable" href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500">device</a> = myDevice;</div>
+<div class="line">allocatorCreateInfo.<a class="code hl_variable" href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">instance</a> = myInstance;</div>
+<div class="line">allocatorCreateInfo.<a class="code hl_variable" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285">vulkanApiVersion</a> = VK_API_VERSION_1_3;</div>
+<div class="line">allocatorCreateInfo.<a class="code hl_variable" href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">flags</a> = <a class="code hl_enumvalue" href="#gga4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0">VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT</a> |</div>
+<div class="line">    <a class="code hl_enumvalue" href="#gga4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a> |</div>
+<div class="line">    <a class="code hl_enumvalue" href="#gga4f87c9100d154a65a4ad495f7763cf7ca4897d1181a186e327f4dadd680ad00ac">VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT</a>;</div>
+<div class="line"> </div>
+<div class="line"><a class="code hl_struct" href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a> vulkanFunctions;</div>
+<div class="line">VkResult res = <a class="code hl_function" href="#gaf8d9ee01910a7af7f552145ef0065b9c">vmaImportVulkanFunctionsFromVolk</a>(&amp;allocatorCreateInfo, &amp;vulkanFunctions);</div>
+<div class="line"><span class="comment">// Check res...</span></div>
+<div class="line">allocatorCreateInfo.<a class="code hl_variable" href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd">pVulkanFunctions</a> = &amp;vulkanFunctions;</div>
+<div class="line"> </div>
+<div class="line"><a class="code hl_struct" href="struct_vma_allocator.html">VmaAllocator</a> allocator;</div>
+<div class="line">res = <a class="code hl_function" href="#ga200692051ddb34240248234f5f4c17bb">vmaCreateAllocator</a>(&amp;allocatorCreateInfo, &amp;allocator);</div>
+<div class="line"><span class="comment">// Check res...</span></div>
+<div class="ttc" id="agroup__group__init_html_ga200692051ddb34240248234f5f4c17bb"><div class="ttname"><a href="#ga200692051ddb34240248234f5f4c17bb">vmaCreateAllocator</a></div><div class="ttdeci">VkResult vmaCreateAllocator(const VmaAllocatorCreateInfo *pCreateInfo, VmaAllocator *pAllocator)</div><div class="ttdoc">Creates VmaAllocator object.</div></div>
+<div class="ttc" id="agroup__group__init_html_gaf8d9ee01910a7af7f552145ef0065b9c"><div class="ttname"><a href="#gaf8d9ee01910a7af7f552145ef0065b9c">vmaImportVulkanFunctionsFromVolk</a></div><div class="ttdeci">VkResult vmaImportVulkanFunctionsFromVolk(const VmaAllocatorCreateInfo *pAllocatorCreateInfo, VmaVulkanFunctions *pDstVulkanFunctions)</div><div class="ttdoc">Fully initializes pDstVulkanFunctions structure with Vulkan functions needed by VMA using volk librar...</div></div>
+<div class="ttc" id="agroup__group__init_html_gga4f87c9100d154a65a4ad495f7763cf7ca4897d1181a186e327f4dadd680ad00ac"><div class="ttname"><a href="#gga4f87c9100d154a65a4ad495f7763cf7ca4897d1181a186e327f4dadd680ad00ac">VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT</a></div><div class="ttdeci">@ VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:483</div></div>
+<div class="ttc" id="agroup__group__init_html_gga4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0"><div class="ttname"><a href="#gga4f87c9100d154a65a4ad495f7763cf7ca4d4687863f7bd4b418c6006dc04400b0">VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT</a></div><div class="ttdeci">@ VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:407</div></div>
+<div class="ttc" id="agroup__group__init_html_gga4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a"><div class="ttname"><a href="#gga4f87c9100d154a65a4ad495f7763cf7caffdd7a5169be3dbd7cbf6b3619e4f78a">VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</a></div><div class="ttdeci">@ VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:460</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html"><div class="ttname"><a href="struct_vma_allocator_create_info.html">VmaAllocatorCreateInfo</a></div><div class="ttdoc">Description of a Allocator to be created.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1068</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_a08230f04ae6ccf8a78150a9e829a7156"><div class="ttname"><a href="struct_vma_allocator_create_info.html#a08230f04ae6ccf8a78150a9e829a7156">VmaAllocatorCreateInfo::physicalDevice</a></div><div class="ttdeci">VkPhysicalDevice physicalDevice</div><div class="ttdoc">Vulkan physical device.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1073</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_a392ea2ecbaff93f91a7c49f735ad4346"><div class="ttname"><a href="struct_vma_allocator_create_info.html#a392ea2ecbaff93f91a7c49f735ad4346">VmaAllocatorCreateInfo::flags</a></div><div class="ttdeci">VmaAllocatorCreateFlags flags</div><div class="ttdoc">Flags for created allocator. Use VmaAllocatorCreateFlagBits enum.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1070</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_a3dc197be3227da7338b1643f70db36bd"><div class="ttname"><a href="struct_vma_allocator_create_info.html#a3dc197be3227da7338b1643f70db36bd">VmaAllocatorCreateInfo::pVulkanFunctions</a></div><div class="ttdeci">const VmaVulkanFunctions * pVulkanFunctions</div><div class="ttdoc">Pointers to Vulkan functions. Can be null.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1116</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_a70dd42e29b1df1d1b9b61532ae0b370b"><div class="ttname"><a href="struct_vma_allocator_create_info.html#a70dd42e29b1df1d1b9b61532ae0b370b">VmaAllocatorCreateInfo::instance</a></div><div class="ttdeci">VkInstance instance</div><div class="ttdoc">Handle to Vulkan instance object.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1121</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_ad924ddd77b04039c88d0c09b0ffcd500"><div class="ttname"><a href="struct_vma_allocator_create_info.html#ad924ddd77b04039c88d0c09b0ffcd500">VmaAllocatorCreateInfo::device</a></div><div class="ttdeci">VkDevice device</div><div class="ttdoc">Vulkan device.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1076</div></div>
+<div class="ttc" id="astruct_vma_allocator_create_info_html_ae0ffc55139b54520a6bb704b29ffc285"><div class="ttname"><a href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285">VmaAllocatorCreateInfo::vulkanApiVersion</a></div><div class="ttdeci">uint32_t vulkanApiVersion</div><div class="ttdoc">Optional. Vulkan version that the application uses.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1132</div></div>
+<div class="ttc" id="astruct_vma_allocator_html"><div class="ttname"><a href="struct_vma_allocator.html">VmaAllocator</a></div><div class="ttdoc">Represents main object of this library initialized.</div></div>
+<div class="ttc" id="astruct_vma_vulkan_functions_html"><div class="ttname"><a href="struct_vma_vulkan_functions.html">VmaVulkanFunctions</a></div><div class="ttdoc">Pointers to some Vulkan functions - a subset used by the library.</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:1015</div></div>
+</div><!-- fragment --><p>Internally in this function, pointers to functions related to the entire Vulkan instance are fetched using global function definitions, while pointers to functions related to the Vulkan device are fetched using <code>volkLoadDeviceTable()</code> for given <code>pAllocatorCreateInfo-&gt;device</code>. </p>
 
 </div>
 </div>

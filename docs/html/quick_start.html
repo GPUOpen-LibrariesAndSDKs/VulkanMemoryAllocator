@@ -125,7 +125,7 @@ Selecting Vulkan version</h2>
 </div><!-- fragment --><p><b>Step 2: Runtime.</b> Even when compiled with higher Vulkan version available, VMA can use only features of a lower version, which is configurable during creation of the <a class="el" href="struct_vma_allocator.html" title="Represents main object of this library initialized.">VmaAllocator</a> object. By default, only Vulkan 1.0 is used. To initialize the allocator with support for higher Vulkan version, you need to set member <a class="el" href="struct_vma_allocator_create_info.html#ae0ffc55139b54520a6bb704b29ffc285" title="Optional. Vulkan version that the application uses.">VmaAllocatorCreateInfo::vulkanApiVersion</a> to an appropriate value, e.g. using constants like <code>VK_API_VERSION_1_2</code>. See code sample below.</p>
 <h2><a class="anchor" id="quick_start_initialization_importing_vulkan_functions"></a>
 Importing Vulkan functions</h2>
-<p>You may need to configure importing Vulkan functions. There are 3 ways to do this:</p>
+<p>You may need to configure importing Vulkan functions. There are 4 ways to do this:</p>
 <ol type="1">
 <li><b>If you link with Vulkan static library</b> (e.g. "vulkan-1.lib" on Windows):<ul>
 <li>You don't need to do anything.</li>
@@ -138,9 +138,14 @@ Importing Vulkan functions</h2>
 <li>The library will fetch pointers to all other functions it needs internally.</li>
 </ul>
 </li>
-<li><b>If you fetch pointers to all Vulkan functions in a custom way</b>, e.g. using some loader like <a href="https://github.com/zeux/volk">Volk</a>:<ul>
+<li><b>If you fetch pointers to all Vulkan functions in a custom way</b>:<ul>
 <li>Define <code>VMA_STATIC_VULKAN_FUNCTIONS</code> and <code>VMA_DYNAMIC_VULKAN_FUNCTIONS</code> to 0.</li>
 <li>Pass these pointers via structure <a class="el" href="struct_vma_vulkan_functions.html" title="Pointers to some Vulkan functions - a subset used by the library.">VmaVulkanFunctions</a>.</li>
+</ul>
+</li>
+<li><b>If you use <a href="https://github.com/zeux/volk">volk library</a></b>:<ul>
+<li>Define <code>VMA_STATIC_VULKAN_FUNCTIONS</code> and <code>VMA_DYNAMIC_VULKAN_FUNCTIONS</code> to 0.</li>
+<li>Use function <a class="el" href="group__group__init.html#gaf8d9ee01910a7af7f552145ef0065b9c" title="Fully initializes pDstVulkanFunctions structure with Vulkan functions needed by VMA using volk librar...">vmaImportVulkanFunctionsFromVolk()</a> to fill in the structure <a class="el" href="struct_vma_vulkan_functions.html" title="Pointers to some Vulkan functions - a subset used by the library.">VmaVulkanFunctions</a>. For more information, see the description of this function.</li>
 </ul>
 </li>
 </ol>
