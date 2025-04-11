@@ -426,6 +426,10 @@ void VulkanUsage::Init()
         g_Allocs = &g_CpuAllocationCallbacks;
     }
 
+#ifdef VOLK_HEADER_VERSION
+    ERR_GUARD_VULKAN(volkInitialize());
+#endif
+
     uint32_t instanceLayerPropCount = 0;
     ERR_GUARD_VULKAN( vkEnumerateInstanceLayerProperties(&instanceLayerPropCount, nullptr) );
     std::vector<VkLayerProperties> instanceLayerProps(instanceLayerPropCount);
@@ -512,6 +516,10 @@ void VulkanUsage::Init()
     }
 
     ERR_GUARD_VULKAN( vkCreateInstance(&instInfo, g_Allocs, &g_hVulkanInstance) );
+
+#ifdef VOLK_HEADER_VERSION
+    volkLoadInstance(g_hVulkanInstance);
+#endif
 
     if(VK_EXT_debug_utils_enabled)
     {
@@ -1511,12 +1519,18 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
         outInfo.pAllocationCallbacks = &g_CpuAllocationCallbacks;
     }
 
+#ifdef VOLK_HEADER_VERSION
+    static VmaVulkanFunctions vulkanFunctions = {};
+    vmaImportVulkanFunctionsFromVolk(&outInfo, &vulkanFunctions);
+    outInfo.pVulkanFunctions = &vulkanFunctions;
+#endif // #ifdef VOLK_HEADER_VERSION
+
 #if VMA_DYNAMIC_VULKAN_FUNCTIONS
     static VmaVulkanFunctions vulkanFunctions = {};
     vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
     outInfo.pVulkanFunctions = &vulkanFunctions;
-#endif
+#endif // #if VMA_DYNAMIC_VULKAN_FUNCTIONS
 
     // Uncomment to enable HeapSizeLimit.
     /*
@@ -2083,6 +2097,11 @@ static void InitializeApplication()
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfo;
 
     ERR_GUARD_VULKAN( vkCreateDevice(g_hPhysicalDevice, &deviceCreateInfo, g_Allocs, &g_hDevice) );
+
+#ifdef VOLK_HEADER_VERSION
+    volkLoadDevice(g_hDevice);
+#endif
+
     SetDebugUtilsObjectName(VK_OBJECT_TYPE_DEVICE, reinterpret_cast<std::uint64_t>(g_hDevice), "g_hDevice");
     // Only now that SetDebugUtilsObjectName is loaded, we can assign a name to g_hVulkanInstance as well
     SetDebugUtilsObjectName(VK_OBJECT_TYPE_INSTANCE, reinterpret_cast<std::uint64_t>(g_hVulkanInstance), "g_hVulkanInstance");

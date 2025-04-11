@@ -22,6 +22,7 @@
 
 option(VMA_STATIC_VULKAN_FUNCTIONS "Link statically with Vulkan API" ON)
 option(VMA_DYNAMIC_VULKAN_FUNCTIONS "Fetch pointers to Vulkan functions internally (no static linking)" OFF)
+set(VMA_VOLK_HEADER_PATH "" CACHE STRING "Path to volk.h file from the volk library (optional)")
 option(VMA_DEBUG_ALWAYS_DEDICATED_MEMORY "Every allocation will have its own memory block" OFF)
 option(VMA_DEBUG_INITIALIZE_ALLOCATIONS "Automatically fill new allocations and destroyed allocations with some bit pattern" OFF)
 option(VMA_DEBUG_GLOBAL_MUTEX "Enable single mutex protecting all entry calls to the library" OFF)
@@ -50,6 +51,7 @@ target_sources(VmaSample PRIVATE
     Tests.h
     VmaUsage.cpp
     VmaUsage.h
+    VolkUsage.cpp
     VulkanSample.cpp
     ../include/vk_mem_alloc.h
 )
@@ -77,6 +79,15 @@ target_sources(VmaSample PRIVATE vk_mem_alloc.natvis)
 
 add_subdirectory(Shaders)
 add_dependencies(VmaSample VmaSampleShaders)
+
+if(NOT "${VMA_VOLK_HEADER_PATH}" STREQUAL "")
+    if(EXISTS "${VMA_VOLK_HEADER_PATH}")
+        message(STATUS "File volk.h found and used from path: ${VMA_VOLK_HEADER_PATH}")
+        target_compile_definitions(VmaSample PRIVATE VMA_VOLK_HEADER_PATH="${VMA_VOLK_HEADER_PATH}")
+    else()
+        message(FATAL_ERROR "File volk.h not found in path: ${VMA_VOLK_HEADER_PATH}")
+    endif()
+endif()
 
 # Use Unicode instead of multibyte set
 add_compile_definitions(UNICODE _UNICODE)
