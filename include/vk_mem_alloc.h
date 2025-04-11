@@ -1670,24 +1670,28 @@ typedef struct VmaVirtualAllocationInfo
 */
 
 #ifdef VOLK_HEADER_VERSION
-/** \brief Fully initializes `pDstVulkanFunctions` structure with Vulkan functions needed by this library based on functions imported by
-[volk library](https://github.com/zeux/volk).
+/** \brief Fully initializes `pDstVulkanFunctions` structure with Vulkan functions needed by VMA
+using [volk library](https://github.com/zeux/volk).
 
 This function is defined in VMA header only if "volk.h" was included before it.
 
 To use this function properly:
 
--# Create `VkInstance` and `VkDevice` object.
+-# Initialize volk and Vulkan:
+   -# Call `volkInitialize()`
+   -# Create `VkInstance` object
+   -# Call `volkLoadInstance()`
+   -# Create `VkDevice` object
+   -# Call `volkLoadDevice()`
 -# Fill in structure #VmaAllocatorCreateInfo, especially members:
    - VmaAllocatorCreateInfo::device
    - VmaAllocatorCreateInfo::vulkanApiVersion
    - VmaAllocatorCreateInfo::flags - set appropriate flags for the Vulkan extensions you enabled
--# Define structure #VmaVulkanFunctions.
--# Call this function.
+-# Create an instance of the #VmaVulkanFunctions structure.
+-# Call vmaImportVulkanFunctionsFromVolk().
    Parameter `pAllocatorCreateInfo` is read to find out which functions should be fetched for
    appropriate Vulkan version and extensions.
-   Parameter `pDstVulkanFunctions` is filled with those function pointers.
-   Others are set to null.
+   Parameter `pDstVulkanFunctions` is filled with those function pointers, or null if not applicable.
 -# Attach the #VmaVulkanFunctions structure to VmaAllocatorCreateInfo::pVulkanFunctions.
 -# Call vmaCreateAllocator() to create the #VmaAllocator object.
 
