@@ -17,7 +17,9 @@ Checks: >
   -llvmlibc-restrict-system-libc-headers,
   -llvmlibc-implementation-in-namespace,
   -altera-unroll-loops,
-  -misc-definitions-in-headers
+  -misc-definitions-in-headers,
+  -readability-identifier-naming,
+  -readability-identifier-length
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*(Common|SparseBindingTest|Tests|VmaUsage|VulkanSample)\.(cpp|h)$|.*vk_mem_alloc\.h$'
