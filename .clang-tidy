@@ -1,0 +1,41 @@
+Checks:
+  - clang-analyzer-*
+  - bugprone-*
+  - performance-*
+  - readability-*
+  - modernize-*
+  - cppcoreguidelines-*
+  - misc-*
+  - '-modernize-use-trailing-return-type'
+  - '-modernize-use-auto'
+  - '-modernize-use-using'
+  - '-modernize-use-nodiscard'
+  - '-cppcoreguidelines-avoid-do-while'
+  - '-cppcoreguidelines-macro-usage'
+  - '-cppcoreguidelines-pro-bounds-constant-array-index'
+  - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'
+  - '-cppcoreguidelines-pro-type-union-access'
+  - '-readability-function-cognitive-complexity'
+  - '-llvmlibc-restrict-system-libc-headers'
+  - '-llvmlibc-implementation-in-namespace'
+  - '-altera-unroll-loops'
+  - '-misc-definitions-in-headers'
+  - '-readability-identifier-naming'
+  - '-readability-identifier-length'
+
+HeaderFilterRegex: '.*\.(cpp|h)$'
+FormatStyle: file
+
+CheckOptions:
+  - key: 'modernize-loop-convert.MaxCopySize'
+    value: '16'
+  - key: 'readability-identifier-naming.VariableCase'
+    value: 'camelBack'
+  - key: 'readability-identifier-naming.ClassCase'
+    value: 'CamelCase'
+  - key: 'readability-identifier-naming.FunctionCase'
+    value: 'camelBack'
+  - key: 'cppcoreguidelines-avoid-magic-numbers.IgnoreEnums'
+    value: '1'
+  - key: 'cppcoreguidelines-avoid-magic-numbers.IgnoreOctalLiterals'
+    value: '1'
