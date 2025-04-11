@@ -42,4 +42,4 @@ jobs:
 
     - name: Run Clang-Tidy
       run: |
-        find . -name '*.cpp' | xargs clang-tidy-15 -p build || true
+        find . -path ./build -prune -o -name '*.cpp' -print | xargs clang-tidy-15 -p build || true
