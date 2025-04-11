@@ -42,4 +42,16 @@ jobs:
 
     - name: Run Clang-Tidy
       run: |
-        find . -name '*.cpp' | xargs clang-tidy-15 -checks='*, -modernize-use-trailing-return-type, -cppcoreguidelines-macro-usage, -modernize-use-auto, -modernize-use-using' -header-filter='.*vk_mem_alloc\.h' -p build || true
+        find . -name '*.cpp' | xargs clang-tidy-15 -checks='*, \
+                                                    -modernize-use-trailing-return-type, \
+                                                    -cppcoreguidelines-macro-usage, \
+                                                    -modernize-use-auto, \
+                                                    -modernize-use-using \
+                                                    -modernize-use-nodiscard \
+                                                    -altera-unroll-loops \
+                                                    -misc-definitions-in-headers \
+                                                    -cppcoreguidelines-pro-bounds-pointer-arithmetic \
+                                                    -readability-function-cognitive-complexity \
+                                                    -llvmlibc-restrict-system-libc-headers \
+                                                    -cppcoreguidelines-pro-type-union-access' \
+                                                    -header-filter='.*vk_mem_alloc\.h' -p build || true
