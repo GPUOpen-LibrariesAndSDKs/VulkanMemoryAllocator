@@ -163,7 +163,7 @@ Explicit memory types</h1>
 <div class="fragment"><div class="line">uint32_t memoryTypeIndex = 2;</div>
 <div class="line"> </div>
 <div class="line"><a class="code hl_struct" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> allocInfo = {};</div>
-<div class="line">allocInfo.<a class="code hl_variable" href="struct_vma_allocation_create_info.html#a3bf940c0271d85d6ba32a4d820075055">memoryTypeBits</a> = 1u &lt;&lt; memoryTypeIndex;</div>
+<div class="line">allocInfo.<a class="code hl_variable" href="struct_vma_allocation_create_info.html#a3bf940c0271d85d6ba32a4d820075055">memoryTypeBits</a> = 1U &lt;&lt; memoryTypeIndex;</div>
 <div class="line"> </div>
 <div class="line">VkBuffer buffer;</div>
 <div class="line"><a class="code hl_struct" href="struct_vma_allocation.html">VmaAllocation</a> allocation;</div>
@@ -174,7 +174,7 @@ Explicit memory types</h1>
 <div class="line">uint32_t excludedMemoryTypeIndex = 2;</div>
 <div class="line"><a class="code hl_struct" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> allocInfo = {};</div>
 <div class="line">allocInfo.<a class="code hl_variable" href="struct_vma_allocation_create_info.html#accb8b06b1f677d858cb9af20705fa910">usage</a> = <a class="code hl_enumvalue" href="group__group__alloc.html#ggaa5846affa1e9da3800e3e78fae2305cca27cde9026a84d34d525777baa41fce6e">VMA_MEMORY_USAGE_AUTO</a>;</div>
-<div class="line">allocInfo.<a class="code hl_variable" href="struct_vma_allocation_create_info.html#a3bf940c0271d85d6ba32a4d820075055">memoryTypeBits</a> = ~(1u &lt;&lt; excludedMemoryTypeIndex);</div>
+<div class="line">allocInfo.<a class="code hl_variable" href="struct_vma_allocation_create_info.html#a3bf940c0271d85d6ba32a4d820075055">memoryTypeBits</a> = ~(1U &lt;&lt; excludedMemoryTypeIndex);</div>
 <div class="line"><span class="comment">// ...</span></div>
 </div><!-- fragment --><h1><a class="anchor" id="choosing_memory_type_custom_memory_pools"></a>
 Custom memory pools</h1>

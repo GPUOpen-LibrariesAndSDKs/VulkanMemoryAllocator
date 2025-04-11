@@ -108,7 +108,7 @@ Usage</h1>
 <li><a class="el" href="struct_vma_allocation_create_info.html#a983d39e1a2e63649d78a960aa2fdd0f7" title="A floating-point value between 0 and 1, indicating the priority of the allocation relative to other m...">VmaAllocationCreateInfo::priority</a> when creating a dedicated allocation with <a class="el" href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a3fc311d855c2ff53f1090ef5c722b38f" title="Set this flag if the allocation should have its own memory block.">VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT</a>.</li>
 <li><a class="el" href="struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274" title="A floating-point value between 0 and 1, indicating the priority of the allocations in this pool relat...">VmaPoolCreateInfo::priority</a> when creating a custom pool.</li>
 </ul>
-<p>It should be a floating-point value between <code>0.0f</code> and <code>1.0f</code>, where recommended default is <code>0.5f</code>. Memory allocated with higher value can be treated by the Vulkan implementation as higher priority and so it can have lower chances of being pushed out to system memory, experiencing degraded performance.</p>
+<p>It should be a floating-point value between <code>0.0f</code> and <code>1.0f</code>, where recommended default is <code>0.5F</code>. Memory allocated with higher value can be treated by the Vulkan implementation as higher priority and so it can have lower chances of being pushed out to system memory, experiencing degraded performance.</p>
 <p>It might be a good idea to create performance-critical resources like color-attachment or depth-stencil images as dedicated and set high priority to them. For example:</p>
 <div class="fragment"><div class="line">VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };</div>
 <div class="line">imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;</div>
@@ -142,7 +142,7 @@ Usage</h1>
 </div><!-- fragment --><p><code>priority</code> member is ignored in the following situations:</p>
 <ul>
 <li>Allocations created in custom pools: They inherit the priority, along with all other allocation parameters from the parameters passed in <a class="el" href="struct_vma_pool_create_info.html" title="Describes parameter of created VmaPool.">VmaPoolCreateInfo</a> when the pool was created.</li>
-<li>Allocations created in default pools: They inherit the priority from the parameters VMA used when creating default pools, which means <code>priority == 0.5f</code>. </li>
+<li>Allocations created in default pools: They inherit the priority from the parameters VMA used when creating default pools, which means <code>priority == 0.5F</code>. </li>
 </ul>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->

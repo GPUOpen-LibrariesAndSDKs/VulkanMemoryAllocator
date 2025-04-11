@@ -164,7 +164,7 @@ var searchData=
   ['vmafindmemorytypeindexforimageinfo_161',['vmaFindMemoryTypeIndexForImageInfo',['../group__group__alloc.html#ga088da83d8eaf3ce9056d9ea0b981d472',1,'vk_mem_alloc.h']]],
   ['vmaflushallocation_162',['vmaFlushAllocation',['../group__group__alloc.html#ga30c37c1eec6025f397be41644f48490f',1,'vk_mem_alloc.h']]],
   ['vmaflushallocations_163',['vmaFlushAllocations',['../group__group__alloc.html#gac3dd00da721875ed99fa8a881922bdfc',1,'vk_mem_alloc.h']]],
-  ['vmafreememory_164',['vmaFreeMemory',['../group__group__alloc.html#ga5fea5518972ae9094b1526cbcb19b05f',1,'vk_mem_alloc.h']]],
+  ['vmafreememory_164',['vmaFreeMemory',['../group__group__alloc.html#ga11f0fbc034fa81a4efedd73d61ce7568',1,'vk_mem_alloc.h']]],
   ['vmafreememorypages_165',['vmaFreeMemoryPages',['../group__group__alloc.html#ga834b1e4aef395c0a1d56a28e69a4a17e',1,'vk_mem_alloc.h']]],
   ['vmafreestatsstring_166',['vmaFreeStatsString',['../group__group__stats.html#ga3104eb30d8122c84dd8541063f145288',1,'vk_mem_alloc.h']]],
   ['vmafreevirtualblockstatsstring_167',['vmaFreeVirtualBlockStatsString',['../group__group__stats.html#ga47fb8d8aa69df4a7c23a9719b4080623',1,'vk_mem_alloc.h']]],
