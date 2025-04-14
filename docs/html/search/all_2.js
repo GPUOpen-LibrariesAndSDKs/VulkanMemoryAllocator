@@ -3,7 +3,7 @@ var searchData=
   ['cache_20flush_20and_20invalidate_0',['Cache flush and invalidate',['../memory_mapping.html#memory_mapping_cache_control',1,'']]],
   ['callbacks_1',['Device memory allocation callbacks',['../configuration.html#allocation_callbacks',1,'']]],
   ['cases_2',['Other use cases',['../usage_patterns.html#usage_patterns_other_use_cases',1,'']]],
-  ['choosing_20memory_20type_3',['Choosing memory type',['../choosing_memory_type.html',1,'index']]],
+  ['choosing_20memory_20type_3',['Choosing memory type',['../choosing_memory_type.html',1,'faq']]],
   ['choosing_20memory_20type_20index_4',['Choosing memory type index',['../custom_memory_pools.html#custom_memory_pools_MemTypeIndex',1,'']]],
   ['compatibility_5',['Versioning and compatibility',['../general_considerations.html#general_considerations_versioning_and_compatibility',1,'']]],
   ['configuration_6',['Configuration',['../configuration.html',1,'index']]],

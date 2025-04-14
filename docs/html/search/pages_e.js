@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['start_0',['Quick start',['../quick_start.html',1,'index']]],
-  ['statistics_1',['Statistics',['../statistics.html',1,'index']]],
-  ['staying_20within_20budget_2',['Staying within budget',['../staying_within_budget.html',1,'index']]]
+  ['recommended_20usage_20patterns_0',['Recommended usage patterns',['../usage_patterns.html',1,'index']]],
+  ['resource_20aliasing_20overlap_1',['Resource aliasing (overlap)',['../resource_aliasing.html',1,'index']]]
 ];

@@ -31,5 +31,6 @@ var searchData=
   ['and_20units_28',['Alignment and units',['../virtual_allocator.html#virtual_allocator_alignment_and_units',1,'']]],
   ['and_20user_20data_29',['Allocation names and user data',['../allocation_annotation.html',1,'index']]],
   ['apis_30',['Interop with other graphics APIs',['../other_api_interop.html',1,'index']]],
-  ['at_20once_31',['Free-at-once',['../custom_memory_pools.html#linear_algorithm_free_at_once',1,'']]]
+  ['asked_20questions_31',['Frequenty asked questions',['../faq.html',1,'index']]],
+  ['at_20once_32',['Free-at-once',['../custom_memory_pools.html#linear_algorithm_free_at_once',1,'']]]
 ];

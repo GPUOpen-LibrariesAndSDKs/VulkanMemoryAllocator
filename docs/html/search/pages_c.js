@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['quick_20start_0',['Quick start',['../quick_start.html',1,'index']]]
+  ['patterns_0',['Recommended usage patterns',['../usage_patterns.html',1,'index']]],
+  ['pools_1',['Custom memory pools',['../custom_memory_pools.html',1,'index']]]
 ];

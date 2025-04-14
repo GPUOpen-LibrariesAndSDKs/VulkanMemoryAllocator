@@ -17,7 +17,7 @@ var searchData=
   ['memory_20limit_14',['Device heap memory limit',['../configuration.html#heap_memory_limit',1,'']]],
   ['memory_20mapping_15',['Memory mapping',['../memory_mapping.html',1,'index']]],
   ['memory_20pools_16',['memory pools',['../custom_memory_pools.html',1,'Custom memory pools'],['../choosing_memory_type.html#choosing_memory_type_custom_memory_pools',1,'Custom memory pools']]],
-  ['memory_20type_17',['Choosing memory type',['../choosing_memory_type.html',1,'index']]],
+  ['memory_20type_17',['Choosing memory type',['../choosing_memory_type.html',1,'faq']]],
   ['memory_20type_20index_18',['Choosing memory type index',['../custom_memory_pools.html#custom_memory_pools_MemTypeIndex',1,'']]],
   ['memory_20types_19',['Explicit memory types',['../choosing_memory_type.html#choosing_memory_type_explicit_memory_types',1,'']]],
   ['memory_20usage_20',['memory usage',['../staying_within_budget.html#staying_within_budget_controlling_memory_usage',1,'Controlling memory usage'],['../debugging_memory_usage.html',1,'Debugging incorrect memory usage']]],

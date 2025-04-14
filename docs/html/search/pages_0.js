@@ -6,5 +6,6 @@ var searchData=
   ['allocator_3',['Vulkan Memory Allocator',['../index.html',1,'']]],
   ['allocator_4',['Virtual allocator',['../virtual_allocator.html',1,'index']]],
   ['and_20user_20data_5',['Allocation names and user data',['../allocation_annotation.html',1,'index']]],
-  ['apis_6',['Interop with other graphics APIs',['../other_api_interop.html',1,'index']]]
+  ['apis_6',['Interop with other graphics APIs',['../other_api_interop.html',1,'index']]],
+  ['asked_20questions_7',['Frequenty asked questions',['../faq.html',1,'index']]]
 ];

@@ -37,48 +37,48 @@ See also: [product page on GPUOpen](https://gpuopen.com/gaming-product/vulkan-me
 
 <b>General documentation chapters:</b>
 
-- <b>User guide</b>
-  - \subpage quick_start
-    - [Project setup](@ref quick_start_project_setup)
-    - [Initialization](@ref quick_start_initialization)
-    - [Resource allocation](@ref quick_start_resource_allocation)
-  - \subpage choosing_memory_type
-    - [Usage](@ref choosing_memory_type_usage)
-    - [Required and preferred flags](@ref choosing_memory_type_required_preferred_flags)
-    - [Explicit memory types](@ref choosing_memory_type_explicit_memory_types)
-    - [Custom memory pools](@ref choosing_memory_type_custom_memory_pools)
-    - [Dedicated allocations](@ref choosing_memory_type_dedicated_allocations)
-  - \subpage memory_mapping
-    - [Copy functions](@ref memory_mapping_copy_functions)
-    - [Mapping functions](@ref memory_mapping_mapping_functions)
-    - [Persistently mapped memory](@ref memory_mapping_persistently_mapped_memory)
-    - [Cache flush and invalidate](@ref memory_mapping_cache_control)
-  - \subpage staying_within_budget
-    - [Querying for budget](@ref staying_within_budget_querying_for_budget)
-    - [Controlling memory usage](@ref staying_within_budget_controlling_memory_usage)
-  - \subpage resource_aliasing
-  - \subpage custom_memory_pools
-    - [Choosing memory type index](@ref custom_memory_pools_MemTypeIndex)
-    - [When not to use custom pools](@ref custom_memory_pools_when_not_use)
-    - [Linear allocation algorithm](@ref linear_algorithm)
-      - [Free-at-once](@ref linear_algorithm_free_at_once)
-      - [Stack](@ref linear_algorithm_stack)
-      - [Double stack](@ref linear_algorithm_double_stack)
-      - [Ring buffer](@ref linear_algorithm_ring_buffer)
-  - \subpage defragmentation
-  - \subpage statistics
-    - [Numeric statistics](@ref statistics_numeric_statistics)
-    - [JSON dump](@ref statistics_json_dump)
-  - \subpage allocation_annotation
-    - [Allocation user data](@ref allocation_user_data)
-    - [Allocation names](@ref allocation_names)
-  - \subpage virtual_allocator
-  - \subpage debugging_memory_usage
-    - [Memory initialization](@ref debugging_memory_usage_initialization)
-    - [Margins](@ref debugging_memory_usage_margins)
-    - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
-    - [Leak detection features](@ref debugging_memory_usage_leak_detection)
-  - \subpage other_api_interop
+- \subpage faq
+- \subpage quick_start
+  - [Project setup](@ref quick_start_project_setup)
+  - [Initialization](@ref quick_start_initialization)
+  - [Resource allocation](@ref quick_start_resource_allocation)
+- \subpage choosing_memory_type
+  - [Usage](@ref choosing_memory_type_usage)
+  - [Required and preferred flags](@ref choosing_memory_type_required_preferred_flags)
+  - [Explicit memory types](@ref choosing_memory_type_explicit_memory_types)
+  - [Custom memory pools](@ref choosing_memory_type_custom_memory_pools)
+  - [Dedicated allocations](@ref choosing_memory_type_dedicated_allocations)
+- \subpage memory_mapping
+  - [Copy functions](@ref memory_mapping_copy_functions)
+  - [Mapping functions](@ref memory_mapping_mapping_functions)
+  - [Persistently mapped memory](@ref memory_mapping_persistently_mapped_memory)
+  - [Cache flush and invalidate](@ref memory_mapping_cache_control)
+- \subpage staying_within_budget
+  - [Querying for budget](@ref staying_within_budget_querying_for_budget)
+  - [Controlling memory usage](@ref staying_within_budget_controlling_memory_usage)
+- \subpage resource_aliasing
+- \subpage custom_memory_pools
+  - [Choosing memory type index](@ref custom_memory_pools_MemTypeIndex)
+  - [When not to use custom pools](@ref custom_memory_pools_when_not_use)
+  - [Linear allocation algorithm](@ref linear_algorithm)
+    - [Free-at-once](@ref linear_algorithm_free_at_once)
+    - [Stack](@ref linear_algorithm_stack)
+    - [Double stack](@ref linear_algorithm_double_stack)
+    - [Ring buffer](@ref linear_algorithm_ring_buffer)
+- \subpage defragmentation
+- \subpage statistics
+  - [Numeric statistics](@ref statistics_numeric_statistics)
+  - [JSON dump](@ref statistics_json_dump)
+- \subpage allocation_annotation
+  - [Allocation user data](@ref allocation_user_data)
+  - [Allocation names](@ref allocation_names)
+- \subpage virtual_allocator
+- \subpage debugging_memory_usage
+  - [Memory initialization](@ref debugging_memory_usage_initialization)
+  - [Margins](@ref debugging_memory_usage_margins)
+  - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
+  - [Leak detection features](@ref debugging_memory_usage_leak_detection)
+- \subpage other_api_interop
 - \subpage usage_patterns
     - [GPU-only resource](@ref usage_patterns_gpu_only)
     - [Staging copy for upload](@ref usage_patterns_staging_copy_upload)
@@ -16839,6 +16839,260 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(VmaAllocator VMA_NOT
 #endif // VMA_IMPLEMENTATION
 
 /**
+\page faq Frequenty asked questions
+
+<b>What is VMA?</b>
+
+Vulkan(R) Memory Allocator (VMA) is a software library for developers who use the Vulkan graphics API in their code.
+It is written in C++.
+
+<b>What is the license of VMA?</b>
+
+VMA is licensed under MIT, which means it is open source and free software.
+
+<b>What is the purpose of VMA?</b>
+
+VMA helps with handling one aspect of Vulkan usage, which is device memory management -
+allocation of `VkDeviceMemory` objects, and creation of `VkBuffer` and `VkImage` objects.
+
+<b>Do I need to use VMA?</b>
+
+You don't need to, but it may be beneficial in many cases.
+Vulkan is a complex and low-level API, so libraries like this that abstract certain aspects of the API
+and bring them to a higher level are useful.
+When developing any non-trivial Vulkan application, you likely need to use a memory allocator.
+Using VMA can save time compared to implementing your own.
+
+<b>When should I not use VMA?</b>
+
+While VMA is useful for most applications that use the Vulkan API, there are cases
+when it may be a better choice not to use it.
+For example, if the application is very simple, e.g. serving as a sample or a learning exercise
+to help you understand or teach others the basics of Vulkan,
+and it creates only a small number of buffers and images, then including VMA may be an overkill.
+Developing your own memory allocator may also be a good learning exercise.
+
+<b>What are the benefits of using VMA?</b>
+
+-# VMA helps in choosing the optimal memory type for your resource (buffer or image).
+   In Vulkan, we have a two-level hierarchy of memory heaps and types with different flags,
+   and each device can expose a different set of those.
+   Implementing logic that would select the best memory type on each platform is a non-trivial task.
+   VMA does that, expecting only a high-level description of the intended usage of your resource.
+   For more information, see \subpage choosing_memory_type.
+-# VMA allocates large blocks of `VkDeviceMemory` and sub-allocates parts of them for your resources.
+   Allocating a new block of device memory may be a time-consuming operation.
+   Some platforms also have a limit on the maximum number of those blocks (`VkPhysicalDeviceLimits::maxMemoryAllocationCount`)
+   as low as 4096, so allocating a separate one for each resource is not an option.
+   Sub-allocating parts of a memory block requires implementing an allocation algorithm,
+   which is a non-trivial task.
+   VMA does that, using an advanced and efficient algorithm that works well in various use cases.
+-# VMA offers a simple API that allows creating buffers and textures within one function call.
+   In Vulkan, the creation of a resource is a multi-step process.
+   You need to create a `VkBuffer` or `VkImage`, ask it for memory requirements,
+   allocate a `VkDeviceMemory` object, and finally bind the resource to the memory block.
+   VMA does that automatically under a simple API within one function call: vmaCreateBuffer(), vmaCreateImage().
+
+The library is doing much more under the hood.
+For example, it respects limits like `bufferImageGranularity`, `nonCoherentAtomSize`,
+and `VkMemoryDedicatedRequirements` automatically, so you don't need to think about it.
+
+<b>Which version should I pick?</b>
+
+You can just pick [the latest version from the "master" branch](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator).
+It is kept in a good shape most of the time, compiling and working correctly,
+with no compatibility-breaking changes and no unfinished code.
+
+If you want an even more stable version, you can pick
+[the latest official release](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/releases).
+Current code from the master branch is occasionally tagged as a release,
+with [CHANGELOG](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/blob/master/CHANGELOG.md)
+carefully curated to enumerate all important changes since the previous version.
+
+The library uses [Semantic Versioning](https://semver.org/),
+which means versions that only differ in the patch number are forward and backward compatible
+(e.g., only fixing some bugs), while versions that differ in the minor number are backward compatible
+(e.g., only adding new functions to the API, but not removing or changing existing ones).
+
+<b>How to integrate it with my code?</b>
+
+VMA is an STB-style single-header C++ library.
+
+You can pull the entire GitHub repository, e.g. using Git submodules.
+The repository contains ancillary files like the Cmake script, Doxygen config file,
+sample application, test suite, and others.
+You can compile it as a library and link with your project.
+
+However, a simpler way is taking the single file "include/vk_mem_alloc.h" and including it in your project.
+This extensive file contains all you need: a copyright notice,
+declarations of the public library interface (API), its internal implementation,
+and even the documentation in form of Doxygen-style comments.
+
+The "STB style" means not everything is implemented as inline functions in the header file.
+You need to extract the internal implementation using a special macro.
+This means that in every .cpp file where you need to use the library you should
+`#include "vk_mem_alloc.h"` to include its public interface,
+but additionally in exactly one .cpp file you should `#define VMA_IMPLEMENTATION`
+before this `#include` to enable its internal implementation.
+For more information, see [Project setup](@ref quick_start_project_setup).
+
+<b>Does the library work with C or C++?</b>
+
+The internal implementation of VMA is written in C++.
+It is distributed in the source format, so you need a compiler supporting at least C++14 to build it.
+
+However, the public interface of the library is written in C - using only enums, structs, and global functions,
+in the same style as Vulkan, so you can use the library in the C code.
+
+<b>I am not a fan of modern C++. Can I still use it?</b>
+
+Very likely yes.
+We acknowledge that many C++ developers, especially in the games industry,
+do not appreciate all the latest features that the language has to offer.
+
+- VMA doesn't throw or catch any C++ exceptions.
+  It reports errors by returning a `VkResult` value instead, just like Vulkan.
+  If you don't use exceptions in your project, your code is not exception-safe,
+  or even if you disable exception handling in the compiler options, you can still use VMA.
+- VMA doesn't use C++ run-time type information like `typeid` or `dynamic_cast`,
+  so if you disable RTTI in the compiler options, you can still use the library.
+- VMA uses only a limited subset of standard C and C++ library.
+  It doesn't use STL containers like `std::vector`, `map`, or `string`,
+  either in the public interface nor in the internal implementation.
+  It implements its own containers instead.
+- If you don't use the default heap memory allocator through `malloc/free` or `new/delete`
+  but implement your own allocator instead, you can pass it to VMA and
+  the library will use your functions for every dynamic heap allocation made internally,
+  as well as passing it further to Vulkan functions. For details, see [Custom host memory allocator](@ref custom_memory_allocator).
+
+<b>Is it available for other programming languages?</b>
+
+VMA is a C++ library with C interface in similar style as Vulkan.
+An object-oriented C++ wrapper or bindings to other programming languages are out of scope of this project,
+but they are welcome as external projects.
+Some of them are listed in [README.md, "See also" section](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator?tab=readme-ov-file#see-also),
+including binding to C++, Python, Rust, and Haskell.
+Before using any of them, please check if they are still maintained and updated to use a recent version of VMA.
+
+<b>What platforms does it support?</b>
+
+VMA relies only on Vulkan and some parts of the standard C and C++ library,
+so it supports any platform where a C++ compiler and Vulkan are available.
+It is developed mostly on Microsoft(R) Windows(R),
+but it has been successfully used in Linux(R), MacOS, Android, and even FreeBSD and Raspberry Pi.
+
+<b>Does it only work on AMD GPUs?</b>
+
+No! While VMA is published by AMD, it works on any GPU that supports Vulkan,
+whether a discrete PC graphics card, a processor integrated graphics, or a mobile SoC.
+It doesn't give AMD GPUs any advantage over any other GPUs.
+
+<b>What Vulkan versions and extensions are supported?</b>
+
+VMA is updated to support the latest versions of Vulkan.
+It currently supports Vulkan up to 1.4.
+The library also supports older versions down to the first release of Vulkan 1.0.
+Defining a higher minimum version support would help simplify the code,
+but we acknowledge that developers on some platforms like Android still use older versions,
+so the support is provided for all of them.
+
+Among many extensions available for Vulkan, only a few interact with memory management.
+VMA can automatically take advantage of them. Some of them are:
+VK_EXT_memory_budget, VK_EXT_memory_priority, VK_KHR_external_memory_win32, and VK_KHR_maintenance*
+extensions that are later promoted to the new versions of the core Vulkan API.
+
+To use them, it is your responsibility to validate if they are available on the current system and if so,
+enable them while creating the Vulkan device object.
+You also need to pass appropriate #VmaAllocatorCreateFlagBits to inform VMA that they are enabled.
+Then, the library will automatically take advantage of them.
+For more information and the full list of supported extensions, see [Enabling extensions](@ref quick_start_initialization_enabling_extensions).
+
+<b>Does it support other graphics APIs, like Microsoft DirectX(R) 12?</b>
+
+No, but we offer an equivalent library for DirectX 12:
+[D3D12 Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator).
+It uses the same core allocation algorithm.
+It also shares many features with VMA, like the support for custom pools and virtual allocator.
+However, it is not identical in terms of the features supported.
+Its API also looks different, because while the interface of VMA is similar in style to Vulkan,
+the interface of D3D12MA is similar to DirectX 12.
+
+<b>Is the library lightweight?</b>
+
+It depends on how you define it.
+VMA is implemented with high-performance and real-time applications like video games in mind.
+The CPU performance overhead of using this library is low.
+It uses a high-quality allocation algorithm called Two-Level Segregated Fit (TLSF),
+which in most cases can find a free place for a new allocation in few steps.
+The library also doesn't perform too many CPU heap allocations.
+In many cases, the allocation happens with 0 new CPU heap allocations performed by the library.
+Even the creation of a #VmaAllocation object doesn't typically feature an CPU allocation,
+because these objects are returned out of a dedicated memory pool.
+
+On the other hand, however, VMA needs some extra memory and extra time
+to maintain the metadata about the occupied and free regions of the memory blocks,
+and the algorithms and data structures used must be generic enough to work well in most cases.
+If you develop your program for a very resource-constrained platform,
+a custom allocator simpler than VMA may be a better choice.
+
+<b>Does it have a documentation?</b>
+
+Yes! VMA comes with full documentation of all elements of the API (functions, structures, enums),
+as well as many generic chapters that provide an introduction,
+describe core concepts of the library, good practices, etc.
+The entire documentation is written in form of code comments inside "vk_mem_alloc.h", in Doxygen format.
+You can access it in multiple ways:
+
+- Browsable online: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/
+- Local HTML pages available after you clone the repository and open file "docs/html/index.html".
+- You can rebuild the documentation in HTML or some other format from the source code using Doxygen.
+  Configuration file "Doxyfile" is part of the repository.
+- Finally, you can just read the comments preceding declarations of any public functions of the library.
+
+<b>Is it a mature project?</b>
+
+Yes! The library is in development since June 2017, has over 1000 commits, over 400 issue tickets
+and pull requests (most of them resolved), and over 70 contributors.
+It is distributed together with Vulkan SDK.
+It is used by many software projects, including some large and popular ones like Qt or Blender,
+as well as some AAA games.
+According to the [LunarG 2024 Ecosystem Survey](https://www.lunarg.com/2024-ecosystem-survey-progress-report-released/),
+it is used by over 50% of Vulkan developers.
+
+<b>How can I contribute to the project?</b>
+
+If you have an idea for improvement or a feature request,
+you can go to [the library repository](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+and create an Issue ticket, describing your idea.
+You can also implement it yourself by forking the repository, making changes to the code,
+and creating a Pull request.
+
+If you want to ask a question, you can also create a ticket the same way.
+Before doing this, please make sure you read the relevant part of the Vulkan specification and VMA documentation,
+where you may find the answers to your question.
+
+If you want to report a suspected bug, you can also create a ticket the same way.
+Before doing this, please put some effort into the investigation of whether the bug is really
+in the library and not in your code or in the Vulkan implementation (the GPU driver) on your platform:
+
+- Enable Vulkan validation layer and make sure it is free from any errors.
+- Make sure `VMA_ASSERT` is defined to an implementation that can report a failure and not ignore it.
+- Try making your allocation using pure Vulkan functions rather than VMA and see if the bug persists.
+
+<b>I found some compilation warnings. How can we fix them?</b>
+
+Seeing compiler warnings may be annoying to some developers,
+but it is a design decision to not fix all of them.
+Due to the nature of the C++ language, certain preprocessor macros can make some variables unused,
+function parameters unreferenced, or conditional expressions constant in some configurations.
+The code of this library should not be bigger or more complicated just to silence these warnings.
+It is recommended to disable such warnings instead.
+For more information, see [Features not supported](@ref general_considerations_features_not_supported).
+
+However, if you observe a warning that is really dangerous, e.g.,
+about an implicit conversion from a larger to a smaller integer type, please report it and it will be fixed ASAP.
+
+
 \page quick_start Quick start
 
 \section quick_start_project_setup Project setup
