@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.2.1</b>
+<b>Version 3.3.0-development</b>
 
 Copyright (c) 2017-2025 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT \n
