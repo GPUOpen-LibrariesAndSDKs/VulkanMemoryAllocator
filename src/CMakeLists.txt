@@ -56,8 +56,8 @@ target_sources(VmaSample PRIVATE
     ../include/vk_mem_alloc.h
 )
 
-# Only link to Vulkan library if static linking is used, but always add Vulkan headers directory
-if(VMA_STATIC_VULKAN_FUNCTIONS)
+# Only link to Vulkan library if volk loader is not used, but always add Vulkan headers directory.
+if("${VMA_VOLK_HEADER_PATH}" STREQUAL "")
     target_link_libraries(VmaSample PUBLIC Vulkan::Vulkan)
 else()
     target_link_libraries(VmaSample PUBLIC Vulkan::Headers)
