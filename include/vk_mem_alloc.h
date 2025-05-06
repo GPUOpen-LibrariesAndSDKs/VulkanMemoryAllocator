@@ -16538,6 +16538,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
 {
     VMA_ASSERT(allocator && pImageCreateInfo && pAllocationCreateInfo && pImage && pAllocation);
 
+    VMA_ASSERT((pImageCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT_COPY) == 0 &&
+        "vmaCreateImage() doesn't support disjoint multi-planar images. Please allocate memory for the planes using vmaAllocateMemory() and bind them using vmaBindImageMemory2().");
+
     if(pImageCreateInfo->extent.width == 0 ||
         pImageCreateInfo->extent.height == 0 ||
         pImageCreateInfo->extent.depth == 0 ||
