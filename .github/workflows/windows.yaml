@@ -7,7 +7,7 @@ on:
 
 env:
   VMA_VULKAN_VERSION: "1.3.283.0"
-  VMA_VULKAN_SDK_PATH: "$GITHUB_WORKSPACE/../vulkan_sdk/"
+  VMA_VULKAN_SDK_PATH: ${{ github.workspace }}/vulkan_sdk
 
 jobs:
   windows:
@@ -33,14 +33,26 @@ jobs:
           }
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Vulkan SDK
+      - name: Check for Vulkan SDK Cache
+        id: cache-vulkan
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VMA_VULKAN_SDK_PATH }}
+          key: vulkan-sdk-${{ env.VMA_VULKAN_VERSION }}
+
+      - name: Download Vulkan SDK
+        if: steps.cache-vulkan.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          curl -LS -o vulkansdk.exe https://sdk.lunarg.com/sdk/download/${{ env.VMA_VULKAN_VERSION }}/windows/VulkanSDK-${{ env.VMA_VULKAN_VERSION }}-Installer.exe
-          7z x vulkansdk.exe -o"${{ env.VMA_VULKAN_SDK_PATH }}"
+          if (-Not (Test-Path ${{ env.VMA_VULKAN_SDK_PATH }})) {
+            Write-Host "Vulkan SDK not found in cache. Downloading..."
+            curl -LS -o vulkansdk.exe https://sdk.lunarg.com/sdk/download/${{ env.VMA_VULKAN_VERSION }}/windows/VulkanSDK-${{ env.VMA_VULKAN_VERSION }}-Installer.exe
+            7z x vulkansdk.exe -o"${{ env.VMA_VULKAN_SDK_PATH }}"
+          } else {
+            Write-Host "Using cached Vulkan SDK"
+          }
 
       - name: Configure CMake
         shell: pwsh
