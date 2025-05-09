@@ -1,4 +1,4 @@
-name: Static code analysis (clang-tidy) 
+name: Static code analysis (clang-tidy)
 
 on:
   push:
@@ -12,26 +12,39 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
+    # Cache Vulkan SDK
+    - name: Cache Vulkan SDK
+      id: cache-vulkan
+      uses: actions/cache@v4
+      with:
+        path: vulkan_sdk
+        key: vulkan-sdk-1.4.309.0
+
+    # Install system dependencies
+    - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y clang-15 clang-tidy-15 cmake ninja-build libc++-15-dev libc++abi-15-dev
+        sudo apt install -y clang-15 clang-tidy-15 cmake parallel libc++-15-dev libc++abi-15-dev
 
-    - name: Set clang-tidy version
-      run: echo "CLANG_TIDY=clang-tidy-15" >> $GITHUB_ENV
-
-    - name: Prepare Vulkan SDK
+    # Download Vulkan SDK only if not cached
+    - name: Download Vulkan SDK
+      if: steps.cache-vulkan.outputs.cache-hit != 'true'
       run: |
         curl -LS -o vulkansdk.tar.xz https://sdk.lunarg.com/sdk/download/1.4.309.0/linux/vulkansdk-linux-x86_64-1.4.309.0.tar.xz
         mkdir -p vulkan_sdk
         tar xf vulkansdk.tar.xz -C vulkan_sdk
-        export VULKAN_SDK=$GITHUB_WORKSPACE/vulkan_sdk/1.4.309.0/x86_64
-        echo "VULKAN_SDK=$VULKAN_SDK" >> $GITHUB_ENV
-        echo "PATH=$VULKAN_SDK/bin:$PATH" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-        echo "VK_ICD_FILENAMES=$VULKAN_SDK/etc/vulkan/icd.d" >> $GITHUB_ENV
-        echo "VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/layer.d" >> $GITHUB_ENV
 
+    # Set environment variables for Clang and Vulkan SDK
+    - name: Set environment variables
+      run: |
+        echo "CLANG_TIDY=clang-tidy-15" >> $GITHUB_ENV
+        echo "VULKAN_SDK=${GITHUB_WORKSPACE}/vulkan_sdk/1.4.309.0/x86_64" >> $GITHUB_ENV
+        echo "PATH=${GITHUB_WORKSPACE}/vulkan_sdk/1.4.309.0/x86_64/bin:$PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/vulkan_sdk/1.4.309.0/x86_64/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "VK_ICD_FILENAMES=${GITHUB_WORKSPACE}/vulkan_sdk/1.4.309.0/x86_64/etc/vulkan/icd.d" >> $GITHUB_ENV
+        echo "VK_LAYER_PATH=${GITHUB_WORKSPACE}/vulkan_sdk/1.4.309.0/x86_64/etc/vulkan/layer.d" >> $GITHUB_ENV
+
+    # Configure the project with CMake
     - name: Configure with CMake
       run: |
         cmake -S . -B build \
@@ -40,18 +53,27 @@ jobs:
           -DCMAKE_C_COMPILER=clang-15 \
           -DVMA_BUILD_SAMPLES=YES
 
-    - name: Run Clang-Tidy
+    # List files to analyze
+    - name: Check the files found for clang-tidy
       run: |
-        find . -name '*.cpp' | xargs clang-tidy-15 -checks='*, \
-                                                    -modernize-use-trailing-return-type, \
-                                                    -cppcoreguidelines-macro-usage, \
-                                                    -modernize-use-auto, \
-                                                    -modernize-use-using \
-                                                    -modernize-use-nodiscard \
-                                                    -altera-unroll-loops \
-                                                    -misc-definitions-in-headers \
-                                                    -cppcoreguidelines-pro-bounds-pointer-arithmetic \
-                                                    -readability-function-cognitive-complexity \
-                                                    -llvmlibc-restrict-system-libc-headers \
-                                                    -cppcoreguidelines-pro-type-union-access' \
-                                                    -header-filter='.*vk_mem_alloc\.h' -p build || true
+        find src include \
+          -path '*/_deps/*' -prune -o \
+          -path '*/build/*' -prune -o \
+          \( -name '*.cpp' -o -name '*.hpp' \) -print
+
+    # Run clang-tidy in parallel
+    - name: Run clang-tidy
+      run: |
+        find src include \
+          -path '*/_deps/*' -prune -o \
+          -path '*/build/*' -prune -o \
+          \( -name '*.cpp' -o -name '*.hpp' \) -print0 |
+          parallel -0 clang-tidy -p build {} |
+          tee output || true
+
+    # Summarize warnings
+    - name: Summarize clang-tidy warnings
+      run: |
+        grep -hEo '\[[a-z0-9]+-[a-z0-9-]+\]' output \
+          | sort | uniq -c | sort -nr \
+          | sed 's/[][]//g' || true
