@@ -1,4 +1,5 @@
 Checks:
+  - cert-*
   - clang-analyzer-*
   - bugprone-*
   - performance-*
