@@ -1,10 +1,14 @@
 Checks:
-  - '*'
+  - clang-analyzer-*
+  - bugprone-*
+  - performance-*
+  - readability-*
+  - modernize-*
+  - cppcoreguidelines-*
+  - misc-*
   - '-altera-unroll-loops'
   - '-bugprone-easily-swappable-parameters'
   - '-bugprone-sizeof-expression'
-  - '-clang-diagnostic-error'
-  - '-clang-diagnostic-note'
   - '-cppcoreguidelines-avoid-do-while'
   - '-cppcoreguidelines-macro-usage'
   - '-cppcoreguidelines-no-malloc'
@@ -12,19 +16,10 @@ Checks:
   - '-cppcoreguidelines-pro-bounds-array-to-pointer-decay'
   - '-cppcoreguidelines-pro-bounds-constant-array-index'
   - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'
-  - '-cppcoreguidelines-pro-type-const-cast'
-  - '-cppcoreguidelines-pro-type-reinterpret-cast'
   - '-cppcoreguidelines-pro-type-union-access'
   - '-cppcoreguidelines-pro-type-vararg'
-  - '-fuchsia-default-arguments-calls'
-  - '-fuchsia-default-arguments-declarations'
-  - '-fuchsia-overloaded-operator'
-  - '-google-readability-todo'
-  - '-hicpp-uppercase-literal-suffix'
-  - '-hicpp-vararg'
   - '-llvmlibc-implementation-in-namespace'
   - '-llvmlibc-restrict-system-libc-headers'
-  - '-llvmlibc-*'
   - '-misc-const-correctness'
   - '-misc-definitions-in-headers'
   - '-misc-no-recursion'
@@ -32,16 +27,16 @@ Checks:
   - '-misc-unused-parameters'
   - '-modernize-use-auto'
   - '-modernize-use-nodiscard'
-  - '-modernize-use-trailing-return-type'
   - '-modernize-use-using'
+  - '-modernize-use-trailing-return-type'
   - '-performance-enum-size'
   - '-readability-braces-around-statements'
   - '-readability-function-cognitive-complexity'
-  - '-readability-identifier-length'
-  - '-readability-identifier-naming'
   - '-readability-implicit-bool-conversion'
   - '-readability-simplify-boolean-expr'
   - '-readability-static-accessed-through-instance'
+  - '-readability-identifier-naming'
+  - '-readability-identifier-length'
 
 HeaderFilterRegex: '.*\.(cpp|h)$'
 FormatStyle: file
