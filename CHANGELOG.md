@@ -1,4 +1,4 @@
-# 3.3.0 (2025-??-??)
+# 3.3.0 (2025-05-12)
 
 Additions to the library API:
 
