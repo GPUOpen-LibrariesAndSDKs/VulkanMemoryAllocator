@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['frequenty_20asked_20questions_0',['Frequenty asked questions',['../faq.html',1,'index']]]
+  ['frequently_20asked_20questions_0',['Frequently asked questions',['../faq.html',1,'index']]]
 ];

@@ -16845,7 +16845,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(VmaAllocator VMA_NOT
 #endif // VMA_IMPLEMENTATION
 
 /**
-\page faq Frequenty asked questions
+\page faq Frequently asked questions
 
 <b>What is VMA?</b>
 
