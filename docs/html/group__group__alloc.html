@@ -259,13 +259,13 @@ Enumerations</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:gaef15a94b58fbcb0fe706d5720e84a74a" id="r_gaef15a94b58fbcb0fe706d5720e84a74a"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#gaef15a94b58fbcb0fe706d5720e84a74a">vmaFindMemoryTypeIndex</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, uint32_t memoryTypeBits, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</td></tr>
-<tr class="memdesc:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given memoryTypeBits and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <br /></td></tr>
+<tr class="memdesc:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find <code>memoryTypeIndex</code>, given <code>memoryTypeBits</code> and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <br /></td></tr>
 <tr class="separator:gaef15a94b58fbcb0fe706d5720e84a74a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gae790ab9ffaf7667fb8f62523e6897888" id="r_gae790ab9ffaf7667fb8f62523e6897888"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#gae790ab9ffaf7667fb8f62523e6897888">vmaFindMemoryTypeIndexForBufferInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkBufferCreateInfo *pBufferCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</td></tr>
-<tr class="memdesc:gae790ab9ffaf7667fb8f62523e6897888"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given VkBufferCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <br /></td></tr>
+<tr class="memdesc:gae790ab9ffaf7667fb8f62523e6897888"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find <code>memoryTypeIndex</code>, given <code>VkBufferCreateInfo</code> and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <br /></td></tr>
 <tr class="separator:gae790ab9ffaf7667fb8f62523e6897888"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga088da83d8eaf3ce9056d9ea0b981d472" id="r_ga088da83d8eaf3ce9056d9ea0b981d472"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga088da83d8eaf3ce9056d9ea0b981d472">vmaFindMemoryTypeIndexForImageInfo</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const VkImageCreateInfo *pImageCreateInfo, const <a class="el" href="struct_vma_allocation_create_info.html">VmaAllocationCreateInfo</a> *pAllocationCreateInfo, uint32_t *pMemoryTypeIndex)</td></tr>
-<tr class="memdesc:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find memoryTypeIndex, given VkImageCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <br /></td></tr>
+<tr class="memdesc:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helps to find <code>memoryTypeIndex</code>, given <code>VkImageCreateInfo</code> and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>.  <br /></td></tr>
 <tr class="separator:ga088da83d8eaf3ce9056d9ea0b981d472"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga5c8770ded7c59c8caac6de0c2cb00b50" id="r_ga5c8770ded7c59c8caac6de0c2cb00b50"><td class="memItemLeft" align="right" valign="top">VkResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ga5c8770ded7c59c8caac6de0c2cb00b50">vmaCreatePool</a> (<a class="el" href="struct_vma_allocator.html">VmaAllocator</a> allocator, const <a class="el" href="struct_vma_pool_create_info.html">VmaPoolCreateInfo</a> *pCreateInfo, <a class="el" href="struct_vma_pool.html">VmaPool</a> *pPool)</td></tr>
 <tr class="memdesc:ga5c8770ded7c59c8caac6de0c2cb00b50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocates Vulkan device memory and creates <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object.  <br /></td></tr>
@@ -2068,15 +2068,15 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Helps to find memoryTypeIndex, given memoryTypeBits and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
+<p>Helps to find <code>memoryTypeIndex</code>, given <code>memoryTypeBits</code> and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
 <p>This algorithm tries to find a memory type that:</p>
 <ul>
-<li>Is allowed by memoryTypeBits.</li>
-<li>Contains all the flags from pAllocationCreateInfo-&gt;requiredFlags.</li>
+<li>Is allowed by <code>memoryTypeBits</code>.</li>
+<li>Contains all the flags from <code>pAllocationCreateInfo-&gt;requiredFlags</code>.</li>
 <li>Matches intended usage.</li>
-<li>Has as many flags from pAllocationCreateInfo-&gt;preferredFlags as possible.</li>
+<li>Has as many flags from <code>pAllocationCreateInfo-&gt;preferredFlags</code> as possible.</li>
 </ul>
-<dl class="section return"><dt>Returns</dt><dd>Returns VK_ERROR_FEATURE_NOT_PRESENT if not found. Receiving such result from this function or any other allocating function probably means that your device doesn't support any memory type with requested features for the specific type of resource you want to use it for. Please check parameters of your resource, like image layout (OPTIMAL versus LINEAR) or mip level count. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>Returns <code>VK_ERROR_FEATURE_NOT_PRESENT</code> if not found. Receiving such result from this function or any other allocating function probably means that your device doesn't support any memory type with requested features for the specific type of resource you want to use it for. Please check parameters of your resource, like image layout (<code>OPTIMAL</code> versus <code>LINEAR</code>) or mip level count. </dd></dl>
 
 </div>
 </div>
@@ -2109,8 +2109,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Helps to find memoryTypeIndex, given VkBufferCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
-<p>It can be useful e.g. to determine value to be used as <a class="el" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319" title="Vulkan memory type index to allocate this pool from.">VmaPoolCreateInfo::memoryTypeIndex</a>. It internally creates a temporary, dummy buffer that never has memory bound. </p>
+<p>Helps to find <code>memoryTypeIndex</code>, given <code>VkBufferCreateInfo</code> and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
+<p>It can be useful e.g. to determine value to be used as <a class="el" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319" title="Vulkan memory type index to allocate this pool from.">VmaPoolCreateInfo::memoryTypeIndex</a>. It may need to internally create a temporary, dummy buffer that never has memory bound. </p>
 
 </div>
 </div>
@@ -2143,8 +2143,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Helps to find memoryTypeIndex, given VkImageCreateInfo and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
-<p>It can be useful e.g. to determine value to be used as <a class="el" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319" title="Vulkan memory type index to allocate this pool from.">VmaPoolCreateInfo::memoryTypeIndex</a>. It internally creates a temporary, dummy image that never has memory bound. </p>
+<p>Helps to find <code>memoryTypeIndex</code>, given <code>VkImageCreateInfo</code> and <a class="el" href="struct_vma_allocation_create_info.html" title="Parameters of new VmaAllocation.">VmaAllocationCreateInfo</a>. </p>
+<p>It can be useful e.g. to determine value to be used as <a class="el" href="struct_vma_pool_create_info.html#a596fa76b685d3f1f688f84a709a5b319" title="Vulkan memory type index to allocate this pool from.">VmaPoolCreateInfo::memoryTypeIndex</a>. It may need to internally create a temporary, dummy image that never has memory bound. </p>
 
 </div>
 </div>

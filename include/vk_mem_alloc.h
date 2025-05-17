@@ -1820,20 +1820,20 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetHeapBudgets(
 */
 
 /**
-\brief Helps to find memoryTypeIndex, given memoryTypeBits and VmaAllocationCreateInfo.
+\brief Helps to find `memoryTypeIndex`, given `memoryTypeBits` and #VmaAllocationCreateInfo.
 
 This algorithm tries to find a memory type that:
 
-- Is allowed by memoryTypeBits.
-- Contains all the flags from pAllocationCreateInfo->requiredFlags.
+- Is allowed by `memoryTypeBits`.
+- Contains all the flags from `pAllocationCreateInfo->requiredFlags`.
 - Matches intended usage.
-- Has as many flags from pAllocationCreateInfo->preferredFlags as possible.
+- Has as many flags from `pAllocationCreateInfo->preferredFlags` as possible.
 
-\return Returns VK_ERROR_FEATURE_NOT_PRESENT if not found. Receiving such result
+\return Returns `VK_ERROR_FEATURE_NOT_PRESENT` if not found. Receiving such result
 from this function or any other allocating function probably means that your
 device doesn't support any memory type with requested features for the specific
 type of resource you want to use it for. Please check parameters of your
-resource, like image layout (OPTIMAL versus LINEAR) or mip level count.
+resource, like image layout (`OPTIMAL` versus `LINEAR`) or mip level count.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -1842,10 +1842,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndex(
     uint32_t* VMA_NOT_NULL pMemoryTypeIndex);
 
 /**
-\brief Helps to find memoryTypeIndex, given VkBufferCreateInfo and VmaAllocationCreateInfo.
+\brief Helps to find `memoryTypeIndex`, given `VkBufferCreateInfo` and #VmaAllocationCreateInfo.
 
 It can be useful e.g. to determine value to be used as VmaPoolCreateInfo::memoryTypeIndex.
-It internally creates a temporary, dummy buffer that never has memory bound.
+It may need to internally create a temporary, dummy buffer that never has memory bound.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -1854,10 +1854,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForBufferInfo(
     uint32_t* VMA_NOT_NULL pMemoryTypeIndex);
 
 /**
-\brief Helps to find memoryTypeIndex, given VkImageCreateInfo and VmaAllocationCreateInfo.
+\brief Helps to find `memoryTypeIndex`, given `VkImageCreateInfo` and #VmaAllocationCreateInfo.
 
 It can be useful e.g. to determine value to be used as VmaPoolCreateInfo::memoryTypeIndex.
-It internally creates a temporary, dummy image that never has memory bound.
+It may need to internally create a temporary, dummy image that never has memory bound.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaFindMemoryTypeIndexForImageInfo(
     VmaAllocator VMA_NOT_NULL allocator,
