@@ -18865,11 +18865,9 @@ vmaGetAllocationMemoryProperties(allocator, alloc, &memPropFlags);
 
 if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
 {
-    // Allocation ended up in a mappable memory and is already mapped - write to it directly.
-
-    // [Executed in runtime]:
-    memcpy(allocInfo.pMappedData, myData, myDataSize);
-    result = vmaFlushAllocation(allocator, alloc, 0, VK_WHOLE_SIZE);
+    // The Allocation ended up in a mappable memory.
+    // Calling vmaCopyMemoryToAllocation() does vmaMapMemory(), memcpy(), vmaUnmapMemory(), and vmaFlushAllocation().
+    result = vmaCopyMemoryToAllocation(allocator, myData, alloc, 0, myDataSize);
     // Check result...
 
     VkBufferMemoryBarrier bufMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
@@ -18881,6 +18879,7 @@ if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     bufMemBarrier.offset = 0;
     bufMemBarrier.size = VK_WHOLE_SIZE;
 
+    // It's important to insert a buffer memory barrier here to ensure writing to the buffer has finished.
     vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
         0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
 }
@@ -18903,9 +18902,8 @@ else
         &stagingBuf, &stagingAlloc, &stagingAllocInfo);
     // Check result...
 
-    // [Executed in runtime]:
-    memcpy(stagingAllocInfo.pMappedData, myData, myDataSize);
-    result = vmaFlushAllocation(allocator, stagingAlloc, 0, VK_WHOLE_SIZE);
+    // Calling vmaCopyMemoryToAllocation() does vmaMapMemory(), memcpy(), vmaUnmapMemory(), and vmaFlushAllocation().
+    result = vmaCopyMemoryToAllocation(allocator, myData, stagingAlloc, 0, myDataSize);
     // Check result...
 
     VkBufferMemoryBarrier bufMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
@@ -18917,6 +18915,7 @@ else
     bufMemBarrier.offset = 0;
     bufMemBarrier.size = VK_WHOLE_SIZE;
 
+    // Insert a buffer memory barrier to make sure writing to the staging buffer has finished.
     vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
         0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
 
@@ -18937,6 +18936,7 @@ else
     bufMemBarrier2.offset = 0;
     bufMemBarrier2.size = VK_WHOLE_SIZE;
 
+    // Make sure copying from staging buffer to the actual buffer has finished by inserting a buffer memory barrier.
     vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
         0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
 }
