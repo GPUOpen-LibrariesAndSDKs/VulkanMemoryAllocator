@@ -6340,9 +6340,6 @@ static void TestAdvancedDataUploading() {
         TEST(stagingBufferAllocInfo.pMappedData != nullptr);
         vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
 
-        result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
-        TEST(result == VK_SUCCESS);
-
         BeginSingleTimeCommands();
 
         VkBufferMemoryBarrier bufferMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
