@@ -6181,7 +6181,8 @@ static void TestDataUploadingWithStagingBuffer()
     TEST(result == VK_SUCCESS);
 
     TEST(stagingBufferAllocInfo.pMappedData != nullptr);
-    vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
+    result = vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
+    TEST(result == VK_SUCCESS);
 
     BeginSingleTimeCommands();
 
@@ -6251,7 +6252,8 @@ static void TestDataUploadingWithMappedMemory() {
     TEST(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
     TEST(uniformBufferAllocInfo.pMappedData != nullptr);
-    vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
+    result = vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
+    TEST(result == VK_SUCCESS);
 
     BeginSingleTimeCommands();
 
@@ -6303,7 +6305,8 @@ static void TestAdvancedDataUploading() {
     if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
         // The allocation ended up as mapped memory.
         TEST(uniformBufferAllocInfo.pMappedData != nullptr);
-        vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
+        result = vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), uniformBufferAlloc, 0, bufferData.size());
+        TEST(result == VK_SUCCESS);
 
         BeginSingleTimeCommands();
 
@@ -6338,9 +6341,7 @@ static void TestAdvancedDataUploading() {
         TEST(result == VK_SUCCESS);
 
         TEST(stagingBufferAllocInfo.pMappedData != nullptr);
-        vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
-
-        result = vmaFlushAllocation(g_hAllocator, uniformBufferAlloc, 0, VK_WHOLE_SIZE);
+        result = vmaCopyMemoryToAllocation(g_hAllocator, bufferData.data(), stagingBufferAlloc, 0, bufferData.size());
         TEST(result == VK_SUCCESS);
 
         BeginSingleTimeCommands();
