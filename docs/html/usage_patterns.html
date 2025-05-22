@@ -213,11 +213,9 @@ Advanced data uploading</h1>
 <div class="line"> </div>
 <div class="line"><span class="keywordflow">if</span>(memPropFlags &amp; VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)</div>
 <div class="line">{</div>
-<div class="line">    <span class="comment">// Allocation ended up in a mappable memory and is already mapped - write to it directly.</span></div>
-<div class="line"> </div>
-<div class="line">    <span class="comment">// [Executed in runtime]:</span></div>
-<div class="line">    memcpy(allocInfo.<a class="code hl_variable" href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2">pMappedData</a>, myData, myDataSize);</div>
-<div class="line">    result = <a class="code hl_function" href="group__group__alloc.html#ga30c37c1eec6025f397be41644f48490f">vmaFlushAllocation</a>(allocator, alloc, 0, VK_WHOLE_SIZE);</div>
+<div class="line">    <span class="comment">// The Allocation ended up in a mappable memory.</span></div>
+<div class="line">    <span class="comment">// Calling vmaCopyMemoryToAllocation() does vmaMapMemory(), memcpy(), vmaUnmapMemory(), and vmaFlushAllocation().</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__alloc.html#ga11731ec58a3a43a22bb925e0780ef405">vmaCopyMemoryToAllocation</a>(allocator, myData, alloc, 0, myDataSize);</div>
 <div class="line">    <span class="comment">// Check result...</span></div>
 <div class="line"> </div>
 <div class="line">    VkBufferMemoryBarrier bufMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };</div>
@@ -229,6 +227,7 @@ Advanced data uploading</h1>
 <div class="line">    bufMemBarrier.offset = 0;</div>
 <div class="line">    bufMemBarrier.size = VK_WHOLE_SIZE;</div>
 <div class="line"> </div>
+<div class="line">    <span class="comment">// It&#39;s important to insert a buffer memory barrier here to ensure writing to the buffer has finished.</span></div>
 <div class="line">    vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,</div>
 <div class="line">        0, 0, <span class="keyword">nullptr</span>, 1, &amp;bufMemBarrier, 0, <span class="keyword">nullptr</span>);</div>
 <div class="line">}</div>
@@ -251,9 +250,8 @@ Advanced data uploading</h1>
 <div class="line">        &amp;stagingBuf, &amp;stagingAlloc, &amp;stagingAllocInfo);</div>
 <div class="line">    <span class="comment">// Check result...</span></div>
 <div class="line"> </div>
-<div class="line">    <span class="comment">// [Executed in runtime]:</span></div>
-<div class="line">    memcpy(stagingAllocInfo.<a class="code hl_variable" href="struct_vma_allocation_info.html#a5eeffbe2d2f30f53370ff14aefbadbe2">pMappedData</a>, myData, myDataSize);</div>
-<div class="line">    result = <a class="code hl_function" href="group__group__alloc.html#ga30c37c1eec6025f397be41644f48490f">vmaFlushAllocation</a>(allocator, stagingAlloc, 0, VK_WHOLE_SIZE);</div>
+<div class="line">    <span class="comment">// Calling vmaCopyMemoryToAllocation() does vmaMapMemory(), memcpy(), vmaUnmapMemory(), and vmaFlushAllocation().</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__alloc.html#ga11731ec58a3a43a22bb925e0780ef405">vmaCopyMemoryToAllocation</a>(allocator, myData, stagingAlloc, 0, myDataSize);</div>
 <div class="line">    <span class="comment">// Check result...</span></div>
 <div class="line"> </div>
 <div class="line">    VkBufferMemoryBarrier bufMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };</div>
@@ -265,6 +263,7 @@ Advanced data uploading</h1>
 <div class="line">    bufMemBarrier.offset = 0;</div>
 <div class="line">    bufMemBarrier.size = VK_WHOLE_SIZE;</div>
 <div class="line"> </div>
+<div class="line">    <span class="comment">// Insert a buffer memory barrier to make sure writing to the staging buffer has finished.</span></div>
 <div class="line">    vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,</div>
 <div class="line">        0, 0, <span class="keyword">nullptr</span>, 1, &amp;bufMemBarrier, 0, <span class="keyword">nullptr</span>);</div>
 <div class="line"> </div>
@@ -285,10 +284,11 @@ Advanced data uploading</h1>
 <div class="line">    bufMemBarrier2.offset = 0;</div>
 <div class="line">    bufMemBarrier2.size = VK_WHOLE_SIZE;</div>
 <div class="line"> </div>
+<div class="line">    <span class="comment">// Make sure copying from staging buffer to the actual buffer has finished by inserting a buffer memory barrier.</span></div>
 <div class="line">    vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,</div>
 <div class="line">        0, 0, <span class="keyword">nullptr</span>, 1, &amp;bufMemBarrier2, 0, <span class="keyword">nullptr</span>);</div>
 <div class="line">}</div>
-<div class="ttc" id="agroup__group__alloc_html_ga30c37c1eec6025f397be41644f48490f"><div class="ttname"><a href="group__group__alloc.html#ga30c37c1eec6025f397be41644f48490f">vmaFlushAllocation</a></div><div class="ttdeci">VkResult vmaFlushAllocation(VmaAllocator allocator, VmaAllocation allocation, VkDeviceSize offset, VkDeviceSize size)</div><div class="ttdoc">Flushes memory of given allocation.</div></div>
+<div class="ttc" id="agroup__group__alloc_html_ga11731ec58a3a43a22bb925e0780ef405"><div class="ttname"><a href="group__group__alloc.html#ga11731ec58a3a43a22bb925e0780ef405">vmaCopyMemoryToAllocation</a></div><div class="ttdeci">VkResult vmaCopyMemoryToAllocation(VmaAllocator allocator, const void *pSrcHostPointer, VmaAllocation dstAllocation, VkDeviceSize dstAllocationLocalOffset, VkDeviceSize size)</div><div class="ttdoc">Maps the allocation temporarily if needed, copies data from specified host pointer to it,...</div></div>
 <div class="ttc" id="agroup__group__alloc_html_ga571e87dd38e552249b56b1b0b982fad1"><div class="ttname"><a href="group__group__alloc.html#ga571e87dd38e552249b56b1b0b982fad1">vmaGetAllocationMemoryProperties</a></div><div class="ttdeci">void vmaGetAllocationMemoryProperties(VmaAllocator allocator, VmaAllocation allocation, VkMemoryPropertyFlags *pFlags)</div><div class="ttdoc">Given an allocation, returns Property Flags of its memory type.</div></div>
 <div class="ttc" id="agroup__group__alloc_html_ggad9889c10c798b040d59c92f257cae597a11337f96eacf34c1016c339eac165cad"><div class="ttname"><a href="group__group__alloc.html#ggad9889c10c798b040d59c92f257cae597a11337f96eacf34c1016c339eac165cad">VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT</a></div><div class="ttdeci">@ VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT</div><div class="ttdef"><b>Definition</b> vk_mem_alloc.h:683</div></div>
 </div><!-- fragment --><h1><a class="anchor" id="usage_patterns_other_use_cases"></a>
