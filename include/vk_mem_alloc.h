@@ -4600,7 +4600,8 @@ void VmaVector<T, AllocatorT>::resize(size_t newCount)
 
     if (newCapacity != m_Capacity)
     {
-        T* const newArray = newCapacity ? VmaAllocateArray<T>(m_Allocator.m_pCallbacks, newCapacity) : VMA_NULL;
+        VMA_HEAVY_ASSERT(newCapacity != 0);
+        T* const newArray = VmaAllocateArray<T>(m_Allocator.m_pCallbacks, newCapacity);
         const size_t elementsToCopy = VMA_MIN(m_Count, newCount);
         if (elementsToCopy != 0)
         {
