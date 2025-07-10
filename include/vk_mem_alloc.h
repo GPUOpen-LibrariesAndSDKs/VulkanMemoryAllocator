@@ -4600,7 +4600,8 @@ void VmaVector<T, AllocatorT>::resize(size_t newCount)
 
     if (newCapacity != m_Capacity)
     {
-        T* const newArray = newCapacity ? VmaAllocateArray<T>(m_Allocator.m_pCallbacks, newCapacity) : VMA_NULL;
+        VMA_HEAVY_ASSERT(newCapacity > 0);
+        T* const newArray = VmaAllocateArray<T>(m_Allocator.m_pCallbacks, newCapacity);
         const size_t elementsToCopy = VMA_MIN(m_Count, newCount);
         if (elementsToCopy != 0)
         {
@@ -11348,11 +11349,13 @@ bool VmaBlockVector::IsEmpty()
 
 bool VmaBlockVector::IsCorruptionDetectionEnabled() const
 {
-    const uint32_t requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    return (VMA_DEBUG_DETECT_CORRUPTION != 0) &&
-        (VMA_DEBUG_MARGIN > 0) &&
-        (m_Algorithm == 0 || m_Algorithm == VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) &&
+#if (VMA_DEBUG_DETECT_CORRUPTION == 0) || (VMA_DEBUG_MARGIN == 0)
+    return false;
+#else
+    constexpr uint32_t requiredMemFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    return (m_Algorithm == 0 || m_Algorithm == VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT) &&
         (m_hAllocator->m_MemProps.memoryTypes[m_MemoryTypeIndex].propertyFlags & requiredMemFlags) == requiredMemFlags;
+#endif
 }
 
 VkResult VmaBlockVector::Allocate(
@@ -11802,10 +11805,11 @@ VkResult VmaBlockVector::CommitAllocationRequest(
     else
         (*pAllocation)->SetUserData(m_hAllocator, pUserData);
     m_hAllocator->m_Budget.AddAllocation(m_hAllocator->MemoryTypeIndexToHeapIndex(m_MemoryTypeIndex), allocRequest.size);
-    if (VMA_DEBUG_INITIALIZE_ALLOCATIONS)
-    {
-        m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
-    }
+
+#if VMA_DEBUG_INITIALIZE_ALLOCATIONS
+    m_hAllocator->FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+#endif
+
     if (IsCorruptionDetectionEnabled())
     {
         VkResult res = pBlock->WriteMagicValueAfterAllocation(m_hAllocator, (*pAllocation)->GetOffset(), allocRequest.size);
@@ -13825,10 +13829,10 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
     else
         (*pAllocation)->SetUserData(this, pUserData);
     m_Budget.AddAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), size);
-    if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
-    {
-        FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
-    }
+
+#if VMA_DEBUG_INITIALIZE_ALLOCATIONS
+    FillAllocation(*pAllocation, VMA_ALLOCATION_FILL_PATTERN_CREATED);
+#endif
 
     return VK_SUCCESS;
 }
@@ -14027,11 +14031,12 @@ VkResult VmaAllocator_T::CalcAllocationParams(
         return VK_ERROR_FEATURE_NOT_PRESENT;
     }
 
-    if(VMA_DEBUG_ALWAYS_DEDICATED_MEMORY &&
-        (inoutCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
+#if VMA_DEBUG_ALWAYS_DEDICATED_MEMORY
+    if((inoutCreateInfo.flags & VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT) != 0)
     {
         inoutCreateInfo.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     }
+#endif
 
     // Non-auto USAGE values imply HOST_ACCESS flags.
     // And so does VMA_MEMORY_USAGE_UNKNOWN because it is used with custom pools.
@@ -14150,10 +14155,9 @@ void VmaAllocator_T::FreeMemory(
 
         if(allocation != VK_NULL_HANDLE)
         {
-            if(VMA_DEBUG_INITIALIZE_ALLOCATIONS)
-            {
-                FillAllocation(allocation, VMA_ALLOCATION_FILL_PATTERN_DESTROYED);
-            }
+#if VMA_DEBUG_INITIALIZE_ALLOCATIONS
+            FillAllocation(allocation, VMA_ALLOCATION_FILL_PATTERN_DESTROYED);
+#endif
 
             switch(allocation->GetType())
             {
@@ -14997,8 +15001,8 @@ void VmaAllocator_T::UpdateVulkanBudget()
 
 void VmaAllocator_T::FillAllocation(VmaAllocation hAllocation, uint8_t pattern)
 {
-    if(VMA_DEBUG_INITIALIZE_ALLOCATIONS &&
-        hAllocation->IsMappingAllowed() &&
+#if VMA_DEBUG_INITIALIZE_ALLOCATIONS
+    if(hAllocation->IsMappingAllowed() &&
         (m_MemProps.memoryTypes[hAllocation->GetMemoryTypeIndex()].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
     {
         void* pData = VMA_NULL;
@@ -15014,6 +15018,7 @@ void VmaAllocator_T::FillAllocation(VmaAllocation hAllocation, uint8_t pattern)
             VMA_ASSERT(0 && "VMA_DEBUG_INITIALIZE_ALLOCATIONS is enabled, but couldn't map memory to fill allocation.");
         }
     }
+#endif // #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
 }
 
 uint32_t VmaAllocator_T::GetGpuDefragmentationMemoryTypeBits()
