@@ -8,7 +8,7 @@ Easy to integrate Vulkan memory allocation library.
 
 **Changelog:** See [CHANGELOG.md](CHANGELOG.md)
 
-**Product page:** [Vulkan Memory Allocator on GPUOpen](https://gpuopen.com/gaming-product/vulkan-memory-allocator/)
+**Product page:** [Vulkan Memory Allocator on GPUOpen](https://gpuopen.com/vulkan-memory-allocator/)
 
 [![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.svg)](http://isitmaintained.com/project/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator "Average time to resolve an issue")
 
