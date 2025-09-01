@@ -8492,21 +8492,49 @@ static void TestWin32Handles()
         return;
 
     wprintf(L"Test Win32 handles\n");
+
+    constexpr VkExternalMemoryHandleTypeFlagBits handleType =
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
     constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo{
         VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
         nullptr,
-        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+        handleType
     };
+
     constexpr static VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo{
         VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
         nullptr,
-        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+        handleType
     };
 
     VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bufCreateInfo.size = 0x10000;
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     bufCreateInfo.pNext = &externalMemBufCreateInfo;
+
+    bool requiresDedicated = true;
+    {
+        VkPhysicalDeviceExternalBufferInfo externalBufferInfo = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO };
+        externalBufferInfo.flags = bufCreateInfo.flags;
+        externalBufferInfo.usage = bufCreateInfo.usage;
+        externalBufferInfo.handleType = handleType;
+
+        VkExternalBufferProperties externalBufferProperties = {
+            VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+        
+        vkGetPhysicalDeviceExternalBufferProperties(g_hPhysicalDevice,
+            &externalBufferInfo, &externalBufferProperties);
+        if((externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
+            VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0)
+        {
+            wprintf(L"WARNING: External memory not exportable, skipping test.\n");
+            return;
+        }
+        requiresDedicated = (externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
+            VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0;
+    }
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -8526,6 +8554,8 @@ static void TestWin32Handles()
 
     for (size_t test = 0; test < 2; ++test)
     {
+        if(test == 0 && requiresDedicated)
+            continue; // Skip this case because it would fail.
         if (test == 1)
             allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
