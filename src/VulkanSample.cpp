@@ -485,7 +485,7 @@ void VulkanUsage::Init()
     VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
     appInfo.pApplicationName = APP_TITLE_A;
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Adam Sawicki Engine";
+    appInfo.pEngineName = APP_TITLE_A;
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = GetVulkanApiVersion();
 
