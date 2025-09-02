@@ -380,7 +380,7 @@ VkResult MainTest(Result& outResult, const Config& config)
 
     time_point timeBeg = std::chrono::high_resolution_clock::now();
 
-    std::atomic<size_t> allocationCount = 0;
+    std::atomic<size_t> allocationCount{ 0 };
     VkResult res = VK_SUCCESS;
 
     uint32_t memUsageProbabilitySum =
@@ -545,7 +545,7 @@ VkResult MainTest(Result& outResult, const Config& config)
         }
     };
 
-    std::atomic<uint32_t> numThreadsReachedMaxAllocations = 0;
+    std::atomic<uint32_t> numThreadsReachedMaxAllocations{ 0 };
     HANDLE threadsFinishEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
     auto ThreadProc = [&](uint32_t randSeed) -> void

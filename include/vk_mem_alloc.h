@@ -2167,8 +2167,18 @@ or by manually passing it through VmaAllocatorCreateInfo::pVulkanFunctions.
 
 For more information, see chapter \ref vk_khr_external_memory_win32.
 */
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(VmaAllocator VMA_NOT_NULL allocator,
-    VmaAllocation VMA_NOT_NULL allocation, HANDLE hTargetProcess, HANDLE* VMA_NOT_NULL pHandle);
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation, 
+    HANDLE hTargetProcess, 
+    HANDLE* VMA_NOT_NULL pHandle);
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle2(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation, 
+    VkExternalMemoryHandleTypeFlagBits handleType, 
+    HANDLE hTargetProcess, 
+    HANDLE* VMA_NOT_NULL pHandle);
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 
 /** \brief Maps memory represented by given allocation and returns pointer to it.
@@ -6204,40 +6214,45 @@ class VmaWin32Handle
 {
 public:
     VmaWin32Handle() noexcept : m_hHandle(VMA_NULL) { }
-    explicit VmaWin32Handle(HANDLE hHandle) noexcept : m_hHandle(hHandle) { }
-    ~VmaWin32Handle() noexcept { if (m_hHandle != VMA_NULL) { ::CloseHandle(m_hHandle); } }
+    explicit VmaWin32Handle(HANDLE hHandle) noexcept 
+        : m_hHandle(hHandle)
+        , m_IsNTHandle(IsNTHandle(hHandle))
+    {
+    }
+    ~VmaWin32Handle() noexcept { if (m_hHandle != VMA_NULL && m_IsNTHandle) { ::CloseHandle(m_hHandle); } }
     VMA_CLASS_NO_COPY_NO_MOVE(VmaWin32Handle)
 
 public:
     // Strengthened
-    VkResult GetHandle(VkDevice device, VkDeviceMemory memory, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, bool useMutex, HANDLE* pHandle) noexcept
+    VkResult GetHandle(VkDevice device, VkDeviceMemory memory, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE hTargetProcess, bool useMutex, HANDLE* pHandle) noexcept
     {
         *pHandle = VMA_NULL;
         // Try to get handle first.
-        if (m_hHandle != VMA_NULL)
-        {
-            *pHandle = Duplicate(hTargetProcess);
-            return VK_SUCCESS;
-        }
-
         VkResult res = VK_SUCCESS;
-        // If failed, try to create it.
+        if (m_hHandle == VMA_NULL)
         {
             VmaMutexLockWrite lock(m_Mutex, useMutex);
             if (m_hHandle == VMA_NULL)
             {
-                res = Create(device, memory, pvkGetMemoryWin32HandleKHR, &m_hHandle);
+                res = Create(device, memory, pvkGetMemoryWin32HandleKHR, handleType, &m_hHandle);
+                if (res != VK_SUCCESS) {
+                    m_hHandle = VMA_NULL;
+                    return res;
+                }
+                m_IsNTHandle = IsNTHandle(m_hHandle);
             }
         }
-
-        *pHandle = Duplicate(hTargetProcess);
+        if (res == VK_SUCCESS) {
+            // KMT handle is returned as is.
+            *pHandle = m_IsNTHandle ? Duplicate(hTargetProcess) : m_hHandle;
+        }
         return res;
     }
 
     operator bool() const noexcept { return m_hHandle != VMA_NULL; }
 private:
     // Not atomic
-    static VkResult Create(VkDevice device, VkDeviceMemory memory, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, HANDLE* pHandle) noexcept
+    static VkResult Create(VkDevice device, VkDeviceMemory memory, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE* pHandle) noexcept
     {
         VkResult res = VK_ERROR_FEATURE_NOT_PRESENT;
         if (pvkGetMemoryWin32HandleKHR != VMA_NULL)
@@ -6245,7 +6260,7 @@ private:
             VkMemoryGetWin32HandleInfoKHR handleInfo{ };
             handleInfo.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
             handleInfo.memory = memory;
-            handleInfo.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+            handleInfo.handleType = handleType;
             res = pvkGetMemoryWin32HandleKHR(device, &handleInfo, pHandle);
         }
         return res;
@@ -6263,9 +6278,15 @@ private:
         }
         return hDupHandle;
     }
+    static bool IsNTHandle(HANDLE hHandle) noexcept
+    {
+        DWORD flags = 0;
+        return (hHandle != VMA_NULL) ? (::GetHandleInformation(hHandle, &flags) != 0) : false;
+    }
 private:
     HANDLE m_hHandle;
     VMA_RW_MUTEX m_Mutex; // Protects access m_Handle
+    bool m_IsNTHandle = false; // True if m_Handle is NT handle, false if it's a KMT handle.
 };
 #else 
 class VmaWin32Handle
@@ -6273,6 +6294,7 @@ class VmaWin32Handle
     // ABI compatibility
     void* placeholder = VMA_NULL;
     VMA_RW_MUTEX placeholder2;
+    bool placeholder3 = false;
 };
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 
@@ -6347,6 +6369,7 @@ public:
     VkResult CreateWin32Handle(
         const VmaAllocator hAllocator,
         PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR,
+        VkExternalMemoryHandleTypeFlagBits handleType,
         HANDLE hTargetProcess,
         HANDLE* pHandle)noexcept;
 #endif // VMA_EXTERNAL_MEMORY_WIN32
@@ -6461,7 +6484,7 @@ public:
 #endif
 
 #if VMA_EXTERNAL_MEMORY_WIN32
-    VkResult GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* hHandle) noexcept;
+    VkResult GetWin32Handle(VmaAllocator hAllocator, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE hTargetProcess, HANDLE* hHandle) noexcept;
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 
 private:
@@ -10905,10 +10928,10 @@ VkResult VmaDeviceMemoryBlock::BindImageMemory(
 }
 
 #if VMA_EXTERNAL_MEMORY_WIN32
-VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
+VkResult VmaDeviceMemoryBlock::CreateWin32Handle(const VmaAllocator hAllocator, PFN_vkGetMemoryWin32HandleKHR pvkGetMemoryWin32HandleKHR, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
     VMA_ASSERT(pHandle);
-    return m_Handle.GetHandle(hAllocator->m_hDevice, m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
+    return m_Handle.GetHandle(hAllocator->m_hDevice, m_hMemory, pvkGetMemoryWin32HandleKHR, handleType, hTargetProcess, hAllocator->m_UseMutex, pHandle);
 }
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 #endif // _VMA_DEVICE_MEMORY_BLOCK_FUNCTIONS
@@ -11226,16 +11249,16 @@ void VmaAllocation_T::PrintParameters(class VmaJsonWriter& json) const
     }
 }
 #if VMA_EXTERNAL_MEMORY_WIN32
-VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
+VkResult VmaAllocation_T::GetWin32Handle(VmaAllocator hAllocator, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE hTargetProcess, HANDLE* pHandle) noexcept
 {
     auto pvkGetMemoryWin32HandleKHR = hAllocator->GetVulkanFunctions().vkGetMemoryWin32HandleKHR;
     switch (m_Type)
     {
     case ALLOCATION_TYPE_BLOCK:
-        return m_BlockAllocation.m_Block->CreateWin32Handle(hAllocator, pvkGetMemoryWin32HandleKHR, hTargetProcess, pHandle);
+        return m_BlockAllocation.m_Block->CreateWin32Handle(hAllocator, pvkGetMemoryWin32HandleKHR, handleType, hTargetProcess, pHandle);
     case ALLOCATION_TYPE_DEDICATED:
         EnsureExtraData(hAllocator);
-        return m_DedicatedAllocation.m_ExtraData->m_Handle.GetHandle(hAllocator->m_hDevice, m_DedicatedAllocation.m_hMemory, pvkGetMemoryWin32HandleKHR, hTargetProcess, hAllocator->m_UseMutex, pHandle);
+        return m_DedicatedAllocation.m_ExtraData->m_Handle.GetHandle(hAllocator->m_hDevice, m_DedicatedAllocation.m_hMemory, pvkGetMemoryWin32HandleKHR, handleType, hTargetProcess, hAllocator->m_UseMutex, pHandle);
     default:
         VMA_ASSERT(0);
         return VK_ERROR_FEATURE_NOT_PRESENT;
@@ -16842,7 +16865,20 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(VmaAllocator VMA_NOT
 {
     VMA_ASSERT(allocator && allocation && pHandle);
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
-    return allocation->GetWin32Handle(allocator, hTargetProcess, pHandle);
+    return allocation->GetWin32Handle(allocator, VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT, hTargetProcess, pHandle);
+}
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle2(VmaAllocator VMA_NOT_NULL allocator,
+    VmaAllocation VMA_NOT_NULL allocation, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE hTargetProcess, HANDLE* VMA_NOT_NULL pHandle)
+{
+    VMA_ASSERT(allocator && allocation && pHandle);
+    VMA_ASSERT(handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR ||
+        handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR ||
+        handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT_KHR ||
+        handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT_KHR ||
+        handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT_KHR ||
+        handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT_KHR);
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    return allocation->GetWin32Handle(allocator, handleType, hTargetProcess, pHandle);
 }
 #endif // VMA_EXTERNAL_MEMORY_WIN32 
 #endif // VMA_STATS_STRING_ENABLED
