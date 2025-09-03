@@ -2405,7 +2405,7 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <p>The function fills <span class="tt">pHandle</span> with handle that can be used in target process. The handle is fetched using function <span class="tt">vkGetMemoryWin32HandleKHR</span>.</p>
-<p>if <span class="tt">handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR</span>, each call to this function creates a new handle that must be closed using:</p>
+<p>If <span class="tt">handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR</span>, or other NT handle types, each call to this function creates a new handle that must be closed using:</p>
 <div class="fragment"><div class="line">CloseHandle(handle);</div>
 </div><!-- fragment --><p>You can close it any time, before or after destroying the allocation object. It is reference-counted internally by Windows.</p>
 <p>Note the handle is returned for the entire <span class="tt">VkDeviceMemory</span> block that the allocation belongs to. If the allocation is sub-allocated from a larger block, you may need to consider the offset of the allocation (<a class="el" href="struct_vma_allocation_info.html#a4a3c732388dbdc7a23f9365b00825268" title="Offset in VkDeviceMemory object to the beginning of this allocation, in bytes. (deviceMemory,...">VmaAllocationInfo::offset</a>).</p>

@@ -2210,7 +2210,8 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(
 The function fills `pHandle` with handle that can be used in target process.
 The handle is fetched using function `vkGetMemoryWin32HandleKHR`.
 
-if `handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR`,
+If `handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR`,
+or other NT handle types,
 each call to this function creates a new handle that must be closed using:
 
 \code
@@ -18888,6 +18889,7 @@ Documentation of the VK_KHR_external_memory_win32 extension states that:
 
 This is ensured automatically inside VMA.
 If `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT` is used as the handle type,
+or other NT handle types,
 the library fetches the handle on first use, remembers it internally, and closes it when the memory block or dedicated allocation is destroyed.
 Every time you call vmaGetMemoryWin32Handle2(), VMA calls `DuplicateHandle` and returns a new handle that you need to close.
 For further information, please check the documentation of this function.
