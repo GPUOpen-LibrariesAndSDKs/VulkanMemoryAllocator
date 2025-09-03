@@ -1962,16 +1962,23 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
 
 /** \brief General purpose memory allocation.
 
-\param allocator
-\param pVkMemoryRequirements
-\param pCreateInfo
+\param allocator The main allocator object.
+\param pVkMemoryRequirements Requirements for the allocated memory.
+\param pCreateInfo Allocation creation parameters.
 \param[out] pAllocation Handle to allocated memory.
-\param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
+\param[out] pAllocationInfo Optional, can be null. Information about allocated memory. It can be also fetched later using vmaGetAllocationInfo().
 
-You should free the memory using vmaFreeMemory() or vmaFreeMemoryPages().
+The function creates a #VmaAllocation object without creating a buffer or an image together with it.
 
-It is recommended to use vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage(),
-vmaCreateBuffer(), vmaCreateImage() instead whenever possible.
+- It is recommended to use vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage(),
+  vmaCreateBuffer(), vmaCreateImage() instead whenever possible.
+- You can also create a buffer or an image later in an existing allocation using
+  vmaCreateAliasingBuffer2(), vmaCreateAliasingImage2().
+- You can also create a buffer or an image on your own and bind it to an existing allocation
+  using vmaBindBufferMemory2(), vmaBindImageMemory2().
+
+You must free the returned allocation object using vmaFreeMemory() or vmaFreeMemoryPages().
+
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
     VmaAllocator VMA_NOT_NULL allocator,

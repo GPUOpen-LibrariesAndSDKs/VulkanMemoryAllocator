@@ -826,16 +826,21 @@ Functions</h2></td></tr>
 <p>General purpose memory allocation. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
-    <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td></td></tr>
-    <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>The main allocator object. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td>Requirements for the allocated memory. </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Allocation creation parameters. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Handle to allocated memory. </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional. Information about allocated memory. It can be later fetched using function <a class="el" href="#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.</td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">pAllocationInfo</td><td>Optional, can be null. Information about allocated memory. It can be also fetched later using <a class="el" href="#ga86dd08aba8633bfa4ad0df2e76481d8b" title="Returns current information about specified allocation.">vmaGetAllocationInfo()</a>.</td></tr>
   </table>
   </dd>
 </dl>
-<p>You should free the memory using <a class="el" href="#ga11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a> or <a class="el" href="#ga834b1e4aef395c0a1d56a28e69a4a17e" title="Frees memory and destroys multiple allocations.">vmaFreeMemoryPages()</a>.</p>
-<p>It is recommended to use <a class="el" href="#ga7fdf64415b6c3d83c454f28d2c53df7b" title="Allocates memory suitable for given VkBuffer.">vmaAllocateMemoryForBuffer()</a>, <a class="el" href="#ga0faa3f9e5fb233d29d1e00390650febb" title="Allocates memory suitable for given VkImage.">vmaAllocateMemoryForImage()</a>, <a class="el" href="#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a> instead whenever possible. </p>
+<p>The function creates a <a class="el" href="struct_vma_allocation.html" title="Represents single memory allocation.">VmaAllocation</a> object without creating a buffer or an image together with it.</p>
+<ul>
+<li>It is recommended to use <a class="el" href="#ga7fdf64415b6c3d83c454f28d2c53df7b" title="Allocates memory suitable for given VkBuffer.">vmaAllocateMemoryForBuffer()</a>, <a class="el" href="#ga0faa3f9e5fb233d29d1e00390650febb" title="Allocates memory suitable for given VkImage.">vmaAllocateMemoryForImage()</a>, <a class="el" href="#gac72ee55598617e8eecca384e746bab51" title="Creates a new VkBuffer, allocates and binds memory for it.">vmaCreateBuffer()</a>, <a class="el" href="#ga02a94f25679275851a53e82eacbcfc73" title="Function similar to vmaCreateBuffer().">vmaCreateImage()</a> instead whenever possible.</li>
+<li>You can also create a buffer or an image later in an existing allocation using <a class="el" href="#gaf0cf014344213e117bd9f9cf5f928122" title="Creates a new VkBuffer, binds already created memory for it.">vmaCreateAliasingBuffer2()</a>, <a class="el" href="#ga69ac829f5bb0737449fa92c2d971f1bb" title="Function similar to vmaCreateAliasingBuffer2() but for images.">vmaCreateAliasingImage2()</a>.</li>
+<li>You can also create a buffer or an image on your own and bind it to an existing allocation using <a class="el" href="#ga861f4f27189a7d11ab9d9eedc825cb6b" title="Binds buffer to allocation with additional parameters.">vmaBindBufferMemory2()</a>, <a class="el" href="#ga5f3502dd7d38b53fb1533ea3921d038d" title="Binds image to allocation with additional parameters.">vmaBindImageMemory2()</a>.</li>
+</ul>
+<p>You must free the returned allocation object using <a class="el" href="#ga11f0fbc034fa81a4efedd73d61ce7568" title="Frees memory previously allocated using vmaAllocateMemory(), vmaAllocateMemoryForBuffer(),...">vmaFreeMemory()</a> or <a class="el" href="#ga834b1e4aef395c0a1d56a28e69a4a17e" title="Frees memory and destroys multiple allocations.">vmaFreeMemoryPages()</a>. </p>
 
 </div>
 </div>
