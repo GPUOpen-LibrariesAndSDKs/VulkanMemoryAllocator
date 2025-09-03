@@ -2605,12 +2605,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory2(
 
 /** \brief Creates a new `VkBuffer`, allocates and binds memory for it.
 
-\param allocator
-\param pBufferCreateInfo
-\param pAllocationCreateInfo
+\param allocator The main allocator object.
+\param pBufferCreateInfo Buffer creation parameters.
+\param pAllocationCreateInfo Allocation creation parameters.
 \param[out] pBuffer Buffer that was created.
 \param[out] pAllocation Allocation that was created.
-\param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
+\param[out] pAllocationInfo Optional, can be null. Information about allocated memory.
+    It can be also fetched later using vmaGetAllocationInfo().
 
 This function automatically:
 
@@ -2619,14 +2620,14 @@ This function automatically:
 -# Binds the buffer with the memory.
 
 If any of these operations fail, buffer and allocation are not created,
-returned value is negative error code, `*pBuffer` and `*pAllocation` are null.
+returned value is negative error code, `*pBuffer` and `*pAllocation` are returned as null.
 
 If the function succeeded, you must destroy both buffer and allocation when you
 no longer need them using either convenience function vmaDestroyBuffer() or
 separately, using `vkDestroyBuffer()` and vmaFreeMemory().
 
-If #VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT flag was used,
-VK_KHR_dedicated_allocation extension is used internally to query driver whether
+If VK_KHR_dedicated_allocation extenion or Vulkan version >= 1.1 is used,
+the function queries the driver whether
 it requires or prefers the new buffer to have dedicated allocation. If yes,
 and if dedicated allocation is possible
 (#VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT is not used), it creates dedicated
@@ -2636,6 +2637,9 @@ allocation for this buffer, just like when using
 \note This function creates a new `VkBuffer`. Sub-allocation of parts of one large buffer,
 although recommended as a good practice, is out of scope of this library and could be implemented
 by the user as a higher-level logic on top of VMA.
+
+There is also an extended version of this function available with additional parameter `minAlignment` -
+see vmaCreateBufferWithAlignment().
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
     VmaAllocator VMA_NOT_NULL allocator,
