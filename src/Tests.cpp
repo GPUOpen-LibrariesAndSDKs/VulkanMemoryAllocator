@@ -8587,7 +8587,14 @@ static void TestWin32HandlesImport()
 
     wprintf(L"Test Win32 handles import\n");
 
-    const uint32_t dataValue = 0x72158510;
+    constexpr VkExternalMemoryHandleTypeFlagBits handleType =
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+    constexpr uint32_t dataValue = 0x72158510;
+
+    PFN_vkGetPhysicalDeviceExternalBufferProperties pfnGetPhysicalDeviceExternalBufferProperties =
+        (PFN_vkGetPhysicalDeviceExternalBufferProperties)
+        vkGetInstanceProcAddr(g_hVulkanInstance, "vkGetPhysicalDeviceExternalBufferProperties");
+    TEST(pfnGetPhysicalDeviceExternalBufferProperties != nullptr);
 
     for(size_t testIndex = 0; testIndex < 2; ++testIndex)
     {
@@ -8600,6 +8607,25 @@ static void TestWin32HandlesImport()
         HANDLE sharedHandle = NULL;
         if(testImport)
         {
+            VkPhysicalDeviceExternalBufferInfo externalBufInfo = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO };
+            externalBufInfo.flags = bufCreateInfo.flags;
+            externalBufInfo.usage = bufCreateInfo.usage;
+            externalBufInfo.handleType = handleType;
+            
+            VkExternalBufferProperties externalBufProps = {
+                VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+            
+            pfnGetPhysicalDeviceExternalBufferProperties(g_hPhysicalDevice, 
+                &externalBufInfo, &externalBufProps);
+            
+            if((externalBufProps.externalMemoryProperties.externalMemoryFeatures &
+                VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0)
+            {
+                wprintf(L"    WARNING: External memory not importable, skipping test.\n");
+                continue;
+            }
+
             const wchar_t* mappingName = L"MySharedVulkanMemory";
             sharedHandle = CreateFileMapping(
                 INVALID_HANDLE_VALUE, // hFile - only in memory, no file.
@@ -8630,9 +8656,6 @@ static void TestWin32HandlesImport()
 
         if(testImport)
         {
-            constexpr VkExternalMemoryHandleTypeFlagBits handleType =
-                VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
-
             externalMemBufCreateInfo.handleTypes = handleType;
             bufCreateInfo.pNext = &externalMemBufCreateInfo;
 
@@ -8769,11 +8792,10 @@ void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(true)
+    if(false)
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
-        TestWin32HandlesImport();
         return;
     }
 
