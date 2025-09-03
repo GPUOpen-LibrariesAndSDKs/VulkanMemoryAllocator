@@ -8,7 +8,7 @@ var searchData=
   ['maxallocationsperpass_5',['maxAllocationsPerPass',['../struct_vma_defragmentation_info.html#ac2db29d309bebc4f7d55041416e9694b',1,'VmaDefragmentationInfo']]],
   ['maxblockcount_6',['maxBlockCount',['../struct_vma_pool_create_info.html#ae41142f2834fcdc82baa4883c187b75c',1,'VmaPoolCreateInfo']]],
   ['maxbytesperpass_7',['maxBytesPerPass',['../struct_vma_defragmentation_info.html#a637ada77b02179a27fa92290000afac4',1,'VmaDefragmentationInfo']]],
-  ['memory_8',['memory',['../other_api_interop.html#other_api_interop_exporting_memory',1,'Exporting memory'],['../memory_mapping.html#memory_mapping_persistently_mapped_memory',1,'Persistently mapped memory']]],
+  ['memory_8',['memory',['../other_api_interop.html#other_api_interop_exporting_memory',1,'Exporting memory'],['../other_api_interop.html#other_api_interop_importing_memory',1,'Importing memory'],['../memory_mapping.html#memory_mapping_persistently_mapped_memory',1,'Persistently mapped memory']]],
   ['memory_20allocation_9',['Memory allocation',['../group__group__alloc.html',1,'Memory allocation'],['../other_api_interop.html#other_api_interop_exporting_memory_allocation',1,'Memory allocation']]],
   ['memory_20allocation_20callbacks_10',['Device memory allocation callbacks',['../configuration.html#allocation_callbacks',1,'']]],
   ['memory_20allocator_11',['Vulkan Memory Allocator',['../index.html',1,'']]],

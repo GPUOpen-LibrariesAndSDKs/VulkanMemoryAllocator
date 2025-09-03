@@ -5,7 +5,7 @@ var searchData=
   ['mapping_2',['Memory mapping',['../memory_mapping.html',1,'index']]],
   ['mapping_20functions_3',['Mapping functions',['../memory_mapping.html#memory_mapping_mapping_functions',1,'']]],
   ['margins_4',['Margins',['../debugging_memory_usage.html#debugging_memory_usage_margins',1,'']]],
-  ['memory_5',['memory',['../other_api_interop.html#other_api_interop_exporting_memory',1,'Exporting memory'],['../memory_mapping.html#memory_mapping_persistently_mapped_memory',1,'Persistently mapped memory']]],
+  ['memory_5',['memory',['../other_api_interop.html#other_api_interop_exporting_memory',1,'Exporting memory'],['../other_api_interop.html#other_api_interop_importing_memory',1,'Importing memory'],['../memory_mapping.html#memory_mapping_persistently_mapped_memory',1,'Persistently mapped memory']]],
   ['memory_20allocation_6',['Memory allocation',['../other_api_interop.html#other_api_interop_exporting_memory_allocation',1,'']]],
   ['memory_20allocation_20callbacks_7',['Device memory allocation callbacks',['../configuration.html#allocation_callbacks',1,'']]],
   ['memory_20allocator_8',['Vulkan Memory Allocator',['../index.html',1,'']]],

@@ -80,6 +80,7 @@ See also: [product page on GPUOpen](https://gpuopen.com/vulkan-memory-allocator/
   - [Leak detection features](@ref debugging_memory_usage_leak_detection)
 - \subpage other_api_interop
   - [Exporting memory](@ref other_api_interop_exporting_memory)
+  - [Importing memory](@ref other_api_interop_importing_memory)
 - \subpage usage_patterns
     - [GPU-only resource](@ref usage_patterns_gpu_only)
     - [Staging copy for upload](@ref usage_patterns_staging_copy_upload)
@@ -1979,6 +1980,8 @@ The function creates a #VmaAllocation object without creating a buffer or an ima
 
 You must free the returned allocation object using vmaFreeMemory() or vmaFreeMemoryPages().
 
+There is also extended version of this function: vmaAllocateDedicatedMemory()
+that offers additional parameter `pMemoryAllocateNext`.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -1987,7 +1990,14 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
-/** \bref TODO docs... */
+/** \brief General purpose allocation of a dedicated memory.
+
+This function is similar vmaAllocateMemory(), but
+it always allocates dedicated memory - flag #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is implied.
+It offers additional parameter `pMemoryAllocateNext`,
+which can be used to attach `pNext` chain to the `VkMemoryAllocateInfo` structure.
+It can be useful for importing external memory. For more information, see \ref other_api_interop.
+*/
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateDedicatedMemory(
     VmaAllocator VMA_NOT_NULL allocator,
     const VkMemoryRequirements* VMA_NOT_NULL pVkMemoryRequirements,
@@ -2654,8 +2664,9 @@ allocation for this buffer, just like when using
 although recommended as a good practice, is out of scope of this library and could be implemented
 by the user as a higher-level logic on top of VMA.
 
-There is also an extended version of this function available with additional parameter `minAlignment` -
-see vmaCreateBufferWithAlignment().
+There are also extended versions of this function available:
+- With additional parameter `minAlignment` - see vmaCreateBufferWithAlignment().
+- With additional parameter `pMemoryAllocateNext` - see vmaCreateDedicatedBuffer().
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -2680,7 +2691,14 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
-/** \brief TODO docs... */
+/** \brief Creates a dedicated buffer while offering extra parameter `pMemoryAllocateNext`.
+
+This function is similar vmaCreateBuffer(), but
+it always allocates dedicated memory for the buffer - flag #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is implied.
+It offers additional parameter `pMemoryAllocateNext`,
+which can be used to attach `pNext` chain to the `VkMemoryAllocateInfo` structure.
+It can be useful for importing external memory. For more information, see \ref other_api_interop.
+*/
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateDedicatedBuffer(
     VmaAllocator VMA_NOT_NULL allocator,
     const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
@@ -2762,11 +2780,32 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyBuffer(
     VkBuffer VMA_NULLABLE_NON_DISPATCHABLE buffer,
     VmaAllocation VMA_NULLABLE allocation);
 
-/// Function similar to vmaCreateBuffer().
+/** \brief Function similar to vmaCreateBuffer() but for images.
+
+There is also an extended version of this function available: vmaCreateDedicatedImage()
+which offers additional parameter `pMemoryAllocateNext`.
+*/
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
     VmaAllocator VMA_NOT_NULL allocator,
     const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
     const VmaAllocationCreateInfo* VMA_NOT_NULL pAllocationCreateInfo,
+    VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage,
+    VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
+    VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
+
+/** \brief Function similar to vmaCreateDedicatedBuffer() but for images.
+
+This function is similar vmaCreateImage(), but
+it always allocates dedicated memory for the image - flag #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is implied.
+It offers additional parameter `pMemoryAllocateNext`,
+which can be used to attach `pNext` chain to the `VkMemoryAllocateInfo` structure.
+It can be useful for importing external memory. For more information, see \ref other_api_interop.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateDedicatedImage(
+    VmaAllocator VMA_NOT_NULL allocator,
+    const VkImageCreateInfo* VMA_NOT_NULL pImageCreateInfo,
+    const VmaAllocationCreateInfo* VMA_NOT_NULL pAllocationCreateInfo,
+    void* VMA_NULLABLE VMA_EXTENDS_VK_STRUCT(VkMemoryAllocateInfo) pMemoryAllocateNext,
     VkImage VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pImage,
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
@@ -10502,6 +10541,14 @@ public:
         VkBuffer* pBuffer,
         VmaAllocation* pAllocation,
         VmaAllocationInfo* pAllocationInfo);
+    // Common code for public functions vmaCreateImage, vmaCreateDedicatedImage.
+    VkResult CreateImage(
+        const VkImageCreateInfo* pImageCreateInfo,
+        const VmaAllocationCreateInfo* pAllocationCreateInfo,
+        void* pMemoryAllocateNext, // pNext chain for VkMemoryAllocateInfo.
+        VkImage* pImage,
+        VmaAllocation* pAllocation,
+        VmaAllocationInfo* pAllocationInfo);
 
     // Main allocation function.
     VkResult AllocateMemory(
@@ -14219,11 +14266,6 @@ VkResult VmaAllocator_T::CreateBuffer(
         GetBufferMemoryRequirements(*pBuffer, vkMemReq,
             requiresDedicatedAllocation, prefersDedicatedAllocation);
 
-        if(pMemoryAllocateNext != VMA_NULL)
-        {
-            requiresDedicatedAllocation = true;
-        }
-
         // 2a. Include minAlignment
         vkMemReq.alignment = VMA_MAX(vkMemReq.alignment, minAlignment);
 
@@ -14273,6 +14315,87 @@ VkResult VmaAllocator_T::CreateBuffer(
     return res;
 }
 
+VkResult VmaAllocator_T::CreateImage(
+    const VkImageCreateInfo* pImageCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    void* pMemoryAllocateNext,
+    VkImage* pImage,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    *pImage = VK_NULL_HANDLE;
+    *pAllocation = VK_NULL_HANDLE;
+
+    if (pImageCreateInfo->extent.width == 0 ||
+        pImageCreateInfo->extent.height == 0 ||
+        pImageCreateInfo->extent.depth == 0 ||
+        pImageCreateInfo->mipLevels == 0 ||
+        pImageCreateInfo->arrayLayers == 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // 1. Create VkImage.
+    VkResult res = (*m_VulkanFunctions.vkCreateImage)(m_hDevice, pImageCreateInfo,
+        GetAllocationCallbacks(), pImage);
+    if (res == VK_SUCCESS)
+    {
+        VmaSuballocationType suballocType = pImageCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL ?
+            VMA_SUBALLOCATION_TYPE_IMAGE_OPTIMAL :
+            VMA_SUBALLOCATION_TYPE_IMAGE_LINEAR;
+
+        // 2. Allocate memory using allocator.
+        VkMemoryRequirements vkMemReq = {};
+        bool requiresDedicatedAllocation = false;
+        bool prefersDedicatedAllocation = false;
+        GetImageMemoryRequirements(*pImage, vkMemReq,
+            requiresDedicatedAllocation, prefersDedicatedAllocation);
+
+        res = AllocateMemory(
+            vkMemReq,
+            requiresDedicatedAllocation,
+            prefersDedicatedAllocation,
+            VK_NULL_HANDLE, // dedicatedBuffer
+            *pImage, // dedicatedImage
+            VmaBufferImageUsage(*pImageCreateInfo), // dedicatedBufferImageUsage
+            pMemoryAllocateNext,
+            *pAllocationCreateInfo,
+            suballocType,
+            1, // allocationCount
+            pAllocation);
+        if (res == VK_SUCCESS)
+        {
+            // 3. Bind image with memory.
+            if ((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
+            {
+                res = BindImageMemory(*pAllocation, 0, *pImage, VMA_NULL);
+            }
+            if (res == VK_SUCCESS)
+            {
+                // All steps succeeded.
+#if VMA_STATS_STRING_ENABLED
+                (*pAllocation)->InitImageUsage(*pImageCreateInfo);
+#endif
+                if (pAllocationInfo != VMA_NULL)
+                {
+                    GetAllocationInfo(*pAllocation, pAllocationInfo);
+                }
+
+                return VK_SUCCESS;
+            }
+            FreeMemory(1, pAllocation);
+            *pAllocation = VK_NULL_HANDLE;
+            (*m_VulkanFunctions.vkDestroyImage)(m_hDevice, *pImage, GetAllocationCallbacks());
+            *pImage = VK_NULL_HANDLE;
+            return res;
+        }
+        (*m_VulkanFunctions.vkDestroyImage)(m_hDevice, *pImage, GetAllocationCallbacks());
+        *pImage = VK_NULL_HANDLE;
+        return res;
+    }
+    return res;
+}
+
 VkResult VmaAllocator_T::AllocateMemory(
     const VkMemoryRequirements& vkMemReq,
     bool requiresDedicatedAllocation,
@@ -14290,8 +14413,12 @@ VkResult VmaAllocator_T::AllocateMemory(
     memset(pAllocations, 0, sizeof(VmaAllocation) * allocationCount);
 
     VMA_ASSERT(VmaIsPow2(vkMemReq.alignment));
+
     // If using custom pNext chain for VkMemoryAllocateInfo, must require dedicated allocations.
-    VMA_ASSERT(pMemoryAllocateNext == VMA_NULL || requiresDedicatedAllocation);
+    if(pMemoryAllocateNext != VMA_NULL)
+    {
+        requiresDedicatedAllocation = true;
+    }
 
     if(vkMemReq.size == 0)
     {
@@ -16555,7 +16682,8 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     VMA_DEBUG_LOG("vmaCreateBufferWithAlignment");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    return allocator->CreateBuffer(pBufferCreateInfo, pAllocationCreateInfo, minAlignment,
+    return allocator->CreateBuffer(pBufferCreateInfo, pAllocationCreateInfo,
+        minAlignment, // minAlignment
         VMA_NULL, // pMemoryAllocateNext
         pBuffer, pAllocation, pAllocationInfo);
 }
@@ -16573,9 +16701,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateDedicatedBuffer(
     VMA_DEBUG_LOG("vmaCreateDedicatedBuffer");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    return allocator->CreateBuffer(pBufferCreateInfo, pAllocationCreateInfo,
+    VmaAllocationCreateInfo allocCreateInfoCopy = *pAllocationCreateInfo;
+    allocCreateInfoCopy.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+    return allocator->CreateBuffer(pBufferCreateInfo, &allocCreateInfoCopy,
         1, // minAlignment
-        pMemoryAllocateNext, pBuffer, pAllocation, pAllocationInfo);
+        pMemoryAllocateNext, // pMemoryAllocateNext
+        pBuffer, pAllocation, pAllocationInfo);
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
@@ -16671,91 +16803,37 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
     VmaAllocationInfo* pAllocationInfo)
 {
     VMA_ASSERT(allocator && pImageCreateInfo && pAllocationCreateInfo && pImage && pAllocation);
-
     VMA_ASSERT((pImageCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT_COPY) == 0 &&
         "vmaCreateImage() doesn't support disjoint multi-planar images. Please allocate memory for the planes using vmaAllocateMemory() and bind them using vmaBindImageMemory2().");
-
-    if(pImageCreateInfo->extent.width == 0 ||
-        pImageCreateInfo->extent.height == 0 ||
-        pImageCreateInfo->extent.depth == 0 ||
-        pImageCreateInfo->mipLevels == 0 ||
-        pImageCreateInfo->arrayLayers == 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-
     VMA_DEBUG_LOG("vmaCreateImage");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+    return allocator->CreateImage(pImageCreateInfo, pAllocationCreateInfo,
+        VMA_NULL, // pMemoryAllocateNext
+        pImage, pAllocation, pAllocationInfo);
+}
 
-    *pImage = VK_NULL_HANDLE;
-    *pAllocation = VK_NULL_HANDLE;
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateDedicatedImage(
+    VmaAllocator allocator,
+    const VkImageCreateInfo* pImageCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    void* pMemoryAllocateNext,
+    VkImage* pImage,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    VMA_ASSERT(allocator && pImageCreateInfo && pAllocationCreateInfo && pImage && pAllocation);
+    VMA_ASSERT((pImageCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT_COPY) == 0 &&
+        "vmaCreateDedicatedImage() doesn't support disjoint multi-planar images. Please allocate memory for the planes using vmaAllocateMemory() and bind them using vmaBindImageMemory2().");
+    VMA_DEBUG_LOG("vmaCreateDedicatedImage");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    // 1. Create VkImage.
-    VkResult res = (*allocator->GetVulkanFunctions().vkCreateImage)(
-        allocator->m_hDevice,
-        pImageCreateInfo,
-        allocator->GetAllocationCallbacks(),
-        pImage);
-    if(res == VK_SUCCESS)
-    {
-        VmaSuballocationType suballocType = pImageCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL ?
-            VMA_SUBALLOCATION_TYPE_IMAGE_OPTIMAL :
-            VMA_SUBALLOCATION_TYPE_IMAGE_LINEAR;
+    VmaAllocationCreateInfo allocCreateInfoCopy = *pAllocationCreateInfo;
+    allocCreateInfoCopy.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
-        // 2. Allocate memory using allocator.
-        VkMemoryRequirements vkMemReq = {};
-        bool requiresDedicatedAllocation = false;
-        bool prefersDedicatedAllocation  = false;
-        allocator->GetImageMemoryRequirements(*pImage, vkMemReq,
-            requiresDedicatedAllocation, prefersDedicatedAllocation);
-
-        res = allocator->AllocateMemory(
-            vkMemReq,
-            requiresDedicatedAllocation,
-            prefersDedicatedAllocation,
-            VK_NULL_HANDLE, // dedicatedBuffer
-            *pImage, // dedicatedImage
-            VmaBufferImageUsage(*pImageCreateInfo), // dedicatedBufferImageUsage
-            VMA_NULL, // pMemoryAllocateNext
-            *pAllocationCreateInfo,
-            suballocType,
-            1, // allocationCount
-            pAllocation);
-
-        if(res == VK_SUCCESS)
-        {
-            // 3. Bind image with memory.
-            if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
-            {
-                res = allocator->BindImageMemory(*pAllocation, 0, *pImage, VMA_NULL);
-            }
-            if(res == VK_SUCCESS)
-            {
-                // All steps succeeded.
-                #if VMA_STATS_STRING_ENABLED
-                    (*pAllocation)->InitImageUsage(*pImageCreateInfo);
-                #endif
-                if(pAllocationInfo != VMA_NULL)
-                {
-                    allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
-                }
-
-                return VK_SUCCESS;
-            }
-            allocator->FreeMemory(
-                1, // allocationCount
-                pAllocation);
-            *pAllocation = VK_NULL_HANDLE;
-            (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
-            *pImage = VK_NULL_HANDLE;
-            return res;
-        }
-        (*allocator->GetVulkanFunctions().vkDestroyImage)(allocator->m_hDevice, *pImage, allocator->GetAllocationCallbacks());
-        *pImage = VK_NULL_HANDLE;
-        return res;
-    }
-    return res;
+    return allocator->CreateImage(pImageCreateInfo, &allocCreateInfoCopy,
+        pMemoryAllocateNext, // pMemoryAllocateNext
+        pImage, pAllocation, pAllocationInfo);
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage(
@@ -18964,6 +19042,44 @@ but you need to know the size of the entire block and whether the allocation was
 with its own dedicated memory, use function vmaGetAllocationInfo2() to retrieve
 extended allocation information in structure #VmaAllocationInfo2, which provides extra members:
 `blockSize` and `dedicatedMemory`.
+
+\section other_api_interop_importing_memory Importing memory
+
+Importing external memory requires attaching an extra structure like `VkImportMemoryWin32HandleInfoKHR`
+to the `pNext` chain of `VkMemoryAllocateInfo` structure.
+VMA offers support for it by providing functions that allocate memory, create a buffer or an image
+always with a dedicated `VkDeviceMemory` block and accept custom `pNext` pointer:
+vmaAllocateDedicatedMemory(), vmaCreateDedicatedBuffer(), vmaCreateDedicatedImage().
+Example:
+
+\code
+constexpr VkExternalMemoryHandleTypeFlagBits handleType =
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
+    VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR };
+externalMemBufCreateInfo.handleTypes = handleType;
+
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.pNext = &externalMemBufCreateInfo; // !!!
+bufCreateInfo.size = ...
+bufCreateInfo.usage = ...
+
+VkImportMemoryWin32HandleInfoKHR importInfo = {
+    VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
+importInfo.handleType = handleType;
+importInfo.handle = myExternalHandleToImport;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+VkBuffer buf = VK_NULL_HANDLE;
+VmaAllocation alloc = VK_NULL_HANDLE;
+VkResult res = vmaCreateDedicatedBuffer(allocator, &bufCreateInfo, &allocCreateInfo,
+    &importInfo, // pMemoryAllocateNext !!!
+    &buf, &alloc, nullptr);
+// Check res...
+\endcode
 
 
 

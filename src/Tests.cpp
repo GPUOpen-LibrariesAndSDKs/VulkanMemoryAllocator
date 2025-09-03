@@ -8596,9 +8596,10 @@ static void TestWin32HandlesImport()
         vkGetInstanceProcAddr(g_hVulkanInstance, "vkGetPhysicalDeviceExternalBufferProperties");
     TEST(pfnGetPhysicalDeviceExternalBufferProperties != nullptr);
 
-    for(size_t testIndex = 0; testIndex < 2; ++testIndex)
+    for(size_t testIndex = 0; testIndex < 4; ++testIndex)
     {
-        const bool testImport = testIndex > 0;
+        const bool testImport = (testIndex & 1) != 0;
+        const bool testCreateBuffer = (testIndex & 2) != 0;
 
         VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufCreateInfo.size = 0x10000; // 64 KB
@@ -8636,7 +8637,7 @@ static void TestWin32HandlesImport()
                 mappingName);
             TEST(sharedHandle != NULL);
 
-            // Map the memory temporarily and write the dataValue there.
+            // Map the memory temporarily and write the dataValue to it.
             void* sharedMemoryPtr = MapViewOfFile(
                 sharedHandle,
                 FILE_MAP_ALL_ACCESS,
@@ -8664,25 +8665,34 @@ static void TestWin32HandlesImport()
             memoryAllocateNext = &importInfo;
         }
 
-        VkBuffer buf = VK_NULL_HANDLE;
-        TEST(vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf) == VK_SUCCESS);
-
         VmaAllocationCreateInfo allocCreateInfo = {};
         // Will need to read the data.
         allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
-        VkMemoryRequirements memReq = {};
-        vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
-        
+        VkBuffer buf = VK_NULL_HANDLE;
         VmaAllocation alloc = VK_NULL_HANDLE;
-        TEST(vmaAllocateDedicatedMemory(g_hAllocator, &memReq,
-            &allocCreateInfo, memoryAllocateNext, &alloc, nullptr) == VK_SUCCESS);
+
+        if (testCreateBuffer)
+        {
+            TEST(vmaCreateDedicatedBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
+                memoryAllocateNext, &buf, &alloc, nullptr) == VK_SUCCESS);
+        }
+        else
+        {
+            TEST(vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf) == VK_SUCCESS);
+
+            VkMemoryRequirements memReq = {};
+            vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
+        
+            TEST(vmaAllocateDedicatedMemory(g_hAllocator, &memReq,
+                &allocCreateInfo, memoryAllocateNext, &alloc, nullptr) == VK_SUCCESS);
+
+            TEST(vmaBindBufferMemory(g_hAllocator, alloc, buf) == VK_SUCCESS);
+        }
 
         VmaAllocationInfo2 allocInfo2 = {};
         vmaGetAllocationInfo2(g_hAllocator, alloc, &allocInfo2);
         TEST(allocInfo2.dedicatedMemory);
-
-        TEST(vmaBindBufferMemory(g_hAllocator, alloc, buf) == VK_SUCCESS);
 
         if(testImport)
         {
