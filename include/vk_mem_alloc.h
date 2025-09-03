@@ -1987,6 +1987,15 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
+/** \bref TODO docs... */
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateDedicatedMemory(
+    VmaAllocator VMA_NOT_NULL allocator,
+    const VkMemoryRequirements* VMA_NOT_NULL pVkMemoryRequirements,
+    const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
+    void* VMA_NULLABLE VMA_EXTENDS_VK_STRUCT(VkMemoryAllocateInfo) pMemoryAllocateNext,
+    VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
+    VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
+
 /** \brief General purpose memory allocation for multiple allocation objects at once.
 
 \param allocator Allocator object.
@@ -10482,6 +10491,7 @@ public:
         VkBuffer dedicatedBuffer,
         VkImage dedicatedImage,
         VmaBufferImageUsage dedicatedBufferImageUsage,
+        void* pMemoryAllocateNext, // Optional pNext chain for VkMemoryAllocateInfo.
         const VmaAllocationCreateInfo& createInfo,
         VmaSuballocationType suballocType,
         size_t allocationCount,
@@ -10627,6 +10637,7 @@ private:
         VkBuffer dedicatedBuffer,
         VkImage dedicatedImage,
         VmaBufferImageUsage dedicatedBufferImageUsage,
+        void* pMemoryAllocateNext, // Optional pNext chain for VkMemoryAllocateInfo.
         const VmaAllocationCreateInfo& createInfo,
         uint32_t memTypeIndex,
         VmaSuballocationType suballocType,
@@ -10666,7 +10677,7 @@ private:
         VmaBufferImageUsage dedicatedBufferImageUsage,
         size_t allocationCount,
         VmaAllocation* pAllocations,
-        const void* pNextChain = VMA_NULL);
+        const void* pNextChain);
 
     void FreeDedicatedMemory(VmaAllocation allocation);
 
@@ -13588,6 +13599,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
     VkBuffer dedicatedBuffer,
     VkImage dedicatedImage,
     VmaBufferImageUsage dedicatedBufferImageUsage,
+    void* pMemoryAllocateNext,
     const VmaAllocationCreateInfo& createInfo,
     uint32_t memTypeIndex,
     VmaSuballocationType suballocType,
@@ -13607,6 +13619,14 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
         allocationCount);
     if(res != VK_SUCCESS)
         return res;
+
+    const void* allocateNextPtr = blockVector.GetAllocationNextPtr();
+    if(pMemoryAllocateNext != VMA_NULL)
+    {
+        VMA_ASSERT(allocateNextPtr == VMA_NULL &&
+            "You shouldn't create a dedicated allocation with a custom pMemoryAllocateNext if the pNext chain is already provided for this pool.");
+        allocateNextPtr = pMemoryAllocateNext;
+    }
 
     if((finalCreateInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0)
     {
@@ -13628,7 +13648,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             dedicatedBufferImageUsage,
             allocationCount,
             pAllocations,
-            blockVector.GetAllocationNextPtr());
+            allocateNextPtr);
     }
 
     const bool canAllocateDedicated =
@@ -13671,7 +13691,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 dedicatedBufferImageUsage,
                 allocationCount,
                 pAllocations,
-                blockVector.GetAllocationNextPtr());
+                allocateNextPtr);
             if(res == VK_SUCCESS)
             {
                 // Succeeded: AllocateDedicatedMemory function already filled pMemory, nothing more to do here.
@@ -13712,7 +13732,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             dedicatedBufferImageUsage,
             allocationCount,
             pAllocations,
-            blockVector.GetAllocationNextPtr());
+            allocateNextPtr);
         if(res == VK_SUCCESS)
         {
             // Succeeded: AllocateDedicatedMemory function already filled pMemory, nothing more to do here.
@@ -13720,6 +13740,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             return VK_SUCCESS;
         }
     }
+
     // Everything failed: Return error code.
     VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
     return res;
@@ -14150,6 +14171,8 @@ VkResult VmaAllocator_T::AllocateMemory(
     VkBuffer dedicatedBuffer,
     VkImage dedicatedImage,
     VmaBufferImageUsage dedicatedBufferImageUsage,
+    // pNext chain for VkMemoryAllocateInfo. When used, must specify requiresDedicatedAllocation = true.
+    void* pMemoryAllocateNext,
     const VmaAllocationCreateInfo& createInfo,
     VmaSuballocationType suballocType,
     size_t allocationCount,
@@ -14158,6 +14181,8 @@ VkResult VmaAllocator_T::AllocateMemory(
     memset(pAllocations, 0, sizeof(VmaAllocation) * allocationCount);
 
     VMA_ASSERT(VmaIsPow2(vkMemReq.alignment));
+    // If using custom pNext chain for VkMemoryAllocateInfo, must require dedicated allocations.
+    VMA_ASSERT(pMemoryAllocateNext == VMA_NULL || requiresDedicatedAllocation);
 
     if(vkMemReq.size == 0)
     {
@@ -14180,6 +14205,7 @@ VkResult VmaAllocator_T::AllocateMemory(
             dedicatedBuffer,
             dedicatedImage,
             dedicatedBufferImageUsage,
+            pMemoryAllocateNext,
             createInfoFinal,
             blockVector.GetMemoryTypeIndex(),
             suballocType,
@@ -14209,6 +14235,7 @@ VkResult VmaAllocator_T::AllocateMemory(
             dedicatedBuffer,
             dedicatedImage,
             dedicatedBufferImageUsage,
+            pMemoryAllocateNext,
             createInfoFinal,
             memTypeIndex,
             suballocType,
@@ -15841,6 +15868,42 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
         VK_NULL_HANDLE, // dedicatedBuffer
         VK_NULL_HANDLE, // dedicatedImage
         VmaBufferImageUsage::UNKNOWN, // dedicatedBufferImageUsage
+        VMA_NULL, // pMemoryAllocateNext
+        *pCreateInfo,
+        VMA_SUBALLOCATION_TYPE_UNKNOWN,
+        1, // allocationCount
+        pAllocation);
+
+    if(pAllocationInfo != VMA_NULL && result == VK_SUCCESS)
+    {
+        allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+    }
+
+    return result;
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateDedicatedMemory(
+    VmaAllocator allocator,
+    const VkMemoryRequirements* pVkMemoryRequirements,
+    const VmaAllocationCreateInfo* pCreateInfo,
+    void* pMemoryAllocateNext,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    VMA_ASSERT(allocator && pVkMemoryRequirements && pCreateInfo && pAllocation);
+
+    VMA_DEBUG_LOG("vmaAllocateDedicatedMemory");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    VkResult result = allocator->AllocateMemory(
+        *pVkMemoryRequirements,
+        true, // requiresDedicatedAllocation
+        false, // prefersDedicatedAllocation
+        VK_NULL_HANDLE, // dedicatedBuffer
+        VK_NULL_HANDLE, // dedicatedImage
+        VmaBufferImageUsage::UNKNOWN, // dedicatedBufferImageUsage
+        pMemoryAllocateNext,
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         1, // allocationCount
@@ -15880,6 +15943,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
         VK_NULL_HANDLE, // dedicatedBuffer
         VK_NULL_HANDLE, // dedicatedImage
         VmaBufferImageUsage::UNKNOWN, // dedicatedBufferImageUsage
+        VMA_NULL, // pMemoryAllocateNext
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_UNKNOWN,
         allocationCount,
@@ -15923,6 +15987,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
         buffer, // dedicatedBuffer
         VK_NULL_HANDLE, // dedicatedImage
         VmaBufferImageUsage::UNKNOWN, // dedicatedBufferImageUsage
+        VMA_NULL, // pMemoryAllocateNext
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_BUFFER,
         1, // allocationCount
@@ -15962,6 +16027,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
         VK_NULL_HANDLE, // dedicatedBuffer
         image, // dedicatedImage
         VmaBufferImageUsage::UNKNOWN, // dedicatedBufferImageUsage
+        VMA_NULL, // pMemoryAllocateNext
         *pCreateInfo,
         VMA_SUBALLOCATION_TYPE_IMAGE_UNKNOWN,
         1, // allocationCount
@@ -16399,6 +16465,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
             *pBuffer, // dedicatedBuffer
             VK_NULL_HANDLE, // dedicatedImage
             VmaBufferImageUsage(*pBufferCreateInfo, allocator->m_UseKhrMaintenance5), // dedicatedBufferImageUsage
+            VMA_NULL, // pMemoryAllocateNext
             *pAllocationCreateInfo,
             VMA_SUBALLOCATION_TYPE_BUFFER,
             1, // allocationCount
@@ -16494,6 +16561,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
             *pBuffer, // dedicatedBuffer
             VK_NULL_HANDLE, // dedicatedImage
             VmaBufferImageUsage(*pBufferCreateInfo, allocator->m_UseKhrMaintenance5), // dedicatedBufferImageUsage
+            VMA_NULL, // pMemoryAllocateNext
             *pAllocationCreateInfo,
             VMA_SUBALLOCATION_TYPE_BUFFER,
             1, // allocationCount
@@ -16673,6 +16741,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
             VK_NULL_HANDLE, // dedicatedBuffer
             *pImage, // dedicatedImage
             VmaBufferImageUsage(*pImageCreateInfo), // dedicatedBufferImageUsage
+            VMA_NULL, // pMemoryAllocateNext
             *pAllocationCreateInfo,
             suballocType,
             1, // allocationCount

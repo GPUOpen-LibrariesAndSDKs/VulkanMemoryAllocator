@@ -8485,13 +8485,13 @@ static void TestMappingHysteresis()
 }
 
 
-static void TestWin32Handles()
+static void TestWin32HandlesExport()
 {
 #if VMA_EXTERNAL_MEMORY_WIN32
     if (!VK_KHR_external_memory_win32_enabled)
         return;
 
-    wprintf(L"Test Win32 handles\n");
+    wprintf(L"Test Win32 handles export\n");
 
     constexpr VkExternalMemoryHandleTypeFlagBits handleType =
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
@@ -8579,14 +8579,201 @@ static void TestWin32Handles()
 #endif
 }
 
+static void TestWin32HandlesImport()
+{
+#if VMA_EXTERNAL_MEMORY_WIN32
+    if (!VK_KHR_external_memory_win32_enabled)
+        return;
+
+    wprintf(L"Test Win32 handles import\n");
+
+    const uint32_t dataValue = 0x72158510;
+
+    for(size_t testIndex = 0; testIndex < 2; ++testIndex)
+    {
+        const bool testImport = testIndex > 0;
+
+        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        bufCreateInfo.size = 0x10000; // 64 KB
+        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        HANDLE sharedHandle = NULL;
+        if(testImport)
+        {
+            const wchar_t* mappingName = L"MySharedVulkanMemory";
+            sharedHandle = CreateFileMapping(
+                INVALID_HANDLE_VALUE, // hFile - only in memory, no file.
+                NULL, // lpFileMappingAttributes
+                PAGE_READWRITE,
+                0, // dwMaximumSizeHigh
+                (DWORD)bufCreateInfo.size, // dwMaximumSizeLow
+                mappingName);
+            TEST(sharedHandle != NULL);
+
+            // Map the memory temporarily and write the dataValue there.
+            void* sharedMemoryPtr = MapViewOfFile(
+                sharedHandle,
+                FILE_MAP_ALL_ACCESS,
+                0, // dwFileOffsetHigh
+                0, // dwFileOffsetLow
+                bufCreateInfo.size);
+            TEST(sharedMemoryPtr != NULL);
+            memcpy(sharedMemoryPtr, &dataValue, sizeof(dataValue));
+            UnmapViewOfFile(sharedMemoryPtr);
+        }
+
+        VkImportMemoryWin32HandleInfoKHR importInfo = {
+            VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
+        VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
+            VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR };
+        void* memoryAllocateNext = nullptr;
+
+        if(testImport)
+        {
+            constexpr VkExternalMemoryHandleTypeFlagBits handleType =
+                VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+            externalMemBufCreateInfo.handleTypes = handleType;
+            bufCreateInfo.pNext = &externalMemBufCreateInfo;
+
+            importInfo.handleType = handleType;
+            importInfo.handle = sharedHandle;
+            memoryAllocateNext = &importInfo;
+        }
+
+        VkBuffer buf = VK_NULL_HANDLE;
+        TEST(vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf) == VK_SUCCESS);
+
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        // Will need to read the data.
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+
+        VkMemoryRequirements memReq = {};
+        vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
+        
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        TEST(vmaAllocateDedicatedMemory(g_hAllocator, &memReq,
+            &allocCreateInfo, memoryAllocateNext, &alloc, nullptr) == VK_SUCCESS);
+
+        VmaAllocationInfo2 allocInfo2 = {};
+        vmaGetAllocationInfo2(g_hAllocator, alloc, &allocInfo2);
+        TEST(allocInfo2.dedicatedMemory);
+
+        TEST(vmaBindBufferMemory(g_hAllocator, alloc, buf) == VK_SUCCESS);
+
+        if(testImport)
+        {
+            uint32_t readValue = 0;
+            TEST(vmaCopyAllocationToMemory(g_hAllocator, alloc, 0, &readValue, sizeof readValue) == VK_SUCCESS);
+            TEST(readValue == dataValue);
+        }
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+
+        if(testImport)
+        {
+            CloseHandle(sharedHandle);
+        }
+    }
+
+#if 0
+    constexpr VkExternalMemoryHandleTypeFlagBits handleType =
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+    constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo{
+        VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
+        nullptr,
+        handleType
+    };
+
+    constexpr static VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo{
+        VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
+        nullptr,
+        handleType
+    };
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 0x10000;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufCreateInfo.pNext = &externalMemBufCreateInfo;
+
+    bool requiresDedicated = true;
+    {
+        VkPhysicalDeviceExternalBufferInfo externalBufferInfo = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO };
+        externalBufferInfo.flags = bufCreateInfo.flags;
+        externalBufferInfo.usage = bufCreateInfo.usage;
+        externalBufferInfo.handleType = handleType;
+
+        VkExternalBufferProperties externalBufferProperties = {
+            VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+
+        vkGetPhysicalDeviceExternalBufferProperties(g_hPhysicalDevice,
+            &externalBufferInfo, &externalBufferProperties);
+        if((externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
+            VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0)
+        {
+            wprintf(L"WARNING: External memory not exportable, skipping test.\n");
+            return;
+        }
+        requiresDedicated = (externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
+            VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0;
+    }
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    uint32_t memTypeIndex = UINT32_MAX;
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator,
+        &bufCreateInfo, &allocCreateInfo, &memTypeIndex) == VK_SUCCESS);
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.memoryTypeIndex = memTypeIndex;
+    poolCreateInfo.pMemoryAllocateNext = (void*)&exportMemAllocInfo;
+
+    VmaPool pool = VK_NULL_HANDLE;
+    TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+
+    allocCreateInfo.pool = pool;
+
+    for (size_t test = 0; test < 2; ++test)
+    {
+        if(test == 0 && requiresDedicated)
+            continue; // Skip this case because it would fail.
+        if (test == 1)
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr) == VK_SUCCESS);
+        HANDLE handle = NULL;
+        HANDLE handle2 = NULL;
+        TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
+        TEST(handle != nullptr);
+        TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle2) == VK_SUCCESS);
+        TEST(handle2 != nullptr);
+        TEST(handle2 != handle);
+
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+        TEST(CloseHandle(handle));
+        TEST(CloseHandle(handle2));
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+#endif // #if 0
+
+#endif
+}
+
 void Test()
 {
     wprintf(L"TESTING:\n");
 
-    if(false)
+    if(true)
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Temporarily insert custom tests here:
+        TestWin32HandlesImport();
         return;
     }
 
@@ -8624,7 +8811,8 @@ void Test()
     TestMappingHysteresis();
     TestDeviceLocalMapped();
     TestMaintenance5();
-    TestWin32Handles();
+    TestWin32HandlesExport();
+    TestWin32HandlesImport();
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
