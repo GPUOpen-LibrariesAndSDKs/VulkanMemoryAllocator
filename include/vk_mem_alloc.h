@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.3.0</b>
+<b>Version 3.4.0-development</b>
 
 Copyright (c) 2017-2025 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT \n
@@ -79,6 +79,7 @@ See also: [product page on GPUOpen](https://gpuopen.com/vulkan-memory-allocator/
   - [Corruption detection](@ref debugging_memory_usage_corruption_detection)
   - [Leak detection features](@ref debugging_memory_usage_leak_detection)
 - \subpage other_api_interop
+  - [Exporting memory](@ref other_api_interop_exporting_memory)
 - \subpage usage_patterns
     - [GPU-only resource](@ref usage_patterns_gpu_only)
     - [Staging copy for upload](@ref usage_patterns_staging_copy_upload)
@@ -95,7 +96,6 @@ See also: [product page on GPUOpen](https://gpuopen.com/vulkan-memory-allocator/
     - \subpage enabling_buffer_device_address
     - \subpage vk_ext_memory_priority
     - \subpage vk_amd_device_coherent_memory
-    - \subpage vk_khr_external_memory_win32
 - \subpage general_considerations
   - [Thread safety](@ref general_considerations_thread_safety)
   - [Versioning and compatibility](@ref general_considerations_versioning_and_compatibility)
@@ -478,7 +478,7 @@ typedef enum VmaAllocatorCreateFlagBits
 
     You should set this flag if you found available and enabled this device extension,
     while creating Vulkan device passed as VmaAllocatorCreateInfo::device.
-    For more information, see \ref vk_khr_external_memory_win32.
+    For more information, see \ref other_api_interop.
     */
     VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT = 0x00000200,
 
@@ -2142,13 +2142,16 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocationMemoryProperties(
 /**
 \brief Given an allocation, returns Win32 handle that may be imported by other processes or APIs.
 
-\param hTargetProcess Must be a valid handle to target process or null. If it's null, the function returns
+\param allocator The main allocator object.
+\param allocation Allocation.
+\param hTargetProcess A valid handle to target process or null. If it's null, the function returns
     handle for the current process.
 \param[out] pHandle Output parameter that returns the handle.
 
 The function fills `pHandle` with handle that can be used in target process.
 The handle is fetched using function `vkGetMemoryWin32HandleKHR`.
-When no longer needed, you must close it using:
+
+Each call to this function creates a new handle that must be closed using:
 
 \code
 CloseHandle(handle);
@@ -2161,11 +2164,19 @@ Note the handle is returned for the entire `VkDeviceMemory` block that the alloc
 If the allocation is sub-allocated from a larger block, you may need to consider the offset of the allocation
 (VmaAllocationInfo::offset).
 
+This function always uses `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT`.
+An extended version of this function is available as vmaGetMemoryWin32Handle2()
+that allows using other handle type.
+
+This function is available compile-time only when VK_KHR_external_memory_win32 extension is available.
+It can be manually disabled by predefining `VMA_EXTERNAL_MEMORY_WIN32=0` macro.
+
 If the function fails with `VK_ERROR_FEATURE_NOT_PRESENT` error code, please double-check
-that VmaVulkanFunctions::vkGetMemoryWin32HandleKHR function pointer is set, e.g. either by using `VMA_DYNAMIC_VULKAN_FUNCTIONS`
+that VmaVulkanFunctions::vkGetMemoryWin32HandleKHR function pointer is set, e.g.
+either by using macro `VMA_DYNAMIC_VULKAN_FUNCTIONS`
 or by manually passing it through VmaAllocatorCreateInfo::pVulkanFunctions.
 
-For more information, see chapter \ref vk_khr_external_memory_win32.
+For more information, see chapter \ref other_api_interop.
 */
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(
     VmaAllocator VMA_NOT_NULL allocator,
@@ -2173,6 +2184,49 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(
     HANDLE hTargetProcess, 
     HANDLE* VMA_NOT_NULL pHandle);
 
+/**
+\brief Given an allocation, returns Win32 handle that may be imported by other processes or APIs.
+
+\param allocator The main allocator object.
+\param allocation Allocation.
+\param handleType Type of handle to be exported. It should be one of:
+    - `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR`
+    - `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR`
+    - `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT_KHR`
+    - `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT_KHR`
+    - `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT_KHR`
+    - `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT_KHR`
+\param hTargetProcess A valid handle to target process or null. If it's null, the function returns
+    handle for the current process.
+\param[out] pHandle Output parameter that returns the handle.
+
+The function fills `pHandle` with handle that can be used in target process.
+The handle is fetched using function `vkGetMemoryWin32HandleKHR`.
+
+if `handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR`,
+each call to this function creates a new handle that must be closed using:
+
+\code
+CloseHandle(handle);
+\endcode
+
+You can close it any time, before or after destroying the allocation object.
+It is reference-counted internally by Windows.
+
+Note the handle is returned for the entire `VkDeviceMemory` block that the allocation belongs to.
+If the allocation is sub-allocated from a larger block, you may need to consider the offset of the allocation
+(VmaAllocationInfo::offset).
+
+This function is available compile-time only when VK_KHR_external_memory_win32 extension is available.
+It can be manually disabled by predefining `VMA_EXTERNAL_MEMORY_WIN32=0` macro.
+
+If the function fails with `VK_ERROR_FEATURE_NOT_PRESENT` error code, please double-check
+that VmaVulkanFunctions::vkGetMemoryWin32HandleKHR function pointer is set, e.g.
+either by using macro `VMA_DYNAMIC_VULKAN_FUNCTIONS`
+or by manually passing it through VmaAllocatorCreateInfo::pVulkanFunctions.
+
+For more information, see chapter \ref other_api_interop.
+*/
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle2(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaAllocation VMA_NOT_NULL allocation, 
@@ -17047,7 +17101,6 @@ Among many extensions available for Vulkan, only a few interact with memory mana
 VMA can automatically take advantage of them. Some of them are:
 VK_EXT_memory_budget, VK_EXT_memory_priority, VK_KHR_external_memory_win32, and VK_KHR_maintenance*
 extensions that are later promoted to the new versions of the core Vulkan API.
-
 To use them, it is your responsibility to validate if they are available on the current system and if so,
 enable them while creating the Vulkan device object.
 You also need to pass appropriate #VmaAllocatorCreateFlagBits to inform VMA that they are enabled.
@@ -17098,8 +17151,8 @@ You can access it in multiple ways:
 
 <b>Is it a mature project?</b>
 
-Yes! The library is in development since June 2017, has over 1000 commits, over 400 issue tickets
-and pull requests (most of them resolved), and over 70 contributors.
+Yes! The library is in development since June 2017, has over 1000 commits, over 500 issue tickets
+and pull requests (most of them resolved), and over 80 contributors.
 It is distributed together with Vulkan SDK.
 It is used by many software projects, including some large and popular ones like Qt or Blender,
 as well as some AAA games.
@@ -18677,31 +18730,158 @@ individual names to allocations using vmaSetAllocationName(), can greatly aid in
 
 \page other_api_interop Interop with other graphics APIs
 
-VMA provides some features that help with interoperability with other graphics APIs, e.g. OpenGL.
+VMA provides some features that help with interoperability with other graphics APIs, e.g. OpenGL, Direct3D 11, Direct3D 12.
 
-\section opengl_interop_exporting_memory Exporting memory
+\section other_api_interop_exporting_memory Exporting memory
 
-If you want to attach `VkExportMemoryAllocateInfoKHR` or other structure to `pNext` chain of memory allocations made by the library:
+On Windows, the VK_KHR_external_memory_win32 device extension allows exporting a Win32 `HANDLE`
+of a `VkDeviceMemory` block, to be able to reference the memory on other Vulkan logical devices or instances,
+in multiple processes, and/or in multiple APIs.
+VMA offers support for it.
 
-You can create \ref custom_memory_pools for such allocations.
-Define and fill in your `VkExportMemoryAllocateInfoKHR` structure and attach it to VmaPoolCreateInfo::pMemoryAllocateNext
-while creating the custom pool.
-Please note that the structure must remain alive and unchanged for the whole lifetime of the #VmaPool,
-not only while creating it, as no copy of the structure is made,
-but its original pointer is used for each allocation instead.
+\subsection other_api_interop_exporting_initialization Initialization
+
+1) Make sure the extension is defined in the code by including following header before including VMA:
+
+\code
+#include <vulkan/vulkan_win32.h>
+\endcode
+
+2) Check if "VK_KHR_external_memory_win32" is available among device extensions.
+Enable it when creating the `VkDevice` object.
+
+3) Enable the usage of this extension in VMA by setting flag #VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT
+when calling vmaCreateAllocator().
+
+4) Make sure that VMA has access to the `vkGetMemoryWin32HandleKHR` function by either enabling `VMA_DYNAMIC_VULKAN_FUNCTIONS` macro
+or setting VmaVulkanFunctions::vkGetMemoryWin32HandleKHR explicitly.
+For more information, see \ref quick_start_initialization_importing_vulkan_functions.
+
+\subsection other_api_interop_exporting_preparations Preparations
+
+You can find example usage among tests, in file "Tests.cpp", function `TestWin32Handles()`.
+
+To use the extenion, buffers need to be created with `VkExternalMemoryBufferCreateInfoKHR` attached to their `pNext` chain,
+and memory allocations need to be made with `VkExportMemoryAllocateInfoKHR` attached to their `pNext` chain.
+To make use of them, you need to use \ref custom_memory_pools. Example:
+
+\code
+constexpr VkExternalMemoryHandleTypeFlagsKHR handleType =
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+
+// Define an example buffer and allocation parameters.
+VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
+    VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
+    nullptr,
+    handleType
+};
+VkBufferCreateInfo exampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+exampleBufCreateInfo.size = 0x10000; // Doesn't matter here.
+exampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+exampleBufCreateInfo.pNext = &externalMemBufCreateInfo;
+
+VmaAllocationCreateInfo exampleAllocCreateInfo = {};
+exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+// Find memory type index to use for the custom pool.
+uint32_t memTypeIndex;
+VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_Allocator,
+    &exampleBufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
+// Check res...
+
+// Create a custom pool.
+constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo = {
+    VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
+    nullptr,
+    handleType
+};
+VmaPoolCreateInfo poolCreateInfo = {};
+poolCreateInfo.memoryTypeIndex = memTypeIndex;
+poolCreateInfo.pMemoryAllocateNext = (void*)&exportMemAllocInfo;
+
+VmaPool pool;
+res = vmaCreatePool(g_Allocator, &poolCreateInfo, &pool);
+// Check res...
+
+// YOUR OTHER CODE COMES HERE....
+
+// At the end, don't forget to destroy it!
+vmaDestroyPool(g_Allocator, pool);
+\endcode
+
+Note that the structure passed as VmaPoolCreateInfo::pMemoryAllocateNext must remain alive and unchanged
+for the whole lifetime of the custom pool, because it will be used when the pool allocates a new device memory block.
+No copy is made internally. This is why variable `exportMemAllocInfo` is defined as static.
 
 If you want to export all memory allocated by VMA from certain memory types,
 also dedicated allocations or other allocations made from default pools,
 an alternative solution is to fill in VmaAllocatorCreateInfo::pTypeExternalMemoryHandleTypes.
 It should point to an array with `VkExternalMemoryHandleTypeFlagsKHR` to be automatically passed by the library
 through `VkExportMemoryAllocateInfoKHR` on each allocation made from a specific memory type.
-Please note that new versions of the library also support dedicated allocations created in custom pools.
-
 You should not mix these two methods in a way that allows to apply both to the same memory type.
 Otherwise, `VkExportMemoryAllocateInfoKHR` structure would be attached twice to the `pNext` chain of `VkMemoryAllocateInfo`.
 
+\subsection other_api_interop_exporting_memory_allocation Memory allocation
 
-\section opengl_interop_custom_alignment Custom alignment
+Finally, you can create a buffer with an allocation out of the custom pool.
+The buffer should use same flags as the sample buffer used to find the memory type.
+It should also specify `VkExternalMemoryBufferCreateInfoKHR` in its `pNext` chain.
+
+\code
+VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
+    VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
+    nullptr,
+    handleType
+};
+VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+bufCreateInfo.size = // Your desired buffer size.
+bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+bufCreateInfo.pNext = &externalMemBufCreateInfo;
+
+VmaAllocationCreateInfo allocCreateInfo = {};
+allocCreateInfo.pool = pool;  // It is enough to set this one member.
+
+VkBuffer buf;
+VmaAllocation alloc;
+res = vmaCreateBuffer(g_Allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
+// Check res...
+
+// YOUR OTHER CODE COMES HERE....
+
+// At the end, don't forget to destroy it!
+vmaDestroyBuffer(g_Allocator, buf, alloc);
+\endcode
+
+If you need each allocation to have its own device memory block and start at offset 0, you can still do 
+by using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag. It works also with custom pools.
+
+\subsection other_api_interop_exporting_exporting_win32_handle Exporting Win32 handle
+
+After the allocation is created, you can acquire a Win32 `HANDLE` to the `VkDeviceMemory` block it belongs to.
+VMA function vmaGetMemoryWin32Handle2() is a replacement of the Vulkan function `vkGetMemoryWin32HandleKHR`.
+
+\code
+HANDLE handle;
+res = vmaGetMemoryWin32Handle2(g_Allocator, alloc, handleType, nullptr, &handle);
+// Check res...
+
+// YOUR OTHER CODE COMES HERE....
+
+// At the end, you must close the handle.
+CloseHandle(handle);
+\endcode
+
+Documentation of the VK_KHR_external_memory_win32 extension states that:
+
+> If handleType is defined as an NT handle, vkGetMemoryWin32HandleKHR must be called no more than once for each valid unique combination of memory and handleType.
+
+This is ensured automatically inside VMA.
+If `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT` is used as the handle type,
+the library fetches the handle on first use, remembers it internally, and closes it when the memory block or dedicated allocation is destroyed.
+Every time you call vmaGetMemoryWin32Handle2(), VMA calls `DuplicateHandle` and returns a new handle that you need to close.
+For further information, please check the documentation of this function.
+
+\subsection other_api_interop_exporting_custom_alignment Custom alignment
 
 Buffers or images exported to a different API like OpenGL may require a different alignment,
 higher than the one used by the library automatically, queried from functions like `vkGetBufferMemoryRequirements`.
@@ -18714,19 +18894,20 @@ The alignment actually used will be the maximum of this member and the alignment
 from a function like `vkGetBufferMemoryRequirements`, which is called by VMA automatically.
 
 If you want to create a buffer with a specific minimum alignment out of default pools,
-use special function vmaCreateBufferWithAlignment(), which takes additional parameter `minAlignment`.
+you can use special function vmaCreateBufferWithAlignment(), which takes additional parameter `minAlignment`.
 
 Note the problem of alignment affects only resources placed inside bigger `VkDeviceMemory` blocks and not dedicated
 allocations, as these, by definition, always have alignment = 0 because the resource is bound to the beginning of its dedicated block.
 You can ensure that an allocation is created as dedicated by using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.
 Contrary to Direct3D 12, Vulkan doesn't have a concept of alignment of the entire memory block passed on its allocation.
 
-\section opengl_interop_extended_allocation_information Extended allocation information
+\subsection other_api_interop_exporting_extended_allocation_information Extended allocation information
 
 If you want to rely on VMA to allocate your buffers and images inside larger memory blocks,
 but you need to know the size of the entire block and whether the allocation was made
 with its own dedicated memory, use function vmaGetAllocationInfo2() to retrieve
-extended allocation information in structure #VmaAllocationInfo2.
+extended allocation information in structure #VmaAllocationInfo2, which provides extra members:
+`blockSize` and `dedicatedMemory`.
 
 
 
@@ -19280,145 +19461,6 @@ To learn more about this extension, see [VK_AMD_device_coherent_memory in Vulkan
 
 Example use of this extension can be found in the code of the sample and test suite
 accompanying this library.
-
-
-\page vk_khr_external_memory_win32 VK_KHR_external_memory_win32
-
-On Windows, the VK_KHR_external_memory_win32 device extension allows exporting a Win32 `HANDLE`
-of a `VkDeviceMemory` block, to be able to reference the memory on other Vulkan logical devices or instances,
-in multiple processes, and/or in multiple APIs.
-VMA offers support for it.
-
-\section vk_khr_external_memory_win32_initialization Initialization
-
-1) Make sure the extension is defined in the code by including following header before including VMA:
-
-\code
-#include <vulkan/vulkan_win32.h>
-\endcode
-
-2) Check if "VK_KHR_external_memory_win32" is available among device extensions.
-Enable it when creating the `VkDevice` object.
-
-3) Enable the usage of this extension in VMA by setting flag #VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT
-when calling vmaCreateAllocator().
-
-4) Make sure that VMA has access to the `vkGetMemoryWin32HandleKHR` function by either enabling `VMA_DYNAMIC_VULKAN_FUNCTIONS` macro
-or setting VmaVulkanFunctions::vkGetMemoryWin32HandleKHR explicitly.
-For more information, see \ref quick_start_initialization_importing_vulkan_functions.
-
-\section vk_khr_external_memory_win32_preparations Preparations
-
-You can find example usage among tests, in file "Tests.cpp", function `TestWin32Handles()`.
-
-To use the extenion, buffers need to be created with `VkExternalMemoryBufferCreateInfoKHR` attached to their `pNext` chain,
-and memory allocations need to be made with `VkExportMemoryAllocateInfoKHR` attached to their `pNext` chain.
-To make use of them, you need to use \ref custom_memory_pools. Example:
-
-\code
-// Define an example buffer and allocation parameters.
-VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
-    VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
-    nullptr,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
-};
-VkBufferCreateInfo exampleBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-exampleBufCreateInfo.size = 0x10000; // Doesn't matter here.
-exampleBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-exampleBufCreateInfo.pNext = &externalMemBufCreateInfo;
-
-VmaAllocationCreateInfo exampleAllocCreateInfo = {};
-exampleAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
-// Find memory type index to use for the custom pool.
-uint32_t memTypeIndex;
-VkResult res = vmaFindMemoryTypeIndexForBufferInfo(g_Allocator,
-    &exampleBufCreateInfo, &exampleAllocCreateInfo, &memTypeIndex);
-// Check res...
-
-// Create a custom pool.
-constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo = {
-    VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
-    nullptr,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
-};
-VmaPoolCreateInfo poolCreateInfo = {};
-poolCreateInfo.memoryTypeIndex = memTypeIndex;
-poolCreateInfo.pMemoryAllocateNext = (void*)&exportMemAllocInfo;
-
-VmaPool pool;
-res = vmaCreatePool(g_Allocator, &poolCreateInfo, &pool);
-// Check res...
-
-// YOUR OTHER CODE COMES HERE....
-
-// At the end, don't forget to destroy it!
-vmaDestroyPool(g_Allocator, pool);
-\endcode
-
-Note that the structure passed as VmaPoolCreateInfo::pMemoryAllocateNext must remain alive and unchanged
-for the whole lifetime of the custom pool, because it will be used when the pool allocates a new device memory block.
-No copy is made internally. This is why variable `exportMemAllocInfo` is defined as `static`.
-
-\section vk_khr_external_memory_win32_memory_allocation Memory allocation
-
-Finally, you can create a buffer with an allocation out of the custom pool.
-The buffer should use same flags as the sample buffer used to find the memory type.
-It should also specify `VkExternalMemoryBufferCreateInfoKHR` in its `pNext` chain.
-
-\code
-VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
-    VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
-    nullptr,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
-};
-VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-bufCreateInfo.size = // Your desired buffer size.
-bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-bufCreateInfo.pNext = &externalMemBufCreateInfo;
-
-VmaAllocationCreateInfo allocCreateInfo = {};
-allocCreateInfo.pool = pool;  // It is enough to set this one member.
-
-VkBuffer buf;
-VmaAllocation alloc;
-res = vmaCreateBuffer(g_Allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr);
-// Check res...
-
-// YOUR OTHER CODE COMES HERE....
-
-// At the end, don't forget to destroy it!
-vmaDestroyBuffer(g_Allocator, buf, alloc);
-\endcode
-
-If you need each allocation to have its own device memory block and start at offset 0, you can still do 
-by using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT flag. It works also with custom pools.
-
-\section vk_khr_external_memory_win32_exporting_win32_handle Exporting Win32 handle
-
-After the allocation is created, you can acquire a Win32 `HANDLE` to the `VkDeviceMemory` block it belongs to.
-VMA function vmaGetMemoryWin32Handle() is a replacement of the Vulkan function `vkGetMemoryWin32HandleKHR`.
-
-\code
-HANDLE handle;
-res = vmaGetMemoryWin32Handle(g_Allocator, alloc, nullptr, &handle);
-// Check res...
-
-// YOUR OTHER CODE COMES HERE....
-
-// At the end, you must close the handle.
-CloseHandle(handle);
-\endcode
-
-Documentation of the VK_KHR_external_memory_win32 extension states that:
-
-> If handleType is defined as an NT handle, vkGetMemoryWin32HandleKHR must be called no more than once for each valid unique combination of memory and handleType.
-
-This is ensured automatically inside VMA.
-The library fetches the handle on first use, remembers it internally, and closes it when the memory block or dedicated allocation is destroyed.
-Every time you call vmaGetMemoryWin32Handle(), VMA calls `DuplicateHandle` and returns a new handle that you need to close.
-
-For further information, please check documentation of the vmaGetMemoryWin32Handle() function.
 
 
 \page enabling_buffer_device_address Enabling buffer device address

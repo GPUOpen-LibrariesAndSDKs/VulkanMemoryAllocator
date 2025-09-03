@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['start_0',['Quick start',['../quick_start.html',1,'index']]],
-  ['statistics_1',['Statistics',['../statistics.html',1,'index']]],
-  ['staying_20within_20budget_2',['Staying within budget',['../staying_within_budget.html',1,'index']]]
+  ['querying_20for_20budget_0',['Querying for budget',['../staying_within_budget.html#staying_within_budget_querying_for_budget',1,'']]],
+  ['questions_1',['Frequently asked questions',['../faq.html',1,'index']]],
+  ['quick_20start_2',['Quick start',['../quick_start.html',1,'index']]]
 ];
