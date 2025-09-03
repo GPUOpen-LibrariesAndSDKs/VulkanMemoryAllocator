@@ -2680,6 +2680,16 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
+/** \brief TODO docs... */
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateDedicatedBuffer(
+    VmaAllocator VMA_NOT_NULL allocator,
+    const VkBufferCreateInfo* VMA_NOT_NULL pBufferCreateInfo,
+    const VmaAllocationCreateInfo* VMA_NOT_NULL pAllocationCreateInfo,
+    void* VMA_NULLABLE VMA_EXTENDS_VK_STRUCT(VkMemoryAllocateInfo) pMemoryAllocateNext,
+    VkBuffer VMA_NULLABLE_NON_DISPATCHABLE* VMA_NOT_NULL pBuffer,
+    VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
+    VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
+
 /** \brief Creates a new `VkBuffer`, binds already created memory for it.
 
 \param allocator
@@ -10483,6 +10493,16 @@ public:
         VmaBufferImageUsage bufImgUsage,
         uint32_t* pMemoryTypeIndex) const;
 
+    // Common code for public functions vmaCreateBuffer, vmaCreateBufferWithAlignment, etc.
+    VkResult CreateBuffer(
+        const VkBufferCreateInfo* pBufferCreateInfo,
+        const VmaAllocationCreateInfo* pAllocationCreateInfo,
+        VkDeviceSize minAlignment,
+        void* pMemoryAllocateNext, // pNext chain for VkMemoryAllocateInfo.
+        VkBuffer* pBuffer,
+        VmaAllocation* pAllocation,
+        VmaAllocationInfo* pAllocationInfo);
+
     // Main allocation function.
     VkResult AllocateMemory(
         const VkMemoryRequirements& vkMemReq,
@@ -14164,6 +14184,95 @@ VkResult VmaAllocator_T::CalcAllocationParams(
     return VK_SUCCESS;
 }
 
+VkResult VmaAllocator_T::CreateBuffer(
+    const VkBufferCreateInfo* pBufferCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    VkDeviceSize minAlignment,
+    void* pMemoryAllocateNext,
+    VkBuffer* pBuffer,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    *pBuffer = VK_NULL_HANDLE;
+    *pAllocation = VK_NULL_HANDLE;
+
+    if (pBufferCreateInfo->size == 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+    if ((pBufferCreateInfo->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY) != 0 &&
+        !m_UseKhrBufferDeviceAddress)
+    {
+        VMA_ASSERT(0 && "Creating a buffer with VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT is not valid if VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT was not used.");
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // 1. Create VkBuffer.
+    VkResult res = (*m_VulkanFunctions.vkCreateBuffer)(m_hDevice, pBufferCreateInfo,
+        GetAllocationCallbacks(), pBuffer);
+    if (res >= 0)
+    {
+        // 2. vkGetBufferMemoryRequirements.
+        VkMemoryRequirements vkMemReq = {};
+        bool requiresDedicatedAllocation = false;
+        bool prefersDedicatedAllocation = false;
+        GetBufferMemoryRequirements(*pBuffer, vkMemReq,
+            requiresDedicatedAllocation, prefersDedicatedAllocation);
+
+        if(pMemoryAllocateNext != VMA_NULL)
+        {
+            requiresDedicatedAllocation = true;
+        }
+
+        // 2a. Include minAlignment
+        vkMemReq.alignment = VMA_MAX(vkMemReq.alignment, minAlignment);
+
+        // 3. Allocate memory using allocator.
+        res = AllocateMemory(
+            vkMemReq,
+            requiresDedicatedAllocation,
+            prefersDedicatedAllocation,
+            *pBuffer, // dedicatedBuffer
+            VK_NULL_HANDLE, // dedicatedImage
+            VmaBufferImageUsage(*pBufferCreateInfo, m_UseKhrMaintenance5), // dedicatedBufferImageUsage
+            pMemoryAllocateNext,
+            *pAllocationCreateInfo,
+            VMA_SUBALLOCATION_TYPE_BUFFER,
+            1, // allocationCount
+            pAllocation);
+        if (res >= 0)
+        {
+            // 3. Bind buffer with memory.
+            if ((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
+            {
+                res = BindBufferMemory(*pAllocation, 0, *pBuffer, VMA_NULL);
+            }
+            if (res >= 0)
+            {
+                // All steps succeeded.
+#if VMA_STATS_STRING_ENABLED
+                (*pAllocation)->InitBufferUsage(*pBufferCreateInfo, m_UseKhrMaintenance5);
+#endif
+                if (pAllocationInfo != VMA_NULL)
+                {
+                    GetAllocationInfo(*pAllocation, pAllocationInfo);
+                }
+
+                return VK_SUCCESS;
+            }
+            FreeMemory(1, pAllocation);
+            *pAllocation = VK_NULL_HANDLE;
+            (*m_VulkanFunctions.vkDestroyBuffer)(m_hDevice, *pBuffer, GetAllocationCallbacks());
+            *pBuffer = VK_NULL_HANDLE;
+            return res;
+        }
+        (*m_VulkanFunctions.vkDestroyBuffer)(m_hDevice, *pBuffer, GetAllocationCallbacks());
+        *pBuffer = VK_NULL_HANDLE;
+        return res;
+    }
+    return res;
+}
+
 VkResult VmaAllocator_T::AllocateMemory(
     const VkMemoryRequirements& vkMemReq,
     bool requiresDedicatedAllocation,
@@ -16423,87 +16532,14 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
     VmaAllocationInfo* pAllocationInfo)
 {
     VMA_ASSERT(allocator && pBufferCreateInfo && pAllocationCreateInfo && pBuffer && pAllocation);
-
-    if(pBufferCreateInfo->size == 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-    if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY) != 0 &&
-        !allocator->m_UseKhrBufferDeviceAddress)
-    {
-        VMA_ASSERT(0 && "Creating a buffer with VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT is not valid if VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT was not used.");
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-
     VMA_DEBUG_LOG("vmaCreateBuffer");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+    return allocator->CreateBuffer(pBufferCreateInfo, pAllocationCreateInfo,
+        1, // minAlignment
+        VMA_NULL, // pMemoryAllocateNext
+        pBuffer, pAllocation, pAllocationInfo);
 
-    *pBuffer = VK_NULL_HANDLE;
-    *pAllocation = VK_NULL_HANDLE;
-
-    // 1. Create VkBuffer.
-    VkResult res = (*allocator->GetVulkanFunctions().vkCreateBuffer)(
-        allocator->m_hDevice,
-        pBufferCreateInfo,
-        allocator->GetAllocationCallbacks(),
-        pBuffer);
-    if(res >= 0)
-    {
-        // 2. vkGetBufferMemoryRequirements.
-        VkMemoryRequirements vkMemReq = {};
-        bool requiresDedicatedAllocation = false;
-        bool prefersDedicatedAllocation  = false;
-        allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq,
-            requiresDedicatedAllocation, prefersDedicatedAllocation);
-
-        // 3. Allocate memory using allocator.
-        res = allocator->AllocateMemory(
-            vkMemReq,
-            requiresDedicatedAllocation,
-            prefersDedicatedAllocation,
-            *pBuffer, // dedicatedBuffer
-            VK_NULL_HANDLE, // dedicatedImage
-            VmaBufferImageUsage(*pBufferCreateInfo, allocator->m_UseKhrMaintenance5), // dedicatedBufferImageUsage
-            VMA_NULL, // pMemoryAllocateNext
-            *pAllocationCreateInfo,
-            VMA_SUBALLOCATION_TYPE_BUFFER,
-            1, // allocationCount
-            pAllocation);
-
-        if(res >= 0)
-        {
-            // 3. Bind buffer with memory.
-            if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
-            {
-                res = allocator->BindBufferMemory(*pAllocation, 0, *pBuffer, VMA_NULL);
-            }
-            if(res >= 0)
-            {
-                // All steps succeeded.
-                #if VMA_STATS_STRING_ENABLED
-                    (*pAllocation)->InitBufferUsage(*pBufferCreateInfo, allocator->m_UseKhrMaintenance5);
-                #endif
-                if(pAllocationInfo != VMA_NULL)
-                {
-                    allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
-                }
-
-                return VK_SUCCESS;
-            }
-            allocator->FreeMemory(
-                1, // allocationCount
-                pAllocation);
-            *pAllocation = VK_NULL_HANDLE;
-            (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
-            *pBuffer = VK_NULL_HANDLE;
-            return res;
-        }
-        (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
-        *pBuffer = VK_NULL_HANDLE;
-        return res;
-    }
-    return res;
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
@@ -16516,90 +16552,30 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
     VmaAllocationInfo* pAllocationInfo)
 {
     VMA_ASSERT(allocator && pBufferCreateInfo && pAllocationCreateInfo && VmaIsPow2(minAlignment) && pBuffer && pAllocation);
-
-    if(pBufferCreateInfo->size == 0)
-    {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-    if((pBufferCreateInfo->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_COPY) != 0 &&
-        !allocator->m_UseKhrBufferDeviceAddress)
-    {
-        VMA_ASSERT(0 && "Creating a buffer with VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT is not valid if VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT was not used.");
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-
     VMA_DEBUG_LOG("vmaCreateBufferWithAlignment");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+    return allocator->CreateBuffer(pBufferCreateInfo, pAllocationCreateInfo, minAlignment,
+        VMA_NULL, // pMemoryAllocateNext
+        pBuffer, pAllocation, pAllocationInfo);
+}
 
-    *pBuffer = VK_NULL_HANDLE;
-    *pAllocation = VK_NULL_HANDLE;
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateDedicatedBuffer(
+    VmaAllocator allocator,
+    const VkBufferCreateInfo* pBufferCreateInfo,
+    const VmaAllocationCreateInfo* pAllocationCreateInfo,
+    void* pMemoryAllocateNext,
+    VkBuffer* pBuffer,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    VMA_ASSERT(allocator && pBufferCreateInfo && pAllocationCreateInfo && pBuffer && pAllocation);
+    VMA_DEBUG_LOG("vmaCreateDedicatedBuffer");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-    // 1. Create VkBuffer.
-    VkResult res = (*allocator->GetVulkanFunctions().vkCreateBuffer)(
-        allocator->m_hDevice,
-        pBufferCreateInfo,
-        allocator->GetAllocationCallbacks(),
-        pBuffer);
-    if(res >= 0)
-    {
-        // 2. vkGetBufferMemoryRequirements.
-        VkMemoryRequirements vkMemReq = {};
-        bool requiresDedicatedAllocation = false;
-        bool prefersDedicatedAllocation  = false;
-        allocator->GetBufferMemoryRequirements(*pBuffer, vkMemReq,
-            requiresDedicatedAllocation, prefersDedicatedAllocation);
-
-        // 2a. Include minAlignment
-        vkMemReq.alignment = VMA_MAX(vkMemReq.alignment, minAlignment);
-
-        // 3. Allocate memory using allocator.
-        res = allocator->AllocateMemory(
-            vkMemReq,
-            requiresDedicatedAllocation,
-            prefersDedicatedAllocation,
-            *pBuffer, // dedicatedBuffer
-            VK_NULL_HANDLE, // dedicatedImage
-            VmaBufferImageUsage(*pBufferCreateInfo, allocator->m_UseKhrMaintenance5), // dedicatedBufferImageUsage
-            VMA_NULL, // pMemoryAllocateNext
-            *pAllocationCreateInfo,
-            VMA_SUBALLOCATION_TYPE_BUFFER,
-            1, // allocationCount
-            pAllocation);
-
-        if(res >= 0)
-        {
-            // 3. Bind buffer with memory.
-            if((pAllocationCreateInfo->flags & VMA_ALLOCATION_CREATE_DONT_BIND_BIT) == 0)
-            {
-                res = allocator->BindBufferMemory(*pAllocation, 0, *pBuffer, VMA_NULL);
-            }
-            if(res >= 0)
-            {
-                // All steps succeeded.
-                #if VMA_STATS_STRING_ENABLED
-                    (*pAllocation)->InitBufferUsage(*pBufferCreateInfo, allocator->m_UseKhrMaintenance5);
-                #endif
-                if(pAllocationInfo != VMA_NULL)
-                {
-                    allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
-                }
-
-                return VK_SUCCESS;
-            }
-            allocator->FreeMemory(
-                1, // allocationCount
-                pAllocation);
-            *pAllocation = VK_NULL_HANDLE;
-            (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
-            *pBuffer = VK_NULL_HANDLE;
-            return res;
-        }
-        (*allocator->GetVulkanFunctions().vkDestroyBuffer)(allocator->m_hDevice, *pBuffer, allocator->GetAllocationCallbacks());
-        *pBuffer = VK_NULL_HANDLE;
-        return res;
-    }
-    return res;
+    return allocator->CreateBuffer(pBufferCreateInfo, pAllocationCreateInfo,
+        1, // minAlignment
+        pMemoryAllocateNext, pBuffer, pAllocation, pAllocationInfo);
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer(
