@@ -8485,13 +8485,13 @@ static void TestMappingHysteresis()
 }
 
 
-static void TestWin32Handles()
+static void TestWin32HandlesExport()
 {
 #if VMA_EXTERNAL_MEMORY_WIN32
     if (!VK_KHR_external_memory_win32_enabled)
         return;
 
-    wprintf(L"Test Win32 handles\n");
+    wprintf(L"Test Win32 handles export\n");
 
     constexpr VkExternalMemoryHandleTypeFlagBits handleType =
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
@@ -8529,7 +8529,7 @@ static void TestWin32Handles()
         if((externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
             VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0)
         {
-            wprintf(L"WARNING: External memory not exportable, skipping test.\n");
+            wprintf(L"    WARNING: External memory not exportable, skipping test.\n");
             return;
         }
         requiresDedicated = (externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
@@ -8573,6 +8573,121 @@ static void TestWin32Handles()
         vmaDestroyBuffer(g_hAllocator, buf, alloc);
         TEST(CloseHandle(handle));
         TEST(CloseHandle(handle2));
+    }
+
+    vmaDestroyPool(g_hAllocator, pool);
+#endif
+}
+
+static void TestWin32HandlesImport()
+{
+#if VMA_EXTERNAL_MEMORY_WIN32
+    if (!VK_KHR_external_memory_win32_enabled)
+        return;
+
+    wprintf(L"Test Win32 handles import\n");
+
+    constexpr VkExternalMemoryHandleTypeFlagBits handleType =
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+    constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo{
+        VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
+        nullptr,
+        handleType
+    };
+
+    constexpr static VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo{
+        VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR,
+        nullptr,
+        handleType
+    };
+
+    VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufCreateInfo.size = 0x10000;
+    bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufCreateInfo.pNext = &externalMemBufCreateInfo;
+
+    bool requiresDedicated = true;
+    {
+        VkPhysicalDeviceExternalBufferInfo externalBufferInfo = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO };
+        externalBufferInfo.flags = bufCreateInfo.flags;
+        externalBufferInfo.usage = bufCreateInfo.usage;
+        externalBufferInfo.handleType = handleType;
+
+        VkExternalBufferProperties externalBufferProperties = {
+            VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+
+        vkGetPhysicalDeviceExternalBufferProperties(g_hPhysicalDevice,
+            &externalBufferInfo, &externalBufferProperties);
+        constexpr VkExternalMemoryFeatureFlags expectedFlags =
+            VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT | VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+        if((externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
+            expectedFlags) != expectedFlags)
+        {
+            wprintf(L"    WARNING: External memory not exportable and importable, skipping test.\n");
+            return;
+        }
+        requiresDedicated = (externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
+            VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0;
+    }
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    uint32_t memTypeIndex = UINT32_MAX;
+    TEST(vmaFindMemoryTypeIndexForBufferInfo(g_hAllocator,
+        &bufCreateInfo, &allocCreateInfo, &memTypeIndex) == VK_SUCCESS);
+
+    VmaPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.memoryTypeIndex = memTypeIndex;
+    poolCreateInfo.pMemoryAllocateNext = (void*)&exportMemAllocInfo;
+
+    VmaPool pool = VK_NULL_HANDLE;
+    TEST(vmaCreatePool(g_hAllocator, &poolCreateInfo, &pool) == VK_SUCCESS);
+
+    allocCreateInfo.pool = pool;
+
+    for (size_t test = 0; test < 2; ++test)
+    {
+        if(test == 0 && requiresDedicated)
+            continue; // Skip this case because it would fail.
+        if (test == 1)
+            allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        VkBuffer buf = VK_NULL_HANDLE;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr) == VK_SUCCESS);
+        HANDLE handle = NULL;
+        TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
+        TEST(handle != nullptr);
+
+        // Import it into another allocation.
+        VkImportMemoryWin32HandleInfoKHR importMemHandleInfo = {
+            VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
+        importMemHandleInfo.handleType = handleType;
+        importMemHandleInfo.handle = handle;
+        importMemHandleInfo.name = nullptr;
+        VmaAllocationCreateInfo importAllocCreateInfo = {};
+        importAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+        VkBuffer importedBuf = VK_NULL_HANDLE;
+        VmaAllocation importedAlloc = VK_NULL_HANDLE;
+        TEST(vmaCreateDedicatedBuffer(g_hAllocator, &bufCreateInfo, &importAllocCreateInfo,
+            &importMemHandleInfo, &importedBuf, &importedAlloc, nullptr) == VK_SUCCESS);
+        TEST(importedBuf != VK_NULL_HANDLE);
+        TEST(importedAlloc != VK_NULL_HANDLE);
+
+        VmaAllocationInfo2 allocInfo2 = {};
+        vmaGetAllocationInfo2(g_hAllocator, importedAlloc, &allocInfo2);
+        if (test == 1)
+        {
+            TEST(allocInfo2.dedicatedMemory != VK_FALSE);
+        }
+
+        vmaDestroyBuffer(g_hAllocator, importedBuf, importedAlloc);
+        vmaDestroyBuffer(g_hAllocator, buf, alloc);
+        TEST(CloseHandle(handle));
     }
 
     vmaDestroyPool(g_hAllocator, pool);
@@ -8624,7 +8739,8 @@ void Test()
     TestMappingHysteresis();
     TestDeviceLocalMapped();
     TestMaintenance5();
-    TestWin32Handles();
+    TestWin32HandlesExport();
+    TestWin32HandlesImport();
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
