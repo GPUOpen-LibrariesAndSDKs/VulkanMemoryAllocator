@@ -8529,7 +8529,7 @@ static void TestWin32HandlesExport()
         if((externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
             VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0)
         {
-            wprintf(L"WARNING: External memory not exportable, skipping test.\n");
+            wprintf(L"    WARNING: External memory not exportable, skipping test.\n");
             return;
         }
         requiresDedicated = (externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
@@ -8589,180 +8589,6 @@ static void TestWin32HandlesImport()
 
     constexpr VkExternalMemoryHandleTypeFlagBits handleType =
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
-    constexpr uint32_t dataValue = 0x72158510;
-
-    PFN_vkGetPhysicalDeviceExternalBufferProperties pfnGetPhysicalDeviceExternalBufferProperties =
-        (PFN_vkGetPhysicalDeviceExternalBufferProperties)
-        vkGetInstanceProcAddr(g_hVulkanInstance, "vkGetPhysicalDeviceExternalBufferProperties");
-    TEST(pfnGetPhysicalDeviceExternalBufferProperties != nullptr);
-
-    for(size_t testIndex = 0; testIndex < 4; ++testIndex)
-    {
-        const bool testImport = (testIndex & 1) != 0;
-        const bool testCreateBuffer = (testIndex & 2) != 0;
-
-        VkBufferCreateInfo bufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        bufCreateInfo.size = 0x10000; // 64 KB
-        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-        HANDLE sharedHandle = NULL;
-        if(testImport)
-        {
-            VkPhysicalDeviceExternalBufferInfo externalBufInfo = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO };
-            externalBufInfo.flags = bufCreateInfo.flags;
-            externalBufInfo.usage = bufCreateInfo.usage;
-            externalBufInfo.handleType = handleType;
-            
-            VkExternalBufferProperties externalBufProps = {
-                VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
-            
-            pfnGetPhysicalDeviceExternalBufferProperties(g_hPhysicalDevice, 
-                &externalBufInfo, &externalBufProps);
-            
-            if((externalBufProps.externalMemoryProperties.externalMemoryFeatures &
-                VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0)
-            {
-                wprintf(L"    WARNING: External memory not importable, skipping test.\n");
-                continue;
-            }
-
-            const wchar_t* mappingName = L"MySharedVulkanMemory";
-            sharedHandle = CreateFileMapping(
-                INVALID_HANDLE_VALUE, // hFile - only in memory, no file.
-                NULL, // lpFileMappingAttributes
-                PAGE_READWRITE,
-                0, // dwMaximumSizeHigh
-                (DWORD)bufCreateInfo.size, // dwMaximumSizeLow
-                mappingName);
-            TEST(sharedHandle != NULL);
-
-            // Map the memory temporarily and write the dataValue to it.
-            void* sharedMemoryPtr = MapViewOfFile(
-                sharedHandle,
-                FILE_MAP_ALL_ACCESS,
-                0, // dwFileOffsetHigh
-                0, // dwFileOffsetLow
-                bufCreateInfo.size);
-            TEST(sharedMemoryPtr != NULL);
-            memcpy(sharedMemoryPtr, &dataValue, sizeof(dataValue));
-            UnmapViewOfFile(sharedMemoryPtr);
-        }
-
-        VkImportMemoryWin32HandleInfoKHR importInfo = {
-            VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
-        VkExternalMemoryBufferCreateInfoKHR externalMemBufCreateInfo = {
-            VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR };
-        void* memoryAllocateNext = nullptr;
-
-        if(testImport)
-        {
-            externalMemBufCreateInfo.handleTypes = handleType;
-            bufCreateInfo.pNext = &externalMemBufCreateInfo;
-
-            importInfo.handleType = handleType;
-            importInfo.handle = sharedHandle;
-            memoryAllocateNext = &importInfo;
-        }
-
-        VmaAllocationCreateInfo allocCreateInfo = {};
-        // We would like read the data. We cannot use VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
-        // as we don't use VMA_MEMORY_USAGE_AUTO.
-        allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-            VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-
-        VkBuffer buf = VK_NULL_HANDLE;
-        VmaAllocation alloc = VK_NULL_HANDLE;
-
-        if (testCreateBuffer)
-        {
-            VkResult res = vmaCreateDedicatedBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo,
-                memoryAllocateNext, &buf, &alloc, nullptr);
-            if (res != VK_SUCCESS)
-            {
-                TEST(alloc == VK_NULL_HANDLE && buf == VK_NULL_HANDLE);
-                if (res == VK_ERROR_FEATURE_NOT_PRESENT)
-                {
-                    wprintf(L"    WARNING: Couldn't create dedicated buffer - returned VK_ERROR_FEATURE_NOT_PRESENT. Likely no eligible memory type found.\n");
-                }
-                else if (res == VK_ERROR_OUT_OF_DEVICE_MEMORY)
-                {
-                    wprintf(L"    WARNING: Couldn't create dedicated buffer - returned VK_ERROR_OUT_OF_DEVICE_MEMORY.\n");
-                }
-                else
-                {
-                    wprintf(L"    WARNING: Couldn't create dedicated buffer - returned other error %u.\n", res);
-                }
-            }
-        }
-        else
-        {
-            TEST(vkCreateBuffer(g_hDevice, &bufCreateInfo, g_Allocs, &buf) == VK_SUCCESS);
-
-            VkMemoryRequirements memReq = {};
-            vkGetBufferMemoryRequirements(g_hDevice, buf, &memReq);
-
-            VkResult res = vmaAllocateDedicatedMemory(g_hAllocator, &memReq,
-                &allocCreateInfo, memoryAllocateNext, &alloc, nullptr);
-            if(res != VK_SUCCESS)
-            {
-                TEST(alloc == VK_NULL_HANDLE);
-                if (res == VK_ERROR_FEATURE_NOT_PRESENT)
-                {
-                    wprintf(L"    WARNING: Couldn't allocate dedicated memory - returned VK_ERROR_FEATURE_NOT_PRESENT. Likely no eligible memory type found.\n");
-                }
-                else if(res == VK_ERROR_OUT_OF_DEVICE_MEMORY)
-                {
-                    wprintf(L"    WARNING: Couldn't allocate dedicated memory - returned VK_ERROR_OUT_OF_DEVICE_MEMORY.\n");
-                }
-                else
-                {
-                    wprintf(L"    WARNING: Couldn't allocate dedicated memory - returned other error %u.\n", res);
-                }
-            }
-
-            if(alloc)
-            {
-                TEST(vmaBindBufferMemory(g_hAllocator, alloc, buf) == VK_SUCCESS);
-            }
-        }
-
-        if(alloc)
-        {
-            VmaAllocationInfo2 allocInfo2 = {};
-            vmaGetAllocationInfo2(g_hAllocator, alloc, &allocInfo2);
-            TEST(allocInfo2.dedicatedMemory);
-
-            VkMemoryPropertyFlags memPropsFlags = 0;
-            vmaGetAllocationMemoryProperties(g_hAllocator, alloc, &memPropsFlags);
-            const bool memoryMappable = (memPropsFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
-
-            if(testImport)
-            {
-                if(memoryMappable)
-                {
-                    uint32_t readValue = 0;
-                    TEST(vmaCopyAllocationToMemory(g_hAllocator, alloc, 0, &readValue, sizeof readValue) == VK_SUCCESS);
-                    TEST(readValue == dataValue);
-                }
-                else
-                {
-                    wprintf(L"    WARNING: Allocation ended up in a non-HOST_VISIBLE memory.\n");
-                }
-            }
-        }
-
-        vmaDestroyBuffer(g_hAllocator, buf, alloc);
-
-        if(testImport)
-        {
-            CloseHandle(sharedHandle);
-        }
-    }
-
-#if 0
-    constexpr VkExternalMemoryHandleTypeFlagBits handleType =
-        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
 
     constexpr static VkExportMemoryAllocateInfoKHR exportMemAllocInfo{
         VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR,
@@ -8794,10 +8620,12 @@ static void TestWin32HandlesImport()
 
         vkGetPhysicalDeviceExternalBufferProperties(g_hPhysicalDevice,
             &externalBufferInfo, &externalBufferProperties);
+        constexpr VkExternalMemoryFeatureFlags expectedFlags =
+            VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT | VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
         if((externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
-            VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0)
+            expectedFlags) != expectedFlags)
         {
-            wprintf(L"WARNING: External memory not exportable, skipping test.\n");
+            wprintf(L"    WARNING: External memory not exportable and importable, skipping test.\n");
             return;
         }
         requiresDedicated = (externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &
@@ -8831,21 +8659,38 @@ static void TestWin32HandlesImport()
         VmaAllocation alloc = VK_NULL_HANDLE;
         TEST(vmaCreateBuffer(g_hAllocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullptr) == VK_SUCCESS);
         HANDLE handle = NULL;
-        HANDLE handle2 = NULL;
         TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle) == VK_SUCCESS);
         TEST(handle != nullptr);
-        TEST(vmaGetMemoryWin32Handle(g_hAllocator, alloc, nullptr, &handle2) == VK_SUCCESS);
-        TEST(handle2 != nullptr);
-        TEST(handle2 != handle);
 
+        // Import it into another allocation.
+        VkImportMemoryWin32HandleInfoKHR importMemHandleInfo = {
+            VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
+        importMemHandleInfo.handleType = handleType;
+        importMemHandleInfo.handle = handle;
+        importMemHandleInfo.name = nullptr;
+        VmaAllocationCreateInfo importAllocCreateInfo = {};
+        importAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+        VkBuffer importedBuf = VK_NULL_HANDLE;
+        VmaAllocation importedAlloc = VK_NULL_HANDLE;
+        TEST(vmaCreateDedicatedBuffer(g_hAllocator, &bufCreateInfo, &importAllocCreateInfo,
+            &importMemHandleInfo, &importedBuf, &importedAlloc, nullptr) == VK_SUCCESS);
+        TEST(importedBuf != VK_NULL_HANDLE);
+        TEST(importedAlloc != VK_NULL_HANDLE);
+
+        VmaAllocationInfo2 allocInfo2 = {};
+        vmaGetAllocationInfo2(g_hAllocator, importedAlloc, &allocInfo2);
+        if (test == 1)
+        {
+            TEST(allocInfo2.dedicatedMemory != VK_FALSE);
+        }
+
+        vmaDestroyBuffer(g_hAllocator, importedBuf, importedAlloc);
         vmaDestroyBuffer(g_hAllocator, buf, alloc);
         TEST(CloseHandle(handle));
-        TEST(CloseHandle(handle2));
     }
 
     vmaDestroyPool(g_hAllocator, pool);
-#endif // #if 0
-
 #endif
 }
 
@@ -8895,7 +8740,7 @@ void Test()
     TestDeviceLocalMapped();
     TestMaintenance5();
     TestWin32HandlesExport();
-    //TestWin32HandlesImport(); // Commented out because failing on some GPUs with strange errors.
+    TestWin32HandlesImport();
     TestMappingMultithreaded();
     TestLinearAllocator();
     ManuallyTestLinearAllocator();
