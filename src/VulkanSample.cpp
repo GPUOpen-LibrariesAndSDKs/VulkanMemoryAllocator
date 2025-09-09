@@ -91,8 +91,9 @@ static VkCommandBuffer g_MainCommandBuffers[COMMAND_BUFFER_COUNT];
 static VkFence g_MainCommandBufferExecutedFences[COMMAND_BUFFER_COUNT];
 VkFence g_ImmediateFence;
 static uint32_t g_NextCommandBufferIndex;
-// Notice we need as many semaphores as there are swapchain images
-static std::vector<VkSemaphore> g_hImageAvailableSemaphores;
+// Signaled by vkAcquireNextImageKHR.
+static VkSemaphore g_hImageAvailableSemaphores[COMMAND_BUFFER_COUNT];
+// Notice we need as many semaphores as there are swapchain images.
 static std::vector<VkSemaphore> g_hRenderFinishedSemaphores;
 static uint32_t g_SwapchainImageCount = 0;
 static uint32_t g_SwapchainImageIndex = 0;
@@ -485,7 +486,7 @@ void VulkanUsage::Init()
     VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
     appInfo.pApplicationName = APP_TITLE_A;
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Adam Sawicki Engine";
+    appInfo.pEngineName = APP_TITLE_A;
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = GetVulkanApiVersion();
 
@@ -1153,12 +1154,26 @@ static void CreateSwapchain()
         subpassDesc.pColorAttachments = &colorAttachmentRef;
         subpassDesc.pDepthStencilAttachment = &depthStencilAttachmentRef;
 
+        VkSubpassDependency dependencies[1] = {};
+        dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[0].dstSubpass = 0;
+        dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        dependencies[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        dependencies[0].dependencyFlags = 0;
+
         VkRenderPassCreateInfo renderPassInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         renderPassInfo.attachmentCount = (uint32_t)_countof(attachments);
         renderPassInfo.pAttachments = attachments;
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpassDesc;
-        renderPassInfo.dependencyCount = 0;
+        renderPassInfo.dependencyCount = 1;
+        renderPassInfo.pDependencies = dependencies;
         ERR_GUARD_VULKAN( vkCreateRenderPass(g_hDevice, &renderPassInfo, g_Allocs, &g_hRenderPass) );
         SetDebugUtilsObjectName(VK_OBJECT_TYPE_RENDER_PASS, reinterpret_cast<std::uint64_t>(g_hRenderPass), "g_hRenderPass");
     }
@@ -1351,45 +1366,58 @@ static void CreateSwapchain()
 
     // Destroy the old semaphores and create new ones
 
-    if (g_hImageAvailableSemaphores.size() < g_SwapchainImageCount) {
-        g_hImageAvailableSemaphores.resize(g_SwapchainImageCount);
-    }
     if (g_hRenderFinishedSemaphores.size() < g_SwapchainImageCount) {
         g_hRenderFinishedSemaphores.resize(g_SwapchainImageCount);
     }
 
     VkSemaphoreCreateInfo semaphoreInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 
-    for (std::size_t swapchain_img_index = 0; swapchain_img_index < g_SwapchainImageCount; swapchain_img_index++) {
-        if (g_hImageAvailableSemaphores.at(swapchain_img_index) != VK_NULL_HANDLE) {
-            vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphores[swapchain_img_index], g_Allocs);
-            g_hImageAvailableSemaphores[swapchain_img_index] = VK_NULL_HANDLE;
+    for (std::size_t i = COMMAND_BUFFER_COUNT; i--; )
+    {
+        if (g_hImageAvailableSemaphores[i] != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphores[i], g_Allocs);
+            g_hImageAvailableSemaphores[i] = VK_NULL_HANDLE;
         }
+    }
+    for (std::size_t swapchain_img_index = 0; swapchain_img_index < g_SwapchainImageCount; swapchain_img_index++) {
         if (g_hRenderFinishedSemaphores.at(swapchain_img_index) != VK_NULL_HANDLE) {
             vkDestroySemaphore(g_hDevice, g_hRenderFinishedSemaphores[swapchain_img_index], g_Allocs);
             g_hRenderFinishedSemaphores[swapchain_img_index] = VK_NULL_HANDLE;
         }
     }
 
-    for (std::size_t swapchain_img_index = 0; swapchain_img_index < g_SwapchainImageCount; swapchain_img_index++) {
-        ERR_GUARD_VULKAN(vkCreateSemaphore(g_hDevice, &semaphoreInfo, g_Allocs, &g_hImageAvailableSemaphores[swapchain_img_index]));
-        std::string semaphoreName = "g_hImageAvailableSemaphores[" + std::to_string(swapchain_img_index) + "]";
-        SetDebugUtilsObjectName(VK_OBJECT_TYPE_SEMAPHORE, reinterpret_cast<std::uint64_t>(g_hImageAvailableSemaphores[swapchain_img_index]), semaphoreName);
+    for (std::size_t i = 0; i < COMMAND_BUFFER_COUNT; ++i)
+    {
+        ERR_GUARD_VULKAN(vkCreateSemaphore(g_hDevice, &semaphoreInfo, g_Allocs, &g_hImageAvailableSemaphores[i]));
+        std::string semaphoreName = "g_hImageAvailableSemaphores[" + std::to_string(i) + "]";
+        SetDebugUtilsObjectName(VK_OBJECT_TYPE_SEMAPHORE,
+            reinterpret_cast<std::uint64_t>(g_hImageAvailableSemaphores[i]), semaphoreName);
+    }
 
+    for (std::size_t swapchain_img_index = 0; swapchain_img_index < g_SwapchainImageCount; swapchain_img_index++)
+    {
         ERR_GUARD_VULKAN(vkCreateSemaphore(g_hDevice, &semaphoreInfo, g_Allocs, &g_hRenderFinishedSemaphores[swapchain_img_index]));
-        semaphoreName = "g_hRenderFinishedSemaphores[" + std::to_string(swapchain_img_index) + "]";
-        SetDebugUtilsObjectName(VK_OBJECT_TYPE_SEMAPHORE, reinterpret_cast<std::uint64_t>(g_hRenderFinishedSemaphores[swapchain_img_index]), semaphoreName);
+        std::string semaphoreName = "g_hRenderFinishedSemaphores[" + std::to_string(swapchain_img_index) + "]";
+        SetDebugUtilsObjectName(VK_OBJECT_TYPE_SEMAPHORE,
+            reinterpret_cast<std::uint64_t>(g_hRenderFinishedSemaphores[swapchain_img_index]), semaphoreName);
     }
 }
 
 static void DestroySwapchain(bool destroyActualSwapchain)
 {
-    for (std::size_t swapchain_img_index = 0; swapchain_img_index < g_SwapchainImageCount; swapchain_img_index++) {
-        if (g_hImageAvailableSemaphores.at(swapchain_img_index) != VK_NULL_HANDLE) {
-            vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphores[swapchain_img_index], g_Allocs);
-            g_hImageAvailableSemaphores[swapchain_img_index] = VK_NULL_HANDLE;
+    for (std::size_t i = 0; i < COMMAND_BUFFER_COUNT; i++)
+    {
+        if (g_hImageAvailableSemaphores[i] != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(g_hDevice, g_hImageAvailableSemaphores[i], g_Allocs);
+            g_hImageAvailableSemaphores[i] = VK_NULL_HANDLE;
         }
-        if (g_hRenderFinishedSemaphores.at(swapchain_img_index) != VK_NULL_HANDLE) {
+    }
+    for (std::size_t swapchain_img_index = 0; swapchain_img_index < g_SwapchainImageCount; swapchain_img_index++)
+    {
+        if (g_hRenderFinishedSemaphores.at(swapchain_img_index) != VK_NULL_HANDLE)
+        {
             vkDestroySemaphore(g_hDevice, g_hRenderFinishedSemaphores[swapchain_img_index], g_Allocs);
             g_hRenderFinishedSemaphores[swapchain_img_index] = VK_NULL_HANDLE;
         }
@@ -2391,9 +2419,11 @@ static void DrawFrame()
     ERR_GUARD_VULKAN( vkBeginCommandBuffer(hCommandBuffer, &commandBufferBeginInfo) );
     SetDebugUtilsObjectName(VK_OBJECT_TYPE_COMMAND_BUFFER, reinterpret_cast<std::uint64_t>(hCommandBuffer), "hCommandBuffer");
 
+    const VkSemaphore imageAvailableSemaphore = g_hImageAvailableSemaphores[cmdBufIndex];
+
     // Acquire swapchain image
     uint32_t imageIndex = 0;
-    VkResult res = vkAcquireNextImageKHR(g_hDevice, g_hSwapchain, UINT64_MAX, g_hImageAvailableSemaphores.at(g_SwapchainImageIndex), VK_NULL_HANDLE, &imageIndex);
+    VkResult res = vkAcquireNextImageKHR(g_hDevice, g_hSwapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
     if(res == VK_ERROR_OUT_OF_DATE_KHR)
     {
         RecreateSwapChain();
@@ -2471,7 +2501,7 @@ static void DrawFrame()
 
     // Submit command buffer
 
-    VkSemaphore submitWaitSemaphores[] = { g_hImageAvailableSemaphores.at(g_SwapchainImageIndex)};
+    VkSemaphore submitWaitSemaphores[] = { imageAvailableSemaphore };
     VkPipelineStageFlags submitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     VkSemaphore submitSignalSemaphores[] = { g_hRenderFinishedSemaphores.at(g_SwapchainImageIndex)};
     VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };

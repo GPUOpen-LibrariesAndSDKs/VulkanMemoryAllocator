@@ -24,7 +24,7 @@ var searchData=
   ['preferred_20flags_21',['Required and preferred flags',['../choosing_memory_type.html#choosing_memory_type_required_preferred_flags',1,'']]],
   ['preferredflags_22',['preferredFlags',['../struct_vma_allocation_create_info.html#a7fe8d81a1ad10b2a2faacacee5b15d6d',1,'VmaAllocationCreateInfo']]],
   ['preferredlargeheapblocksize_23',['preferredLargeHeapBlockSize',['../struct_vma_allocator_create_info.html#a8e4714298e3121cdd8b214a1ae7a637a',1,'VmaAllocatorCreateInfo']]],
-  ['preparations_24',['Preparations',['../vk_khr_external_memory_win32.html#vk_khr_external_memory_win32_preparations',1,'']]],
+  ['preparations_24',['Preparations',['../other_api_interop.html#other_api_interop_exporting_preparations',1,'']]],
   ['priority_25',['priority',['../struct_vma_allocation_create_info.html#a983d39e1a2e63649d78a960aa2fdd0f7',1,'VmaAllocationCreateInfo::priority'],['../struct_vma_pool_create_info.html#a16e686c688f6725f119ebf6e24ab5274',1,'VmaPoolCreateInfo::priority']]],
   ['project_20setup_26',['Project setup',['../quick_start.html#quick_start_project_setup',1,'']]],
   ['ptypeexternalmemoryhandletypes_27',['pTypeExternalMemoryHandleTypes',['../struct_vma_allocator_create_info.html#ae8f0db05e5cb4c43d7713bf4a49a736b',1,'VmaAllocatorCreateInfo']]],
