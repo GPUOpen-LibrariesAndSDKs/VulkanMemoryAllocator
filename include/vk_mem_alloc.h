@@ -273,6 +273,13 @@ extern "C" {
     #define VMA_EXTENDS_VK_STRUCT(vkStruct)
 #endif
 
+// Define this macro to decorate the return type with possible success return codes.
+// Undecorated functions are assumed to return VK_SUCCESS on success.
+// Error codes are not included there.
+#ifndef VMA_RESULT()
+    #define VMA_RESULT(...)
+#endif
+
 // Define this macro to decorate pointers with an attribute specifying the
 // length of the array they point to if they are not null.
 //
@@ -2528,7 +2535,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaEndDefragmentation(
 - `VK_INCOMPLETE` if there are pending moves returned in `pPassInfo`. You need to perform them, call vmaEndDefragmentationPass(),
   and then preferably try another pass with vmaBeginDefragmentationPass().
 */
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
+VMA_CALL_PRE VMA_RESULT(VK_SUCCESS, VK_INCOMPLETE) VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaDefragmentationContext VMA_NOT_NULL context,
     VmaDefragmentationPassMoveInfo* VMA_NOT_NULL pPassInfo);
@@ -2551,7 +2558,7 @@ After this call:
 
 If no more moves are possible you can end whole defragmentation.
 */
-VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
+VMA_CALL_PRE VMA_RESULT(VK_SUCCESS, VK_INCOMPLETE) VkResult VMA_CALL_POST vmaEndDefragmentationPass(
     VmaAllocator VMA_NOT_NULL allocator,
     VmaDefragmentationContext VMA_NOT_NULL context,
     VmaDefragmentationPassMoveInfo* VMA_NOT_NULL pPassInfo);
