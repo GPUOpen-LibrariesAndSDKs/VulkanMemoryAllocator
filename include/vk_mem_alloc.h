@@ -276,7 +276,7 @@ extern "C" {
 // Define this macro to decorate the return type with possible success return codes.
 // Undecorated functions are assumed to return VK_SUCCESS on success.
 // Error codes are not included there.
-#ifndef VMA_RESULT()
+#ifndef VMA_RESULT
     #define VMA_RESULT(...)
 #endif
 
