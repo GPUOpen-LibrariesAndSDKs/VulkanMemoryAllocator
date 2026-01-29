@@ -2056,6 +2056,21 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
+/** \brief Allocates memory for a buffer with additional minimum alignment.
+
+Similar to vmaAllocateMemoryForBuffer() but provides additional parameter `minAlignment` which allows to specify custom,
+minimum alignment to be used when placing the allocation inside a larger memory block.
+
+See also vmaCreateBufferWithAlignment().
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBufferWithAlignment(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VkBuffer VMA_NOT_NULL_NON_DISPATCHABLE buffer,
+    const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VkDeviceSize minAlignment,
+    VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
+    VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
+
 /** \brief Allocates memory suitable for given `VkImage`.
 
 \param allocator
@@ -16265,9 +16280,21 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
     VmaAllocation* pAllocation,
     VmaAllocationInfo* pAllocationInfo)
 {
-    VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && pAllocation);
-
     VMA_DEBUG_LOG("vmaAllocateMemoryForBuffer");
+    return vmaAllocateMemoryForBufferWithAlignment(allocator, buffer, pCreateInfo, 0, pAllocation, pAllocationInfo);
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBufferWithAlignment(
+    VmaAllocator allocator,
+    VkBuffer buffer,
+    const VmaAllocationCreateInfo* pCreateInfo,
+    VkDeviceSize minAlignment,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && VmaIsPow2(minAlignment) && pAllocation);
+
+    VMA_DEBUG_LOG("vmaAllocateMemoryForBufferWithAlignment");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -16277,6 +16304,9 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
     allocator->GetBufferMemoryRequirements(buffer, vkMemReq,
         requiresDedicatedAllocation,
         prefersDedicatedAllocation);
+
+    // Apply custom minimum alignment
+    vkMemReq.alignment = VMA_MAX(vkMemReq.alignment, minAlignment);
 
     VkResult result = allocator->AllocateMemory(
         vkMemReq,
