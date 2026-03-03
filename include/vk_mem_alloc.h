@@ -328,6 +328,24 @@ extern "C" {
     #endif
 #endif
 
+#ifndef VMA_MAYBE_UNUSED
+    #if defined(_MSVC_LANG)
+        #if 201402L < _MSVC_LANG
+            #define VMA_MAYBE_UNUSED [[maybe_unused]]
+        #else
+            #define VMA_MAYBE_UNUSED
+        #endif
+    #elif defined(__cplusplus)
+        #if 201402L < __cplusplus
+            #define VMA_MAYBE_UNUSED [[maybe_unused]]
+        #else
+            #define VMA_MAYBE_UNUSED
+        #endif
+    #else
+        #define VMA_MAYBE_UNUSED
+    #endif
+#endif
+
 #ifndef VMA_STATS_STRING_ENABLED
     #define VMA_STATS_STRING_ENABLED 1
 #endif
@@ -4069,7 +4087,7 @@ inline bool VmaIsBufferImageGranularityConflict(
     }
 }
 
-void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
+void VmaWriteMagicValue(VMA_MAYBE_UNUSED void* pData, VMA_MAYBE_UNUSED VkDeviceSize offset)
 {
 #if VMA_DEBUG_MARGIN > 0 && VMA_DEBUG_DETECT_CORRUPTION
     uint32_t* pDst = (uint32_t*)((char*)pData + offset);
@@ -4083,7 +4101,7 @@ void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
 #endif
 }
 
-bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
+bool VmaValidateMagicValue(VMA_MAYBE_UNUSED const void* pData, VMA_MAYBE_UNUSED VkDeviceSize offset)
 {
 #if VMA_DEBUG_MARGIN > 0 && VMA_DEBUG_DETECT_CORRUPTION
     const uint32_t* pSrc = (const uint32_t*)((const char*)pData + offset);
@@ -4663,7 +4681,7 @@ template<typename T>
 T* VmaStlAllocator<T>::allocate(size_t n) { return VmaAllocateArray<T>(m_pCallbacks, n); }
 
 template<typename T>
-void VmaStlAllocator<T>::deallocate(T* p, size_t n) { VmaFree(m_pCallbacks, p); }
+void VmaStlAllocator<T>::deallocate(T* p, VMA_MAYBE_UNUSED size_t n) { VmaFree(m_pCallbacks, p); }
 #endif // _VMA_STL_ALLOCATOR
 
 #ifndef _VMA_VECTOR
@@ -4682,7 +4700,7 @@ public:
     VmaVector(size_t count, const AllocatorT& allocator);
     // This version of the constructor is here for compatibility with pre-C++14 std::vector.
     // value is unused.
-    VmaVector(size_t count, const T& value, const AllocatorT& allocator) : VmaVector(count, allocator) {}
+    VmaVector(size_t count, VMA_MAYBE_UNUSED const T& value, const AllocatorT& allocator) : VmaVector(count, allocator) {}
     VmaVector(const VmaVector<T, AllocatorT>& src);
     VmaVector& operator=(const VmaVector& rhs);
     ~VmaVector();
@@ -6236,7 +6254,7 @@ void VmaJsonWriter::WriteNull()
     m_SB.Add("null");
 }
 
-void VmaJsonWriter::BeginValue(bool isString)
+void VmaJsonWriter::BeginValue(VMA_MAYBE_UNUSED bool isString)
 {
     if (!m_Stack.empty())
     {
@@ -6506,9 +6524,9 @@ private:
 class VmaWin32Handle
 {
     // ABI compatibility
-    void* placeholder = VMA_NULL;
-    VMA_RW_MUTEX placeholder2;
-    bool placeholder3 = false;
+    VMA_MAYBE_UNUSED void* placeholder = VMA_NULL;
+    VMA_MAYBE_UNUSED VMA_RW_MUTEX placeholder2;
+    VMA_MAYBE_UNUSED bool placeholder3 = false;
 };
 #endif // VMA_EXTERNAL_MEMORY_WIN32
 
@@ -6603,7 +6621,7 @@ private:
     uint32_t m_MapCount;
     void* m_pMappedData;
 
-    VmaWin32Handle m_Handle;
+    VMA_MAYBE_UNUSED VmaWin32Handle m_Handle;
 };
 #endif // _VMA_DEVICE_MEMORY_BLOCK
 
@@ -6667,7 +6685,7 @@ public:
     bool IsPersistentMap() const { return (m_Flags & FLAG_PERSISTENT_MAP) != 0; }
     bool IsMappingAllowed() const { return (m_Flags & FLAG_MAPPING_ALLOWED) != 0; }
 
-    void SetUserData(VmaAllocator hAllocator, void* pUserData) { m_pUserData = pUserData; }
+    void SetUserData(VMA_MAYBE_UNUSED VmaAllocator hAllocator, void* pUserData) { m_pUserData = pUserData; }
     void SetName(VmaAllocator hAllocator, const char* pName);
     void FreeName(VmaAllocator hAllocator);
     uint8_t SwapBlockAllocation(VmaAllocator hAllocator, VmaAllocation allocation);
@@ -7063,7 +7081,7 @@ VmaBlockMetadata::VmaBlockMetadata(const VkAllocationCallbacks* pAllocationCallb
     m_BufferImageGranularity(bufferImageGranularity),
     m_IsVirtual(isVirtual) {}
 
-void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size, void* userData) const
+void VmaBlockMetadata::DebugLogAllocation(VMA_MAYBE_UNUSED VkDeviceSize offset, VMA_MAYBE_UNUSED VkDeviceSize size, void* userData) const
 {
     if (IsVirtual())
     {
@@ -7075,7 +7093,7 @@ void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size
         VmaAllocation allocation = reinterpret_cast<VmaAllocation>(userData);
 
         userData = allocation->GetUserData();
-        const char* name = allocation->GetName();
+        VMA_MAYBE_UNUSED const char* name = allocation->GetName();
 
 #if VMA_STATS_STRING_ENABLED
         VMA_LEAK_LOG_FORMAT("UNFREED ALLOCATION; Offset: %" PRIu64 "; Size: %" PRIu64 "; UserData: %p; Name: %s; Type: %s; Usage: %" PRIu64,
@@ -8454,7 +8472,7 @@ void VmaBlockMetadata_Linear::Alloc(
     break;
     case VmaAllocationRequestType::EndOf2nd:
     {
-        SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+        VMA_MAYBE_UNUSED SuballocationVectorType& suballocations1st = AccessSuballocations1st();
         // New allocation at the end of 2-part ring buffer, so before first allocation from 1st vector.
         VMA_ASSERT(!suballocations1st.empty() &&
             offset + request.size <= suballocations1st[m_1stNullItemsBeginCount].offset);
@@ -8597,14 +8615,14 @@ VmaAllocHandle VmaBlockMetadata_Linear::GetAllocationListBegin() const
     return VK_NULL_HANDLE;
 }
 
-VmaAllocHandle VmaBlockMetadata_Linear::GetNextAllocation(VmaAllocHandle prevAlloc) const
+VmaAllocHandle VmaBlockMetadata_Linear::GetNextAllocation(VMA_MAYBE_UNUSED VmaAllocHandle prevAlloc) const
 {
     // Function only used for defragmentation, which is disabled for this algorithm
     VMA_ASSERT(0);
     return VK_NULL_HANDLE;
 }
 
-VkDeviceSize VmaBlockMetadata_Linear::GetNextFreeRegionSize(VmaAllocHandle alloc) const
+VkDeviceSize VmaBlockMetadata_Linear::GetNextFreeRegionSize(VMA_MAYBE_UNUSED VmaAllocHandle alloc) const
 {
     // Function only used for defragmentation, which is disabled for this algorithm
     VMA_ASSERT(0);
@@ -8796,7 +8814,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_LowerAddress(
     VkDeviceSize allocSize,
     VkDeviceSize allocAlignment,
     VmaSuballocationType allocType,
-    uint32_t strategy,
+    VMA_MAYBE_UNUSED uint32_t strategy,
     VmaAllocationRequest* pAllocationRequest)
 {
     const VkDeviceSize blockSize = GetSize();
@@ -8974,7 +8992,7 @@ bool VmaBlockMetadata_Linear::CreateAllocationRequest_UpperAddress(
     VkDeviceSize allocSize,
     VkDeviceSize allocAlignment,
     VmaSuballocationType allocType,
-    uint32_t strategy,
+    VMA_MAYBE_UNUSED uint32_t strategy,
     VmaAllocationRequest* pAllocationRequest)
 {
     const VkDeviceSize blockSize = GetSize();
@@ -9427,7 +9445,7 @@ void VmaBlockMetadata_TLSF::PrintDetailedMap(class VmaJsonWriter& json) const
 bool VmaBlockMetadata_TLSF::CreateAllocationRequest(
     VkDeviceSize allocSize,
     VkDeviceSize allocAlignment,
-    bool upperAddress,
+    VMA_MAYBE_UNUSED bool upperAddress,
     VmaSuballocationType allocType,
     uint32_t strategy,
     VmaAllocationRequest* pAllocationRequest)
@@ -9605,7 +9623,7 @@ VkResult VmaBlockMetadata_TLSF::CheckCorruption(const void* pBlockData)
 
 void VmaBlockMetadata_TLSF::Alloc(
     const VmaAllocationRequest& request,
-    VmaSuballocationType type,
+    VMA_MAYBE_UNUSED VmaSuballocationType type,
     void* userData)
 {
     VMA_ASSERT(request.type == VmaAllocationRequestType::TLSF);
@@ -10914,7 +10932,7 @@ void vma_delete_array(VmaAllocator hAllocator, T* ptr, size_t count)
 #endif // _VMA_MEMORY_FUNCTIONS
 
 #ifndef _VMA_DEVICE_MEMORY_BLOCK_FUNCTIONS
-VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
+VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VMA_MAYBE_UNUSED VmaAllocator hAllocator)
     : m_pMetadata(VMA_NULL),
     m_hParentPool(nullptr),
     m_MemoryTypeIndex(UINT32_MAX),
@@ -11886,7 +11904,7 @@ void VmaBlockVector::Free(VmaAllocation hAllocation)
 
         if (IsCorruptionDetectionEnabled())
         {
-            VkResult res = pBlock->ValidateMagicValueAfterAllocation(m_hAllocator, hAllocation->GetOffset(), hAllocation->GetSize());
+            VMA_MAYBE_UNUSED VkResult res = pBlock->ValidateMagicValueAfterAllocation(m_hAllocator, hAllocation->GetOffset(), hAllocation->GetSize());
             VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to validate magic value.");
         }
 
@@ -12071,7 +12089,7 @@ VkResult VmaBlockVector::CommitAllocationRequest(
 
     if (IsCorruptionDetectionEnabled())
     {
-        VkResult res = pBlock->WriteMagicValueAfterAllocation(m_hAllocator, (*pAllocation)->GetOffset(), allocRequest.size);
+        VMA_MAYBE_UNUSED VkResult res = pBlock->WriteMagicValueAfterAllocation(m_hAllocator, (*pAllocation)->GetOffset(), allocRequest.size);
         VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to write magic value.");
     }
     return VK_SUCCESS;
@@ -12564,7 +12582,7 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
     // Bulk-map destination blocks
     for (const FragmentedBlock& block : mappedBlocks)
     {
-        VkResult res = block.block->Map(allocator, block.data, VMA_NULL);
+        VMA_MAYBE_UNUSED VkResult res = block.block->Map(allocator, block.data, VMA_NULL);
         VMA_ASSERT(res == VK_SUCCESS);
     }
     return result;
@@ -13425,7 +13443,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
     }
 }
 
-VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
+VkResult VmaAllocator_T::Init(VMA_MAYBE_UNUSED const VmaAllocatorCreateInfo* pCreateInfo)
 {
     VkResult res = VK_SUCCESS;
 
@@ -15440,7 +15458,7 @@ void VmaAllocator_T::UpdateVulkanBudget()
 }
 #endif // VMA_MEMORY_BUDGET
 
-void VmaAllocator_T::FillAllocation(VmaAllocation hAllocation, uint8_t pattern)
+void VmaAllocator_T::FillAllocation(VMA_MAYBE_UNUSED VmaAllocation hAllocation, VMA_MAYBE_UNUSED uint8_t pattern)
 {
 #if VMA_DEBUG_INITIALIZE_ALLOCATIONS
     if(hAllocation->IsMappingAllowed() &&
@@ -16145,7 +16163,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocato
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
-    VmaAllocator allocator,
+    VMA_MAYBE_UNUSED VmaAllocator allocator,
     VmaPool pool,
     const char** ppName)
 {
@@ -16159,7 +16177,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
-    VmaAllocator allocator,
+    VMA_MAYBE_UNUSED VmaAllocator allocator,
     VmaPool pool,
     const char* pName)
 {
@@ -16651,7 +16669,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaEndDefragmentation(
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
-    VmaAllocator VMA_NOT_NULL allocator,
+    VMA_MAYBE_UNUSED VmaAllocator VMA_NOT_NULL allocator,
     VmaDefragmentationContext VMA_NOT_NULL context,
     VmaDefragmentationPassMoveInfo* VMA_NOT_NULL pPassInfo)
 {
@@ -16665,7 +16683,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
 }
 
 VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
-    VmaAllocator VMA_NOT_NULL allocator,
+    VMA_MAYBE_UNUSED VmaAllocator VMA_NOT_NULL allocator,
     VmaDefragmentationContext VMA_NOT_NULL context,
     VmaDefragmentationPassMoveInfo* VMA_NOT_NULL pPassInfo)
 {
