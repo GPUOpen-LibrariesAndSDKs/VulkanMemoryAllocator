@@ -12377,7 +12377,11 @@ VkResult VmaDefragmentationContext_T::DefragmentPassEnd(VmaDefragmentationPassMo
         {
         case VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY:
         {
-            uint8_t mapCount = move.srcAllocation->SwapBlockAllocation(vector->m_hAllocator, move.dstTmpAllocation);
+            uint8_t mapCount = 0;
+            {
+                VmaMutexLockWrite swapLock(vector->GetMutex(), vector->GetAllocator()->m_UseMutex);
+                mapCount = move.srcAllocation->SwapBlockAllocation(vector->m_hAllocator, move.dstTmpAllocation);
+            }
             if (mapCount > 0)
             {
                 allocator = vector->m_hAllocator;
