@@ -1892,6 +1892,8 @@ static void InitializeApplication()
             physicalDeviceExtensionProperties.data()) );
     }
 
+    bool maintenance5ExtensionAvailable = false;
+
     for(uint32_t i = 0; i < physicalDeviceExtensionPropertyCount; ++i)
     {
         if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME) == 0)
@@ -1929,13 +1931,19 @@ static void InitializeApplication()
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME) == 0)
             VK_EXT_memory_priority_enabled = true;
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_MAINTENANCE_5_EXTENSION_NAME) == 0)
-            VK_KHR_maintenance5_enabled = true;
+            maintenance5ExtensionAvailable = true;
         else if (strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) == 0)
             VK_KHR_external_memory_win32_enabled = VMA_DYNAMIC_VULKAN_FUNCTIONS;
     }
 
     if(GetVulkanApiVersion() >= VK_API_VERSION_1_2)
         VK_KHR_buffer_device_address_enabled = true; // Promoted to core Vulkan 1.2.
+
+    // This sample can use maintenance5 either via core Vulkan 1.4, or via the
+    // extension on Vulkan 1.3. It doesn't enable the older dynamic-rendering path.
+    const bool maintenance5CanBeEnabled =
+        GetVulkanApiVersion() >= VK_API_VERSION_1_4 ||
+        (GetVulkanApiVersion() >= VK_API_VERSION_1_3 && maintenance5ExtensionAvailable);
 
     // Query for features
 
@@ -1987,6 +1995,12 @@ static void InitializeApplication()
         PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceMemoryPriorityFeatures);
     }
 
+    VkPhysicalDeviceMaintenance5FeaturesKHR physicalDeviceMaintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
+    if(maintenance5CanBeEnabled)
+    {
+        PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceMaintenance5Features);
+    }
+
     vkGetPhysicalDeviceFeatures2(g_hPhysicalDevice, &physicalDeviceFeatures);
 
     g_SparseBindingEnabled = physicalDeviceFeatures.features.sparseBinding != 0;
@@ -1998,6 +2012,9 @@ static void InitializeApplication()
         VK_KHR_buffer_device_address_enabled = false;
     if(VK_EXT_memory_priority_enabled && !physicalDeviceMemoryPriorityFeatures.memoryPriority)
         VK_EXT_memory_priority_enabled = false;
+    VK_KHR_maintenance5_enabled =
+        maintenance5CanBeEnabled &&
+        physicalDeviceMaintenance5Features.maintenance5 != VK_FALSE;
 
     // Find queue family index
 
@@ -2090,7 +2107,7 @@ static void InitializeApplication()
         enabledDeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
     if(VK_EXT_memory_priority_enabled)
         enabledDeviceExtensions.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
-    if(VK_KHR_maintenance5_enabled)
+    if(VK_KHR_maintenance5_enabled && GetVulkanApiVersion() < VK_API_VERSION_1_4)
         enabledDeviceExtensions.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
     if (VK_KHR_external_memory_win32_enabled)
         enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
@@ -2113,6 +2130,12 @@ static void InitializeApplication()
     if(VK_EXT_memory_priority_enabled)
     {
         PnextChainPushBack(&deviceFeatures, &physicalDeviceMemoryPriorityFeatures);
+    }
+    if(VK_KHR_maintenance5_enabled)
+    {
+        physicalDeviceMaintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
+        physicalDeviceMaintenance5Features.maintenance5 = VK_TRUE;
+        PnextChainPushBack(&deviceFeatures, &physicalDeviceMaintenance5Features);
     }
 
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
