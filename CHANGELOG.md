@@ -12,7 +12,7 @@
 - Improvements in the algorithm choosing memory type when `VMA_MEMORY_USAGE_AUTO*` is used (#520).
 - Fixed compatibility with C++20 modules on Clang 21 and GCC15 (#513, #514).
 - Fixed a bug in buffer-image granularity handling (#517).
-- Fixed race condition in defragmentation (#529, #313).
+- Fixed race conditions in defragmentation (#529, #313) and other places (#525).
 - Other fixes and improvements, including compatibility with various platforms and compilers, improvements in documentation, sample application, and tests.
 
 # 3.3.0 (2025-05-12)
