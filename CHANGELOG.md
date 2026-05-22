@@ -1,5 +1,6 @@
 # 3.4.0 (2026-??-??)
 
+- Added file `AGENTS.md` for agentic AI.
 - Added member `VmaAllocationCreateInfo::minAlignment` (#523).
   - Remember to always fully initialize structures with zeros and don't rely on their specific `sizeof` to ensure backward compatibility!
   - Function `vmaCreateBufferWithAlignment` is now deprecated.
