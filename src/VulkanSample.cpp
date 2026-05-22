@@ -2420,8 +2420,22 @@ static void PrintAllocatorStats()
 #endif
 }
 
+static bool IsWindowMinimizedOrZeroSized()
+{
+    if((g_hWnd == NULL) || IsIconic(g_hWnd))
+        return true;
+
+    RECT clientRect = {};
+    GetClientRect(g_hWnd, &clientRect);
+    return clientRect.right <= clientRect.left
+        || clientRect.bottom <= clientRect.top;
+}
+
 static void RecreateSwapChain()
 {
+    if(IsWindowMinimizedOrZeroSized())
+        return;
+
     vkDeviceWaitIdle(g_hDevice);
     DestroySwapchain(false);
     CreateSwapchain();
@@ -2738,10 +2752,10 @@ int MainWindow()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        else if(IsWindowMinimizedOrZeroSized())
+            Sleep(25);
         else
-		{
             DrawFrame();
-		}
     }
 
     return (int)msg.wParam;;
