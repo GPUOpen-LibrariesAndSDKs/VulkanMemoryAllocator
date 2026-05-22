@@ -3137,7 +3137,7 @@ remove them if not needed.
 */
 #if !defined(VMA_CONFIGURATION_USER_INCLUDES_H)
     #include <cassert> // for assert
-    #include <algorithm> // for min, max, swap
+    #include <algorithm> // for min, max, swap, sort
     #include <mutex>
 #else
     #include VMA_CONFIGURATION_USER_INCLUDES_H
@@ -7178,6 +7178,14 @@ void VmaBlockMetadata::PrintDetailedMap_End(class VmaJsonWriter& json)
 
 #ifndef _VMA_BLOCK_BUFFER_IMAGE_GRANULARITY
 // Before deleting object of this class remember to call 'Destroy()'
+/*
+Tracks block occupancy at VkPhysicalDeviceLimits::bufferImageGranularity page boundaries.
+For each granularity-sized page in a memory block, m_RegionInfo stores:
+- allocCount: how many allocations touch this page as their first or last page.
+- allocType: the remembered VmaSuballocationType for that page while allocCount > 0.
+Only boundary pages are tracked because buffer-image granularity conflicts matter when
+adjacent allocations share the same granularity page at the start or end of an allocation.
+*/
 class VmaBlockBufferImageGranularity final
 {
 public:
@@ -7200,6 +7208,21 @@ public:
         VkDeviceSize& inOutAllocSize,
         VkDeviceSize& inOutAllocAlignment) const;
 
+    /*
+    Checks whether an allocation placed in a free block would conflict with existing
+    allocations due to buffer-image granularity requirements and, if needed, aligns the
+    allocation start to the next granularity page.
+    
+    Parameters:
+    - inOutAllocOffset: candidate allocation offset inside the block; may be increased.
+    - allocSize: size of the allocation being placed.
+    - blockOffset: start offset of the free block being considered.
+    - blockSize: size of the free block being considered.
+    - allocType: VmaSuballocationType of the allocation being placed.
+    
+    Returns true when the placement conflicts or no longer fits in the free block after alignment.
+    Returns false when the placement is valid, possibly after updating inOutAllocOffset.
+    */
     bool CheckConflictAndAlignUp(VkDeviceSize& inOutAllocOffset,
         VkDeviceSize allocSize,
         VkDeviceSize blockOffset,
@@ -7288,56 +7311,62 @@ bool VmaBlockBufferImageGranularity::CheckConflictAndAlignUp(VkDeviceSize& inOut
     VkDeviceSize blockSize,
     VmaSuballocationType allocType) const
 {
-    if (IsEnabled())
+    if (!IsEnabled())
+        return false;
+
+    uint32_t startPage = GetStartPage(inOutAllocOffset);
+    if (m_RegionInfo[startPage].allocCount > 0 &&
+        VmaIsBufferImageGranularityConflict(static_cast<VmaSuballocationType>(m_RegionInfo[startPage].allocType), allocType))
     {
-        uint32_t startPage = GetStartPage(inOutAllocOffset);
+        inOutAllocOffset = VmaAlignUp(inOutAllocOffset, m_BufferImageGranularity);
+        if (blockSize < allocSize + inOutAllocOffset - blockOffset)
+            return true;
+        startPage = GetStartPage(inOutAllocOffset);
         if (m_RegionInfo[startPage].allocCount > 0 &&
             VmaIsBufferImageGranularityConflict(static_cast<VmaSuballocationType>(m_RegionInfo[startPage].allocType), allocType))
-        {
-            inOutAllocOffset = VmaAlignUp(inOutAllocOffset, m_BufferImageGranularity);
-            if (blockSize < allocSize + inOutAllocOffset - blockOffset)
-                return true;
-            ++startPage;
-        }
-        uint32_t endPage = GetEndPage(inOutAllocOffset, allocSize);
-        if (endPage != startPage &&
-            m_RegionInfo[endPage].allocCount > 0 &&
-            VmaIsBufferImageGranularityConflict(static_cast<VmaSuballocationType>(m_RegionInfo[endPage].allocType), allocType))
         {
             return true;
         }
     }
+    uint32_t endPage = GetEndPage(inOutAllocOffset, allocSize);
+    if (endPage != startPage &&
+        m_RegionInfo[endPage].allocCount > 0 &&
+        VmaIsBufferImageGranularityConflict(static_cast<VmaSuballocationType>(m_RegionInfo[endPage].allocType), allocType))
+    {
+        return true;
+    }
+
     return false;
 }
 
 void VmaBlockBufferImageGranularity::AllocPages(uint8_t allocType, VkDeviceSize offset, VkDeviceSize size)
 {
-    if (IsEnabled())
-    {
-        uint32_t startPage = GetStartPage(offset);
-        AllocPage(m_RegionInfo[startPage], allocType);
+    if (!IsEnabled())
+        return;
 
-        uint32_t endPage = GetEndPage(offset, size);
-        if (startPage != endPage)
-            AllocPage(m_RegionInfo[endPage], allocType);
-    }
+    uint32_t startPage = GetStartPage(offset);
+    AllocPage(m_RegionInfo[startPage], allocType);
+
+    uint32_t endPage = GetEndPage(offset, size);
+    if (startPage != endPage)
+        AllocPage(m_RegionInfo[endPage], allocType);
 }
 
 void VmaBlockBufferImageGranularity::FreePages(VkDeviceSize offset, VkDeviceSize size)
 {
-    if (IsEnabled())
+    if (!IsEnabled())
+        return;
+
+    uint32_t startPage = GetStartPage(offset);
+    --m_RegionInfo[startPage].allocCount;
+    if (m_RegionInfo[startPage].allocCount == 0)
+        m_RegionInfo[startPage].allocType = VMA_SUBALLOCATION_TYPE_FREE;
+    uint32_t endPage = GetEndPage(offset, size);
+    if (startPage != endPage)
     {
-        uint32_t startPage = GetStartPage(offset);
-        --m_RegionInfo[startPage].allocCount;
-        if (m_RegionInfo[startPage].allocCount == 0)
-            m_RegionInfo[startPage].allocType = VMA_SUBALLOCATION_TYPE_FREE;
-        uint32_t endPage = GetEndPage(offset, size);
-        if (startPage != endPage)
-        {
-            --m_RegionInfo[endPage].allocCount;
-            if (m_RegionInfo[endPage].allocCount == 0)
-                m_RegionInfo[endPage].allocType = VMA_SUBALLOCATION_TYPE_FREE;
-        }
+        --m_RegionInfo[endPage].allocCount;
+        if (m_RegionInfo[endPage].allocCount == 0)
+            m_RegionInfo[endPage].allocType = VMA_SUBALLOCATION_TYPE_FREE;
     }
 }
 
@@ -7362,36 +7391,38 @@ VmaBlockBufferImageGranularity::ValidationContext VmaBlockBufferImageGranularity
 bool VmaBlockBufferImageGranularity::Validate(ValidationContext& ctx,
     VkDeviceSize offset, VkDeviceSize size) const
 {
-    if (IsEnabled())
-    {
-        uint32_t start = GetStartPage(offset);
-        ++ctx.pageAllocs[start];
-        VMA_VALIDATE(m_RegionInfo[start].allocCount > 0);
+    if (!IsEnabled())
+        return true;
 
-        uint32_t end = GetEndPage(offset, size);
-        if (start != end)
-        {
-            ++ctx.pageAllocs[end];
-            VMA_VALIDATE(m_RegionInfo[end].allocCount > 0);
-        }
+    uint32_t start = GetStartPage(offset);
+    ++ctx.pageAllocs[start];
+    VMA_VALIDATE(m_RegionInfo[start].allocCount > 0);
+
+    uint32_t end = GetEndPage(offset, size);
+    if (start != end)
+    {
+        ++ctx.pageAllocs[end];
+        VMA_VALIDATE(m_RegionInfo[end].allocCount > 0);
     }
+
     return true;
 }
 
 bool VmaBlockBufferImageGranularity::FinishValidation(ValidationContext& ctx) const
 {
-    // Check proper page structure
-    if (IsEnabled())
-    {
-        VMA_ASSERT(ctx.pageAllocs != VMA_NULL && "Validation context not initialized!");
+    if (!IsEnabled())
+        return true;
 
-        for (uint32_t page = 0; page < m_RegionCount; ++page)
-        {
-            VMA_VALIDATE(ctx.pageAllocs[page] == m_RegionInfo[page].allocCount);
-        }
-        vma_delete_array(ctx.allocCallbacks, ctx.pageAllocs, m_RegionCount);
-        ctx.pageAllocs = VMA_NULL;
+    // Check proper page structure
+    VMA_ASSERT(ctx.pageAllocs != VMA_NULL && "Validation context not initialized!");
+
+    for (uint32_t page = 0; page < m_RegionCount; ++page)
+    {
+        VMA_VALIDATE(ctx.pageAllocs[page] == m_RegionInfo[page].allocCount);
     }
+    vma_delete_array(ctx.allocCallbacks, ctx.pageAllocs, m_RegionCount);
+    ctx.pageAllocs = VMA_NULL;
+
     return true;
 }
 
