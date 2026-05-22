@@ -48,7 +48,7 @@ jobs:
         run: |
           if (-Not (Test-Path ${{ env.VMA_VULKAN_SDK_PATH }})) {
             Write-Host "Vulkan SDK not found in cache. Downloading..."
-            curl -LS -o vulkansdk.exe https://sdk.lunarg.com/sdk/download/${{ env.VMA_VULKAN_VERSION }}/windows/VulkanSDK-${{ env.VMA_VULKAN_VERSION }}-Installer.exe
+            curl -LS -o vulkansdk.exe https://sdk.lunarg.com/sdk/download/${{ env.VMA_VULKAN_VERSION }}/windows/vulkansdk-windows-X64-${{ env.VMA_VULKAN_VERSION }}.exe
             7z x vulkansdk.exe -o"${{ env.VMA_VULKAN_SDK_PATH }}"
           } else {
             Write-Host "Using cached Vulkan SDK"
