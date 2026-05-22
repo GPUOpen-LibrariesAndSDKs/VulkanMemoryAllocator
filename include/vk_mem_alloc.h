@@ -194,8 +194,16 @@ extern "C" {
     #endif
 #endif
 
+#if !defined(VMA_GET_PHYSICAL_DEVICE_PROPERTIES2)
+    #if VK_KHR_get_physical_device_properties2 || VMA_VULKAN_VERSION >= 1001000
+        #define VMA_GET_PHYSICAL_DEVICE_PROPERTIES2 1
+    #else
+        #define VMA_GET_PHYSICAL_DEVICE_PROPERTIES2 0
+    #endif
+#endif
+
 #if !defined(VMA_MEMORY_BUDGET)
-    #if VK_EXT_memory_budget && (VK_KHR_get_physical_device_properties2 || VMA_VULKAN_VERSION >= 1001000)
+    #if VK_EXT_memory_budget && VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
         #define VMA_MEMORY_BUDGET 1
     #else
         #define VMA_MEMORY_BUDGET 0
@@ -1049,10 +1057,9 @@ typedef struct VmaVulkanFunctions
     /// Fetch "vkBindImageMemory2" on Vulkan >= 1.1, fetch "vkBindImageMemory2KHR" when using VK_KHR_bind_memory2 extension.
     PFN_vkBindImageMemory2KHR VMA_NULLABLE vkBindImageMemory2KHR;
 #endif
-#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
     /// Fetch from "vkGetPhysicalDeviceMemoryProperties2" on Vulkan >= 1.1, but you can also fetch it from "vkGetPhysicalDeviceMemoryProperties2KHR" if you enabled extension VK_KHR_get_physical_device_properties2.
     PFN_vkGetPhysicalDeviceMemoryProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceMemoryProperties2KHR;
-    PFN_vkGetPhysicalDeviceProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceProperties2KHR;
 #endif
 #if VMA_KHR_MAINTENANCE4 || VMA_VULKAN_VERSION >= 1003000
     /// Fetch from "vkGetDeviceBufferMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceBufferMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
@@ -1064,6 +1071,10 @@ typedef struct VmaVulkanFunctions
     PFN_vkGetMemoryWin32HandleKHR VMA_NULLABLE vkGetMemoryWin32HandleKHR;
 #else
     void* VMA_NULLABLE vkGetMemoryWin32HandleKHR;
+#endif
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
+    /// Fetch from "vkGetPhysicalDeviceProperties2" on Vulkan >= 1.1, but you can also fetch it from "vkGetPhysicalDeviceProperties2KHR" if you enabled extension VK_KHR_get_physical_device_properties2.
+    PFN_vkGetPhysicalDeviceProperties2KHR VMA_NULLABLE vkGetPhysicalDeviceProperties2KHR;
 #endif
 } VmaVulkanFunctions;
 
@@ -13299,7 +13310,7 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
         }
 #endif
     }
-#if !(VMA_MEMORY_BUDGET)
+#if !(VMA_MEMORY_BUDGET) || !(VMA_GET_PHYSICAL_DEVICE_PROPERTIES2)
     if((pCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT) != 0)
     {
         VMA_ASSERT(0 && "VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT set but required extension is disabled by preprocessor macros.");
@@ -13375,25 +13386,35 @@ VmaAllocator_T::VmaAllocator_T(const VmaAllocatorCreateInfo* pCreateInfo) :
 
     ImportVulkanFunctions(pCreateInfo->pVulkanFunctions);
 
-#if VMA_VULKAN_VERSION >= 1001000
-    VkPhysicalDeviceProperties2KHR props2;
-    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
-    props2.pNext = nullptr;
-
-    VkPhysicalDeviceMemoryProperties2KHR memProps2;
-    memProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2_KHR;
-    memProps2.pNext = nullptr;
-
-    (*m_VulkanFunctions.vkGetPhysicalDeviceProperties2KHR)(m_PhysicalDevice, &props2);
-    (*m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR)(m_PhysicalDevice, &memProps2);
-
-
-    memcpy(&m_PhysicalDeviceProperties, &props2.properties, sizeof(m_PhysicalDeviceProperties));
-    memcpy(&m_MemProps, &memProps2.memoryProperties, sizeof(m_MemProps));
-#else
-    (*m_VulkanFunctions.vkGetPhysicalDeviceProperties)(m_PhysicalDevice, &m_PhysicalDeviceProperties);
-    (*m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties)(m_PhysicalDevice, &m_MemProps);
+    // Call vkGetPhysicalDeviceProperties[2][KHR].
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
+    if(m_VulkanFunctions.vkGetPhysicalDeviceProperties2KHR)
+    {
+        VkPhysicalDeviceProperties2KHR props2 = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR };
+        (*m_VulkanFunctions.vkGetPhysicalDeviceProperties2KHR)(m_PhysicalDevice, &props2);
+        memcpy(&m_PhysicalDeviceProperties, &props2.properties, sizeof(m_PhysicalDeviceProperties));
+    }
+    else
 #endif
+    {
+        (*m_VulkanFunctions.vkGetPhysicalDeviceProperties)(m_PhysicalDevice, &m_PhysicalDeviceProperties);
+    }
+
+    // Call vkGetPhysicalDeviceMemoryProperties[2][KHR].
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
+    if(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR)
+    {
+        VkPhysicalDeviceMemoryProperties2KHR memProps2 = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2_KHR };
+        (*m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR)(m_PhysicalDevice, &memProps2);
+        memcpy(&m_MemProps, &memProps2.memoryProperties, sizeof(m_MemProps));
+    }
+    else
+#endif
+    {
+        (*m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties)(m_PhysicalDevice, &m_MemProps);
+    }
 
     VMA_ASSERT(VmaIsPow2(VMA_MIN_ALIGNMENT));
     VMA_ASSERT(VmaIsPow2(VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY));
@@ -13588,7 +13609,7 @@ void VmaAllocator_T::ImportVulkanFunctions_Custom(const VmaVulkanFunctions* pVul
     VMA_COPY_IF_NOT_NULL(vkBindImageMemory2KHR);
 #endif
 
-#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
     VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceMemoryProperties2KHR);
     VMA_COPY_IF_NOT_NULL(vkGetPhysicalDeviceProperties2KHR);
 #endif
@@ -13649,20 +13670,22 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
     }
 #endif
 
-#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2");
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties2KHR, PFN_vkGetPhysicalDeviceProperties2KHR, "vkGetPhysicalDeviceProperties2");
         // Try to fetch the pointer from the other name, based on suspected driver bug - see issue #410.
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2KHR");
-        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties2KHR, PFN_vkGetPhysicalDeviceProperties2KHR, "vkGetPhysicalDeviceProperties2");
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties2KHR, PFN_vkGetPhysicalDeviceProperties2KHR, "vkGetPhysicalDeviceProperties2KHR");
     }
     else if(m_UseExtMemoryBudget)
     {
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2KHR");
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties2KHR, PFN_vkGetPhysicalDeviceProperties2KHR, "vkGetPhysicalDeviceProperties2KHR");
         // Try to fetch the pointer from the other name, based on suspected driver bug - see issue #410.
         VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2");
+        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties2KHR, PFN_vkGetPhysicalDeviceProperties2KHR, "vkGetPhysicalDeviceProperties2");
     }
 #endif
 
@@ -13681,18 +13704,6 @@ void VmaAllocator_T::ImportVulkanFunctions_Dynamic()
         VMA_FETCH_DEVICE_FUNC(vkBindImageMemory2KHR, PFN_vkBindImageMemory2KHR, "vkBindImageMemory2KHR");
     }
 #endif // #if VMA_BIND_MEMORY2
-
-#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
-    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
-    {
-        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2");
-        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceProperties2KHR, PFN_vkGetPhysicalDeviceProperties2KHR, "vkGetPhysicalDeviceProperties2");
-    }
-    else if(m_UseExtMemoryBudget)
-    {
-        VMA_FETCH_INSTANCE_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, PFN_vkGetPhysicalDeviceMemoryProperties2KHR, "vkGetPhysicalDeviceMemoryProperties2KHR");
-    }
-#endif // #if VMA_MEMORY_BUDGET
 
 #if VMA_VULKAN_VERSION >= 1003000
     if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 3, 0))
@@ -13756,16 +13767,14 @@ void VmaAllocator_T::ValidateVulkanFunctions() const
     }
 #endif
 
-#if VMA_MEMORY_BUDGET || VMA_VULKAN_VERSION >= 1001000
+#if VMA_GET_PHYSICAL_DEVICE_PROPERTIES2
     if(m_UseExtMemoryBudget || m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
     {
         VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR != VMA_NULL);
-    }
-    if(m_VulkanApiVersion >= VK_MAKE_VERSION(1, 1, 0))
-    {
         VMA_ASSERT(m_VulkanFunctions.vkGetPhysicalDeviceProperties2KHR != VMA_NULL);
     }
 #endif
+
 #if VMA_EXTERNAL_MEMORY_WIN32
     if (m_UseKhrExternalMemoryWin32)
     {
@@ -15685,6 +15694,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaImportVulkanFunctionsFromVolk(
     if ((pAllocatorCreateInfo->flags & VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT) != 0)
     {
         COPY_GLOBAL_TO_VMA_FUNC(vkGetPhysicalDeviceMemoryProperties2KHR, vkGetPhysicalDeviceMemoryProperties2KHR)
+        COPY_GLOBAL_TO_VMA_FUNC(vkGetPhysicalDeviceProperties2KHR, vkGetPhysicalDeviceProperties2KHR)
     }
 #endif
 #if VMA_EXTERNAL_MEMORY_WIN32
