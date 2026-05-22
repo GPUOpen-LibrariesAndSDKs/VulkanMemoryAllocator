@@ -96,7 +96,6 @@ static VkSemaphore g_hImageAvailableSemaphores[COMMAND_BUFFER_COUNT];
 // Notice we need as many semaphores as there are swapchain images.
 static std::vector<VkSemaphore> g_hRenderFinishedSemaphores;
 static uint32_t g_SwapchainImageCount = 0;
-static uint32_t g_SwapchainImageIndex = 0;
 static uint32_t g_GraphicsQueueFamilyIndex = UINT_MAX;
 static uint32_t g_PresentQueueFamilyIndex = UINT_MAX;
 static uint32_t g_SparseBindingQueueFamilyIndex = UINT_MAX;
@@ -2540,7 +2539,7 @@ static void DrawFrame()
 
     VkSemaphore submitWaitSemaphores[] = { imageAvailableSemaphore };
     VkPipelineStageFlags submitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    VkSemaphore submitSignalSemaphores[] = { g_hRenderFinishedSemaphores.at(g_SwapchainImageIndex)};
+    VkSemaphore submitSignalSemaphores[] = { g_hRenderFinishedSemaphores.at(imageIndex) };
     VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = submitWaitSemaphores;
@@ -2551,7 +2550,7 @@ static void DrawFrame()
     submitInfo.pSignalSemaphores = submitSignalSemaphores;
     ERR_GUARD_VULKAN( vkQueueSubmit(g_hGraphicsQueue, 1, &submitInfo, hCommandBufferExecutedFence) );
 
-    VkSemaphore presentWaitSemaphores[] = { g_hRenderFinishedSemaphores.at(g_SwapchainImageIndex) };
+    VkSemaphore presentWaitSemaphores[] = { g_hRenderFinishedSemaphores.at(imageIndex) };
 
     VkSwapchainKHR swapchains[] = { g_hSwapchain };
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -2569,10 +2568,6 @@ static void DrawFrame()
     else
         ERR_GUARD_VULKAN(res);
 
-    g_SwapchainImageIndex++;
-    if (g_SwapchainImageIndex >= g_SwapchainImageCount) {
-        g_SwapchainImageIndex = 0;
-    }
 }
 
 static void HandlePossibleSizeChange()
