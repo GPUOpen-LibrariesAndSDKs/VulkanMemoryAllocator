@@ -3454,6 +3454,11 @@ If providing your own implementation, you need to implement a subset of std::ato
     #define VMA_ATOMIC_UINT64 std::atomic<uint64_t>
 #endif
 
+#ifndef VMA_ATOMIC_BOOL
+    #include <atomic>
+    #define VMA_ATOMIC_BOOL std::atomic<bool>
+#endif
+
 #ifndef VMA_DEBUG_ALWAYS_DEDICATED_MEMORY
     /**
     Every allocation will have its own memory block.
@@ -6561,6 +6566,7 @@ public:
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
     uint32_t GetId() const { return m_Id; }
     void* GetMappedData() const { return m_pMappedData; }
+    bool IsMapped() const { return m_IsMapped.load(); }
     uint32_t GetMapRefCount() const { return m_MapCount; }
 
     // Call when allocation/free was made from m_pMetadata.
@@ -6608,12 +6614,18 @@ private:
     /*
     Protects access to m_hMemory so it is not used by multiple threads simultaneously, e.g. vkMapMemory, vkBindBufferMemory.
     Also protects m_MapCount, m_pMappedData.
+    m_IsMapped mirrors whether m_pMappedData is non-null and can be read without this mutex in allocation heuristics.
     Allocations, deallocations, any change in m_pMetadata is protected by parent's VmaBlockVector::m_Mutex.
     */
     VMA_MUTEX m_MapAndBindMutex;
     VmaMappingHysteresis m_MappingHysteresis;
     uint32_t m_MapCount;
     void* m_pMappedData;
+    /*
+    Mirrors `m_pMappedData != VMA_NULL` for allocation heuristics that only need mapped/unmapped state.
+    This is atomic so allocation scans don't race with Map/Unmap while the actual mapped pointer remains protected by m_MapAndBindMutex.
+    */
+    VMA_ATOMIC_BOOL m_IsMapped;
 
     VmaWin32Handle m_Handle;
 };
@@ -10964,7 +10976,8 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
     m_Id(0),
     m_hMemory(VK_NULL_HANDLE),
     m_MapCount(0),
-    m_pMappedData(VMA_NULL){}
+    m_pMappedData(VMA_NULL),
+    m_IsMapped(false){}
 
 VmaDeviceMemoryBlock::~VmaDeviceMemoryBlock()
 {
@@ -11020,6 +11033,8 @@ void VmaDeviceMemoryBlock::Destroy(VmaAllocator allocator)
     VMA_ASSERT_LEAK(m_hMemory != VK_NULL_HANDLE);
     allocator->FreeVulkanMemory(m_MemoryTypeIndex, m_pMetadata->GetSize(), m_hMemory);
     m_hMemory = VK_NULL_HANDLE;
+    m_pMappedData = VMA_NULL;
+    m_IsMapped.store(false);
 
     vma_delete(allocator, m_pMetadata);
     m_pMetadata = VMA_NULL;
@@ -11040,6 +11055,7 @@ void VmaDeviceMemoryBlock::PostFree(VmaAllocator hAllocator)
         if (m_MapCount == 0)
         {
             m_pMappedData = VMA_NULL;
+            m_IsMapped.store(false);
             (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_hMemory);
         }
     }
@@ -11100,6 +11116,7 @@ VkResult VmaDeviceMemoryBlock::Map(VmaAllocator hAllocator, uint32_t count, void
     if (result == VK_SUCCESS)
     {
         VMA_ASSERT(m_pMappedData != VMA_NULL);
+        m_IsMapped.store(true);
         m_MappingHysteresis.PostMap();
         m_MapCount = count;
         if (ppData != VMA_NULL)
@@ -11125,6 +11142,7 @@ void VmaDeviceMemoryBlock::Unmap(VmaAllocator hAllocator, uint32_t count)
         if (totalMapCount == 0)
         {
             m_pMappedData = VMA_NULL;
+            m_IsMapped.store(false);
             (*hAllocator->GetVulkanFunctions().vkUnmapMemory)(hAllocator->m_hDevice, m_hMemory);
         }
         m_MappingHysteresis.PostUnmap();
@@ -11786,7 +11804,7 @@ VkResult VmaBlockVector::AllocatePage(
                     {
                         VmaDeviceMemoryBlock* const pCurrBlock = m_Blocks[blockIndex];
                         VMA_ASSERT(pCurrBlock);
-                        const bool isBlockMapped = pCurrBlock->GetMappedData() != VMA_NULL;
+                        const bool isBlockMapped = pCurrBlock->IsMapped();
                         if((mappingI == 0) == (isMappingAllowed == isBlockMapped))
                         {
                             VkResult res = AllocateFromBlock(
