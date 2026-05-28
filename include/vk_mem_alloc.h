@@ -129,8 +129,10 @@ See documentation chapter: \ref statistics.
 extern "C" {
 #endif
 
-#if !defined(VULKAN_H_)
-#include <vulkan/vulkan.h>
+#ifndef VMA_VULKAN_HEADERS_ALREADY_INCLUDED
+    #if !defined(VULKAN_H_)
+        #include <vulkan/vulkan.h>
+    #endif
 #endif
 
 #define VMA_VERSION (VK_MAKE_VERSION(3, 4, 0))
