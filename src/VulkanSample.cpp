@@ -96,7 +96,6 @@ static VkSemaphore g_hImageAvailableSemaphores[COMMAND_BUFFER_COUNT];
 // Notice we need as many semaphores as there are swapchain images.
 static std::vector<VkSemaphore> g_hRenderFinishedSemaphores;
 static uint32_t g_SwapchainImageCount = 0;
-static uint32_t g_SwapchainImageIndex = 0;
 static uint32_t g_GraphicsQueueFamilyIndex = UINT_MAX;
 static uint32_t g_PresentQueueFamilyIndex = UINT_MAX;
 static uint32_t g_SparseBindingQueueFamilyIndex = UINT_MAX;
@@ -1892,6 +1891,8 @@ static void InitializeApplication()
             physicalDeviceExtensionProperties.data()) );
     }
 
+    bool maintenance5ExtensionAvailable = false;
+
     for(uint32_t i = 0; i < physicalDeviceExtensionPropertyCount; ++i)
     {
         if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME) == 0)
@@ -1929,13 +1930,19 @@ static void InitializeApplication()
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME) == 0)
             VK_EXT_memory_priority_enabled = true;
         else if(strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_MAINTENANCE_5_EXTENSION_NAME) == 0)
-            VK_KHR_maintenance5_enabled = true;
+            maintenance5ExtensionAvailable = true;
         else if (strcmp(physicalDeviceExtensionProperties[i].extensionName, VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) == 0)
             VK_KHR_external_memory_win32_enabled = VMA_DYNAMIC_VULKAN_FUNCTIONS;
     }
 
     if(GetVulkanApiVersion() >= VK_API_VERSION_1_2)
         VK_KHR_buffer_device_address_enabled = true; // Promoted to core Vulkan 1.2.
+
+    // This sample can use maintenance5 either via core Vulkan 1.4, or via the
+    // extension on Vulkan 1.3. It doesn't enable the older dynamic-rendering path.
+    const bool maintenance5CanBeEnabled =
+        GetVulkanApiVersion() >= VK_API_VERSION_1_4 ||
+        (GetVulkanApiVersion() >= VK_API_VERSION_1_3 && maintenance5ExtensionAvailable);
 
     // Query for features
 
@@ -1987,6 +1994,12 @@ static void InitializeApplication()
         PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceMemoryPriorityFeatures);
     }
 
+    VkPhysicalDeviceMaintenance5FeaturesKHR physicalDeviceMaintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
+    if(maintenance5CanBeEnabled)
+    {
+        PnextChainPushFront(&physicalDeviceFeatures, &physicalDeviceMaintenance5Features);
+    }
+
     vkGetPhysicalDeviceFeatures2(g_hPhysicalDevice, &physicalDeviceFeatures);
 
     g_SparseBindingEnabled = physicalDeviceFeatures.features.sparseBinding != 0;
@@ -1998,6 +2011,9 @@ static void InitializeApplication()
         VK_KHR_buffer_device_address_enabled = false;
     if(VK_EXT_memory_priority_enabled && !physicalDeviceMemoryPriorityFeatures.memoryPriority)
         VK_EXT_memory_priority_enabled = false;
+    VK_KHR_maintenance5_enabled =
+        maintenance5CanBeEnabled &&
+        physicalDeviceMaintenance5Features.maintenance5 != VK_FALSE;
 
     // Find queue family index
 
@@ -2090,7 +2106,7 @@ static void InitializeApplication()
         enabledDeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
     if(VK_EXT_memory_priority_enabled)
         enabledDeviceExtensions.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
-    if(VK_KHR_maintenance5_enabled)
+    if(VK_KHR_maintenance5_enabled && GetVulkanApiVersion() < VK_API_VERSION_1_4)
         enabledDeviceExtensions.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
     if (VK_KHR_external_memory_win32_enabled)
         enabledDeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
@@ -2113,6 +2129,12 @@ static void InitializeApplication()
     if(VK_EXT_memory_priority_enabled)
     {
         PnextChainPushBack(&deviceFeatures, &physicalDeviceMemoryPriorityFeatures);
+    }
+    if(VK_KHR_maintenance5_enabled)
+    {
+        physicalDeviceMaintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
+        physicalDeviceMaintenance5Features.maintenance5 = VK_TRUE;
+        PnextChainPushBack(&deviceFeatures, &physicalDeviceMaintenance5Features);
     }
 
     VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
@@ -2397,8 +2419,22 @@ static void PrintAllocatorStats()
 #endif
 }
 
+static bool IsWindowMinimizedOrZeroSized()
+{
+    if((g_hWnd == NULL) || IsIconic(g_hWnd))
+        return true;
+
+    RECT clientRect = {};
+    GetClientRect(g_hWnd, &clientRect);
+    return clientRect.right <= clientRect.left
+        || clientRect.bottom <= clientRect.top;
+}
+
 static void RecreateSwapChain()
 {
+    if(IsWindowMinimizedOrZeroSized())
+        return;
+
     vkDeviceWaitIdle(g_hDevice);
     DestroySwapchain(false);
     CreateSwapchain();
@@ -2503,7 +2539,7 @@ static void DrawFrame()
 
     VkSemaphore submitWaitSemaphores[] = { imageAvailableSemaphore };
     VkPipelineStageFlags submitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    VkSemaphore submitSignalSemaphores[] = { g_hRenderFinishedSemaphores.at(g_SwapchainImageIndex)};
+    VkSemaphore submitSignalSemaphores[] = { g_hRenderFinishedSemaphores.at(imageIndex) };
     VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = submitWaitSemaphores;
@@ -2514,7 +2550,7 @@ static void DrawFrame()
     submitInfo.pSignalSemaphores = submitSignalSemaphores;
     ERR_GUARD_VULKAN( vkQueueSubmit(g_hGraphicsQueue, 1, &submitInfo, hCommandBufferExecutedFence) );
 
-    VkSemaphore presentWaitSemaphores[] = { g_hRenderFinishedSemaphores.at(g_SwapchainImageIndex) };
+    VkSemaphore presentWaitSemaphores[] = { g_hRenderFinishedSemaphores.at(imageIndex) };
 
     VkSwapchainKHR swapchains[] = { g_hSwapchain };
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -2532,10 +2568,6 @@ static void DrawFrame()
     else
         ERR_GUARD_VULKAN(res);
 
-    g_SwapchainImageIndex++;
-    if (g_SwapchainImageIndex >= g_SwapchainImageCount) {
-        g_SwapchainImageIndex = 0;
-    }
 }
 
 static void HandlePossibleSizeChange()
@@ -2715,10 +2747,10 @@ int MainWindow()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        else if(IsWindowMinimizedOrZeroSized())
+            Sleep(25);
         else
-		{
             DrawFrame();
-		}
     }
 
     return (int)msg.wParam;;
