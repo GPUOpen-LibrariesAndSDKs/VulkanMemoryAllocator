@@ -300,6 +300,17 @@ extern "C" {
     #define VMA_LEN_IF_NOT_NULL(len)
 #endif
 
+// The nullability annotations below are a Clang language extension, so Clang
+// emits -Wnullability-extension at every annotated declaration when this
+// header is compiled with -Wpedantic as a non-system header. Suppress that
+// warning for the span of this header only (matching pop at the end of the
+// interface section); the implementation section further down has its own
+// push/pop pair, as the two sections are compiled under different guards.
+#ifdef __clang__
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wnullability-extension"
+#endif
+
 // The VMA_NULLABLE macro is defined to be _Nullable when compiling with Clang.
 // see: https://clang.llvm.org/docs/AttributeReference.html#nullable
 #ifndef VMA_NULLABLE
@@ -3028,6 +3039,12 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
 }
 #endif
 
+// Matches the -Wnullability-extension suppression push at the top of this
+// header, so code after the #include is diagnosed normally again.
+#ifdef __clang__
+    #pragma clang diagnostic pop
+#endif
+
 #endif // AMD_VULKAN_MEMORY_ALLOCATOR_H
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3045,6 +3062,15 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeStatsString(
 
 #ifdef VMA_IMPLEMENTATION
 #undef VMA_IMPLEMENTATION
+
+// See the matching push in the interface section: the implementation repeats
+// the nullability-annotated prototypes, so it needs the same scoped
+// -Wnullability-extension suppression (this section compiles under its own
+// guard, so it cannot share the interface section's push/pop pair).
+#ifdef __clang__
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wnullability-extension"
+#endif
 
 #include <cstdint>
 #include <cstdlib>
@@ -17259,6 +17285,13 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle2(VmaAllocator VMA_NO
 #endif // VMA_EXTERNAL_MEMORY_WIN32 
 #endif // VMA_STATS_STRING_ENABLED
 #endif // _VMA_PUBLIC_INTERFACE
+
+// Matches the -Wnullability-extension suppression push at the top of the
+// implementation section.
+#ifdef __clang__
+    #pragma clang diagnostic pop
+#endif
+
 #endif // VMA_IMPLEMENTATION
 
 /**
