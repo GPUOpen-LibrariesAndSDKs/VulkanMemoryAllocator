@@ -2896,6 +2896,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
     const VmaVirtualBlockCreateInfo* VMA_NOT_NULL pCreateInfo,
     VmaVirtualBlock VMA_NULLABLE* VMA_NOT_NULL pVirtualBlock);
 
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeVirtualBlock(
+    VmaVirtualBlock VMA_NULLABLE virtualBlock,
+    VkDeviceSize newSize);
+
 /** \brief Destroys #VmaVirtualBlock object.
 
 Please note that you should consciously handle virtual allocations that could remain unfreed in the block.
@@ -6998,6 +7002,7 @@ public:
     virtual ~VmaBlockMetadata() = default;
 
     virtual void Init(VkDeviceSize size) { m_Size = size; }
+    virtual bool Resize(VkDeviceSize newSize) { m_Size = newSize; return true; }
     bool IsVirtual() const { return m_IsVirtual; }
     VkDeviceSize GetSize() const { return m_Size; }
 
@@ -7548,6 +7553,7 @@ public:
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; }
 
     void Init(VkDeviceSize size) override;
+    bool Resize(VkDeviceSize newSize) override;
     bool Validate() const override;
     size_t GetAllocationCount() const override;
     size_t GetFreeRegionsCount() const override;
@@ -7661,6 +7667,18 @@ void VmaBlockMetadata_Linear::Init(VkDeviceSize size)
 {
     VmaBlockMetadata::Init(size);
     m_SumFreeSize = size;
+}
+
+bool VmaBlockMetadata_Linear::Resize(VkDeviceSize newSize)
+{
+    VMA_VALIDATE(newSize > GetSize());
+
+    const VkDeviceSize extension = newSize - GetSize();
+    VmaBlockMetadata::Resize(newSize);
+
+    m_SumFreeSize += extension;
+
+    return true;
 }
 
 bool VmaBlockMetadata_Linear::Validate() const
@@ -9165,6 +9183,7 @@ public:
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return ((Block*)allocHandle)->offset; }
 
     void Init(VkDeviceSize size) override;
+    bool Resize(VkDeviceSize newSize) override;
     bool Validate() const override;
 
     void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
@@ -9319,6 +9338,39 @@ void VmaBlockMetadata_TLSF::Init(VkDeviceSize size)
 
     m_FreeList = vma_new_array(GetAllocationCallbacks(), Block*, m_ListsCount);
     memset(m_FreeList, 0, m_ListsCount * sizeof(Block*));
+}
+
+bool VmaBlockMetadata_TLSF::Resize(VkDeviceSize newSize)
+{
+    VMA_VALIDATE(newSize > GetSize());
+
+    size_t offset = GetSize();
+    size_t extension = newSize - GetSize();
+    VmaBlockMetadata::Resize(newSize);
+
+    Block* newFreeBlock = m_BlockAllocator.Alloc();
+    newFreeBlock->offset = offset;
+    newFreeBlock->size = extension;
+    newFreeBlock->NextFree() = VMA_NULL;
+    newFreeBlock->PrevFree() = VMA_NULL;
+    newFreeBlock->MarkTaken();
+
+    Block* lastPhys = m_NullBlock->prevPhysical;
+    newFreeBlock->prevPhysical = lastPhys;
+    newFreeBlock->nextPhysical = m_NullBlock;
+
+    if (lastPhys != VMA_NULL) {
+        lastPhys->nextPhysical = newFreeBlock;
+    }
+    m_NullBlock->prevPhysical = newFreeBlock;
+    
+    InsertFreeBlock(newFreeBlock);
+
+    m_NullBlock->offset = newSize;
+    m_NullBlock->size = 0;
+
+
+    return true;
 }
 
 bool VmaBlockMetadata_TLSF::Validate() const
@@ -10452,6 +10504,7 @@ public:
     void Free(VmaVirtualAllocation allocation) { m_Metadata->Free((VmaAllocHandle)allocation); }
     void SetAllocationUserData(VmaVirtualAllocation allocation, void* userData) { m_Metadata->SetAllocationUserData((VmaAllocHandle)allocation, userData); }
     void Clear() { m_Metadata->Clear(); }
+    void Resize(VkDeviceSize newSize) { m_Metadata->Resize(newSize); }
 
     const VkAllocationCallbacks* GetAllocationCallbacks() const;
     void GetAllocationInfo(VmaVirtualAllocation allocation, VmaVirtualAllocationInfo& outInfo);
@@ -17126,6 +17179,16 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
     }
     return res;
     */
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeVirtualBlock(
+    VmaVirtualBlock VMA_NULLABLE virtualBlock,
+    VkDeviceSize newSize)
+{
+    VMA_DEBUG_LOG("vmaResizeVirtualBlock");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->Resize(newSize);
+    return VK_SUCCESS;
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLABLE virtualBlock)

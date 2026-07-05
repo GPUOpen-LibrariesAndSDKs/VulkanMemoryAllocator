@@ -3379,6 +3379,54 @@ static void TestVirtualBlocks()
     }
 }
 
+static void TestVirtualBlocksResizeImpl(VmaVirtualBlockCreateFlags flags)
+{
+    VmaVirtualBlockCreateInfo blockCreateInfo = {};
+    blockCreateInfo.size = 3;
+    blockCreateInfo.flags = flags;
+
+    VmaVirtualBlock block;
+    TEST(vmaCreateVirtualBlock(&blockCreateInfo, &block) == VK_SUCCESS && block);
+
+    VmaVirtualAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.size = 1;
+    VmaVirtualAllocation allocation0 = VK_NULL_HANDLE;
+    VmaVirtualAllocation allocation1 = VK_NULL_HANDLE;
+    VmaVirtualAllocation allocation2 = VK_NULL_HANDLE;
+    
+    VkDeviceSize offset;
+    
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation0, &offset) == VK_SUCCESS);
+    TEST(allocation0 != VK_NULL_HANDLE);
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation1, &offset) == VK_SUCCESS);
+    TEST(allocation1 != VK_NULL_HANDLE);
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &allocation2, &offset) == VK_SUCCESS);
+    TEST(allocation2 != VK_NULL_HANDLE);
+
+    allocCreateInfo.size = 2;
+
+    vmaVirtualFree(block, allocation1);
+    
+    VmaVirtualAllocation oomAllocation = VK_NULL_HANDLE;
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &oomAllocation, &offset) != VK_SUCCESS);
+    TEST(oomAllocation == VK_NULL_HANDLE);
+
+    vmaResizeVirtualBlock(block, 5);
+
+    VmaVirtualAllocation noLongerOomAllocation = VK_NULL_HANDLE;
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &noLongerOomAllocation, &offset) == VK_SUCCESS);
+    TEST(noLongerOomAllocation != VK_NULL_HANDLE);
+
+    TEST(vmaVirtualAllocate(block, &allocCreateInfo, &oomAllocation, &offset) != VK_SUCCESS);
+    TEST(oomAllocation == VK_NULL_HANDLE);
+}
+
+static void TestVirtualBlocksResize()
+{
+    TestVirtualBlocksResizeImpl(0);
+    TestVirtualBlocksResizeImpl(VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT);
+}
+
 static void TestVirtualBlocksAlgorithms()
 {
     wprintf(L"Test virtual blocks algorithms\n");
@@ -8861,6 +8909,7 @@ void Test()
     TestJson();
     TestBasics();
     TestVirtualBlocks();
+    TestVirtualBlocksResize();
     TestVirtualBlocksAlgorithms();
     TestVirtualBlocksAlgorithmsBenchmark();
     TestAllocationVersusResourceSize();
