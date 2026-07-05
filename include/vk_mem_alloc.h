@@ -9342,33 +9342,56 @@ void VmaBlockMetadata_TLSF::Init(VkDeviceSize size)
 
 bool VmaBlockMetadata_TLSF::Resize(VkDeviceSize newSize)
 {
-    VMA_VALIDATE(newSize > GetSize());
+    VMA_ASSERT(IsVirtual());
+    VMA_ASSERT(newSize > GetSize());
 
-    size_t offset = GetSize();
-    size_t extension = newSize - GetSize();
+    VkDeviceSize oldSize = GetSize();
+    VkDeviceSize extension = newSize - oldSize;
+
     VmaBlockMetadata::Resize(newSize);
 
-    Block* newFreeBlock = m_BlockAllocator.Alloc();
-    newFreeBlock->offset = offset;
-    newFreeBlock->size = extension;
-    newFreeBlock->NextFree() = VMA_NULL;
-    newFreeBlock->PrevFree() = VMA_NULL;
-    newFreeBlock->MarkTaken();
+    uint8_t newMemoryClass = SizeToMemoryClass(newSize) + uint8_t(2);
+    uint16_t sli = SizeToSecondIndex(newSize, newMemoryClass);
+    if (newMemoryClass > m_MemoryClasses)
+    {
+        uint32_t oldListsCount = m_ListsCount;
+        uint32_t newListsCount = (newMemoryClass == 0 ? 0 : (newMemoryClass - 1) * (1UL << SECOND_LEVEL_INDEX) + sli) + 1;
 
-    Block* lastPhys = m_NullBlock->prevPhysical;
-    newFreeBlock->prevPhysical = lastPhys;
-    newFreeBlock->nextPhysical = m_NullBlock;
+        // in case of non virtual support at some point
+        if (IsVirtual())
+            newListsCount += 1UL << SECOND_LEVEL_INDEX;
+        else
+            newListsCount += 4;
 
-    if (lastPhys != VMA_NULL) {
-        lastPhys->nextPhysical = newFreeBlock;
+        Block** newFreeList = vma_new_array(GetAllocationCallbacks(), Block*, newListsCount);
+        VMA_ASSERT(newFreeList);
+
+        if (oldListsCount > 0)
+        {
+            memcpy(newFreeList, m_FreeList, oldListsCount * sizeof(Block*));
+        }
+
+        memset(newFreeList + oldListsCount, 0,
+               (newListsCount - oldListsCount) * sizeof(Block*));
+
+        vma_delete_array(GetAllocationCallbacks(), m_FreeList, oldListsCount);
+        m_FreeList = newFreeList;
+        m_ListsCount = newListsCount;
+
+        for (uint8_t i = m_MemoryClasses; i < newMemoryClass; ++i)
+        {
+            m_InnerIsFreeBitmap[i] = 0;
+        }
+
+        m_MemoryClasses = newMemoryClass;
     }
-    m_NullBlock->prevPhysical = newFreeBlock;
+
+    m_NullBlock->size += extension;
     
-    InsertFreeBlock(newFreeBlock);
-
-    m_NullBlock->offset = newSize;
-    m_NullBlock->size = 0;
-
+    if (!m_NullBlock->IsFree())
+    {
+        m_NullBlock->MarkFree();
+    }
 
     return true;
 }
