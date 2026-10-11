@@ -6,7 +6,7 @@ on:
     types: [opened, synchronize, reopened]
 
 env:
-  VMA_VULKAN_VERSION: "1.4.350.0"
+  VMA_VULKAN_VERSION: "1.4.357.0"
   VMA_VULKAN_SDK_PATH: ${{ github.workspace }}/vulkan_sdk
 
 jobs:

@@ -49,6 +49,7 @@ Additional features:
    - VK_KHR_bind_memory2.
    - VK_KHR_maintenance4.
    - VK_KHR_maintenance5, including `VkBufferUsageFlags2CreateInfoKHR`.
+   - VK_KHR_extended_dlags, including `VkImageUsageFlags2CreateInfoKHR`.
    - VK_EXT_memory_budget: Used internally if available to query for current usage and budget. If not available, it falls back to an estimation based on memory heap sizes.
    - VK_KHR_buffer_device_address: Flag `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR` is automatically added to memory allocations where needed.
    - VK_EXT_memory_priority: Set `priority` of allocations or custom pools and it will be set automatically using this extension.

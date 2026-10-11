@@ -1550,9 +1550,7 @@ void SetAllocatorCreateInfo(VmaAllocatorCreateInfo& outInfo)
     static VmaVulkanFunctions vulkanFunctions = {};
     vmaImportVulkanFunctionsFromVolk(&outInfo, &vulkanFunctions);
     outInfo.pVulkanFunctions = &vulkanFunctions;
-#endif // #ifdef VOLK_HEADER_VERSION
-
-#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+#elif VMA_DYNAMIC_VULKAN_FUNCTIONS
     static VmaVulkanFunctions vulkanFunctions = {};
     vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['pfn_5fvmaallocatedevicememoryfunction_0',['PFN_vmaAllocateDeviceMemoryFunction',['../group__group__init.html#ga7e1ed85f7799600b03ad51a77acc21f3',1,'vk_mem_alloc.h']]],
-  ['pfn_5fvmacheckdefragmentationbreakfunction_1',['PFN_vmaCheckDefragmentationBreakFunction',['../group__group__alloc.html#ga6f57b18d4241e80be444842df3094b30',1,'vk_mem_alloc.h']]],
-  ['pfn_5fvmafreedevicememoryfunction_2',['PFN_vmaFreeDeviceMemoryFunction',['../group__group__init.html#ga154ccaaf53dc2c36378f80f0c4f3679b',1,'vk_mem_alloc.h']]]
+  ['pfn_5fvmaallocatedevicememoryfunction_0',['PFN_vmaAllocateDeviceMemoryFunction',['../group__group__init.html#ga52cfad3b9673367846c51eaf495e9a0a',1,'vk_mem_alloc.h']]],
+  ['pfn_5fvmacheckdefragmentationbreakfunction_1',['PFN_vmaCheckDefragmentationBreakFunction',['../group__group__alloc.html#ga967a4ce379c8045311998df88597c7ef',1,'vk_mem_alloc.h']]],
+  ['pfn_5fvmafreedevicememoryfunction_2',['PFN_vmaFreeDeviceMemoryFunction',['../group__group__init.html#ga4c01e2678a0de2285ea6e39b1825d1de',1,'vk_mem_alloc.h']]]
 ];

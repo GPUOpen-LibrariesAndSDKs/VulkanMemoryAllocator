@@ -478,6 +478,8 @@ VkResult MainTest(Result& outResult, const Config& config)
             case VMA_MEMORY_USAGE_GPU_TO_CPU:
                 imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
                 break;
+            default:
+                assert(0);
             }
             imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
             imageInfo.flags = 0;
@@ -658,6 +660,8 @@ VkResult MainTest(Result& outResult, const Config& config)
             case FREE_ORDER::RANDOM:
                 indexToFree = mainRand.Generate() % threadAllocations.size();
                 break;
+            default:
+                assert(0);
             }
 
             {
@@ -714,6 +718,8 @@ VkResult MainTest(Result& outResult, const Config& config)
         case FREE_ORDER::RANDOM:
             indexToFree = mainRand.Generate() % commonAllocations.size();
             break;
+        default:
+            assert(0);
         }
 
         {
@@ -1993,23 +1999,28 @@ void TestDefragmentationSimple()
                     vmaGetAllocationInfo(g_hAllocator, alloc, &vmaAllocInfo);
                     AllocInfo* allocInfo = (AllocInfo*)vmaAllocInfo.pUserData;
 
-                    if(allocInfo != nullptr && allocInfo->m_DefragmentationMovable)
-                    if (allocInfo->m_Buffer)
+                    if (allocInfo != nullptr && allocInfo->m_DefragmentationMovable)
                     {
-                        assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
-                        vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
-                        allocInfo->m_Buffer = allocInfo->m_NewBuffer;
-                        allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                        if (allocInfo->m_Buffer)
+                        {
+                            assert(allocInfo->m_NewBuffer && !allocInfo->m_Image && !allocInfo->m_NewImage);
+                            vkDestroyBuffer(g_hDevice, allocInfo->m_Buffer, g_Allocs);
+                            allocInfo->m_Buffer = allocInfo->m_NewBuffer;
+                            allocInfo->m_NewBuffer = VK_NULL_HANDLE;
+                        } 
+                        else if (allocInfo->m_Image)
+                        {
+                            assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
+                            vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
+                            allocInfo->m_Image = allocInfo->m_NewImage;
+                            allocInfo->m_NewImage = VK_NULL_HANDLE;
+                        } 
+                        else
+                        {
+                            assert(0);
+                        }
+                    
                     }
-                    else if (allocInfo->m_Image)
-                    {
-                        assert(allocInfo->m_NewImage && !allocInfo->m_Buffer && !allocInfo->m_NewBuffer);
-                        vkDestroyImage(g_hDevice, allocInfo->m_Image, g_Allocs);
-                        allocInfo->m_Image = allocInfo->m_NewImage;
-                        allocInfo->m_NewImage = VK_NULL_HANDLE;
-                    }
-                    else
-                        assert(0);
                 }
 
                 res = vmaEndDefragmentationPass(g_hAllocator, defragCtx, &pass);
@@ -3878,8 +3889,7 @@ void TestHeapSizeLimit()
     VmaVulkanFunctions vulkanFunctions = {};
     vmaImportVulkanFunctionsFromVolk(&allocatorCreateInfo, &vulkanFunctions);
     allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
-#endif
-#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+#elif VMA_DYNAMIC_VULKAN_FUNCTIONS
     VmaVulkanFunctions vulkanFunctions = {};
     vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
