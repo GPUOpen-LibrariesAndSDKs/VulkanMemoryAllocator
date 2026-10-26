@@ -25,7 +25,7 @@
 
 /** \mainpage Vulkan Memory Allocator
 
-<b>Version 3.4.0</b>
+<b>Version 3.5.0</b>
 
 Copyright (c) 2017-2026 Advanced Micro Devices, Inc. All rights reserved. \n
 License: MIT \n
@@ -135,7 +135,7 @@ extern "C" {
     #endif
 #endif
 
-#define VMA_VERSION (VK_MAKE_VERSION(3, 4, 0))
+#define VMA_VERSION (VK_MAKE_VERSION(3, 5, 0))
 
 #if !defined(VMA_VULKAN_VERSION)
     #if defined(VK_VERSION_1_4)

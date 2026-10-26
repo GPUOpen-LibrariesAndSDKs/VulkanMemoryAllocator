@@ -7,7 +7,7 @@ on:
 
 jobs:
   clang-tidy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
@@ -67,7 +67,7 @@ jobs:
           -path '*/_deps/*' -prune -o \
           -path '*/build/*' -prune -o \
           \( -name '*.cpp' -o -name '*.hpp' \) -print0 |
-          parallel -0 clang-tidy -p build {} |
+          parallel -0 "$CLANG_TIDY" -p build {} |
           tee output || true
 
     - name: Summarize clang-tidy warnings
