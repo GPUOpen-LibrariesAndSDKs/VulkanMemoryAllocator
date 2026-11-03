@@ -18054,7 +18054,40 @@ vmaCreateBuffer(allocator, &bufCreateInfo, &allocCreateInfo, &buf, &alloc, nullp
 vmaCopyMemoryToAllocation(allocator, &constantBufferData, alloc, 0, sizeof(ConstantBuffer));
 \endcode
 
-Copy in the other direction - from an allocation to a host pointer can be performed the same way using function vmaCopyAllocationToMemory().
+Copy in the other direction - from an allocation to a host pointer - can be performed with vmaCopyAllocationToMemory().
+For an allocation that will be read by the CPU, use #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT.
+If the GPU has written the data, wait for the operation to complete before reading it.
+
+\code
+void ReadBack(VmaAllocator allocator)
+{
+    uint8_t readbackData[256] = {};
+
+    VkBufferCreateInfo readbackBufCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    readbackBufCreateInfo.size = sizeof(readbackData);
+    readbackBufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo readbackAllocCreateInfo = {};
+    readbackAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    readbackAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+
+    VkBuffer readbackBuf = VK_NULL_HANDLE;
+    VmaAllocation readbackAlloc = VK_NULL_HANDLE;
+    VkResult res = vmaCreateBuffer(allocator, &readbackBufCreateInfo, &readbackAllocCreateInfo,
+        &readbackBuf, &readbackAlloc, nullptr);
+    if(res != VK_SUCCESS)
+        return;
+
+    // Record and submit vkCmdCopyBuffer into readbackBuf, then wait for its fence.
+    res = vmaCopyAllocationToMemory(allocator, readbackAlloc, 0, readbackData, sizeof(readbackData));
+    if(res == VK_SUCCESS)
+    {
+        // Use readbackData.
+    }
+
+    vmaDestroyBuffer(allocator, readbackBuf, readbackAlloc);
+}
+\endcode
 
 \section memory_mapping_mapping_functions Mapping functions
 
