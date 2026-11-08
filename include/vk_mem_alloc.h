@@ -2933,6 +2933,10 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
     const VmaVirtualBlockCreateInfo* VMA_NOT_NULL pCreateInfo,
     VmaVirtualBlock VMA_NULLABLE* VMA_NOT_NULL pVirtualBlock);
 
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeVirtualBlock(
+    VmaVirtualBlock VMA_NULLABLE virtualBlock,
+    VkDeviceSize newSize);
+
 /** \brief Destroys #VmaVirtualBlock object.
 
 Please note that you should consciously handle virtual allocations that could remain unfreed in the block.
@@ -7069,6 +7073,7 @@ public:
     virtual ~VmaBlockMetadata() = default;
 
     virtual void Init(VkDeviceSize size) { m_Size = size; }
+    virtual bool Resize(VkDeviceSize newSize) { m_Size = newSize; return true; }
     bool IsVirtual() const { return m_IsVirtual; }
     VkDeviceSize GetSize() const { return m_Size; }
 
@@ -7619,6 +7624,7 @@ public:
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return (VkDeviceSize)allocHandle - 1; }
 
     void Init(VkDeviceSize size) override;
+    bool Resize(VkDeviceSize newSize) override;
     bool Validate() const override;
     size_t GetAllocationCount() const override;
     size_t GetFreeRegionsCount() const override;
@@ -7732,6 +7738,18 @@ void VmaBlockMetadata_Linear::Init(VkDeviceSize size)
 {
     VmaBlockMetadata::Init(size);
     m_SumFreeSize = size;
+}
+
+bool VmaBlockMetadata_Linear::Resize(VkDeviceSize newSize)
+{
+    VMA_VALIDATE(newSize > GetSize());
+
+    const VkDeviceSize extension = newSize - GetSize();
+    VmaBlockMetadata::Resize(newSize);
+
+    m_SumFreeSize += extension;
+
+    return true;
 }
 
 bool VmaBlockMetadata_Linear::Validate() const
@@ -9236,6 +9254,7 @@ public:
     VkDeviceSize GetAllocationOffset(VmaAllocHandle allocHandle) const override { return ((Block*)allocHandle)->offset; }
 
     void Init(VkDeviceSize size) override;
+    bool Resize(VkDeviceSize newSize) override;
     bool Validate() const override;
 
     void AddDetailedStatistics(VmaDetailedStatistics& inoutStats) const override;
@@ -9390,6 +9409,62 @@ void VmaBlockMetadata_TLSF::Init(VkDeviceSize size)
 
     m_FreeList = vma_new_array(GetAllocationCallbacks(), Block*, m_ListsCount);
     memset(m_FreeList, 0, m_ListsCount * sizeof(Block*));
+}
+
+bool VmaBlockMetadata_TLSF::Resize(VkDeviceSize newSize)
+{
+    VMA_ASSERT(IsVirtual());
+    VMA_ASSERT(newSize > GetSize());
+
+    VkDeviceSize oldSize = GetSize();
+    VkDeviceSize extension = newSize - oldSize;
+
+    VmaBlockMetadata::Resize(newSize);
+
+    uint8_t newMemoryClass = SizeToMemoryClass(newSize) + uint8_t(2);
+    uint16_t sli = SizeToSecondIndex(newSize, newMemoryClass);
+    if (newMemoryClass > m_MemoryClasses)
+    {
+        uint32_t oldListsCount = m_ListsCount;
+        uint32_t newListsCount = (newMemoryClass == 0 ? 0 : (newMemoryClass - 1) * (1UL << SECOND_LEVEL_INDEX) + sli) + 1;
+
+        // in case of non virtual support at some point
+        if (IsVirtual())
+            newListsCount += 1UL << SECOND_LEVEL_INDEX;
+        else
+            newListsCount += 4;
+
+        Block** newFreeList = vma_new_array(GetAllocationCallbacks(), Block*, newListsCount);
+        VMA_ASSERT(newFreeList);
+
+        if (oldListsCount > 0)
+        {
+            memcpy(newFreeList, m_FreeList, oldListsCount * sizeof(Block*));
+        }
+
+        memset(newFreeList + oldListsCount, 0,
+               (newListsCount - oldListsCount) * sizeof(Block*));
+
+        vma_delete_array(GetAllocationCallbacks(), m_FreeList, oldListsCount);
+        m_FreeList = newFreeList;
+        m_ListsCount = newListsCount;
+
+        for (uint8_t i = m_MemoryClasses; i < newMemoryClass; ++i)
+        {
+            m_InnerIsFreeBitmap[i] = 0;
+        }
+
+        m_MemoryClasses = newMemoryClass;
+    }
+
+    m_NullBlock->size += extension;
+    
+    if (!m_NullBlock->IsFree())
+    {
+        m_NullBlock->MarkFree();
+    }
+
+    return true;
 }
 
 bool VmaBlockMetadata_TLSF::Validate() const
@@ -10524,6 +10599,7 @@ public:
     void Free(VmaVirtualAllocation allocation) { m_Metadata->Free((VmaAllocHandle)allocation); }
     void SetAllocationUserData(VmaVirtualAllocation allocation, void* userData) { m_Metadata->SetAllocationUserData((VmaAllocHandle)allocation, userData); }
     void Clear() { m_Metadata->Clear(); }
+    void Resize(VkDeviceSize newSize) { m_Metadata->Resize(newSize); }
 
     const VkAllocationCallbacks* GetAllocationCallbacks() const;
     void GetAllocationInfo(VmaVirtualAllocation allocation, VmaVirtualAllocationInfo& outInfo);
@@ -17203,6 +17279,16 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
     }
     return res;
     */
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaResizeVirtualBlock(
+    VmaVirtualBlock VMA_NULLABLE virtualBlock,
+    VkDeviceSize newSize)
+{
+    VMA_DEBUG_LOG("vmaResizeVirtualBlock");
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK;
+    virtualBlock->Resize(newSize);
+    return VK_SUCCESS;
 }
 
 VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLABLE virtualBlock)
