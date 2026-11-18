@@ -7917,7 +7917,7 @@ void VmaBlockMetadata_Linear::AddDetailedStatistics(VmaDetailedStatistics& inout
         {
             // Find next non-null allocation or move nextAllocIndex to the end.
             while (nextAlloc2ndIndex < suballoc2ndCount &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 ++nextAlloc2ndIndex;
             }
@@ -7966,7 +7966,7 @@ void VmaBlockMetadata_Linear::AddDetailedStatistics(VmaDetailedStatistics& inout
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while (nextAlloc1stIndex < suballoc1stCount &&
-            suballocations1st[nextAlloc1stIndex].userData == VMA_NULL)
+            suballocations1st[nextAlloc1stIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             ++nextAlloc1stIndex;
         }
@@ -8014,7 +8014,7 @@ void VmaBlockMetadata_Linear::AddDetailedStatistics(VmaDetailedStatistics& inout
         {
             // Find next non-null allocation or move nextAllocIndex to the end.
             while (nextAlloc2ndIndex != SIZE_MAX &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 --nextAlloc2ndIndex;
             }
@@ -8074,12 +8074,12 @@ void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
     if (m_2ndVectorMode == SECOND_VECTOR_RING_BUFFER)
     {
         const VkDeviceSize freeSpace2ndTo1stEnd = suballocations1st[m_1stNullItemsBeginCount].offset;
-        size_t nextAlloc2ndIndex = m_1stNullItemsBeginCount;
+        size_t nextAlloc2ndIndex = 0;
         while (lastOffset < freeSpace2ndTo1stEnd)
         {
             // Find next non-null allocation or move nextAlloc2ndIndex to the end.
             while (nextAlloc2ndIndex < suballoc2ndCount &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 ++nextAlloc2ndIndex;
             }
@@ -8113,7 +8113,7 @@ void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while (nextAlloc1stIndex < suballoc1stCount &&
-            suballocations1st[nextAlloc1stIndex].userData == VMA_NULL)
+            suballocations1st[nextAlloc1stIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             ++nextAlloc1stIndex;
         }
@@ -8146,7 +8146,7 @@ void VmaBlockMetadata_Linear::AddStatistics(VmaStatistics& inoutStats) const
         {
             // Find next non-null allocation or move nextAlloc2ndIndex to the end.
             while (nextAlloc2ndIndex != SIZE_MAX &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 --nextAlloc2ndIndex;
             }
@@ -8199,7 +8199,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
         {
             // Find next non-null allocation or move nextAlloc2ndIndex to the end.
             while (nextAlloc2ndIndex < suballoc2ndCount &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 ++nextAlloc2ndIndex;
             }
@@ -8248,7 +8248,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while (nextAlloc1stIndex < suballoc1stCount &&
-            suballocations1st[nextAlloc1stIndex].userData == VMA_NULL)
+            suballocations1st[nextAlloc1stIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             ++nextAlloc1stIndex;
         }
@@ -8295,7 +8295,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
         {
             // Find next non-null allocation or move nextAlloc2ndIndex to the end.
             while (nextAlloc2ndIndex != SIZE_MAX &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 --nextAlloc2ndIndex;
             }
@@ -8350,7 +8350,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
         {
             // Find next non-null allocation or move nextAlloc2ndIndex to the end.
             while (nextAlloc2ndIndex < suballoc2ndCount &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 ++nextAlloc2ndIndex;
             }
@@ -8397,7 +8397,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
     {
         // Find next non-null allocation or move nextAllocIndex to the end.
         while (nextAlloc1stIndex < suballoc1stCount &&
-            suballocations1st[nextAlloc1stIndex].userData == VMA_NULL)
+            suballocations1st[nextAlloc1stIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
         {
             ++nextAlloc1stIndex;
         }
@@ -8445,7 +8445,7 @@ void VmaBlockMetadata_Linear::PrintDetailedMap(class VmaJsonWriter& json) const
         {
             // Find next non-null allocation or move nextAlloc2ndIndex to the end.
             while (nextAlloc2ndIndex != SIZE_MAX &&
-                suballocations2nd[nextAlloc2ndIndex].userData == VMA_NULL)
+                suballocations2nd[nextAlloc2ndIndex].type == VMA_SUBALLOCATION_TYPE_FREE)
             {
                 --nextAlloc2ndIndex;
             }
