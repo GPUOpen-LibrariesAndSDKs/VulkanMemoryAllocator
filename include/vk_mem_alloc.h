@@ -9329,6 +9329,8 @@ private:
     void RemoveFreeBlock(Block* block);
     void InsertFreeBlock(Block* block);
     void MergeBlock(Block* block, Block* prev);
+    // True for the free block of VMA_DEBUG_MARGIN bytes that follows a taken block (its margin).
+    bool IsMarginBlock(const Block* block) const;
 
     Block* FindFreeBlock(VkDeviceSize size, uint32_t& listIndex) const;
     bool CheckBlock(
@@ -9756,7 +9758,7 @@ void VmaBlockMetadata_TLSF::Alloc(
         Block* prevBlock = currentBlock->prevPhysical;
         VMA_ASSERT(prevBlock != VMA_NULL && "There should be no missing alignment at offset 0!");
 
-        if (prevBlock->IsFree() && prevBlock->size != debugMargin)
+        if (prevBlock->IsFree() && !IsMarginBlock(prevBlock))
         {
             uint32_t oldList = GetListIndex(prevBlock->size);
             prevBlock->size += missingAlignment;
@@ -9878,7 +9880,7 @@ void VmaBlockMetadata_TLSF::Free(VmaAllocHandle allocHandle)
 
     // Try merging
     Block* prev = block->prevPhysical;
-    if (prev != VMA_NULL && prev->IsFree() && prev->size != debugMargin)
+    if (prev != VMA_NULL && prev->IsFree() && !IsMarginBlock(prev))
     {
         RemoveFreeBlock(prev);
         MergeBlock(block, prev);
@@ -10082,6 +10084,18 @@ void VmaBlockMetadata_TLSF::MergeBlock(Block* block, Block* prev)
     if (block->prevPhysical)
         block->prevPhysical->nextPhysical = block;
     m_BlockAllocator.Free(prev);
+}
+
+bool VmaBlockMetadata_TLSF::IsMarginBlock(const Block* block) const
+{
+    // A margin is told from a free block that merely has the size of one (left by alignment, or by a
+    // split) by what precedes it: a margin always follows the taken block it belongs to, and no other
+    // free block follows a taken block, because every taken block is followed by its margin. Telling
+    // them apart by size alone left such a block unmerged for good: with every allocation freed the
+    // null block did not return to offset 0, and the block was never empty again.
+    const VkDeviceSize debugMargin = GetDebugMargin();
+    return debugMargin > 0 && block->size == debugMargin &&
+        block->prevPhysical != VMA_NULL && !block->prevPhysical->IsFree();
 }
 
 VmaBlockMetadata_TLSF::Block* VmaBlockMetadata_TLSF::FindFreeBlock(VkDeviceSize size, uint32_t& listIndex) const
